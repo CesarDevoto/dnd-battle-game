@@ -503,11 +503,11 @@ export function initZoneUI() {
     if (_active) activateExits();
   });
 
-  // Auto-resume last zone after HMR page reload — wait for GLB models first
+  // Auto-resume last zone after HMR page reload; fall back to first zone for new players
   try {
     const lastZone = localStorage.getItem('dnd-last-zone');
-    if (lastZone && _registry[lastZone])
-      modelsReady.then(() => loadZone(lastZone, false));
+    const startZone = (lastZone && _registry[lastZone]) ? lastZone : ZONE_ORDER[0].id;
+    modelsReady.then(() => loadZone(startZone, false));
   } catch {}
 }
 
