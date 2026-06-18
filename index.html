@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D&D Battles</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Biome backdrop — CSS-driven, sits behind the Three.js canvas -->
+    <div id="scene-bg"></div>
+
+    <!-- Three.js canvas is injected here by scene.js -->
+
+    <!-- Health bar overlay (bars are absolutely positioned by JS) -->
+    <div id="hud"></div>
+
+    <!-- Hero portrait bar — always visible at top centre -->
+    <div id="hero-portrait-bar"></div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay">
+      <div class="load-text">LOADING BATTLEFIELD…</div>
+    </div>
+
+    <div id="combat-banner">⚔ COMBAT ⚔</div>
+
+    <!-- Audio mixer button + panel -->
+    <button id="audio-mixer-btn">AUDIO</button>
+    <div id="audio-mixer-panel">
+      <div class="amx-title">AUDIO MIXER</div>
+      <div class="amx-row">
+        <label class="amx-lbl">Master</label>
+        <input type="range" id="amx-master" min="0" max="1" step="0.01">
+        <span class="amx-val">100%</span>
+      </div>
+      <div class="amx-row">
+        <label class="amx-lbl">Ambient</label>
+        <input type="range" id="amx-ambient" min="0" max="1" step="0.01">
+        <span class="amx-val">35%</span>
+      </div>
+      <div class="amx-row">
+        <label class="amx-lbl">Combat</label>
+        <input type="range" id="amx-combat" min="0" max="1" step="0.01">
+        <span class="amx-val">80%</span>
+      </div>
+      <div class="amx-row">
+        <label class="amx-lbl">UI</label>
+        <input type="range" id="amx-ui" min="0" max="1" step="0.01">
+        <span class="amx-val">55%</span>
+      </div>
+    </div>
+
+    <!-- Biome button -->
+    <button id="biomes-btn">BIOMES</button>
+
+    <!-- Biome selector (hidden until BIOMES button clicked) -->
+    <div id="env-selector" style="display:none">
+      <button class="env-btn" data-env="forest">FOREST</button>
+      <button class="env-btn" data-env="desert">DESERT</button>
+      <button class="env-btn" data-env="swamp">SWAMP</button>
+      <button class="env-btn" data-env="tundra">TUNDRA</button>
+      <button class="env-btn" data-env="savanna">SAVANNA</button>
+      <button class="env-btn" data-env="graveyard">GRAVEYARD</button>
+      <button class="env-btn" data-env="dungeon">DUNGEON</button>
+    </div>
+
+    <!-- ── Zone selector panel ─────────────────────────────────────────── -->
+    <div id="setup-panel-zones">
+      <div id="panel-header-zones" class="panel-header">
+        <div class="s-title zone-gold">ZONES</div>
+        <button class="panel-toggle">▶</button>
+      </div>
+      <div id="body-zones" class="panel-body">
+        <div class="s-label">DUNGEON</div>
+        <div id="zone-list">
+          <div class="zone-row">
+            <button class="zone-btn s-btn" data-zone="dungeon_entrance">⚔ Goblin Ambush</button>
+            <button class="zone-del-btn" data-zone="dungeon_entrance" title="Delete zone">×</button>
+          </div>
+        </div>
+        <div id="zone-current-name" class="s-info"></div>
+        <div id="zone-progress-dots"></div>
+        <div id="zone-create-form" style="display:none">
+          <input id="zone-name-input" class="zone-name-input" type="text" placeholder="Zone name…" autocomplete="off" spellcheck="false">
+          <div class="s-row" style="margin-top:4px">
+            <button id="zone-create-confirm-btn" class="s-btn">CREATE</button>
+            <button id="zone-create-cancel-btn" class="s-btn">CANCEL</button>
+          </div>
+        </div>
+        <button id="zone-new-btn" class="s-btn">+ NEW ZONE</button>
+      </div>
+    </div>
+
+    <!-- ── Cutscene dev panel ─────────────────────────────────────────── -->
+    <div id="setup-panel-cutscenes">
+      <div id="panel-header-cutscenes" class="panel-header">
+        <div class="s-title zone-gold">CUTSCENES</div>
+        <button class="panel-toggle">▶</button>
+      </div>
+      <div id="body-cutscenes" class="panel-body">
+        <div id="cutscene-list"></div>
+      </div>
+    </div>
+
+    <!-- Start battle -->
+    <div id="start-battle-btn-wrap">
+      <button id="start-battle-btn" class="s-btn">▶ START PLAY MODE</button>
+    </div>
+
+    <!-- Floating unit action menu (no buttons — selection ring only) -->
+    <div id="unit-menu"></div>
+
+    <!-- Stat sheet overlay -->
+    <div id="stat-sheet-wrap">
+      <div id="stat-sheet">
+        <button id="stat-sheet-close" class="ss-close">✕</button>
+        <div class="ss-side-btns">
+          <button id="ss-btn-abilities" class="ss-side-btn" title="Actions">
+            <span class="ss-side-icon">🏃</span>
+          </button>
+          <button id="ss-btn-spellbook" class="ss-side-btn" title="Spellbook">
+            <span class="ss-side-icon">📜</span>
+          </button>
+          <button id="ss-btn-traits" class="ss-side-btn" title="Traits">
+            <span class="ss-side-icon">★</span>
+          </button>
+          <button id="ss-btn-equipment" class="ss-side-btn" title="Equipment">
+            <span class="ss-side-icon">👕</span>
+          </button>
+        </div>
+        <div id="ss-body"></div>
+      </div>
+      <div id="ss-side-panel">
+        <div id="ss-side-content"></div>
+      </div>
+      <div id="ss-spell-list-panel">
+        <div id="ss-spell-list-content"></div>
+      </div>
+    </div>
+
+
+
+    <!-- Move distance tooltip -->
+    <div id="move-dist"></div>
+
+    <!-- ── Turn order panel (left, combat only) ───────────────── -->
+    <div id="turn-panel">
+      <div class="t-title">INITIATIVE</div>
+      <div id="turn-round">Round 1</div>
+      <div id="turn-list"></div>
+      <button id="end-turn-btn" class="s-btn">END TURN</button>
+      <button id="blue-undo-btn" class="thud-undo" style="display:none">↩ UNDO MOVE</button>
+    </div>
+
+    <!-- ── Combat log (right, combat only) ───────────────────── -->
+    <div id="combat-log">
+      <div class="t-title">COMBAT LOG</div>
+      <div id="log-entries"></div>
+    </div>
+
+
+    <!-- Target enemy marker (! above selected enemy) -->
+    <div id="target-marker">
+      <div id="target-exclaim">!</div>
+      <div id="target-name"></div>
+    </div>
+
+    <!-- Attack confirm button -->
+    <div id="attack-confirm-wrap">
+      <button id="attack-confirm-btn">⚔ Attack</button>
+      <button id="shake-awake-btn">💤 Shake Awake</button>
+    </div>
+
+    <!-- Cast spell confirm (fixed at bottom, shown when a spell target is chosen) -->
+    <div id="cast-confirm-wrap">
+      <button id="cast-confirm-btn">Cast Spell</button>
+    </div>
+
+    <!-- Zone transition button — shown after zone victory -->
+    <button id="next-zone-btn" style="display:none"></button>
+
+    <!-- Zone entry banner — fades in/out on zone load -->
+    <div id="zone-entry-banner">
+      <div id="zone-entry-sub">ENTERING</div>
+      <div id="zone-entry-name"></div>
+    </div>
+
+    <!-- Short rest panel — between zones -->
+    <div id="short-rest-panel" style="display:none">
+      <div id="sr-header">
+        <div id="sr-title">SHORT REST</div>
+        <div id="sr-sub">The party catches their breath…</div>
+      </div>
+      <div id="sr-hero-rows"></div>
+      <div id="sr-actions">
+        <button id="sr-roll-btn">🎲 Roll Hit Dice</button>
+        <button id="sr-skip-btn">Skip Rest</button>
+      </div>
+    </div>
+
+
+
+    <!-- Grid toggle (bottom-right) -->
+    <button id="grid-toggle-btn">Grid On</button>
+
+<!-- Terrain Editor button (top-right) -->
+    <button id="terrain-editor-btn">TERRAIN</button>
+
+    <!-- Terrain Editor panel -->
+    <div id="terrain-editor-panel" style="display:none">
+      <div id="te-title-row">
+        <span id="te-title">TERRAIN EDITOR</span>
+        <button id="te-collapse-btn" class="te-collapse">▼</button>
+      </div>
+      <div id="te-body">
+        <div id="te-defaults-row">
+          <span class="te-lbl">Default:</span>
+          <label class="te-input-lbl">h<input id="te-default-h" class="te-num" type="number" value="3" step="0.5"></label>
+          <label class="te-input-lbl">r<input id="te-default-r" class="te-num" type="number" value="8" step="0.5" min="1"></label>
+          <label class="te-input-lbl">pr<input id="te-default-pr" class="te-num" type="number" value="0" step="0.5" min="0"></label>
+        </div>
+        <div id="te-status"></div>
+        <div id="te-counter" class="te-counter">Points: 0</div>
+        <div id="te-btn-row">
+          <button id="te-markers-btn">HIDE MARKERS</button>
+        </div>
+        <div id="te-btn-row">
+          <button id="te-save-btn">SAVE TO ZONE</button>
+          <button id="te-clear-btn">CLEAR</button>
+        </div>
+        <div id="te-save-status"></div>
+      </div>
+    </div>
+
+    <!-- Spawn Editor button (top-right) -->
+    <button id="spawn-editor-btn">WAVES</button>
+
+    <!-- NPC Editor button (top-right) -->
+    <button id="npc-editor-btn">NPCS</button>
+
+    <!-- NPC AI Editor button -->
+    <button id="npc-ai-editor-btn">NPC AI</button>
+
+    <!-- NPC Editor panel -->
+    <div id="npc-editor-panel" style="display:none">
+      <div id="ne-title-row">
+        <span id="ne-title">NPC EDITOR</span>
+        <button id="ne-collapse-btn" class="ne-collapse">▼</button>
+      </div>
+      <div id="ne-body">
+        <input id="ne-search" class="editor-search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
+        <div id="ne-type-list"></div>
+        <div id="ne-selected-row">
+          <span class="ne-lbl">Type:</span>
+          <span id="ne-selected-label">—</span>
+        </div>
+        <div id="ne-status"></div>
+        <div id="ne-counter" class="ne-counter">Enemies: 0</div>
+        <div id="ne-btn-row">
+          <button id="ne-save-btn">SAVE TO ZONE</button>
+          <button id="ne-clear-btn">CLEAR</button>
+        </div>
+        <div id="ne-save-status"></div>
+      </div>
+    </div>
+
+    <!-- Spawn Editor panel -->
+    <div id="spawn-editor-panel" style="display:none">
+      <div id="se-title-row">
+        <span id="se-title">WAVE SPAWNER</span>
+        <button id="se-collapse-btn" class="se-collapse">▼</button>
+      </div>
+      <div id="se-body">
+        <input id="se-search" class="editor-search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
+        <div id="se-type-list"></div>
+        <div id="se-selected-row">
+          <span class="se-lbl">Type:</span>
+          <span id="se-selected-label">—</span>
+        </div>
+        <div id="se-round-row">
+          <label class="se-lbl" for="se-round-input">First Round</label>
+          <input id="se-round-input" class="se-num-input" type="number" min="1" max="99" value="2">
+          <label class="se-lbl" for="se-every-input">Repeat Every</label>
+          <input id="se-every-input" class="se-num-input" type="number" min="0" max="99" value="0" title="0 = one-shot">
+        </div>
+        <div id="se-status"></div>
+        <div id="se-spawn-list"><div class="se-empty">No spawns configured</div></div>
+        <div id="se-counter" class="se-counter">Spawns: 0</div>
+
+        <!-- Patrol waypoint section — shown when a spawn is selected -->
+        <div id="se-patrol-section" style="display:none">
+          <div id="se-patrol-header">
+            <span id="se-patrol-title">Patrol</span>
+            <button id="se-clear-wp-btn" class="se-wp-clear-btn" title="Remove all waypoints">Clear</button>
+          </div>
+          <div id="se-wp-list"><div class="se-wp-empty">No waypoints</div></div>
+          <button id="se-add-wp-btn">📍 Add Waypoint</button>
+        </div>
+
+        <div id="se-btn-row">
+          <button id="se-save-btn">SAVE TO ZONE</button>
+          <button id="se-clear-btn">CLEAR</button>
+        </div>
+        <div id="se-save-status"></div>
+      </div>
+    </div>
+
+    <!-- Prop Editor button (top-right) -->
+    <button id="prop-editor-btn">PROPS</button>
+
+    <!-- Prop Editor panel -->
+    <div id="prop-editor-panel" style="display:none">
+      <div id="pe-title-row">
+        <span id="pe-title">PROP EDITOR</span>
+        <button id="pe-hide-props-btn" class="pe-collapse" title="Toggle prop visibility">👁</button>
+        <button id="pe-collapse-btn" class="pe-collapse">▼</button>
+      </div>
+      <div id="pe-body">
+        <input id="pe-search" class="editor-search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
+        <div id="pe-model-list"></div>
+        <div id="pe-selected-row">
+          <span class="pe-lbl">Model:</span>
+          <span id="pe-selected-label"></span>
+        </div>
+        <div id="pe-status"></div>
+        <div id="pe-light-controls" style="display:none">
+          <div class="pe-light-row">
+            <label class="pe-light-lbl">Brightness</label>
+            <input id="pe-light-intensity" type="range" min="0.5" max="40" step="0.5" value="6">
+            <span id="pe-light-intensity-val">6</span>
+          </div>
+          <div class="pe-light-row">
+            <label class="pe-light-lbl">Range</label>
+            <input id="pe-light-range" type="range" min="2" max="80" step="1" value="18">
+            <span id="pe-light-range-val">18</span>
+          </div>
+        </div>
+        <div id="pe-btn-row">
+          <button id="pe-save-btn">SAVE TO ZONE</button>
+          <button id="pe-export-btn">EXPORT ↗</button>
+        </div>
+        <div id="pe-save-status"></div>
+      </div>
+    </div>
+
+    <!-- Export overlay -->
+    <div id="pe-export-overlay" style="display:none">
+      <div id="pe-export-box">
+        <div id="pe-export-title">PROPS ARRAY — paste into zone file</div>
+        <textarea id="pe-export-text" spellcheck="false" readonly></textarea>
+        <div id="pe-export-actions">
+          <button id="pe-export-copy">COPY</button>
+          <button id="pe-export-close">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spell Index button (top-right, left of bestiary) -->
+    <button id="spellbook-btn">SPELLS</button>
+
+    <!-- Spell Index overlay -->
+    <div id="spellbook-overlay">
+      <div id="spellbook-modal">
+        <div id="spellbook-modal-header">
+          <div id="spellbook-title">SPELL INDEX</div>
+          <div id="spellbook-subtitle">Spell Compendium</div>
+          <div id="spellbook-search-wrap">
+            <input id="spellbook-search" type="text" placeholder="Search spells…" autocomplete="off" spellcheck="false">
+            <button id="spellbook-search-clear" title="Clear">✕</button>
+          </div>
+          <button id="spellbook-close">✕</button>
+        </div>
+        <div id="spellbook-body"></div>
+      </div>
+    </div>
+
+    <!-- Bestiary button (top-right) -->
+    <button id="bestiary-btn">BESTIARY</button>
+
+    <!-- Bestiary overlay -->
+    <div id="bestiary-overlay">
+      <div id="bestiary-modal">
+        <div id="bestiary-modal-header">
+          <div id="bestiary-title">BESTIARY</div>
+          <div id="bestiary-subtitle">Enemy Compendium</div>
+          <div id="bestiary-search-wrap">
+            <input id="bestiary-search" type="text" placeholder="Search enemies…" autocomplete="off" spellcheck="false">
+            <button id="bestiary-search-clear" title="Clear">✕</button>
+          </div>
+          <button id="bestiary-close">✕</button>
+        </div>
+        <div id="bestiary-body"></div>
+      </div>
+    </div>
+
+    <!-- Bottom bar wrap — centers hotbar + spell bar together -->
+    <div id="bottom-bar-wrap">
+
+      <!-- Hotbar — keyboard slots -->
+      <div id="hotbar">
+      <!-- Action / resource tracker row -->
+      <div id="action-tracker">
+        <div class="act-box" id="act-move-box">
+          <span class="act-big" id="act-move-val">—</span>
+          <span class="act-sub">move</span>
+        </div>
+        <div class="act-box" id="act-action-box">
+          <span class="act-letter">A</span>
+          <span class="act-sub">Action</span>
+        </div>
+        <div class="act-box" id="act-bonus-box">
+          <span class="act-letter">BA</span>
+          <span class="act-sub">Bonus</span>
+        </div>
+        <div class="act-box" id="act-react-box">
+          <span class="act-letter">R</span>
+          <span class="act-sub">Reaction</span>
+        </div>
+      </div>
+      <div id="xp-bar-wrap"><div id="xp-bar-fill"></div></div>
+      <div class="hb-row" id="hotbar-row-normal"></div>
+      <div class="hb-row" id="hotbar-row-shift"></div>
+    </div><!-- /#hotbar -->
+
+      <!-- Target window — shown when an enemy is targeted -->
+      <div id="target-window">
+        <canvas id="target-portrait-canvas" width="80" height="80"></canvas>
+        <div id="tw-name"></div>
+      </div>
+
+    </div><!-- /#bottom-bar-wrap -->
+
+    <!-- Spell bar — fixed bottom right corner -->
+    <div id="spell-bar">
+      <div id="spell-bar-title">SPELLS <button id="spell-bar-toggle" class="sb-toggle">▼</button></div>
+      <div id="spell-bar-body">
+      <div id="spell-bar-btns">
+        <span class="sb-lvl-label">1</span>
+        <div class="sb-col">
+          <span class="sb-col-label">Slots</span>
+          <span class="sb-slot-pips">
+            <span class="sb-slot-pip"></span>
+            <span class="sb-slot-pip"></span>
+            <span class="sb-slot-pip"></span>
+            <span class="sb-slot-pip"></span>
+          </span>
+        </div>
+        <div class="sb-col">
+          <span class="sb-col-label">Prepared</span>
+          <div class="sb-prepared-row">
+            <button class="sb-btn" id="sb-btn-0"></button>
+            <button class="sb-btn" id="sb-btn-1"></button>
+            <button class="sb-btn" id="sb-btn-2"></button>
+            <button class="sb-btn" id="sb-btn-3"></button>
+            <button class="sb-btn" id="sb-btn-4"></button>
+          </div>
+        </div>
+      </div>
+      <div class="sb-divider"></div>
+      <div id="spell-bar-cantrips">
+        <span class="sb-section-label">Cantrips</span>
+        <div class="sb-cantrip-row">
+          <button class="sb-btn" id="sb-cant-0"></button>
+          <button class="sb-btn" id="sb-cant-1"></button>
+          <button class="sb-btn" id="sb-cant-2"></button>
+          <button class="sb-btn" id="sb-cant-3"></button>
+          <button class="sb-btn" id="sb-cant-4"></button>
+        </div>
+      </div>
+      </div><!-- /#spell-bar-body -->
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- Dev/Play toggle — lives outside #app so play-mode CSS never hides it -->
+  <button id="dev-mode-btn" title="Switch to player view">▶  PLAY VIEW</button>
+
+  <!-- Cutscene overlay — fullscreen, lives outside #app to avoid stacking context issues -->
+  <div id="cutscene-overlay" style="display:none" aria-hidden="true">
+    <img id="cs-img" class="cs-img" alt="">
+    <div id="cs-text-wrap">
+      <p id="cs-text"></p>
+    </div>
+    <div id="cs-dots"></div>
+    <p id="cs-prompt">CLICK TO CONTINUE</p>
+    <button id="cs-skip">SKIP</button>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

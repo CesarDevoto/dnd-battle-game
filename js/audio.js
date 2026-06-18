@@ -1,0 +1,222 @@
+// js/audio.js — Web Audio system: ambient crossfade, combat one-shots, dev mixer
+
+// ── Volume config (edit these to tune the mix) ────────────────────────────────
+const VOL = {
+  master:  1.0,
+  ambient: 0.35,
+  combat:  0.80,
+  ui:      0.55,
+};
+
+// ── Sound manifest ────────────────────────────────────────────────────────────
+const SOUNDS = {
+  // Ambient loops — one per biome
+  forest:        { src: 'assets/audio/ambient/forest.mp3',        category: 'ambient', loop: true },
+  goblin_ambush: { src: 'assets/audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  river_styx:    { src: 'assets/audio/ambient/RiverStyxAmbience.mp3', category: 'ambient', loop: true, volume: 0.3 },
+  dungeon:       { src: 'assets/audio/ambient/dungeon.mp3',       category: 'ambient', loop: true },
+  swamp:         { src: 'assets/audio/ambient/swamp.mp3',         category: 'ambient', loop: true },
+  tundra:        { src: 'assets/audio/ambient/tundra.mp3',        category: 'ambient', loop: true },
+  savanna:       { src: 'assets/audio/ambient/savanna.mp3',       category: 'ambient', loop: true },
+  desert:        { src: 'assets/audio/ambient/desert.mp3',        category: 'ambient', loop: true },
+  graveyard:     { src: 'assets/audio/ambient/graveyard.mp3',     category: 'ambient', loop: true },
+  // Unit-specific — aggro & attack vocalizations
+  mane_dretch_aggro:  { src: 'assets/audio/combat/mane dretch aggro.mp3',  category: 'combat' },
+  mane_dretch_attack: { src: 'assets/audio/combat/mane dretch attack.mp3', category: 'combat' },
+  orc_aggro:          { src: 'assets/audio/combat/orc aggro.mp3',           category: 'combat' },
+  orc_attack:         { src: 'assets/audio/combat/orc attack.mp3',          category: 'combat' },
+  ogre_aggro:         { src: 'assets/audio/combat/ogre aggro.mp3',          category: 'combat' },
+  ogre_attack:        { src: 'assets/audio/combat/ogre attack.mp3',         category: 'combat' },
+  chicken_aggro:      { src: 'assets/audio/combat/chicken aggro.mp3',       category: 'combat' },
+  chicken_attack:     { src: 'assets/audio/combat/chicken attack.mp3',      category: 'combat' },
+  goblin_aggro:       { src: 'assets/audio/combat/goblin aggro.mp3',        category: 'combat' },
+  goblin_attack:      { src: 'assets/audio/combat/goblin attack.mp3',       category: 'combat' },
+  // Combat one-shots
+  sword_hit:     { src: 'assets/audio/combat/sword_hit.mp3',      category: 'combat' },
+  arrow_shoot:   { src: 'assets/audio/combat/arrow_shoot.mp3',    category: 'combat' },
+  arrow_hit:     { src: 'assets/audio/combat/arrow_hit.mp3',      category: 'combat' },
+  fire_bolt:     { src: 'assets/audio/combat/fire_bolt.mp3',      category: 'combat' },
+  healing:       { src: 'assets/audio/combat/healing.mp3',        category: 'combat' },
+  miss:          { src: 'assets/audio/combat/miss.mp3',           category: 'combat' },
+  death:         { src: 'assets/audio/combat/death.mp3',          category: 'combat' },
+  // UI
+  combat_start:  { src: 'assets/audio/ui/combat_start.mp3',       category: 'ui' },
+  turn_start:    { src: 'assets/audio/ui/turn_start.mp3',         category: 'ui' },
+  level_up:      { src: 'assets/audio/ui/level_up.mp3',           category: 'ui' },
+};
+
+const FADE_SECS = 1.5;   // ambient crossfade duration
+
+// ── Internal state ────────────────────────────────────────────────────────────
+let _ctx           = null;   // AudioContext — created on first user interaction
+let _masterGain    = null;
+const _catGains    = {};     // category GainNode per category name
+const _buffers     = {};     // decoded AudioBuffer per sound key
+const _ambientNode = { src: null, gain: null };  // currently playing ambient
+
+// ── AudioContext bootstrap ────────────────────────────────────────────────────
+function _getCtx() {
+  if (_ctx) return _ctx;
+  _ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  _masterGain = _ctx.createGain();
+  _masterGain.gain.value = VOL.master;
+  _masterGain.connect(_ctx.destination);
+
+  for (const cat of ['ambient', 'combat', 'ui']) {
+    const g = _ctx.createGain();
+    g.gain.value = VOL[cat] ?? 1.0;
+    g.connect(_masterGain);
+    _catGains[cat] = g;
+  }
+
+  return _ctx;
+}
+
+// Resume suspended context on first gesture (browser autoplay policy)
+document.addEventListener('pointerdown', () => {
+  if (_ctx?.state === 'suspended') _ctx.resume();
+}, { once: false });
+
+// ── Buffer loading ────────────────────────────────────────────────────────────
+async function _load(key) {
+  if (_buffers[key]) return _buffers[key];
+  const def = SOUNDS[key];
+  if (!def) return null;
+  try {
+    const resp = await fetch(def.src);
+    if (!resp.ok) return null;
+    const arr  = await resp.arrayBuffer();
+    const ctx  = _getCtx();
+    _buffers[key] = await ctx.decodeAudioData(arr);
+    return _buffers[key];
+  } catch {
+    return null;  // file missing — fail silently
+  }
+}
+
+export async function initAudio() {
+  // Pre-load all sounds in parallel; missing files are silently skipped.
+  await Promise.all(Object.keys(SOUNDS).map(_load));
+}
+
+// ── One-shot playback ─────────────────────────────────────────────────────────
+export function playSound(key) {
+  const buf = _buffers[key];
+  if (!buf) return;
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+  const cat = SOUNDS[key]?.category ?? 'combat';
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(_catGains[cat] ?? _masterGain);
+  src.start();
+}
+
+// ── Ambient crossfade ─────────────────────────────────────────────────────────
+export function playAmbient(biomeKey) {
+  const buf = _buffers[biomeKey];
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+  const now = ctx.currentTime;
+
+  // Fade out and stop old ambient
+  if (_ambientNode.src && _ambientNode.gain) {
+    const oldGain = _ambientNode.gain;
+    oldGain.gain.setValueAtTime(oldGain.gain.value, now);
+    oldGain.gain.linearRampToValueAtTime(0, now + FADE_SECS);
+    const oldSrc = _ambientNode.src;
+    setTimeout(() => { try { oldSrc.stop(); } catch {} }, (FADE_SECS + 0.1) * 1000);
+    _ambientNode.src  = null;
+    _ambientNode.gain = null;
+  }
+
+  if (!buf) return;  // no file for this biome yet — silence is fine
+
+  // Fade in new ambient
+  const targetVol = SOUNDS[biomeKey]?.volume ?? 1.0;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(targetVol, now + FADE_SECS);
+  gain.connect(_catGains.ambient);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop   = true;
+  src.connect(gain);
+  src.start();
+
+  _ambientNode.src  = src;
+  _ambientNode.gain = gain;
+}
+
+export function stopAmbient() {
+  playAmbient(null);  // fades out current without starting a new one
+}
+
+// ── Volume control ────────────────────────────────────────────────────────────
+export function setMasterVolume(v) {
+  VOL.master = v;
+  if (_masterGain) _masterGain.gain.value = v;
+}
+
+export function setCategoryVolume(cat, v) {
+  VOL[cat] = v;
+  if (_catGains[cat]) _catGains[cat].gain.value = v;
+}
+
+export function getVolumes() {
+  return { ...VOL };
+}
+
+// ── Dev mixer panel ───────────────────────────────────────────────────────────
+// ── Per-unit-type sound hooks ─────────────────────────────────────────────────
+// Add entries here to give any unit type its own aggro / attack sounds.
+const UNIT_SOUNDS = {
+  mane:           { aggro: 'mane_dretch_aggro', attack: 'mane_dretch_attack' },
+  abyssal_wretch: { aggro: 'mane_dretch_aggro', attack: 'mane_dretch_attack' },
+  orc:            { aggro: 'orc_aggro',          attack: 'orc_attack' },
+  ogre:           { aggro: 'ogre_aggro',         attack: 'ogre_attack' },
+  abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
+  goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_attack' },
+};
+
+export function playUnitAggroSound(unitType) {
+  const key = UNIT_SOUNDS[unitType]?.aggro;
+  if (key) playSound(key);
+}
+
+export function playUnitAttackSound(unitType) {
+  const key = UNIT_SOUNDS[unitType]?.attack;
+  if (key) playSound(key);
+}
+
+// ── Dev mixer panel ───────────────────────────────────────────────────────────
+export function initMixerPanel() {
+  const btn   = document.getElementById('audio-mixer-btn');
+  const panel = document.getElementById('audio-mixer-panel');
+  if (!btn || !panel) return;
+
+  btn.addEventListener('click', () => {
+    const open = panel.classList.toggle('show');
+    btn.classList.toggle('active', open);
+  });
+
+  function _bindSlider(id, getter, setter) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = getter();
+    const lbl = el.parentElement?.querySelector('.amx-val');
+    const update = () => {
+      setter(parseFloat(el.value));
+      if (lbl) lbl.textContent = Math.round(parseFloat(el.value) * 100) + '%';
+    };
+    update();
+    el.addEventListener('input', update);
+  }
+
+  _bindSlider('amx-master',  () => VOL.master,  v => setMasterVolume(v));
+  _bindSlider('amx-ambient', () => VOL.ambient, v => setCategoryVolume('ambient', v));
+  _bindSlider('amx-combat',  () => VOL.combat,  v => setCategoryVolume('combat', v));
+  _bindSlider('amx-ui',      () => VOL.ui,      v => setCategoryVolume('ui', v));
+}

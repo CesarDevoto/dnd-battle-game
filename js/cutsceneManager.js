@@ -1,0 +1,129 @@
+import { CUTSCENE as CUTSCENE_INTRO } from './cutscenes/cutscene_intro.js';
+
+const _ORDER    = [CUTSCENE_INTRO];
+const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
+
+// ── seen tracking ─────────────────────────────────────────────────────────────
+const _seenKey  = id => `cs_seen_${id}`;
+const _wasSeen  = id => { try { return !!localStorage.getItem(_seenKey(id)); } catch { return false; } };
+const _markSeen = id => { try { localStorage.setItem(_seenKey(id), '1'); } catch {} };
+export const resetSeen = id => { try { localStorage.removeItem(_seenKey(id)); } catch {} };
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let _playing = false, _slideIdx = 0, _cs = null, _locked = false;
+let _overlay, _img, _textEl, _promptEl, _skipBtn, _dotsEl;
+
+// ── public trigger ────────────────────────────────────────────────────────────
+export function triggerCutscene(trigger) {
+  if (_playing) return;
+  const cs = _ORDER.find(c => c.trigger === trigger);
+  if (!cs || (cs.playOnce && _wasSeen(cs.id))) return;
+  _play(cs);
+}
+
+// ── player ────────────────────────────────────────────────────────────────────
+function _play(cs) {
+  _cs = cs; _playing = true; _slideIdx = 0;
+  _overlay.style.display = 'flex';
+  // double-rAF so display:flex has painted before opacity transition starts
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    _overlay.classList.add('cs-active');
+    _loadSlide(0);
+  }));
+}
+
+function _loadSlide(idx) {
+  const slide = _cs.slides[idx];
+
+  // Reset Ken Burns animation: force reflow then clear inline override so CSS class wins
+  _img.className = 'cs-img';
+  _img.style.animation = 'none';
+  void _img.offsetWidth;
+  _img.style.animation = '';
+  _img.style.opacity   = '1';
+  _img.className = `cs-img cs-pan-${slide.pan ?? 'left'}`;
+  _img.src = slide.img;
+
+  _textEl.textContent = slide.text;
+  _textEl.classList.remove('cs-text-in');
+  _promptEl.classList.remove('cs-prompt-in');
+
+  _dotsEl.innerHTML = _cs.slides.map((_, i) =>
+    `<span class="cs-dot${i === idx ? ' cs-dot-on' : ''}"></span>`).join('');
+
+  // Brief lock — prevents accidental immediate advance
+  _locked = true;
+  setTimeout(() => {
+    _locked = false;
+    setTimeout(() => {
+      _textEl.classList.add('cs-text-in');
+      setTimeout(() => _promptEl.classList.add('cs-prompt-in'), 700);
+    }, 600);
+  }, 400);
+}
+
+function _advance() {
+  if (_locked || !_playing) return;
+  _slideIdx++;
+  if (_slideIdx >= _cs.slides.length) { _finish(); return; }
+  _locked = true;
+  _img.style.opacity = '0';
+  _textEl.classList.remove('cs-text-in');
+  _promptEl.classList.remove('cs-prompt-in');
+  setTimeout(() => _loadSlide(_slideIdx), 380);
+}
+
+function _finish() {
+  if (_cs.playOnce) _markSeen(_cs.id);
+  _overlay.classList.remove('cs-active');
+  setTimeout(() => { _overlay.style.display = 'none'; _playing = false; _cs = null; }, 420);
+}
+
+// ── dev panel ─────────────────────────────────────────────────────────────────
+function _buildPanel() {
+  const listEl = document.getElementById('cutscene-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  _ORDER.forEach(cs => {
+    const row = document.createElement('div');
+    row.className = 'cs-row';
+    row.innerHTML =
+      `<div class="cs-row-info">
+        <div class="cs-row-name">${cs.name}</div>
+        <div class="cs-row-meta">
+          <span class="cs-badge">${cs.trigger}</span>
+          <span class="cs-slide-count">${cs.slides.length} slides</span>
+        </div>
+      </div>
+      <div class="cs-row-btns">
+        <button class="s-btn cs-btn-play" data-id="${cs.id}" title="Preview">▶</button>
+        <button class="s-btn cs-btn-reset" data-id="${cs.id}" title="Reset seen flag">↺</button>
+      </div>`;
+    listEl.appendChild(row);
+  });
+  listEl.addEventListener('click', e => {
+    const p = e.target.closest('.cs-btn-play');
+    if (p) { const c = _registry[p.dataset.id]; if (c) _play(c); return; }
+    const r = e.target.closest('.cs-btn-reset');
+    if (r) resetSeen(r.dataset.id);
+  });
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
+export function initCutsceneUI() {
+  _overlay  = document.getElementById('cutscene-overlay');
+  _img      = document.getElementById('cs-img');
+  _textEl   = document.getElementById('cs-text');
+  _promptEl = document.getElementById('cs-prompt');
+  _skipBtn  = document.getElementById('cs-skip');
+  _dotsEl   = document.getElementById('cs-dots');
+
+  _overlay.addEventListener('click', _advance);
+  _skipBtn.addEventListener('click', e => { e.stopPropagation(); _finish(); });
+
+  window.addEventListener('zone:loaded',   e  => triggerCutscene(`zone_enter:${e.detail?.id}`));
+  window.addEventListener('combat:ended', () => triggerCutscene('combat_ended'));
+  window.addEventListener('ui:ready',     () => triggerCutscene('game_start'));
+
+  _buildPanel();
+}
