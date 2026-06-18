@@ -23,7 +23,7 @@ const MODEL_PATHS = {
   kobold:     'assets/models/kobold.glb',
   goblin:     'assets/models/goblin.glb',
   orc:        'assets/models/orc.glb',
-  ogre:       'assets/models/ogre_animations.glb',
+  ogre:       'assets/models/ogre.glb',
   elf:        'assets/models/elf.glb',
   dwarf:      'assets/models/dwarf.glb',
   human:      'assets/models/barbarian.glb',
