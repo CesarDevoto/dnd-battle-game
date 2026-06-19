@@ -346,7 +346,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   // Enemies: ×2 at low CR, ×1.6 at mid CR (4-8), ×1.3 at high CR (9+).
   // Heroes: level-1 HP is D&D base ×2; further gains come from progression.js on level-up.
   const _xp   = def.xpReward ?? 0;
-  const _mult = team !== 'red' ? 2 : _xp >= 5000 ? 1.3 : _xp >= 1100 ? 1.6 : 2.0;
+  const _mult = team !== 'red' ? 1 : _xp >= 5000 ? 1.3 : _xp >= 1100 ? 1.6 : 2.0;
   const hp    = Math.round(baseHp * _mult);
 
   // Per-attack quantity limits (e.g. javelins). Keyed by attack name.
@@ -359,7 +359,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   const rangedRotY = type === 'elf' ? 0 : -Math.PI / 2;
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp: hp, team, type,
-              barForced: false, barShowUntil: 0, xp: 0, atkQty,
+              barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {} };
   units.push(u);

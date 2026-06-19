@@ -2,6 +2,8 @@ import { units, setUnitWalking } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
+import { getActiveZone } from './zoneLoader.js';
+import { showQuickDialogue } from './dagnaEvent.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -186,8 +188,13 @@ function _triggerAggro(spotter) {
     }
   }
 
-  setTimeout(() => {
-    exitPrecombat();
-    rollInitiative();
-  }, 900);
+  const _doStart = () => { exitPrecombat(); rollInitiative(); };
+  if (getActiveZone()?.id === 'dungeon_entrance') {
+    setTimeout(() => showQuickDialogue(
+      [{ s: 'Milo', t: 'An ambush! Ready yourselves!' }],
+      _doStart
+    ), 700);
+  } else {
+    setTimeout(_doStart, 900);
+  }
 }

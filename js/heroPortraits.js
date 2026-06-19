@@ -150,12 +150,8 @@ export function buildHeroPortraits() {
     hpRow.className = 'hpc-hp-row';
     const hpCurEl = document.createElement('span');
     hpCurEl.className  = 'hpc-hp-cur';
-    hpCurEl.textContent = def.hp;
-    const hpMaxEl = document.createElement('span');
-    hpMaxEl.className  = 'hpc-hp-max';
-    hpMaxEl.textContent = `/${def.hp}`;
+    hpCurEl.textContent = `${def.hp}/${def.hp}`;
     hpRow.appendChild(hpCurEl);
-    hpRow.appendChild(hpMaxEl);
 
     const trackEl = document.createElement('div');
     trackEl.className = 'hpc-hp-track';
@@ -179,7 +175,7 @@ export function buildHeroPortraits() {
     slot.appendChild(condEl);
     bar.appendChild(slot);
 
-    _cards[type] = { card, fill: fillEl, hpCur: hpCurEl, sheetBtn, maxHp: def.hp, condEl };
+    _cards[type] = { card, fill: fillEl, hpText: hpCurEl, sheetBtn, maxHp: def.hp, condEl };
   }
 
   // Collapse toggle — appended after cards so it sits at the bottom of the bar
@@ -211,14 +207,14 @@ export function updateHeroUI() {
     // HP / dead state
     if (u) {
       refs.card.classList.remove('hpc-dead');
-      refs.fill.style.width  = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
-      refs.hpCur.textContent = Math.max(0, u.hp);
-      refs.sheetBtn.disabled = false;
+      refs.fill.style.width   = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
+      refs.hpText.textContent = `${Math.max(0, u.hp)}/${u.maxHp}`;
+      refs.sheetBtn.disabled  = false;
     } else if (combatPhase) {
       refs.card.classList.add('hpc-dead');
-      refs.fill.style.width  = '0%';
-      refs.hpCur.textContent = '0';
-      refs.sheetBtn.disabled = true;
+      refs.fill.style.width   = '0%';
+      refs.hpText.textContent = `0/${refs.maxHp}`;
+      refs.sheetBtn.disabled  = true;
     } else {
       refs.sheetBtn.disabled = false;
     }

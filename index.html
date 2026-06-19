@@ -271,7 +271,7 @@
 
 
     <!-- Grid toggle (bottom-right) -->
-    <button id="grid-toggle-btn" class="dev-only">Grid On</button>
+    <button id="grid-toggle-btn">Grid Off</button>
 
 <!-- Terrain Editor button (top-right) -->
     <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
@@ -498,7 +498,20 @@
           <span class="act-sub">Reaction</span>
         </div>
       </div>
-      <div id="xp-bar-wrap"><div id="xp-bar-fill"></div></div>
+      <div id="xp-bar-wrap">
+        <div id="xp-bar-meta">
+          <span id="xp-cur-label">0</span>
+          <span id="xp-pct-label">0%</span>
+          <span id="xp-next-label">300</span>
+        </div>
+        <div id="xp-bubbles">
+          <div class="xp-bubble"><div class="xp-bubble-fill"></div></div>
+          <div class="xp-bubble"><div class="xp-bubble-fill"></div></div>
+          <div class="xp-bubble"><div class="xp-bubble-fill"></div></div>
+          <div class="xp-bubble"><div class="xp-bubble-fill"></div></div>
+          <div class="xp-bubble"><div class="xp-bubble-fill"></div></div>
+        </div>
+      </div>
       <div class="hb-row" id="hotbar-row-normal"></div>
       <div class="hb-row" id="hotbar-row-shift"></div>
     </div><!-- /#hotbar -->

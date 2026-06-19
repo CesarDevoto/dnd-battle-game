@@ -4,8 +4,40 @@ import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { playSound } from './audio.js';
 
-const _pv        = new THREE.Vector3();
-const _xpBarFill = document.getElementById('xp-bar-fill');
+const _pv             = new THREE.Vector3();
+const _xpBubbleFills  = Array.from(document.querySelectorAll('.xp-bubble-fill'));
+const _xpCurLabel     = document.getElementById('xp-cur-label');
+const _xpPctLabel     = document.getElementById('xp-pct-label');
+const _xpNextLabel    = document.getElementById('xp-next-label');
+
+// Standard D&D 5e cumulative XP to reach each level (index = level being reached, 1-indexed)
+// XP_THRESHOLDS[2] = 300 means you need 300 total XP to hit level 2.
+const XP_THRESHOLDS = [
+  0,       // level 1  (starting)
+  300,     // level 2
+  900,     // level 3
+  2700,    // level 4
+  6500,    // level 5
+  14000,   // level 6
+  23000,   // level 7
+  34000,   // level 8
+  48000,   // level 9
+  64000,   // level 10
+  85000,   // level 11
+  100000,  // level 12
+  120000,  // level 13
+  140000,  // level 14
+  165000,  // level 15
+  195000,  // level 16
+  225000,  // level 17
+  265000,  // level 18
+  305000,  // level 19
+  355000,  // level 20
+];
+const MAX_LEVEL = XP_THRESHOLDS.length; // 20
+
+function _xpFloor(lvl) { return XP_THRESHOLDS[lvl - 1] ?? XP_THRESHOLDS[MAX_LEVEL - 1]; }
+function _xpCeil(lvl)  { return XP_THRESHOLDS[lvl]     ?? Infinity; }
 
 function showFloatingXP(hero, amount) {
   _pv.set(hero.anchor.x, hero.anchor.y + 1.0, hero.anchor.z).project(camera);
@@ -35,9 +67,24 @@ function showLevelUpFloat(hero) {
 
 export function updateXPBar() {
   const hero = units.find(h => h.team === 'blue');
-  if (!hero || !_xpBarFill) return;
-  const xpNext = UNIT_TYPES[hero.type]?.xpNext ?? 300;
-  _xpBarFill.style.width = `${Math.min(100, ((hero.xp ?? 0) / xpNext) * 100)}%`;
+  if (!hero) return;
+
+  const lvl    = hero.level ?? 1;
+  const floor  = _xpFloor(lvl);
+  const ceil   = lvl >= MAX_LEVEL ? floor : _xpCeil(lvl);
+  const span   = Math.max(1, ceil - floor);
+  const earned = Math.max(0, hero.xp - floor);
+  const pct    = lvl >= MAX_LEVEL ? 1 : Math.min(1, earned / span);
+
+  if (_xpCurLabel)  _xpCurLabel.textContent  = earned.toLocaleString();
+  if (_xpPctLabel)  _xpPctLabel.textContent  = `${Math.round(pct * 100)}%`;
+  if (_xpNextLabel) _xpNextLabel.textContent = span.toLocaleString();
+
+  const N = _xpBubbleFills.length;
+  _xpBubbleFills.forEach((fill, i) => {
+    const bubblePct = Math.max(0, Math.min(1, (pct * N - i)));
+    fill.style.width = `${bubblePct * 100}%`;
+  });
 }
 
 // addLog is passed in to avoid a circular import with combat.js
@@ -47,28 +94,30 @@ export function awardXP(amount, addLog) {
 
   addLog(`✦ Party gains ${amount} XP`, 'xp');
 
-  const leveledUp = [];
+  // Collect all level-ups across all heroes (a single award could span multiple levels)
+  const levelUps = [];
   heroes.forEach(hero => {
-    const prev   = hero.xp;
-    hero.xp     += amount;
-    const xpNext = UNIT_TYPES[hero.type]?.xpNext;
-    if (xpNext && prev < xpNext && hero.xp >= xpNext) leveledUp.push(hero);
+    hero.xp += amount;
+    while ((hero.level ?? 1) < MAX_LEVEL && hero.xp >= _xpCeil(hero.level ?? 1)) {
+      hero.level = (hero.level ?? 1) + 1;
+      levelUps.push({ hero, newLevel: hero.level });
+    }
   });
 
   updateXPBar();
   setTimeout(() => heroes.forEach(h => showFloatingXP(h, amount)), 300);
 
-  if (leveledUp.length) {
+  if (levelUps.length) {
     setTimeout(() => {
       playSound('level_up');
-      leveledUp.forEach(hero => {
+      levelUps.forEach(({ hero, newLevel }) => {
         const heroDef = UNIT_TYPES[hero.type] ?? {};
         const conMod  = Math.floor(((heroDef.abilities?.con ?? 10) - 10) / 2);
         const hpGain  = (heroDef.hitDie ?? 8) + conMod;
         hero.maxHp   += hpGain;
         hero.hp      += hpGain;
         showLevelUpFloat(hero);
-        addLog(`⬆ ${heroDef.name} reaches Level 2! +${hpGain} HP`, 'levelup');
+        addLog(`⬆ ${heroDef.name} reaches Level ${newLevel}! +${hpGain} HP (max roll + CON)`, 'levelup');
       });
     }, 1800);
   }

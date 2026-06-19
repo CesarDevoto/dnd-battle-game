@@ -120,7 +120,7 @@ export const grid = new THREE.LineSegments(
   })
 );
 grid.renderOrder = 2;
-grid.visible = true;
+grid.visible = false;
 scene.add(grid);
 
 export function rebuildGrid() {
@@ -129,12 +129,17 @@ export function rebuildGrid() {
 }
 
 const gridBtn = document.getElementById('grid-toggle-btn');
-gridBtn.textContent = 'Grid On';
+gridBtn.textContent = 'Grid Off';
+gridBtn.classList.add('off');
 gridBtn.addEventListener('click', function () {
-  grid.visible = !grid.visible;
-  this.textContent = grid.visible ? 'Grid On' : 'Grid Off';
-  this.classList.toggle('off', !grid.visible);
+  setGridVisible(!grid.visible);
 });
+
+export function setGridVisible(v) {
+  grid.visible = v;
+  gridBtn.textContent = v ? 'Grid On' : 'Grid Off';
+  gridBtn.classList.toggle('off', !v);
+}
 
 export const divider = new THREE.Mesh(
   new THREE.PlaneGeometry(GROUND_SIZE, SCENE.dividerWidth),

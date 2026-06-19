@@ -43,7 +43,10 @@ export function updateHUD() {
     u.fill.style.width    = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
 
     // Is this bar supposed to be visible at all?
-    const shouldShow = u.barForced || now < u.barShowUntil || allBarsVisible;
+    // During combat, only units in the initiative order can show bars.
+    const inCombat   = !combatPhase || turnOrder.includes(u);
+    const barsOk     = allBarsVisible && (combatPhase || u.team === 'blue');
+    const shouldShow = inCombat && (u.barForced || now < u.barShowUntil || barsOk);
     if (!shouldShow) {
       u.barEl.style.opacity = '0';
       return;

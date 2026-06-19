@@ -347,6 +347,8 @@ function _buildDlgUI() {
   _dlgEl.querySelector('.dagna-dlg-btn').addEventListener('click', _onContinue);
 }
 
+export function showQuickDialogue(lines, onDone) { _showLines(lines, onDone); }
+
 function _showLines(lines, onDone, preview = false) {
   _isPreview = preview || _forcePreview;
   _forcePreview = false;
@@ -440,19 +442,23 @@ function _hideDlg() {
 const _BUST_SRC = {
   Dagna:   '/assets/Pictures%20Cutscenes%20Icons/dagnabust.jpg',
   Leugren: '/assets/Pictures%20Cutscenes%20Icons/leugrenbust.jpg',
+  Milo:    '/assets/Pictures%20Cutscenes%20Icons/milobust.jpg',
+  Gobo:    '/assets/Pictures%20Cutscenes%20Icons/gobobust.jpg',
+  Rasec:   '/assets/Pictures%20Cutscenes%20Icons/rasecbust.jpg',
 };
 
 function _renderLine() {
   const l = _lines[_lineIdx];
   const isDagna   = l.s === 'Dagna';
+  const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec' };
   const speakerEl = _dlgEl.querySelector('.dagna-dlg-speaker');
   speakerEl.textContent = l.s;
-  speakerEl.className   = 'dagna-dlg-speaker' + (isDagna ? '' : ' dlg-speaker-leugren');
+  speakerEl.className   = 'dagna-dlg-speaker' + (isDagna ? '' : ` ${_SPEAKER_CLS[l.s] ?? 'dlg-speaker-leugren'}`);
   _dlgEl.querySelector('.dagna-dlg-text').textContent = l.t;
   _dlgEl.querySelector('#dagna-bust').src = _BUST_SRC[l.s] ?? _BUST_SRC.Dagna;
   const isLast = _lineIdx === _lines.length - 1;
   _dlgEl.querySelector('.dagna-dlg-btn').textContent =
-    isLast ? (_isPreview ? 'End Sequence' : 'Farewell') : 'Continue';
+    isLast ? (_isPreview ? 'End Sequence' : 'Close') : 'Continue';
 }
 
 function _previewCleanup() {
