@@ -11,34 +11,36 @@ const VOL = {
 // ── Sound manifest ────────────────────────────────────────────────────────────
 const SOUNDS = {
   // Ambient loops — one per biome
-  forest:        { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  goblin_ambush: { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  river_styx:    { src: 'assets/Audio/Ambient/RiverStyxAmbience.mp3', category: 'ambient', loop: true, volume: 0.3 },
-  dungeon:       { src: 'assets/Audio/Ambient/RiverStyxAmbience.mp3', category: 'ambient', loop: true },
-  swamp:         { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  tundra:        { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  savanna:       { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  desert:        { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
-  graveyard:     { src: 'assets/Audio/Ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  forest:        { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  goblin_ambush: { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  river_styx:    { src: 'assets/Audio/ambient/RiverStyxAmbience.mp3', category: 'ambient', loop: true, volume: 0.3 },
+  dungeon:       { src: 'assets/Audio/ambient/RiverStyxAmbience.mp3', category: 'ambient', loop: true },
+  swamp:         { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  tundra:        { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  savanna:       { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  desert:        { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
+  graveyard:     { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   // Unit-specific — aggro & attack vocalizations
-  mane_dretch_aggro:  { src: 'assets/Audio/Combat/mane dretch aggro.mp3',  category: 'combat' },
-  mane_dretch_attack: { src: 'assets/Audio/Combat/mane dretch attack.mp3', category: 'combat' },
-  orc_aggro:          { src: 'assets/Audio/Combat/orc aggro.mp3',           category: 'combat' },
-  orc_attack:         { src: 'assets/Audio/Combat/orc attack.mp3',          category: 'combat' },
-  ogre_aggro:         { src: 'assets/Audio/Combat/ogre aggro.mp3',          category: 'combat' },
-  ogre_attack:        { src: 'assets/Audio/Combat/ogre attack.mp3',         category: 'combat' },
-  chicken_aggro:      { src: 'assets/Audio/Combat/chicken aggro.mp3',       category: 'combat' },
-  chicken_attack:     { src: 'assets/Audio/Combat/chicken attack.mp3',      category: 'combat' },
-  goblin_aggro:       { src: 'assets/Audio/Combat/goblin aggro.mp3',        category: 'combat' },
-  goblin_attack:      { src: 'assets/Audio/Combat/goblin attack.mp3',       category: 'combat' },
+  mane_dretch_aggro:  { src: 'assets/Audio/combat/mane dretch aggro.mp3',  category: 'combat' },
+  mane_dretch_attack: { src: 'assets/Audio/combat/mane dretch attack.mp3', category: 'combat' },
+  orc_aggro:          { src: 'assets/Audio/combat/orc aggro.mp3',           category: 'combat' },
+  orc_attack:         { src: 'assets/Audio/combat/orc attack.mp3',          category: 'combat' },
+  ogre_aggro:         { src: 'assets/Audio/combat/ogre aggro.mp3',          category: 'combat' },
+  ogre_attack:        { src: 'assets/Audio/combat/ogre attack.mp3',         category: 'combat' },
+  chicken_aggro:      { src: 'assets/Audio/combat/chicken aggro.mp3',       category: 'combat' },
+  chicken_attack:     { src: 'assets/Audio/combat/chicken attack.mp3',      category: 'combat' },
+  goblin_aggro:       { src: 'assets/Audio/combat/goblin aggro.mp3',        category: 'combat' },
+  goblin_attack:      { src: 'assets/Audio/combat/goblin attack.mp3',       category: 'combat' },
+  goblin_yell:        { src: 'assets/Audio/combat/goblin yell.mp3',         category: 'combat' },
+  goblin_moving:      { src: 'assets/Audio/combat/goblin moving.mp3',       category: 'combat' },
   // Combat one-shots (files not yet added — will silently skip)
-  sword_hit:     { src: 'assets/Audio/Combat/sword_hit.mp3',      category: 'combat' },
-  arrow_shoot:   { src: 'assets/Audio/Combat/arrow_shoot.mp3',    category: 'combat' },
-  arrow_hit:     { src: 'assets/Audio/Combat/arrow_hit.mp3',      category: 'combat' },
-  fire_bolt:     { src: 'assets/Audio/Combat/fire_bolt.mp3',      category: 'combat' },
-  healing:       { src: 'assets/Audio/Combat/healing.mp3',        category: 'combat' },
-  miss:          { src: 'assets/Audio/Combat/miss.mp3',           category: 'combat' },
-  death:         { src: 'assets/Audio/Combat/death.mp3',          category: 'combat' },
+  sword_hit:     { src: 'assets/Audio/combat/sword_hit.mp3',      category: 'combat' },
+  arrow_shoot:   { src: 'assets/Audio/combat/arrow_shoot.mp3',    category: 'combat' },
+  arrow_hit:     { src: 'assets/Audio/combat/arrow_hit.mp3',      category: 'combat' },
+  fire_bolt:     { src: 'assets/Audio/combat/fire_bolt.mp3',      category: 'combat' },
+  healing:       { src: 'assets/Audio/combat/healing.mp3',        category: 'combat' },
+  miss:          { src: 'assets/Audio/combat/miss.mp3',           category: 'combat' },
+  death:         { src: 'assets/Audio/combat/death.mp3',          category: 'combat' },
   // UI (files not yet added — will silently skip)
   combat_start:  { src: 'assets/Audio/ui/combat_start.mp3',       category: 'ui' },
   turn_start:    { src: 'assets/Audio/ui/turn_start.mp3',         category: 'ui' },
@@ -178,7 +180,7 @@ const UNIT_SOUNDS = {
   orc:            { aggro: 'orc_aggro',          attack: 'orc_attack' },
   ogre:           { aggro: 'ogre_aggro',         attack: 'ogre_attack' },
   abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
-  goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_attack' },
+  goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
 };
 
 export function playUnitAggroSound(unitType) {
@@ -188,6 +190,11 @@ export function playUnitAggroSound(unitType) {
 
 export function playUnitAttackSound(unitType) {
   const key = UNIT_SOUNDS[unitType]?.attack;
+  if (key) playSound(key);
+}
+
+export function playUnitMoveSound(unitType) {
+  const key = UNIT_SOUNDS[unitType]?.move;
   if (key) playSound(key);
 }
 

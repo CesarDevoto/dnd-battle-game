@@ -18,7 +18,7 @@ import { bindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee } from './combatAI.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
-import { playSound, playUnitAttackSound } from './audio.js';
+import { playSound, playUnitAttackSound, playUnitMoveSound } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
@@ -651,6 +651,7 @@ function animatePath(unit, path, onComplete) {
   if (!path.length) { onComplete(); return; }
   isAnimating = true;
   setUnitWalking(unit, true, true);
+  playUnitMoveSound(unit.type);
 
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
