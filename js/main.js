@@ -29,6 +29,7 @@ import { tickStars } from './investigateStars.js';
 import { prewarmEffectShaders } from './firebolt.js';
 import { initAudio, initMixerPanel } from './audio.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
+import { initXPTable } from './xpTable.js';
 
 buildHeroPortraits();
 prewarmEffectShaders();
@@ -36,6 +37,7 @@ initAudio();
 initMixerPanel();
 initEngagementLines();
 initBestiary();
+initXPTable();
 initSpellbook();
 initHotbar();
 initZoneUI();

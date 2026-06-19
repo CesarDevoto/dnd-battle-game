@@ -6,6 +6,7 @@ const VOL = {
   ambient: 0.35,
   combat:  0.80,
   ui:      0.55,
+  music:   0.50,
 };
 
 // ── Sound manifest ────────────────────────────────────────────────────────────
@@ -33,6 +34,8 @@ const SOUNDS = {
   goblin_attack:      { src: 'assets/Audio/combat/goblin attack.mp3',       category: 'combat' },
   goblin_yell:        { src: 'assets/Audio/combat/goblin yell.mp3',         category: 'combat' },
   goblin_moving:      { src: 'assets/Audio/combat/goblin moving.mp3',       category: 'combat' },
+  // Combat music
+  combat_music:    { src: 'assets/Audio/combat/combat background music.mp3', category: 'music', loop: true },
   // Weapon / spell sounds
   berserker_rage:   { src: 'assets/Audio/combat/berserker rage.mp3',                 category: 'combat' },
   sword_swing:      { src: 'assets/Audio/combat/sword swing.mp3',                   category: 'combat' },
@@ -51,7 +54,7 @@ const SOUNDS = {
   // UI (files not yet added — will silently skip)
   combat_start:  { src: 'assets/Audio/ui/combat_start.mp3',       category: 'ui' },
   turn_start:    { src: 'assets/Audio/ui/turn_start.mp3',         category: 'ui' },
-  level_up:      { src: 'assets/Audio/ui/level_up.mp3',           category: 'ui' },
+  level_up:      { src: 'assets/audio/system sounds/Ding.mp3',    category: 'ui' },
 };
 
 const FADE_SECS = 1.5;   // ambient crossfade duration
@@ -62,6 +65,7 @@ let _masterGain    = null;
 const _catGains    = {};     // category GainNode per category name
 const _buffers     = {};     // decoded AudioBuffer per sound key
 const _ambientNode = { src: null, gain: null };  // currently playing ambient
+const _musicNode   = { src: null, gain: null };  // currently playing combat music
 
 // ── AudioContext bootstrap ────────────────────────────────────────────────────
 function _getCtx() {
@@ -72,7 +76,7 @@ function _getCtx() {
   _masterGain.gain.value = VOL.master;
   _masterGain.connect(_ctx.destination);
 
-  for (const cat of ['ambient', 'combat', 'ui']) {
+  for (const cat of ['ambient', 'combat', 'ui', 'music']) {
     const g = _ctx.createGain();
     g.gain.value = VOL[cat] ?? 1.0;
     g.connect(_masterGain);
@@ -163,6 +167,44 @@ export function stopAmbient() {
   playAmbient(null);  // fades out current without starting a new one
 }
 
+// ── Combat music ──────────────────────────────────────────────────────────────
+export function playCombatMusic(key) {
+  const buf = key ? _buffers[key] : null;
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+  const now = ctx.currentTime;
+
+  if (_musicNode.src && _musicNode.gain) {
+    const oldGain = _musicNode.gain;
+    oldGain.gain.setValueAtTime(oldGain.gain.value, now);
+    oldGain.gain.linearRampToValueAtTime(0, now + FADE_SECS);
+    const oldSrc = _musicNode.src;
+    setTimeout(() => { try { oldSrc.stop(); } catch {} }, (FADE_SECS + 0.1) * 1000);
+    _musicNode.src  = null;
+    _musicNode.gain = null;
+  }
+
+  if (!buf) return;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(1.0, now + FADE_SECS);
+  gain.connect(_catGains.music);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop   = true;
+  src.connect(gain);
+  src.start();
+
+  _musicNode.src  = src;
+  _musicNode.gain = gain;
+}
+
+export function stopCombatMusic() {
+  playCombatMusic(null);
+}
+
 // ── Volume control ────────────────────────────────────────────────────────────
 export function setMasterVolume(v) {
   VOL.master = v;
@@ -206,6 +248,11 @@ export function playUnitAttackSound(unitType) {
 export function playUnitMoveSound(unitType) {
   const key = UNIT_SOUNDS[unitType]?.move;
   if (key) playSound(key);
+}
+
+export function getUnitAttackDuration(unitType) {
+  const key = UNIT_SOUNDS[unitType]?.attack;
+  return key ? (_buffers[key]?.duration ?? 0) : 0;
 }
 
 // ── Dev mixer panel ───────────────────────────────────────────────────────────

@@ -45,6 +45,7 @@
 .play-mode #biomes-btn,
 .play-mode #bestiary-btn,
 .play-mode #spellbook-btn,
+.play-mode #xp-table-btn,
 .play-mode #npc-editor-btn,
 .play-mode #npc-editor-panel,
 .play-mode #npc-ai-editor-btn,
@@ -2626,6 +2627,10 @@ body {
 .bst-th-biome { width: 108px; }
 .bst-th-ab    { width: 50px;  text-align: center !important; }
 .bst-th-atks  { }
+
+/* Retired / superseded columns — greyed out */
+th.bst-col-retired { color: #2a2820 !important; }
+td.bst-col-retired { color: #343228 !important; }
 
 .bst-cr-row td {
   font-family: var(--font-fantasy);
@@ -5405,11 +5410,11 @@ body {
 #dagna-dialogue {
   display: none;
   position: fixed;
-  bottom: 9%;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 10px;
+  left: 10px;
+  transform: none;
   z-index: 800;
-  width: min(620px, 92vw);
+  width: min(580px, 60vw);
   pointer-events: none;
 }
 .dagna-dlg-row {
@@ -5506,3 +5511,187 @@ body {
 }
 .styx-kills-sep { color: #7733aa; }
 .styx-kills-goal { color: #cc88ff; font-size: 0.9rem; }
+
+/* ── XP Table button ─────────────────────────────────────────────────── */
+#xp-table-btn {
+  position: absolute;
+  top: 14px;
+  right: 1070px;
+  z-index: 22;
+  padding: 6px 16px;
+  font-family: var(--font-fantasy);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #88ddaa;
+  background: linear-gradient(180deg, rgba(3,18,10,0.96) 0%, rgba(1,8,4,0.99) 100%);
+  border: 1px solid rgba(80,180,120,0.38);
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s, text-shadow 0.15s;
+  box-shadow:
+    inset 0 1px 0 rgba(80,200,130,0.14),
+    inset 0 -1px 0 rgba(0,0,0,0.55),
+    0 0 0 1px rgba(0,0,0,0.65),
+    0 3px 12px rgba(0,0,0,0.70);
+}
+#xp-table-btn:hover {
+  color: #aaffcc;
+  border-color: #44cc88;
+  background: linear-gradient(180deg, rgba(6,30,16,0.98) 0%, rgba(2,12,6,0.99) 100%);
+  text-shadow: 0 0 10px rgba(80,220,140,0.55);
+}
+
+/* ── XP Table overlay ────────────────────────────────────────────────── */
+#xp-table-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 80;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+}
+#xp-table-overlay.show { display: flex; }
+
+#xp-table-modal {
+  width: min(640px, 94vw);
+  max-height: 88vh;
+  background:
+    repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(80,200,130,0.006) 3px, rgba(80,200,130,0.006) 4px),
+    radial-gradient(ellipse 160% 60% at 50% 0%, rgba(10,40,20,0.42) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(4,14,8,0.99) 0%, rgba(1,5,2,1.00) 100%);
+  border: 1px solid #1a4a28;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(80,200,130,0.10),
+    inset 0 1px 0 rgba(80,200,130,0.20),
+    0 0 0 1px rgba(0,0,0,0.90),
+    0 0 100px rgba(0,0,0,0.95),
+    0 0 50px rgba(80,200,130,0.06);
+}
+
+#xp-table-header {
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent 0%, #0d3018 15%, #1a6030 50%, #0d3018 85%, transparent 100%) 1;
+  position: relative;
+  flex-shrink: 0;
+  text-align: center;
+}
+#xp-table-title {
+  font-family: var(--font-fantasy);
+  font-size: 1.05rem;
+  letter-spacing: 8px;
+  color: #66cc88;
+  text-shadow:
+    0 0 18px rgba(80,200,130,0.60),
+    0 0 42px rgba(80,200,130,0.30);
+  margin-bottom: 3px;
+}
+#xp-table-subtitle {
+  font-family: var(--font-fantasy);
+  font-size: 0.56rem;
+  letter-spacing: 2.5px;
+  color: #2a6040;
+  text-transform: uppercase;
+}
+#xp-table-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #2a6040;
+  font-size: 0.80rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-family: var(--font-body);
+  transition: color 0.12s, text-shadow 0.12s;
+  line-height: 1;
+}
+#xp-table-close:hover { color: #66cc88; text-shadow: 0 0 8px rgba(80,200,130,0.55); }
+
+#xp-table-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 20px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #1a4a28 transparent;
+}
+
+/* ── XP table ────────────────────────────────────────────────────────── */
+#xp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+}
+#xp-table thead th {
+  font-family: var(--font-fantasy);
+  font-size: 0.56rem;
+  letter-spacing: 2px;
+  color: #2a6040;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 10px 12px 7px;
+  border-bottom: 1px solid #0d3018;
+  background: rgba(4,14,8,0.99);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+#xp-table thead th:first-child { text-align: left; }
+
+#xp-table tbody tr td {
+  padding: 7px 12px;
+  font-size: 0.72rem;
+  color: #6a9080;
+  text-align: center;
+  border-bottom: 1px solid rgba(80,200,130,0.05);
+}
+#xp-table tbody tr td:first-child {
+  text-align: left;
+  color: #99ccaa;
+  font-weight: 600;
+}
+#xp-table tbody tr:hover td { background: rgba(80,200,130,0.04); }
+
+#xp-table tbody tr.xp-milestone td {
+  color: #88ddaa;
+}
+#xp-table tbody tr.xp-milestone td:last-child {
+  color: #55cc88;
+  font-style: italic;
+}
+#xp-table tbody tr.xp-milestone td:first-child {
+  color: #aaeebb;
+}
+
+#xp-table tbody tr.xp-band {
+  border-top: 1px solid rgba(80,200,130,0.12);
+}
+#xp-table tbody tr.xp-band td {
+  color: #55aa77;
+  font-style: italic;
+}
+#xp-table tbody tr.xp-band td:first-child {
+  color: #77cc99;
+  font-style: normal;
+}
+
+#xp-table tbody tr.xp-cap td {
+  color: #66cc88;
+  border-top: 1px solid rgba(80,200,130,0.25);
+  font-weight: 600;
+}
+#xp-table tbody tr.xp-cap td:first-child {
+  color: #aaffcc;
+}

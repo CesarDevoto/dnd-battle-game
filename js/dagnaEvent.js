@@ -117,7 +117,7 @@ function _buildPortal(x, y, z) {
       side: THREE.DoubleSide, depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.renderOrder = -1;  // renders before opaque objects; they overwrite it
+    mesh.renderOrder = 2;  // after opaque terrain/env (0) so depth test works; characters still occlude it
     grp.add(mesh);
     return { mat, base: op };
   });
@@ -140,7 +140,7 @@ function _buildPortal(x, y, z) {
     color: 0x55ddff, size: 0.055, transparent: true, opacity: 0.88, depthWrite: false,
   });
   const pts = new THREE.Points(pGeo, pMat);
-  pts.renderOrder = -1;
+  pts.renderOrder = 2;
   grp.add(pts);
 
   scene.add(grp);
@@ -251,7 +251,7 @@ const _LINES_A = [
   { s: 'Dagna',   t: "Precisely.  For a chance at life's renewal, ye and yer fellowship must now play a small part." },
   { s: 'Leugren', t: "Anything is better than death!  What must we do?" },
   { s: 'Dagna',   t: "Yer souls are temporarily delivered to Avernus - first of the Nine Hells - where the wretched River Styx burns." },
-  { s: 'Leugren', t: "But if death came so easily among us in this mortal realm how does our Lord expect us to..." },
+  { s: 'Leugren', t: "But... but if death came so easily among us in this mortal realm how does our Lord expect us to..." },
   { s: 'Dagna',   t: "Yes. Your talents are feeble things, barely fledged. But remember this — Even the smallest pebble can start an avalanche that buries mountains." },
   { s: 'Dagna',   t: "Come...", goStyx: true },
 ];
@@ -260,7 +260,7 @@ const _LINES_B = [
   { s: 'Dagna',   t: "Behold the River Styx.  Demons pour forth from the curdling rift into this infernal land to exact destruction wherever they may." },
   { s: 'Leugren', t: "Demons!!!" },
   { s: 'Dagna',   t: "And devils shall join them in their dance of death... Are you ready?" },
-  { s: 'Leugren', t: "We are ready." },
+  { s: 'Leugren', t: "I don't know what we can possibly do here but... yes... we are ready..." },
   { s: 'Dagna',   t: "Your fellowship is to do the Lord's favor and slay six abyssal or infernal foes in our Father's name.  Only then shall ye be restored to life." },
   { s: 'Leugren', t: "It shall be done!" },
   { s: 'Dagna',   t: "Stand with honor brother." },
@@ -347,7 +347,7 @@ function _getLeugrenPos() {
 }
 
 function _portalSpot(lp) {
-  const px = lp.x + 2.5;
+  const px = lp.x + 4.5;  // 15 ft ≈ 4.5 WU
   return { x: px, y: getTerrainHeight(px, lp.z) + 0.06, z: lp.z };
 }
 
@@ -360,7 +360,7 @@ function _openPortalAndWalk(pp, lp, onArrived) {
     const walkTo   = new THREE.Vector3(lp.x + 0.8, gy, lp.z);
     const facing   = Math.atan2(walkTo.x - spawnAt.x, walkTo.z - spawnAt.z);
     _spawnDagna(spawnAt, facing, () => {
-      _startMove(spawnAt, walkTo, 1.1, onArrived);
+      _startMove(spawnAt, walkTo, 4.0, onArrived);
     });
   }, 1350);
 }

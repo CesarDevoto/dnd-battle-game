@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
-import { units, buildUnit, corpses, modelsReady } from './units.js';
+import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed } from './terrain.js';
 import { UNIT_TYPES } from './constants.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -68,7 +68,7 @@ function _tickSpawns(roundNum) {
     if (s.roams)                          u.roams = true;
     if (s.roamMode)                       u.roamMode = s.roamMode;
     if (s.wanderRadius != null)           u.wanderRadius = s.wanderRadius;
-    if (s.stealthed)                      { u.stealthed = true; if (!isDevMode()) u.grp.visible = false; }
+    if (s.stealthed)                      { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
 
     // Reinforcements are immediately hostile
     u.aggro = true;
@@ -212,7 +212,7 @@ export function loadZone(id, repositionHeroes = false) {
     if (e.roams)                    u.roams            = true;
     if (e.roamMode)             u.roamMode     = e.roamMode;
     if (e.wanderRadius != null) u.wanderRadius = e.wanderRadius;
-    if (e.stealthed)            { u.stealthed = true; if (!isDevMode()) u.grp.visible = false; }
+    if (e.stealthed)            { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
     if (e.attackPref)           u.attackPref   = e.attackPref;
   });
 

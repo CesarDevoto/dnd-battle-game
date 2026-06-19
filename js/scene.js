@@ -114,10 +114,13 @@ export const grid = new THREE.LineSegments(
   new THREE.LineBasicMaterial({
     color:       COLORS.gridMain,
     transparent: true,
-    opacity:     0.18,
+    opacity:     0.03,
+    depthTest:   false,
+    depthWrite:  false,
   })
 );
-grid.visible = false;
+grid.renderOrder = 2;
+grid.visible = true;
 scene.add(grid);
 
 export function rebuildGrid() {
@@ -126,8 +129,7 @@ export function rebuildGrid() {
 }
 
 const gridBtn = document.getElementById('grid-toggle-btn');
-gridBtn.textContent = 'Grid Off';
-gridBtn.classList.add('off');
+gridBtn.textContent = 'Grid On';
 gridBtn.addEventListener('click', function () {
   grid.visible = !grid.visible;
   this.textContent = grid.visible ? 'Grid On' : 'Grid Off';

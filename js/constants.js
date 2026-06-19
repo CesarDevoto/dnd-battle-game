@@ -157,12 +157,12 @@ export const UNIT_TYPES = {
     anchorY: 0.69,
     // CR 1/8 — Very Easy
     detect: 20,
-    hp: 8, ac: 13, speed: 30, initiative: 0, xpReward: 25,
+    hp: 5, ac: 12, speed: 30, initiative: 0, xpReward: 25,
     profBonus: 2,
-    abilities: { str: 8, dex: 14, con: 10, int: 8, wis: 10, cha: 8 },
+    abilities: { str: 7, dex: 15, con: 9, int: 8, wis: 7, cha: 8 },
     attacks: [
-      { name: 'Bite',  type: 'melee',  range: 5,  dice: 1, sides: 4, statMod: 'dex' },
-      { name: 'Sling', type: 'ranged', range: 30, dice: 1, sides: 4, statMod: 'dex' },
+      { name: 'Dagger', type: 'melee',  range: 5,  dice: 1, sides: 4, statMod: 'dex' },
+      { name: 'Sling',  type: 'ranged', range: 15, longRange: 60, dice: 1, sides: 4, statMod: 'dex' },
     ],
   },
 
@@ -175,12 +175,12 @@ export const UNIT_TYPES = {
     anchorY: 1.4,
     // CR 1/4 — Easy
     detect: 20,
-    hp: 12, ac: 14, speed: 30, initiative: 0, xpReward: 50,
+    hp: 7, ac: 15, speed: 30, initiative: 0, xpReward: 50,
     profBonus: 2,
-    abilities: { str: 10, dex: 14, con: 12, int: 10, wis: 10, cha: 8 },
+    abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
-      { name: 'Shortbow', type: 'ranged', range: 45, dice: 1, sides: 6, statMod: 'dex' },
+      { name: 'Shortbow', type: 'ranged', range: 40, longRange: 160, dice: 1, sides: 6, statMod: 'dex' },
     ],
   },
 
@@ -193,9 +193,9 @@ export const UNIT_TYPES = {
     anchorY: 2.8,
     // CR 1/2 — Medium
     detect: 20,
-    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 100,
+    hp: 15, ac: 13, speed: 30, initiative: 0, xpReward: 100,
     profBonus: 2,
-    abilities: { str: 16, dex: 12, con: 16, int: 8, wis: 12, cha: 10 },
+    abilities: { str: 16, dex: 12, con: 16, int: 7, wis: 11, cha: 10 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },
       { name: 'Handaxe',  type: 'ranged', range: 20, longRange: 60, dice: 1, sides: 6, statMod: 'str' },
@@ -214,12 +214,12 @@ export const UNIT_TYPES = {
     anchorY: 3.5,
     // CR 2 — Hard
     detect: 20,
-    hp: 55, ac: 13, speed: 40, initiative: 0, xpReward: 450,
+    hp: 59, ac: 11, speed: 40, initiative: 0, xpReward: 450,
     profBonus: 2,
-    abilities: { str: 19, dex: 8, con: 16, int: 6, wis: 8, cha: 7 },
+    abilities: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
     attacks: [
       { name: 'Greatclub', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
-      { name: 'Javelin',   type: 'ranged', range: 30, longRange: 120, dice: 2, sides: 6, statMod: 'str', qty: 2 },
+      { name: 'Javelin',   type: 'ranged', range: 15, longRange: 60, dice: 2, sides: 6, statMod: 'str', qty: 2 },
     ],
   },
 
@@ -252,8 +252,8 @@ export const UNIT_TYPES = {
     hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 11, int: 6, wis: 10, cha: 7 },
     attacks: [
-      { name: 'Spear',   type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
-      { name: 'Longbow', type: 'ranged', range: 60, longRange: 240, dice: 1, sides: 8, statMod: 'dex' },
+      { name: 'Spear',   type: 'melee',  range: 5,   dice: 1, sides: 6, statMod: 'str' },
+      { name: 'Longbow', type: 'ranged', range: 75, longRange: 300, dice: 1, sides: 8, statMod: 'dex' },
     ],
   },
 
@@ -291,7 +291,7 @@ export const UNIT_TYPES = {
   stirge: {
     name: 'Stirge', team: 'red',
     scale: [0.5, 0.5, 0.5], anchorY: 0.8, hoverY: 2.5,
-    hp: 7, ac: 14, speed: 10, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 2, ac: 14, speed: 10, initiative: 0, xpReward: 25, profBonus: 2,
     abilities: { str: 4, dex: 16, con: 11, int: 2, wis: 8, cha: 6 },
     attacks: [
       { name: 'Blood Drain', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
@@ -327,7 +327,7 @@ export const UNIT_TYPES = {
     abilities: { str: 15, dex: 14, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
-      { name: 'Constrict', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str',
+      { name: 'Constrict', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
         note: 'DC 14 STR or grappled and restrained' },
     ],
   },
@@ -339,7 +339,7 @@ export const UNIT_TYPES = {
     abilities: { str: 15, dex: 10, con: 13, int: 7, wis: 12, cha: 7 },
     attacks: [
       { name: 'Heavy Club', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
-      { name: 'Javelin',    type: 'ranged', range: 30, longRange: 120, dice: 1, sides: 6, statMod: 'str' },
+      { name: 'Javelin',    type: 'ranged', range: 15, longRange: 60, dice: 1, sides: 6, statMod: 'str' },
     ],
   },
 
@@ -350,7 +350,7 @@ export const UNIT_TYPES = {
     abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9 },
     attacks: [
       { name: 'Morningstar', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
-      { name: 'Javelin',     type: 'ranged', range: 30, longRange: 120, dice: 2, sides: 6, statMod: 'str' },
+      { name: 'Javelin',     type: 'ranged', range: 15, longRange: 60, dice: 2, sides: 6, statMod: 'str' },
     ],
   },
 
@@ -372,7 +372,7 @@ export const UNIT_TYPES = {
     abilities: { str: 13, dex: 12, con: 12, int: 10, wis: 10, cha: 9 },
     attacks: [
       { name: 'Longsword', type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
-      { name: 'Longbow',   type: 'ranged', range: 60, longRange: 240, dice: 1, sides: 8, statMod: 'dex' },
+      { name: 'Longbow',   type: 'ranged', range: 75, longRange: 300, dice: 1, sides: 8, statMod: 'dex' },
     ],
   },
 
@@ -382,8 +382,8 @@ export const UNIT_TYPES = {
     hp: 49, ac: 15, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 11, cha: 9 },
     attacks: [
-      { name: 'Flail',   type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
-      { name: 'Longbow', type: 'ranged', range: 60, longRange: 240, dice: 1, sides: 8, statMod: 'dex' },
+      { name: 'Flail',   type: 'melee',  range: 5,   dice: 1, sides: 8, statMod: 'str' },
+      { name: 'Longbow', type: 'ranged', range: 75, longRange: 300, dice: 1, sides: 8, statMod: 'dex' },
     ],
   },
 
@@ -394,14 +394,14 @@ export const UNIT_TYPES = {
     abilities: { str: 11, dex: 16, con: 11, int: 13, wis: 12, cha: 14 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'dex' },
-      { name: 'Shortbow', type: 'ranged', range: 80, longRange: 320, dice: 2, sides: 6, statMod: 'dex' },
+      { name: 'Shortbow', type: 'ranged', range: 40, longRange: 160, dice: 1, sides: 6, statMod: 'dex' },
     ],
   },
 
   giant_constrictor_snake: {
     name: 'Giant Constrictor Snake', team: 'red',
     scale: [1.35, 1.35, 1.35], anchorY: 1.8,
-    hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
     abilities: { str: 19, dex: 14, con: 12, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str' },
@@ -482,11 +482,11 @@ export const UNIT_TYPES = {
   yuan_ti_malison: {
     name: 'Yuan-ti Malison', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,
-    hp: 66, ac: 15, speed: 30, initiative: 0, xpReward: 1100, profBonus: 3,
+    hp: 66, ac: 15, speed: 30, initiative: 0, xpReward: 700, profBonus: 3,
     abilities: { str: 16, dex: 14, con: 13, int: 14, wis: 12, cha: 16 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'str' },
-      { name: 'Longbow',  type: 'ranged', range: 60, longRange: 240, dice: 1, sides: 8, statMod: 'dex',
+      { name: 'Longbow',  type: 'ranged', range: 75, longRange: 300, dice: 1, sides: 8, statMod: 'dex',
         note: 'DC 14 CON or 3d6 poison dmg' },
     ],
   },
@@ -494,7 +494,7 @@ export const UNIT_TYPES = {
   shambling_mound: {
     name: 'Shambling Mound', team: 'red',
     scale: [1.6, 1.6, 1.6], large: true, anchorY: 3.5,
-    hp: 136, ac: 15, speed: 20, initiative: 0, xpReward: 1800, profBonus: 4,
+    hp: 136, ac: 15, speed: 20, initiative: 0, xpReward: 1800, profBonus: 3,
     abilities: { str: 18, dex: 8, con: 16, int: 5, wis: 10, cha: 5 },
     attacks: [
       { name: 'Slam', type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str',
@@ -529,7 +529,7 @@ export const UNIT_TYPES = {
   mud_mephit: {
     name: 'Mud Mephit', team: 'red',
     scale: [0.75, 0.75, 0.75], anchorY: 1.1,
-    hp: 18, ac: 13, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 27, ac: 11, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
     abilities: { str: 8, dex: 12, con: 14, int: 9, wis: 11, cha: 7 },
     attacks: [
       { name: 'Claws',      type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -589,7 +589,7 @@ export const UNIT_TYPES = {
     abilities: { str: 15, dex: 10, con: 13, int: 11, wis: 14, cha: 11 },
     attacks: [
       { name: 'Claws',           type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
-      { name: 'Conjure Animals', type: 'ranged', range: 60, dice: 3, sides: 8, statMod: 'wis',
+      { name: 'Conjure Animals', type: 'ranged', range: 30, dice: 3, sides: 8, statMod: 'wis',
         note: 'Summons 2 crocodiles or 4 swarms of insects (1/day)' },
     ],
   },
@@ -601,7 +601,7 @@ export const UNIT_TYPES = {
     abilities: { str: 18, dex: 12, con: 16, int: 13, wis: 14, cha: 14 },
     attacks: [
       { name: 'Claws',          type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
-      { name: 'Ray of Sickness', type: 'ranged', range: 60, dice: 2, sides: 8, statMod: 'cha',
+      { name: 'Ray of Sickness', type: 'ranged', range: 30, dice: 2, sides: 8, statMod: 'cha',
         note: 'DC 14 CON or poisoned until end of next turn' },
     ],
   },
@@ -635,10 +635,10 @@ export const UNIT_TYPES = {
     name: 'Skeleton', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     hp: 13, ac: 13, speed: 30, initiative: 0, xpReward: 50, profBonus: 2,
-    abilities: { str: 10, dex: 16, con: 15, int: 6, wis: 8, cha: 5 },
+    abilities: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
-      { name: 'Shortbow',   type: 'ranged', range: 80, longRange: 320, dice: 1, sides: 6, statMod: 'dex',
+      { name: 'Shortbow',   type: 'ranged', range: 40, longRange: 160, dice: 1, sides: 6, statMod: 'dex',
         note: 'Vulnerability: bludgeoning; Immunity: poison, exhaustion' },
     ],
   },
@@ -680,11 +680,11 @@ export const UNIT_TYPES = {
   wight: {
     name: 'Wight', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.2,
-    hp: 45, ac: 14, speed: 30, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 45, ac: 14, speed: 30, initiative: 0, xpReward: 700, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 16, int: 10, wis: 13, cha: 15 },
     attacks: [
-      { name: 'Longsword',  type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str', dmgBonus: 3 },
-      { name: 'Life Drain', type: 'melee', range: 5, dice: 2, sides: 6, hitBonus: 4, dmgBonus: 3,
+      { name: 'Longsword',  type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
+      { name: 'Life Drain', type: 'melee', range: 5, dice: 1, sides: 6, hitBonus: 4, dmgBonus: 0,
         note: 'DC 13 CON or max HP reduced by damage dealt' },
     ],
   },
@@ -718,7 +718,7 @@ export const UNIT_TYPES = {
     abilities: { str: 21, dex: 8, con: 19, int: 5, wis: 9, cha: 6 },
     attacks: [
       { name: 'Greatclub', type: 'melee',  range: 5,  dice: 3, sides: 8,  statMod: 'str' },
-      { name: 'Rock',      type: 'ranged', range: 60, longRange: 240, dice: 3, sides: 10, statMod: 'str' },
+      { name: 'Rock',      type: 'ranged', range: 30, longRange: 120, dice: 3, sides: 10, statMod: 'str' },
     ],
   },
 
@@ -792,7 +792,7 @@ export const UNIT_TYPES = {
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       // dmgBonus: 0 — spell cantrip adds INT to attack roll only, not damage
-      { name: 'Fire Bolt', type: 'ranged', range: 120, dice: 1, sides: 10, statMod: 'int', dmgBonus: 0 },
+      { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int', dmgBonus: 0 },
       { name: 'Dagger',    type: 'melee',  range: 5,   dice: 1, sides: 4,  statMod: 'dex' },
     ],
   },
@@ -811,7 +811,7 @@ export const UNIT_TYPES = {
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer',     type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
-      { name: 'Light Crossbow', type: 'ranged', range: 80, longRange: 320, dice: 1, sides: 8, statMod: 'dex' },
+      { name: 'Light Crossbow', type: 'ranged', range: 40, longRange: 160, dice: 1, sides: 8, statMod: 'dex' },
     ],
   },
 
@@ -849,7 +849,7 @@ export const UNIT_TYPES = {
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
-      { name: 'Shortbow',   type: 'ranged', range: 80, longRange: 320, dice: 1, sides: 6, statMod: 'dex' },
+      { name: 'Shortbow',   type: 'ranged', range: 40, longRange: 160, dice: 1, sides: 6, statMod: 'dex' },
     ],
   },
 };
@@ -890,6 +890,7 @@ export const UI = {
 export const ENVS = {
   forest: {
     sky: 0x142d12, fog: 0x1a3818, density: 0.016, ground: 0xd8ecd4,
+    gridColor: 0xc8a870,
     ambColor: 0x2a5228, ambInt: 5.4,
     moonColor: 0xaaddbb, moonInt: 3.84,
     rimColor:  0x336633, rimInt:  0.72,

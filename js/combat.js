@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim } from './units.js';
+import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
@@ -18,7 +18,7 @@ import { bindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee } from './combatAI.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
-import { playSound, playUnitAttackSound, playUnitMoveSound } from './audio.js';
+import { playSound, playUnitAttackSound, playUnitMoveSound, getUnitAttackDuration, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
@@ -124,10 +124,12 @@ export const activeRing = new THREE.Mesh(
   _makeConformingGeo(0, 0, INTERACTION.activeRingInner, INTERACTION.activeRingOuter, 32, 0.05),
   new THREE.MeshBasicMaterial({
     color: COLORS.activeRing, side: THREE.DoubleSide, transparent: true, opacity: 0.8,
+    depthTest: false,
   })
 );
 activeRing.frustumCulled = false;
-activeRing.visible    = false;
+activeRing.renderOrder   = 3;
+activeRing.visible       = false;
 scene.add(activeRing);
 
 // ── Move-range tile set (click detection + AI — no visual tiles) ─────────────
@@ -142,11 +144,13 @@ for (let i = 0; i < MAX_ATK_RINGS; i++) {
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.85, 1.10, 32),
     new THREE.MeshBasicMaterial({
-      color: 0xff6622, side: THREE.DoubleSide, transparent: true, opacity: 0.80, depthWrite: false,
+      color: 0xff6622, side: THREE.DoubleSide, transparent: true, opacity: 0.80,
+      depthWrite: false, depthTest: false,
     })
   );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.07;
+  ring.rotation.x  = -Math.PI / 2;
+  ring.position.y  = 0.07;
+  ring.renderOrder = 3;
   ring.visible = false;
   scene.add(ring);
   atkRings.push(ring);
@@ -162,11 +166,13 @@ for (let i = 0; i < MAX_HEAL_RINGS; i++) {
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.85, 1.10, 32),
     new THREE.MeshBasicMaterial({
-      color: 0x22dd88, side: THREE.DoubleSide, transparent: true, opacity: 0.80, depthWrite: false,
+      color: 0x22dd88, side: THREE.DoubleSide, transparent: true, opacity: 0.80,
+      depthWrite: false, depthTest: false,
     })
   );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.07;
+  ring.rotation.x  = -Math.PI / 2;
+  ring.position.y  = 0.07;
+  ring.renderOrder = 3;
   ring.visible = false;
   scene.add(ring);
   healRings.push(ring);
@@ -241,6 +247,7 @@ export const meleeRangeRing = new THREE.Mesh(
   })
 );
 meleeRangeRing.frustumCulled = false;
+meleeRangeRing.renderOrder   = 3;
 meleeRangeRing.visible = false;
 scene.add(meleeRangeRing);
 
@@ -252,6 +259,7 @@ export const rangedRangeRing = new THREE.Mesh(
   })
 );
 rangedRangeRing.frustumCulled = false;
+rangedRangeRing.renderOrder   = 3;
 rangedRangeRing.visible = false;
 scene.add(rangedRangeRing);
 
@@ -263,7 +271,7 @@ export const moveRangeRing = new THREE.Mesh(
   })
 );
 moveRangeRing.frustumCulled = false;
-moveRangeRing.renderOrder = 2;   // draw after the water plane (renderOrder 1)
+moveRangeRing.renderOrder = 3;   // draw after terrain, props, water
 moveRangeRing.visible = false;
 scene.add(moveRangeRing);
 
@@ -276,7 +284,7 @@ export const hoverRing = new THREE.Mesh(
   })
 );
 hoverRing.frustumCulled = false;
-hoverRing.renderOrder = 2;   // draw after the water plane (renderOrder 1)
+hoverRing.renderOrder = 3;   // draw after terrain, props, water
 hoverRing.visible = false;
 scene.add(hoverRing);
 
@@ -289,6 +297,7 @@ export const spellRangeRing = new THREE.Mesh(
   })
 );
 spellRangeRing.frustumCulled = false;
+spellRangeRing.renderOrder   = 3;
 spellRangeRing.visible = false;
 scene.add(spellRangeRing);
 
@@ -1292,6 +1301,7 @@ function _teardownCombat() {
 // All aggro'd threats defeated — return to free-roam without a terminal banner.
 function exitCombat() {
   _teardownCombat();
+  stopCombatMusic();
   addLog('All threats cleared.', 'round');
   onCombatEnd();
   window.dispatchEvent(new CustomEvent('combat:ended'));
@@ -1301,6 +1311,7 @@ function exitCombat() {
 
 function endBattle(outcome) {
   _teardownCombat();
+  stopCombatMusic();
   addLog('THE HEROES HAVE FALLEN', 'round');
   onCombatEnd();
   window.dispatchEvent(new CustomEvent('zone:defeat'));
@@ -1371,6 +1382,43 @@ export function addLog(text, cls = '') {
 
 // ── Attack execution ──────────────────────────────────────────────────────────
 
+// Maps profBonus → a compact "combat tier" used by the hit-chance formula.
+// Leveled-up heroes get +1 tier over their base value.
+function unitCombatLevel(u) {
+  const def  = UNIT_TYPES[u.type] ?? {};
+  const base = def.profBonus ?? 2;
+  if (u.team === 'blue') {
+    const xpNext = def.xpNext;
+    if (xpNext && (u.xp ?? 0) >= xpNext) return base + 1;
+  }
+  return base;
+}
+
+// Percentage-based hit resolution (replaces d20).
+//   Hit% = 50 + (atkBonus − defAC) × 0.2 + (atkLvl − defLvl) × 3  [clamped 15–85]
+//   Roll 1d100: ≤ Hit% → hit;  96-100 → automatic critical hit.
+//   Advantage:    roll twice, keep lower (better for attacker).
+//   Disadvantage: roll twice, keep higher (worse for attacker).
+function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
+  const rawPct    = 50 + (atkBonus - defAC) * 0.2 + (atkLvl - defLvl) * 3;
+  const hitChance = Math.round(Math.max(15, Math.min(85, rawPct)));
+
+  const r1 = Math.floor(Math.random() * 100) + 1;
+  let r2 = null, kept;
+  if (mode === 'advantage') {
+    r2   = Math.floor(Math.random() * 100) + 1;
+    kept = Math.min(r1, r2);
+  } else if (mode === 'disadvantage') {
+    r2   = Math.floor(Math.random() * 100) + 1;
+    kept = Math.max(r1, r2);
+  } else {
+    kept = r1;
+  }
+
+  const isCrit = kept >= 96;
+  return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, hitChance, isHit: kept <= hitChance || isCrit, isCrit };
+}
+
 function faceTarget(unit, target) {
   const dx = target.grp.position.x - unit.grp.position.x;
   const dz = target.grp.position.z - unit.grp.position.z;
@@ -1391,17 +1439,35 @@ function performAttack(attacker, target, atk) {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
       playUnitAttackAnim(attacker, 'ranged', () => {
-        playSound('range_attack_bow');
+        const delay = getUnitAttackDuration(attacker.type) * 1000;
+        setTimeout(() => playSound('range_attack_bow'), delay);
         fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk));
       });
     }
   } else {
-    playSound('sword_swing');
+    const delay = getUnitAttackDuration(attacker.type) * 1000;
+    setTimeout(() => playSound('sword_swing'), delay);
     playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk));
   }
 }
 
+// Enemy damage: original avg × 1.4, ±20% low-variance range. Crits roll the range twice.
+function rollScaledDamage(atk, dmgMod, isCrit) {
+  const baseAvg = atk.dice * (atk.sides + 1) / 2 + dmgMod;
+  const newAvg  = baseAvg * 1.4;
+  const min     = Math.max(1, Math.round(newAvg * 0.8));
+  const max     = Math.round(newAvg * 1.2);
+  const span    = Math.max(0, max - min);
+  const r1      = Math.floor(Math.random() * (span + 1)) + min;
+  const r2      = isCrit ? Math.floor(Math.random() * (span + 1)) + min : 0;
+  return { total: r1 + r2, isScaled: true, min, max, isCrit };
+}
+
 function dmgBreakdown(r) {
+  if (r.isScaled) {
+    const rangeStr = `${r.min}–${r.max}`;
+    return r.isCrit ? `CRIT 2×[${rangeStr}] = ${r.total}` : `[${rangeStr}] → ${r.total}`;
+  }
   const mod      = r.modifier;
   const diceStr  = r.count > 1 ? `[${r.dice.join('+')}]` : String(r.dice[0]);
   const modPart  = mod > 0 ? ` +${mod}` : mod < 0 ? ` ${mod}` : '';
@@ -1410,13 +1476,10 @@ function dmgBreakdown(r) {
   return `${r.count}d${r.sides}: ${diceStr}${modPart}${sumPart}`;
 }
 
-function atkBreakdown(r, targetAC) {
-  const die    = r.mode === 'normal' ? r.dice[0] : r.kept;
-  const mod    = r.modifier;
+function atkBreakdown(r) {
   const adv    = r.mode === 'advantage' ? 'ADV ' : r.mode === 'disadvantage' ? 'DIS ' : '';
-  const modPart   = mod > 0 ? ` mod +${mod}` : mod < 0 ? ` mod ${mod}` : '';
-  const totalPart = mod !== 0 ? ` = ${r.total}` : '';
-  return `${adv}roll ${die}${modPart}${totalPart} vs AC ${targetAC}`;
+  const dieStr = r.mode !== 'normal' ? `[${r.dice.join('/')} → ${r.kept}]` : String(r.kept);
+  return `${adv}d100=${dieStr}  need ≤${r.hitChance}%`;
 }
 
 function _executeAttack(attacker, target, atk) {
@@ -1440,7 +1503,8 @@ function _executeAttack(attacker, target, atk) {
     if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) atkMode = 'disadvantage';
   }
 
-  const atkResult = roll({ sides: 20, modifier: atkMod + blessBonus, mode: atkMode });
+  const targetAC  = UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC;
+  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   let rollLabel = `${aLabel}  →  ${tLabel}  ·  ${atk.name}`;
@@ -1456,14 +1520,13 @@ function _executeAttack(attacker, target, atk) {
 
   setTimeout(() => showRoll(rollLabel, atkResult, { autoDismiss: false }), D);
 
-  const targetAC = UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC;
-  const hit = atkResult.isCrit || atkResult.total >= targetAC;
+  const hit = atkResult.isHit;
   const modStr = dmgMod >= 0 ? `+${dmgMod}` : `${dmgMod}`;
 
   if (!hit) {
     setTimeout(() => {
       playSound('miss');
-      addLog(`${aLabel} misses ${tLabel} with ${atk.name} (${atkBreakdown(atkResult, targetAC)})`, 'miss');
+      addLog(`${aLabel} misses ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'miss');
       showFloatingDamage(target, 'MISS', '#999999');
       _logAtkQtyMsg(attacker, atk);
     }, D + FAST_ROLL_MS);
@@ -1474,14 +1537,16 @@ function _executeAttack(attacker, target, atk) {
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
   const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, atkResult);
 
-  const diceCount = atkResult.isCrit ? atk.dice * 2 : atk.dice;
-  const dmgResult = roll({ sides: atk.sides, count: diceCount, modifier: dmgMod });
+  const isCrit    = atkResult.isCrit;
+  const dmgResult = attacker.team === 'red'
+    ? rollScaledDamage(atk, dmgMod, isCrit)
+    : roll({ sides: atk.sides, count: isCrit ? atk.dice * 2 : atk.dice, modifier: dmgMod });
   setTimeout(() => showRoll('Damage', dmgResult, { autoDismiss: false }), D + 800);
 
   let sneakResult = null;
   if (doSneak) {
     sneakAttackUsed = true;
-    const sneakDice = atkResult.isCrit ? sneakDef.dice * 2 : sneakDef.dice;
+    const sneakDice = isCrit ? sneakDef.dice * 2 : sneakDef.dice;
     sneakResult     = roll({ sides: sneakDef.sides, count: sneakDice });
     setTimeout(() => showRoll('Sneak Attack!', sneakResult, { autoDismiss: false }), D + 1400);
   }
@@ -1520,10 +1585,10 @@ function _executeAttack(attacker, target, atk) {
 
   // Hit log + floating damage + damage log — after damage dice settle + reading pause
   setTimeout(() => {
-    if (atkResult.isCrit) {
-      addLog(`${aLabel} CRITS ${tLabel} with ${atk.name}!`, 'crit');
+    if (isCrit) {
+      addLog(`${aLabel} CRITS ${tLabel} with ${atk.name}! (d100=${atkResult.kept} — auto-crit)`, 'crit');
     } else {
-      addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult, targetAC)})`, 'hit');
+      addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'hit');
     }
     playSound(atk.type === 'ranged' ? 'arrow_hit' : 'sword_hit');
     showFloatingDamage(target, `-${dmg}`, '#ff4422');
@@ -2014,7 +2079,7 @@ export function rollInitiative() {
     const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
     const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
     u.initiative = roll({ sides: 20, modifier: bonus }).total;
-    if (u.stealthed) u.grp.visible = false;
+    if (u.stealthed) setUnitStealth(u, true);
   });
   turnOrder = [...units].sort((a, b) =>
     b.initiative - a.initiative || (a.team === 'red' ? -1 : 1)
@@ -2024,6 +2089,7 @@ export function rollInitiative() {
   buildTurnList();
   activateTurn(0);
   playSound('combat_start');
+  playCombatMusic('combat_music');
   window.dispatchEvent(new CustomEvent('combat:start'));
   document.getElementById('turn-panel').style.display    = 'flex';
   document.getElementById('combat-log').style.display    = 'flex';
@@ -2055,9 +2121,7 @@ export function buildTurnList() {
       ? '#' + (HERO_RING_COLORS[u.type] ?? 0x4488ff).toString(16).padStart(6, '0')
       : '';
     const hpPct    = Math.round(Math.max(0, u.hp) / Math.max(1, u.maxHp) * 100);
-    const barColor = u.team === 'blue'
-      ? (color || '#4488ff')
-      : hpPct > 50 ? '#cc3333' : hpPct > 25 ? '#cc7722' : '#dd2200';
+    const barColor = u.team === 'blue' ? (color || '#4488ff') : '#cc3333';
 
     const el      = document.createElement('div');
     el.className  = 'turn-entry';
@@ -2469,7 +2533,7 @@ function runAITurn(u) {
     if (spotted) {
       _dungeonAwareEnemies.add(u);
       u.aggro = true;
-      u.grp.visible = true;
+      setUnitStealth(u, false);
       addLog(`⚠ ${unitLabel(u)} emerges from the shadows!`, 'move');
     } else {
       // No LOS yet — silently creep toward the nearest hero while staying hidden

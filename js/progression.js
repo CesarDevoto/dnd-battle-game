@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { camera, renderer } from './scene.js';
 import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
+import { playSound } from './audio.js';
 
 const _pv        = new THREE.Vector3();
 const _xpBarFill = document.getElementById('xp-bar-fill');
@@ -59,9 +60,15 @@ export function awardXP(amount, addLog) {
 
   if (leveledUp.length) {
     setTimeout(() => {
+      playSound('level_up');
       leveledUp.forEach(hero => {
+        const heroDef = UNIT_TYPES[hero.type] ?? {};
+        const conMod  = Math.floor(((heroDef.abilities?.con ?? 10) - 10) / 2);
+        const hpGain  = (heroDef.hitDie ?? 8) + conMod;
+        hero.maxHp   += hpGain;
+        hero.hp      += hpGain;
         showLevelUpFloat(hero);
-        addLog(`⬆ ${UNIT_TYPES[hero.type]?.name} reaches Level 2!`, 'levelup');
+        addLog(`⬆ ${heroDef.name} reaches Level 2! +${hpGain} HP`, 'levelup');
       });
     }, 1800);
   }

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { camera, controls, scene, getFollowUnit } from './scene.js';
 import { SCENE, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
-import { units } from './units.js';
+import { units, setUnitStealth } from './units.js';
 import { getMarkersVisible, setMarkersVisible } from './terrainEditor.js';
 import { setPointLightOrbsVisible } from './environments.js';
 import { isAIPanelOpen } from './npcAIEditor.js';
@@ -212,9 +212,9 @@ function _toggle() {
     // Hide terrain control point markers
     _markersWereVisible = getMarkersVisible();
     setMarkersVisible(false);
-    // Hide stealthed enemies — they should be invisible to the player
+    // Stealthed enemies become semi-transparent in play mode
     for (const u of units) {
-      if (u.stealthed) u.grp.visible = false;
+      if (u.stealthed) setUnitStealth(u, true);
     }
     setPointLightOrbsVisible(false);
   } else {
@@ -225,9 +225,9 @@ function _toggle() {
     });
     // Restore terrain markers to their pre-play-mode state
     setMarkersVisible(_markersWereVisible);
-    // Show all stealthed enemies so the designer can see and edit them
+    // Show all stealthed enemies fully opaque so the designer can see and edit them
     for (const u of units) {
-      if (u.stealthed) u.grp.visible = true;
+      if (u.stealthed) setUnitStealth(u, false);
     }
     setPointLightOrbsVisible(true);
   }

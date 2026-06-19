@@ -338,7 +338,12 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   const anchorY = def.anchorY;
   const hoverY  = def.hoverY ?? 0;
   const anchor  = new THREE.Vector3(worldX, terrainY + anchorY, worldZ);
-  const hp      = def.hp ?? COMBAT.defaultHP;
+  const baseHp  = def.hp ?? COMBAT.defaultHP;
+  // Enemies: ×2 at low CR, ×1.6 at mid CR (4-8), ×1.3 at high CR (9+).
+  // Heroes: level-1 HP is D&D base ×2; further gains come from progression.js on level-up.
+  const _xp   = def.xpReward ?? 0;
+  const _mult = team !== 'red' ? 2 : _xp >= 5000 ? 1.3 : _xp >= 1100 ? 1.6 : 2.0;
+  const hp    = Math.round(baseHp * _mult);
 
   // Per-attack quantity limits (e.g. javelins). Keyed by attack name.
   const atkQty = {};
@@ -484,4 +489,21 @@ export function applyUnitAnimOverride(unit, role, clipIdx) {
       if (!unit.isWalking) unit.idleAction?.reset().setEffectiveWeight(1).play();
     });
   }
+}
+
+// ── Stealth appearance ────────────────────────────────────────────────────────
+// Stealthed units remain visible but are rendered at half opacity so the player
+// can see ghostly presences without the unit being clearly readable.
+export function setUnitStealth(unit, stealthed) {
+  unit.stealthed = stealthed;
+  unit.grp.traverse(o => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach(m => {
+      if (!m) return;
+      m.transparent = stealthed;
+      m.opacity     = stealthed ? 0.45 : 1.0;
+      m.needsUpdate = true;
+    });
+  });
 }

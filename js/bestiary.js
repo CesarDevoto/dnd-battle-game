@@ -81,10 +81,27 @@ const BIOME_META = {
   dungeon:   { abbr: 'DNG', cls: 'dng' },
 };
 
-const COL_COUNT = 13; // NAME HP AC MOVE XP BIOME STR DEX CON INT WIS CHA ATTACKS
+const COL_COUNT = 17; // NAME HP NewHP AC MOVE XP NewXP BIOME STR DEX CON INT WIS CHA NewMelee NewRange ATTACKS
 
 function crOf(def)     { return XP_TO_CR[def.xpReward] ?? '?'; }
 function crSortOf(def) { return CR_SORT[crOf(def)] ?? 999; }
+
+function newHpOf(def) {
+  const xp   = def.xpReward ?? 0;
+  const mult = xp >= 5000 ? 1.3 : xp >= 1100 ? 1.6 : 2.0;
+  return Math.round(def.hp * mult);
+}
+
+function newDmgRange(atk, def) {
+  const mod     = atk.dmgBonus !== undefined
+    ? atk.dmgBonus
+    : Math.floor(((def.abilities?.[atk.statMod] ?? 10) - 10) / 2);
+  const baseAvg = atk.dice * (atk.sides + 1) / 2 + mod;
+  const newAvg  = baseAvg * 1.4;
+  const min     = Math.max(1, Math.round(newAvg * 0.8));
+  const max     = Math.round(newAvg * 1.2);
+  return `${min}–${max}`;
+}
 
 function abMod(score) {
   const m = Math.floor((score - 10) / 2);
@@ -172,12 +189,16 @@ function buildTable() {
       rows += `
         <tr class="bst-monster-row" data-name="${nameLower}" data-cr="${cr}">
           <td class="bst-name-cell">${def.name}</td>
-          <td class="bst-num">${def.hp}</td>
+          <td class="bst-num bst-col-retired">${def.hp}</td>
+          <td class="bst-num">${newHpOf(def)}</td>
           <td class="bst-num">${def.ac}</td>
           <td class="bst-num">${def.speed ?? 30} ft</td>
-          <td class="bst-num">${def.xpReward}</td>
+          <td class="bst-num bst-col-retired">${def.xpReward}</td>
+          <td class="bst-num">${Math.round((def.xpReward ?? 0) / 5)}</td>
           ${biomeCell(key)}
           ${abCells(def)}
+          <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'melee') .map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
+          <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'ranged').map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
           <td class="bst-atks-cell">${atksHTML}</td>
         </tr>`;
     }
@@ -191,10 +212,12 @@ function buildTable() {
       <thead>
         <tr>
           <th class="bst-th-name">NAME</th>
-          <th class="bst-th-num">HP</th>
+          <th class="bst-th-num bst-col-retired">HP</th>
+          <th class="bst-th-num">New HP</th>
           <th class="bst-th-num">AC</th>
           <th class="bst-th-num">MOVE</th>
-          <th class="bst-th-num">XP</th>
+          <th class="bst-th-num bst-col-retired">XP</th>
+          <th class="bst-th-num">New XP</th>
           <th class="bst-th-biome">BIOME</th>
           <th class="bst-th-ab">STR</th>
           <th class="bst-th-ab">DEX</th>
@@ -202,6 +225,8 @@ function buildTable() {
           <th class="bst-th-ab">INT</th>
           <th class="bst-th-ab">WIS</th>
           <th class="bst-th-ab">CHA</th>
+          <th class="bst-th-num">New Melee</th>
+          <th class="bst-th-num">New Range</th>
           <th class="bst-th-atks">ATTACKS</th>
         </tr>
       </thead>
