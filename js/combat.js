@@ -853,7 +853,9 @@ function castHeal(caster, target, spellKey) {
   if (spell.actionType === 'action') turnAttacked      = true;
   else                               turnBonusActioned = true;
 
-  const healRoll = roll({ sides: spell.healSides, count: spell.healDice, modifier: spell.healMod });
+  const wisMod   = Math.floor(((UNIT_TYPES[caster.type]?.abilities?.wis ?? 10) - 10) / 2);
+  const healMod  = spell.healMod ?? wisMod;
+  const healRoll = roll({ sides: spell.healSides, count: spell.healDice, modifier: healMod });
   const healed   = Math.min(healRoll.total, target.maxHp - target.hp);
   target.hp      = Math.min(target.maxHp, target.hp + healRoll.total);
   target.barShowUntil = Date.now() + 4000;
@@ -1463,6 +1465,18 @@ function rollScaledDamage(atk, dmgMod, isCrit) {
   return { total: r1 + r2, isScaled: true, min, max, isCrit };
 }
 
+// Hero damage: original avg × 1.4, ±15% low-variance range. Crits roll the range twice.
+function rollHeroDamage(atk, dmgMod, isCrit) {
+  const baseAvg = atk.dice * (atk.sides + 1) / 2 + dmgMod;
+  const newAvg  = baseAvg * 1.4;
+  const min     = Math.max(1, Math.round(newAvg * 0.85));
+  const max     = Math.round(newAvg * 1.15);
+  const span    = Math.max(0, max - min);
+  const r1      = Math.floor(Math.random() * (span + 1)) + min;
+  const r2      = isCrit ? Math.floor(Math.random() * (span + 1)) + min : 0;
+  return { total: r1 + r2, isScaled: true, min, max, isCrit };
+}
+
 function dmgBreakdown(r) {
   if (r.isScaled) {
     const rangeStr = `${r.min}–${r.max}`;
@@ -1540,14 +1554,13 @@ function _executeAttack(attacker, target, atk) {
   const isCrit    = atkResult.isCrit;
   const dmgResult = attacker.team === 'red'
     ? rollScaledDamage(atk, dmgMod, isCrit)
-    : roll({ sides: atk.sides, count: isCrit ? atk.dice * 2 : atk.dice, modifier: dmgMod });
+    : rollHeroDamage(atk, dmgMod, isCrit);
   setTimeout(() => showRoll('Damage', dmgResult, { autoDismiss: false }), D + 800);
 
   let sneakResult = null;
   if (doSneak) {
     sneakAttackUsed = true;
-    const sneakDice = isCrit ? sneakDef.dice * 2 : sneakDef.dice;
-    sneakResult     = roll({ sides: sneakDef.sides, count: sneakDice });
+    sneakResult     = rollHeroDamage(sneakDef, 0, isCrit);
     setTimeout(() => showRoll('Sneak Attack!', sneakResult, { autoDismiss: false }), D + 1400);
   }
 

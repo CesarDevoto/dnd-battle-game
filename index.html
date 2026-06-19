@@ -28,6 +28,18 @@
 
     <div id="combat-banner">⚔ COMBAT ⚔</div>
 
+    <!-- Cutscenes / Zones / Dialogue buttons -->
+    <button id="cutscenes-btn">CUTSCENES</button>
+    <button id="zones-btn">ZONES</button>
+    <button id="dlg-log-btn">DIALOGUE</button>
+    <div id="dlg-log-panel" style="display:none">
+      <div id="dlg-log-header">
+        <div class="dlg-log-title">DIALOGUES</div>
+        <button id="dlg-log-close">✕</button>
+      </div>
+      <div id="dlg-log-entries"></div>
+    </div>
+
     <!-- XP Table button -->
     <button id="xp-table-btn">XP TABLE</button>
 
@@ -210,7 +222,7 @@
       <button id="blue-undo-btn" class="thud-undo" style="display:none">↩ UNDO MOVE</button>
     </div>
 
-    <!-- ── Combat log (right, combat only) ───────────────────── -->
+    <!-- ── Combat log (lower left, combat only) ─────────────────── -->
     <div id="combat-log">
       <div class="t-title">COMBAT LOG</div>
       <div id="log-entries"></div>

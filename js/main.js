@@ -49,6 +49,32 @@ initTerrainEditor();
 initDevMode();
 initCutsceneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
+// ── Cutscenes panel toggle ────────────────────────────────────────────────────
+const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
+const _cutscenesBtn   = document.getElementById('cutscenes-btn');
+_cutscenesBtn.addEventListener('click', () => {
+  const shown = _cutscenesPanel.style.display !== 'none' && _cutscenesPanel.style.display !== '';
+  _cutscenesPanel.style.display = shown ? 'none' : 'flex';
+  _cutscenesBtn.classList.toggle('active', !shown);
+});
+
+// ── Zones panel toggle ────────────────────────────────────────────────────────
+const _zonesPanel = document.getElementById('setup-panel-zones');
+const _zonesBtn   = document.getElementById('zones-btn');
+_zonesBtn.addEventListener('click', () => {
+  const shown = _zonesPanel.style.display !== 'none' && _zonesPanel.style.display !== '';
+  _zonesPanel.style.display = shown ? 'none' : 'flex';
+  _zonesBtn.classList.toggle('active', !shown);
+});
+
+// ── Dialogue log toggle ───────────────────────────────────────────────────────
+document.getElementById('dlg-log-btn').addEventListener('click', () => {
+  document.getElementById('dlg-log-panel').style.display = 'flex';
+});
+document.getElementById('dlg-log-close').addEventListener('click', () => {
+  document.getElementById('dlg-log-panel').style.display = 'none';
+});
+
 bindPermanentHotkey('KeyT',     'TOP<br>VIEW',      toggleTopView,  isTopViewActive);
 bindPermanentHotkey('Tab',      'TOGGLE<br>HEROES', cycleHero,      null);
 bindPermanentHotkey('Backquote','HEALTH<br>BARS',   toggleAllBars,  getAllBarsVisible);

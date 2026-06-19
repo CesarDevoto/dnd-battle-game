@@ -19,6 +19,10 @@ export function prewarmEffectShaders() {
   ptGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   ptGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(3), 3));
 
+  // Portal uses NormalBlending (no AdditiveBlending) + no vertexColors — different shader variant
+  const ptGeo2 = new THREE.BufferGeometry();
+  ptGeo2.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+
   const warmObjects = [
     new THREE.Mesh(sphGeo,
       new THREE.MeshBasicMaterial({ color: 0xffee66 })),
@@ -30,6 +34,11 @@ export function prewarmEffectShaders() {
       new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })),
     new THREE.Points(ptGeo,
       new THREE.PointsMaterial({ size: 0.001, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true })),
+    // Portal variants: NormalBlending, no vertexColors
+    new THREE.Mesh(ringGeo,
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false })),
+    new THREE.Points(ptGeo2,
+      new THREE.PointsMaterial({ size: 0.001, transparent: true, depthWrite: false, sizeAttenuation: true })),
   ];
 
   warmObjects.forEach(o => {

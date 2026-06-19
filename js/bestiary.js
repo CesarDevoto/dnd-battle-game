@@ -18,70 +18,7 @@ const CR_SORT = {
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-// Biomes each enemy can appear in (matches the game's env buttons)
-const ENEMY_BIOMES = {
-  kobold:                   ['dungeon', 'forest'],
-  goblin:                   ['forest',  'dungeon'],
-  orc:                      ['forest',  'dungeon',  'savanna'],
-  ogre:                     ['forest',  'dungeon',  'tundra'],
-  wolf:                     ['forest',  'tundra',   'savanna'],
-  ice_mephit:               ['tundra'],
-  gnoll:                    ['savanna', 'desert'],
-  hyena:                    ['savanna', 'desert'],
-  giant_spider:             ['forest',  'dungeon',  'swamp'],
-  twig_blight:              ['forest',  'swamp',   'graveyard'],
-  stirge:                   ['forest',  'dungeon',  'swamp'],
-  giant_rat:                ['dungeon', 'swamp',   'graveyard'],
-  troglodyte:               ['dungeon', 'swamp'],
-  constrictor_snake:        ['swamp',   'forest',   'savanna'],
-  lizardfolk:               ['swamp',   'forest'],
-  bugbear:                  ['forest',  'dungeon'],
-  dire_wolf:                ['forest',  'tundra'],
-  hobgoblin:                ['forest',  'dungeon'],
-  gnoll_pack_lord:          ['savanna', 'desert'],
-  yuan_ti_pureblood:        ['desert',  'forest'],
-  giant_constrictor_snake:  ['swamp',   'forest',   'savanna'],
-  troll:                    ['forest',  'swamp'],
-  yeti:                     ['tundra'],
-  gnoll_fang:               ['savanna', 'desert'],
-  owlbear:                  ['forest'],
-  werewolf:                 ['forest',  'graveyard'],
-  minotaur:                 ['dungeon'],
-  yuan_ti_malison:          ['desert',  'forest'],
-  shambling_mound:          ['swamp',   'forest'],
-  giant_frog:               ['swamp'],
-  bullywug:                 ['swamp'],
-  mud_mephit:               ['swamp',   'desert'],
-  crocodile:                ['swamp',   'savanna'],
-  giant_toad:               ['swamp',   'forest'],
-  bullywug_croaker:         ['swamp'],
-  swarm_of_insects:         ['swamp',   'forest',   'savanna',  'desert'],
-  lizardfolk_shaman:        ['swamp',   'forest'],
-  green_hag:                ['swamp',   'forest',   'graveyard'],
-  skeleton:                 ['graveyard', 'dungeon', 'swamp'],
-  shadow:                   ['graveyard', 'dungeon'],
-  specter:                  ['graveyard'],
-  ghast:                    ['graveyard', 'dungeon'],
-  wight:                    ['graveyard', 'dungeon'],
-  banshee:                  ['graveyard'],
-  revenant:                 ['graveyard', 'dungeon'],
-  ghoul:                    ['graveyard', 'dungeon'],
-  zombie:                   ['graveyard', 'dungeon', 'swamp'],
-  hill_giant:               ['forest',  'tundra',   'savanna'],
-  ettin:                    ['forest',  'tundra',   'dungeon'],
-};
-
-const BIOME_META = {
-  forest:    { abbr: 'FOR', cls: 'for' },
-  desert:    { abbr: 'DES', cls: 'des' },
-  swamp:     { abbr: 'SWP', cls: 'swp' },
-  tundra:    { abbr: 'TUN', cls: 'tun' },
-  savanna:   { abbr: 'SAV', cls: 'sav' },
-  graveyard: { abbr: 'GRV', cls: 'grv' },
-  dungeon:   { abbr: 'DNG', cls: 'dng' },
-};
-
-const COL_COUNT = 17; // NAME HP NewHP AC MOVE XP NewXP BIOME STR DEX CON INT WIS CHA NewMelee NewRange ATTACKS
+const COL_COUNT = 16; // NAME HP NewHP AC MOVE XP NewXP STR DEX CON INT WIS CHA NewMelee NewRange ATTACKS
 
 function crOf(def)     { return XP_TO_CR[def.xpReward] ?? '?'; }
 function crSortOf(def) { return CR_SORT[crOf(def)] ?? 999; }
@@ -142,16 +79,6 @@ function abCells(def) {
   }).join('');
 }
 
-function biomeCell(key) {
-  const biomes = ENEMY_BIOMES[key] ?? [];
-  if (!biomes.length) return '<td class="bst-biome-cell">—</td>';
-  const tags = biomes
-    .map(b => BIOME_META[b])
-    .filter(Boolean)
-    .map(m => `<span class="bst-biome ${m.cls}">${m.abbr}</span>`)
-    .join('');
-  return `<td class="bst-biome-cell">${tags}</td>`;
-}
 
 function buildTable() {
   const enemies = Object.entries(UNIT_TYPES)
@@ -165,15 +92,10 @@ function buildTable() {
     groups.get(cr).push(def);
   }
 
-  // Also track keys alongside defs for biome lookup
-  const keyMap = new Map();
-  for (const [key, def] of enemies) keyMap.set(def, key);
-
   let rows = '';
   for (const [cr, defs] of groups) {
     rows += `<tr class="bst-cr-row" data-cr="${cr}"><td colspan="${COL_COUNT}">CR ${cr}</td></tr>`;
     for (const def of defs) {
-      const key       = keyMap.get(def);
       const nameLower = def.name.toLowerCase();
       const atksHTML  = (def.attacks ?? []).map(atk => `
         <div class="bst-atk">
@@ -195,7 +117,6 @@ function buildTable() {
           <td class="bst-num">${def.speed ?? 30} ft</td>
           <td class="bst-num bst-col-retired">${def.xpReward}</td>
           <td class="bst-num">${Math.round((def.xpReward ?? 0) / 5)}</td>
-          ${biomeCell(key)}
           ${abCells(def)}
           <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'melee') .map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
           <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'ranged').map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
@@ -218,7 +139,6 @@ function buildTable() {
           <th class="bst-th-num">MOVE</th>
           <th class="bst-th-num bst-col-retired">XP</th>
           <th class="bst-th-num">New XP</th>
-          <th class="bst-th-biome">BIOME</th>
           <th class="bst-th-ab">STR</th>
           <th class="bst-th-ab">DEX</th>
           <th class="bst-th-ab">CON</th>

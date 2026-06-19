@@ -76,7 +76,7 @@ export const SCENE = {
   cameraFov:         55,
   cameraNear:        0.1,
   cameraFar:         500,
-  cameraPos:         [0, 18.3, 46.7],
+  cameraPos:         [0, 14.2, 50.1],
   cameraPlayTarget:  29,
   orbitMinDist:      10,
   orbitMaxDist:      20,
@@ -222,8 +222,6 @@ export const UNIT_TYPES = {
       { name: 'Javelin',   type: 'ranged', range: 15, longRange: 60, dice: 2, sides: 6, statMod: 'str', qty: 2 },
     ],
   },
-
-  // ── Encounter generator monster pool ─────────────────────────────────────
 
   wolf: {
     name: 'Wolf', team: 'red',
@@ -502,8 +500,6 @@ export const UNIT_TYPES = {
     ],
   },
 
-  // ── Swamp biome monsters ──────────────────────────────────────────────────
-
   giant_frog: {
     name: 'Giant Frog', team: 'red',
     scale: [0.85, 0.85, 0.85], anchorY: 1.2,
@@ -629,8 +625,6 @@ export const UNIT_TYPES = {
     ],
   },
 
-  // ── Graveyard biome monsters ──────────────────────────────────────────────
-
   skeleton: {
     name: 'Skeleton', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
@@ -733,8 +727,6 @@ export const UNIT_TYPES = {
     ],
   },
 
-  // ── Dungeon / Abyss demons ────────────────────────────────────────────────
-
   mane: {
     name: 'Mane', team: 'red',
     scale: [0.85, 0.85, 0.85], anchorY: 1.4,
@@ -791,8 +783,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 300,
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
-      // dmgBonus: 0 — spell cantrip adds INT to attack roll only, not damage
-      { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int', dmgBonus: 0 },
+      { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int' },
       { name: 'Dagger',    type: 'melee',  range: 5,   dice: 1, sides: 4,  statMod: 'dex' },
     ],
   },

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { scene, setFollowUnit, focusCameraOnUnit } from './scene.js';
+import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit } from './scene.js';
 import { units, corpses } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 
@@ -13,6 +13,8 @@ export function initDagna({ removeUnits, loadZone, setPrecombatFrozen }) {
   _removeUnitsFn     = removeUnits;
   _loadZoneFn        = loadZone;
   _freezePrecombatFn = setPrecombatFrozen;
+  _initPortalGeometry();  // pre-build once so GPU buffers upload on frame 1
+  _buildDlgPanel();
 }
 
 // ── One-time state ────────────────────────────────────────────────────────────
@@ -26,13 +28,26 @@ let _styxMissionDone = false;
 let _styxDagnaSeen   = false;
 
 // ── Portal ────────────────────────────────────────────────────────────────────
-let _portal = null; // { grp, meshes, pGeo, vels, age, openT }
+// Pre-built once at init and kept permanently in scene (avoids GPU buffer-upload
+// stall on first appearance). Parked at y=-9999 when inactive.
+let _portalGrp    = null; // Three.js Group, always in scene after init
+let _portalMeshes = null; // { mat, base }[] for opacity pulsing
+let _portalPGeo   = null; // particle BufferGeometry
+let _portalVels   = null; // particle velocity data
+let _portal       = null; // active animation state, null when idle
+let _portalLight  = null; // THREE.PointLight added/removed per-sequence
 
 // ── Dagna ─────────────────────────────────────────────────────────────────────
 const _loader = new GLTFLoader();
 let _dagnaGrp        = null;
 let _dagnaMixer      = null;
 let _dagnaWalkAction = null;
+let _dagnaLight      = null; // THREE.PointLight parented to Dagna's group
+
+// ── Scene light fade ──────────────────────────────────────────────────────────
+let _lightFade    = null;  // { t, dur, sAmb, sMoon, sFire, eAmb, eMoon, eFire, cb }
+let _savedLights  = null;  // { amb, moon, fire } intensities at dim time
+let _lightsDimmed = false;
 
 let _moveActive = false;
 let _moveStart  = new THREE.Vector3();
@@ -42,10 +57,11 @@ let _moveDur    = 0;
 let _moveOnDone = null;
 
 // ── Dialogue ──────────────────────────────────────────────────────────────────
-let _dlgEl     = null;
-let _lines     = [];
-let _lineIdx   = 0;
-let _dlgOnDone = null;
+let _dlgEl        = null;
+let _lines        = [];
+let _lineIdx      = 0;
+let _dlgOnDone    = null;
+let _forcePreview = false;  // set before async sequence so _showLines picks it up
 
 // ── Kill counter element ──────────────────────────────────────────────────────
 let _killsEl = null;
@@ -83,22 +99,26 @@ export function onHeroTurnStart() {
 
 // Called from main.js animation loop
 export function tickDagna(dt) {
+  _tickLightFade(dt);
   if (_dagnaMixer) _dagnaMixer.update(dt);
   _tickPortal(dt);
   _tickMove(dt);
+  // Keep Dagna's world-space light in sync (no longer parented to her group)
+  if (_dagnaGrp && _dagnaLight && _dagnaLight.intensity > 0) {
+    _dagnaLight.position.set(_dagnaGrp.position.x, _dagnaGrp.position.y + 1.5, _dagnaGrp.position.z);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PORTAL
 // ═════════════════════════════════════════════════════════════════════════════
 
-function _buildPortal(x, y, z) {
+function _initPortalGeometry() {
   const grp = new THREE.Group();
-  grp.position.set(x, y, z);
-  grp.rotation.x = -Math.PI / 2;  // flat on the ground
+  grp.position.set(-9999, 0, -9999);  // parked off-screen
+  grp.rotation.x = -Math.PI / 2;     // flat on the ground
   grp.scale.setScalar(0);
 
-  // Layered rings: center fill → outer glow edge
   const rings = [
     { r0: 0.00, r1: 0.55, color: 0x1177ff, op: 0.18 },
     { r0: 0.52, r1: 0.80, color: 0x33ccee, op: 0.48 },
@@ -108,7 +128,7 @@ function _buildPortal(x, y, z) {
     { r0: 1.46, r1: 1.60, color: 0x99eeff, op: 0.95 },
   ];
 
-  const meshes = rings.map(({ r0, r1, color, op }) => {
+  _portalMeshes = rings.map(({ r0, r1, color, op }) => {
     const geo = r0 === 0
       ? new THREE.CircleGeometry(r1, 64)
       : new THREE.RingGeometry(r0, r1, 64);
@@ -117,34 +137,55 @@ function _buildPortal(x, y, z) {
       side: THREE.DoubleSide, depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.renderOrder = 2;  // after opaque terrain/env (0) so depth test works; characters still occlude it
+    mesh.renderOrder = 2;
+    mesh.frustumCulled = false;  // always submitted so buffers upload on frame 1
     grp.add(mesh);
     return { mat, base: op };
   });
 
-  // Swirling particles (in group's local XY → world XZ after rotation)
   const N   = 200;
-  const pGeo = new THREE.BufferGeometry();
+  _portalPGeo = new THREE.BufferGeometry();
   const pos  = new Float32Array(N * 3);
-  const vels = [];
+  _portalVels = [];
   for (let i = 0; i < N; i++) {
     const a = Math.random() * Math.PI * 2;
     const r = 0.15 + Math.random() * 1.45;
     pos[i * 3]     = Math.cos(a) * r;
     pos[i * 3 + 1] = Math.sin(a) * r;
     pos[i * 3 + 2] = (Math.random() - 0.5) * 0.12;
-    vels.push({ a, r, spd: 0.25 + Math.random() * 1.1, dir: Math.random() < 0.5 ? 1 : -1 });
+    _portalVels.push({ a, r, spd: 0.25 + Math.random() * 1.1, dir: Math.random() < 0.5 ? 1 : -1 });
   }
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  _portalPGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const pMat = new THREE.PointsMaterial({
     color: 0x55ddff, size: 0.055, transparent: true, opacity: 0.88, depthWrite: false,
   });
-  const pts = new THREE.Points(pGeo, pMat);
+  const pts = new THREE.Points(_portalPGeo, pMat);
   pts.renderOrder = 2;
+  pts.frustumCulled = false;
   grp.add(pts);
 
+  grp.frustumCulled = false;
   scene.add(grp);
-  _portal = { grp, meshes, pGeo, vels, age: 0, openT: 0 };
+  _portalGrp = grp;
+
+  // Pre-add both sequence lights at intensity 0 — adding/removing lights mid-scene
+  // invalidates the shader cache key for every lit material, causing a freeze.
+  // Keeping them permanently avoids any light-count change during gameplay.
+  _portalLight = new THREE.PointLight(0x33aaff, 0, 18, 2);
+  _portalLight.position.set(-9999, 0, -9999);
+  scene.add(_portalLight);
+
+  _dagnaLight = new THREE.PointLight(0xffcc88, 0, 320, 2);
+  _dagnaLight.position.set(-9999, 0, -9999);
+  scene.add(_dagnaLight);
+}
+
+function _activatePortal(x, y, z) {
+  _portalGrp.position.set(x, y, z);
+  _portalGrp.scale.setScalar(0);
+  // Reset mesh opacities to base values
+  _portalMeshes.forEach(({ mat, base }) => { mat.opacity = base; });
+  _portal = { age: 0, openT: 0 };
 }
 
 function _tickPortal(dt) {
@@ -155,18 +196,18 @@ function _tickPortal(dt) {
   if (_portal.openT < 1) {
     _portal.openT = Math.min(1, _portal.openT + dt / 1.2);
     const s = 1 - (1 - _portal.openT) ** 2;
-    _portal.grp.scale.setScalar(s);
+    _portalGrp.scale.setScalar(s);
   }
 
   // Pulse ring opacity
   const pulse = 0.07 * Math.sin(_portal.age * 2.8);
-  _portal.meshes.forEach(({ mat, base }) => {
+  _portalMeshes.forEach(({ mat, base }) => {
     mat.opacity = Math.max(0.04, base + pulse);
   });
 
   // Spin particles
-  const pa = _portal.pGeo.attributes.position;
-  _portal.vels.forEach((v, i) => {
+  const pa = _portalPGeo.attributes.position;
+  _portalVels.forEach((v, i) => {
     v.a += v.spd * v.dir * dt;
     pa.setXY(i, Math.cos(v.a) * v.r, Math.sin(v.a) * v.r);
   });
@@ -174,8 +215,10 @@ function _tickPortal(dt) {
 }
 
 function _removePortal() {
+  if (_portalLight) { _portalLight.intensity = 0; _portalLight.position.set(-9999, 0, -9999); }
   if (!_portal) return;
-  scene.remove(_portal.grp);
+  _portalGrp.position.set(-9999, 0, -9999);
+  _portalGrp.scale.setScalar(0);
   _portal = null;
 }
 
@@ -188,7 +231,13 @@ function _spawnDagna(at, facing, onReady) {
     _dagnaGrp = gltf.scene;
     _dagnaGrp.position.copy(at);
     _dagnaGrp.rotation.y = facing;
+    // renderOrder 3 > portal's 2 so Dagna always draws on top of the portal disk
+    _dagnaGrp.traverse(n => { if (n.isMesh || n.isSkinnedMesh) n.renderOrder = 3; });
     scene.add(_dagnaGrp);
+
+    // Activate the pre-built warm light (world-space; position tracked in tickDagna)
+    _dagnaLight.position.set(_dagnaGrp.position.x, _dagnaGrp.position.y + 1.5, _dagnaGrp.position.z);
+    _dagnaLight.intensity = 12;
 
     const clips = gltf.animations ?? [];
     _dagnaMixer = new THREE.AnimationMixer(_dagnaGrp);
@@ -207,6 +256,7 @@ function _spawnDagna(at, facing, onReady) {
 
 function _removeDagna() {
   if (!_dagnaGrp) return;
+  if (_dagnaLight) { _dagnaLight.intensity = 0; _dagnaLight.position.set(-9999, 0, -9999); }
   scene.remove(_dagnaGrp);
   _dagnaGrp = null;
   _dagnaMixer = null;
@@ -242,17 +292,16 @@ function _tickMove(dt) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 const _LINES_A = [
-  { s: 'Dagna',   t: "Death has embraced thy fellowship disciple Leugren... but yer harmony in battle did not go unnoticed." },
-  { s: 'Leugren', t: "Who are ye?" },
-  { s: 'Dagna',   t: "I am Dagna Ironfaith.  Our lord, the Soul Forger offers yer fellowship renewal — if yer worthy." },
-  { s: 'Leugren', t: "Bless ye Moradin!  Lord Father Creator! Yes Dagna! How might we prove our worth!" },
-  { s: 'Dagna',   t: "Have ye heard of the eternal Blood War?" },
-  { s: 'Leugren', t: "Fables speak of abyssal and infernal horrors locked in endless struggle in outer planes." },
-  { s: 'Dagna',   t: "Precisely.  For a chance at life's renewal, ye and yer fellowship must now play a small part." },
-  { s: 'Leugren', t: "Anything is better than death!  What must we do?" },
-  { s: 'Dagna',   t: "Yer souls are temporarily delivered to Avernus - first of the Nine Hells - where the wretched River Styx burns." },
-  { s: 'Leugren', t: "But... but if death came so easily among us in this mortal realm how does our Lord expect us to..." },
-  { s: 'Dagna',   t: "Yes. Your talents are feeble things, barely fledged. But remember this — Even the smallest pebble can start an avalanche that buries mountains." },
+  { s: 'Dagna',   t: "Oh, faithful Leugren... what hath become of thy fallen fellowship?" },
+  { s: 'Leugren', t: "Who... who are ye?" },
+  { s: 'Dagna',   t: "Rest easy child... I am Dagna Ironfaith, disciple of our Lord, the Soul Forger. I have been searching for thee." },
+  { s: 'Leugren', t: "Disciple of... our great Father Moradin?" },
+  { s: 'Dagna',   t: "Indeed, and may he wash us in his precious light this and all days." },
+  { s: 'Leugren', t: "Why has our Father sent ye Dagna?" },
+  { s: 'Dagna',   t: "Thy devotion to our blessed Lord has not gone unnoticed, brave Leugren. Nor the harmony of thy fellowship, forged in this bloody conflict that hath sown death among thee." },
+  { s: 'Dagna',   t: "Though thy death is a heavy misfortune, it is tempered by the great fortune that our Lord Father's eye hath fallen upon thee. He would set a task before thy fellowship — a grim test. Fulfill it, and he shall restore life among thee." },
+  { s: 'Leugren', t: "What... trial does our Father ask of us?" },
+  { s: 'Dagna',   t: "A trial that if passed shall boon thy fellowship with life's renewal… yet a trial most dire indeed... But take courage in this truth: even the smallest pebble can loose an avalanche mighty enough to entomb kingdoms." },
   { s: 'Dagna',   t: "Come...", goStyx: true },
 ];
 
@@ -270,29 +319,37 @@ const _LINES_OUT = [
   { s: 'Dagna', t: "Victory is yours, brother. Our god has seen fit to restore your lives. Go with honor." },
 ];
 
+const _SCENES = [
+  { id: 'dlg_a',   name: 'The Awakening', lines: _LINES_A },
+  { id: 'dlg_b',   name: 'River Styx',    lines: _LINES_B },
+  { id: 'dlg_out', name: 'Victory',       lines: _LINES_OUT },
+];
+
+let _isPreview = false;
+
 function _buildDlgUI() {
   if (_dlgEl) return;
   _dlgEl = document.createElement('div');
   _dlgEl.id = 'dagna-dialogue';
   _dlgEl.innerHTML = `
-    <div class="dagna-dlg-row">
-      <img class="dagna-dlg-bust" id="dagna-bust-left"
+    <div class="dagna-dlg-bubble">
+      <img class="dagna-dlg-bust" id="dagna-bust"
            src="/assets/Pictures%20Cutscenes%20Icons/dagnabust.jpg" />
-      <div class="dagna-dlg-bubble">
+      <div class="dagna-dlg-content">
         <div class="dagna-dlg-speaker"></div>
         <div class="dagna-dlg-text"></div>
         <div class="dagna-dlg-footer">
           <button class="dagna-dlg-btn">Continue</button>
         </div>
       </div>
-      <img class="dagna-dlg-bust" id="dagna-bust-right"
-           src="/assets/Pictures%20Cutscenes%20Icons/leugrenbust.jpg" />
     </div>`;
   document.body.appendChild(_dlgEl);
   _dlgEl.querySelector('.dagna-dlg-btn').addEventListener('click', _onContinue);
 }
 
-function _showLines(lines, onDone) {
+function _showLines(lines, onDone, preview = false) {
+  _isPreview = preview || _forcePreview;
+  _forcePreview = false;
   _buildDlgUI();
   _lines     = lines;
   _lineIdx   = 0;
@@ -301,26 +358,115 @@ function _showLines(lines, onDone) {
   _dlgEl.style.display = 'flex';
 }
 
+const _SEQ_DEFS = [
+  { id: 'seq_a', name: 'Dagna Entrance', meta: 'Fade · portal · walk · dialogue A' },
+  { id: 'seq_b', name: 'River Styx',     meta: 'Portal · walk · dialogue B' },
+  { id: 'seq_out', name: 'Victory',      meta: 'Portal · walk · outro dialogue' },
+];
+
+function _runSequencePreview(id) {
+  document.getElementById('dlg-log-panel').style.display = 'none';
+  if (id === 'seq_a') {
+    _forcePreview = true;
+    _startIntroA();
+  } else if (id === 'seq_b') {
+    const lp = _getLeugrenPos(), pp = _portalSpot(lp);
+    _addPortalLight(pp);
+    _openPortalAndWalk(pp, lp, () => _showLines(_LINES_B, null, true));
+  } else if (id === 'seq_out') {
+    const lp = _getLeugrenPos(), pp = _portalSpot(lp);
+    _addPortalLight(pp);
+    _openPortalAndWalk(pp, lp, () => _showLines(_LINES_OUT, null, true));
+  }
+}
+
+function _buildDlgPanel() {
+  const el = document.getElementById('dlg-log-entries');
+  if (!el) return;
+  el.innerHTML = '';
+
+  // ── Sequences section ──
+  const seqHdr = document.createElement('div');
+  seqHdr.className = 'dlg-panel-section-hdr';
+  seqHdr.textContent = 'SEQUENCES';
+  el.appendChild(seqHdr);
+
+  for (const sq of _SEQ_DEFS) {
+    const row = document.createElement('div');
+    row.className = 'dlg-panel-row dlg-panel-seq-row';
+    row.innerHTML =
+      `<div class="dlg-panel-info">
+        <div class="dlg-panel-name">${sq.name}</div>
+        <div class="dlg-panel-meta">${sq.meta}</div>
+      </div>
+      <button class="dlg-panel-play-btn" data-seq="${sq.id}">&#9654;</button>`;
+    el.appendChild(row);
+  }
+
+  // ── Dialogues section ──
+  const dlgHdr = document.createElement('div');
+  dlgHdr.className = 'dlg-panel-section-hdr';
+  dlgHdr.textContent = 'DIALOGUES';
+  el.appendChild(dlgHdr);
+
+  for (const sc of _SCENES) {
+    const lineCount = sc.lines.filter(l => l.t).length;
+    const row = document.createElement('div');
+    row.className = 'dlg-panel-row';
+    row.innerHTML =
+      `<div class="dlg-panel-info">
+        <div class="dlg-panel-name">${sc.name}</div>
+        <div class="dlg-panel-meta">${lineCount} lines · Dagna &amp; Leugren</div>
+      </div>
+      <button class="dlg-panel-play-btn" data-id="${sc.id}">&#9654;</button>`;
+    el.appendChild(row);
+  }
+
+  el.addEventListener('click', e => {
+    const btn = e.target.closest('.dlg-panel-play-btn');
+    if (!btn) return;
+    if (btn.dataset.seq) { _runSequencePreview(btn.dataset.seq); return; }
+    const sc = _SCENES.find(s => s.id === btn.dataset.id);
+    if (!sc) return;
+    document.getElementById('dlg-log-panel').style.display = 'none';
+    _showLines(sc.lines, null, true);
+  });
+}
+
 function _hideDlg() {
   if (_dlgEl) _dlgEl.style.display = 'none';
 }
 
+const _BUST_SRC = {
+  Dagna:   '/assets/Pictures%20Cutscenes%20Icons/dagnabust.jpg',
+  Leugren: '/assets/Pictures%20Cutscenes%20Icons/leugrenbust.jpg',
+};
+
 function _renderLine() {
   const l = _lines[_lineIdx];
-  const isDagna = l.s === 'Dagna';
-  _dlgEl.querySelector('.dagna-dlg-speaker').textContent = l.s;
-  _dlgEl.querySelector('.dagna-dlg-text').textContent    = l.t;
-  _dlgEl.querySelector('#dagna-bust-left').style.visibility  = isDagna  ? 'visible' : 'hidden';
-  _dlgEl.querySelector('#dagna-bust-right').style.visibility = !isDagna ? 'visible' : 'hidden';
+  const isDagna   = l.s === 'Dagna';
+  const speakerEl = _dlgEl.querySelector('.dagna-dlg-speaker');
+  speakerEl.textContent = l.s;
+  speakerEl.className   = 'dagna-dlg-speaker' + (isDagna ? '' : ' dlg-speaker-leugren');
+  _dlgEl.querySelector('.dagna-dlg-text').textContent = l.t;
+  _dlgEl.querySelector('#dagna-bust').src = _BUST_SRC[l.s] ?? _BUST_SRC.Dagna;
   const isLast = _lineIdx === _lines.length - 1;
-  _dlgEl.querySelector('.dagna-dlg-btn').textContent = isLast ? 'Farewell' : 'Continue';
+  _dlgEl.querySelector('.dagna-dlg-btn').textContent =
+    isLast ? (_isPreview ? 'End Sequence' : 'Farewell') : 'Continue';
+}
+
+function _previewCleanup() {
+  _removeDagna();
+  _removePortal();
+  if (_lightsDimmed) _restoreLights(1.4);
 }
 
 function _onContinue() {
   const l = _lines[_lineIdx];
   if (l?.goStyx) {
+    if (!_isPreview) { _hideDlg(); _doStyxTransition(); return; }
     _hideDlg();
-    _doStyxTransition();
+    _previewCleanup();
     return;
   }
   _lineIdx++;
@@ -328,10 +474,53 @@ function _onContinue() {
     _hideDlg();
     const cb = _dlgOnDone;
     _dlgOnDone = null;
+    if (_isPreview) _previewCleanup();
     cb?.();
   } else {
     _renderLine();
   }
+}
+
+// ── Light fade helpers ────────────────────────────────────────────────────────
+function _dimLights(dur, cb) {
+  _savedLights  = { amb: ambient.intensity, moon: moon.intensity, fire: fire.intensity };
+  _lightsDimmed = true;
+  _lightFade = {
+    t: 0, dur,
+    sAmb: ambient.intensity, sMoon: moon.intensity, sFire: fire.intensity,
+    eAmb: 0,                 eMoon: 0,              eFire: 0,
+    cb,
+  };
+}
+
+function _restoreLights(dur) {
+  if (!_savedLights) return;
+  _lightFade = {
+    t: 0, dur,
+    sAmb: ambient.intensity, sMoon: moon.intensity, sFire: fire.intensity,
+    eAmb: _savedLights.amb,  eMoon: _savedLights.moon, eFire: _savedLights.fire,
+    cb: () => { _lightsDimmed = false; _savedLights = null; },
+  };
+}
+
+function _tickLightFade(dt) {
+  if (!_lightFade) return;
+  _lightFade.t = Math.min(_lightFade.t + dt, _lightFade.dur);
+  const p    = _lightFade.dur > 0 ? _lightFade.t / _lightFade.dur : 1;
+  const ease = p * p * (3 - 2 * p);  // smoothstep
+  ambient.intensity = _lightFade.sAmb  + (_lightFade.eAmb  - _lightFade.sAmb)  * ease;
+  moon.intensity    = _lightFade.sMoon + (_lightFade.eMoon - _lightFade.sMoon) * ease;
+  fire.intensity    = _lightFade.sFire + (_lightFade.eFire - _lightFade.sFire) * ease;
+  if (_lightFade.t >= _lightFade.dur) {
+    const cb = _lightFade.cb;
+    _lightFade = null;
+    cb?.();
+  }
+}
+
+function _addPortalLight(pp) {
+  _portalLight.position.set(pp.x, pp.y + 1.2, pp.z);
+  _portalLight.intensity = 14;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -347,17 +536,26 @@ function _getLeugrenPos() {
 }
 
 function _portalSpot(lp) {
-  const px = lp.x + 4.5;  // 15 ft ≈ 4.5 WU
-  return { x: px, y: getTerrainHeight(px, lp.z) + 0.06, z: lp.z };
+  const px = lp.x + 7.5;  // 25 ft ≈ 7.5 WU
+  const pz = lp.z;
+  // Sample terrain at center + 8 points around the portal edge (r=1.65 WU)
+  // so the flat disk always clears the highest terrain point beneath it
+  const R = 1.65;
+  let maxY = getTerrainHeight(px, pz);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    maxY = Math.max(maxY, getTerrainHeight(px + Math.cos(a) * R, pz + Math.sin(a) * R));
+  }
+  return { x: px, y: maxY + 0.10, z: pz };
 }
 
 function _openPortalAndWalk(pp, lp, onArrived) {
-  _buildPortal(pp.x, pp.y, pp.z);
+  _activatePortal(pp.x, pp.y, pp.z);
   // Wait for portal open animation before spawning Dagna inside it
   setTimeout(() => {
     const gy       = getTerrainHeight(lp.x, lp.z) + 0.05;
     const spawnAt  = new THREE.Vector3(pp.x, gy, pp.z);
-    const walkTo   = new THREE.Vector3(lp.x + 0.8, gy, lp.z);
+    const walkTo   = new THREE.Vector3(lp.x + 3.8, gy, lp.z);
     const facing   = Math.atan2(walkTo.x - spawnAt.x, walkTo.z - spawnAt.z);
     _spawnDagna(spawnAt, facing, () => {
       _startMove(spawnAt, walkTo, 4.0, onArrived);
@@ -367,18 +565,18 @@ function _openPortalAndWalk(pp, lp, onArrived) {
 
 // ── Intro part A: fires after first combat ends in which a hero died ──────────
 function _startIntroA() {
-  // Pan camera to Leugren before the portal opens
-  const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
-  if (leugren) {
-    setFollowUnit(leugren);
-  } else {
-    focusCameraOnUnit({ grp: { position: _leugrenLastPos } });
-  }
+  // 1. Fade scene to black, then reveal portal and Dagna
+  _dimLights(1.6, () => {
+    const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
+    if (leugren) setFollowUnit(leugren);
+    else focusCameraOnUnit({ grp: { position: _leugrenLastPos } });
 
-  const lp = _getLeugrenPos();
-  const pp = _portalSpot(lp);
-  _openPortalAndWalk(pp, lp, () => {
-    _showLines(_LINES_A, null);
+    const lp = _getLeugrenPos();
+    const pp = _portalSpot(lp);
+    _addPortalLight(pp);          // 2. Portal glow appears in darkness
+    _openPortalAndWalk(pp, lp, () => {
+      _showLines(_LINES_A, null); // 3. Dagna (with her own light) has arrived
+    });
   });
 }
 

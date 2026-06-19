@@ -69,9 +69,9 @@ const ANIMATED_TYPES = new Set(Object.keys(MODEL_PATHS));
 // Auto-detection handles new models; add an entry here only when auto-detection
 // gets a slot wrong for a specific GLB.
 const ANIM_CLIP_NAMES = {
-  // ogre and human verified correct by auto-detection — kept as safety net
+  // new GLB has clean names; pin explicitly so Skill_03/Sword_Parry_Backward_5 don't displace slots
   ogre: {
-    idle: 'Attack', walk: 'Idle_8', attack: 'Walking', rangedAttack: 'Running', death: 'Archery_Shot_1',
+    idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
   },
   human: {
     idle: 'mage_soell_cast_7', walk: 'Attack', attack: 'Running', rangedAttack: 'Idle_8', death: 'Walking',
@@ -84,6 +84,10 @@ const ANIM_CLIP_NAMES = {
   // spellCast slot needed because dwarf has both a crossbow and separate spell animation
   dwarf: {
     walk: 'Walking', rangedAttack: 'Archery_Shot_1', spellCast: 'mage_soell_cast_7',
+  },
+  // Angry_Ground_Stomp has a larger hip Y-range than Attack; pin Attack explicitly
+  owlbear: {
+    idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
   },
 };
 

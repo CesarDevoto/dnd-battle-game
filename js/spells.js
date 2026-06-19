@@ -20,10 +20,9 @@ export const SPELLS = {
     actionType: 'action',
     rangeFt:    60,
     healDice:   1,
-    healSides:  2,
-    healMod:    2,
+    healSides:  8,
     imgSrc:     'assets/Spells/Healingword.jpg',
-    desc:       '60 ft · 1d2+2 hp restored',
+    desc:       '60 ft · 1d8+WIS hp restored',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
   cure_wounds: {
@@ -87,7 +86,7 @@ export const ELF_SPELLS = {
     actionType:  'action',
     imgSrc:      'assets/Spells/Firebolt.jpg',
     displayOnly: true,   // combat handled via attacks[] in constants.js
-    desc:        '120 ft · 1d10 fire · INT to hit',
+    desc:        '120 ft · 1d10+INT fire · INT to hit',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
   magic_missile: {
