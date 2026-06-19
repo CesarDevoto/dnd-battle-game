@@ -546,18 +546,34 @@ function hasPropClash(x, z) {
 const _losRay      = new THREE.Raycaster();
 const LOS_EYE_H    = 1.10;  // WU above unit Y for the ray origin/terminus
 const LOS_CANOPY_Y = 0.75;  // hits more than this WU above the highest eye are ignored
+const LOS_STEPS    = 12;    // terrain height samples along the ray
+
+// Returns true if terrain rises above the eye-level line between the two points.
+// Catches cliff walls and raised ridges that the prop raycaster never sees.
+function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
+  for (let i = 1; i < LOS_STEPS; i++) {
+    const t  = i / LOS_STEPS;
+    const th = getTerrainHeight(ax + (tx - ax) * t, az + (tz - az) * t);
+    if (th > fromY + (toY - fromY) * t) return true;
+  }
+  return false;
+}
 
 function hasLineOfSight(ax, az, tx, tz) {
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
-  if (!losBlockerMeshes.length) return true;
 
   const fromY = getTerrainHeight(ax, az) + LOS_EYE_H;
   const toY   = getTerrainHeight(tx, tz) + LOS_EYE_H;
-  const from  = new THREE.Vector3(ax, fromY, az);
-  const to    = new THREE.Vector3(tx, toY,   tz);
-  const dist  = from.distanceTo(to);
 
+  // Terrain check: cheap height sampling along the ray
+  if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY)) return false;
+
+  // Prop check: raycaster against placed scene objects
+  if (!losBlockerMeshes.length) return true;
+  const from = new THREE.Vector3(ax, fromY, az);
+  const to   = new THREE.Vector3(tx, toY,   tz);
+  const dist = from.distanceTo(to);
   _losRay.set(from, new THREE.Vector3().subVectors(to, from).normalize());
   _losRay.far = dist;
 

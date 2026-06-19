@@ -3,6 +3,7 @@ import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFoll
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
+import { isGroupMove } from './groupMove.js';
 import { COLORS, HERO_RING_COLORS, BOUNDS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, UNIT_TYPES, SCENE } from './constants.js';
 import { hideSheet } from './ui.js';
 import { propPositions, activeEnv } from './environments.js';
@@ -234,10 +235,17 @@ renderer.domElement.addEventListener('click', e => {
         _selectHero(hero);
         return;
       }
-      // Click on ground → move selected hero
+      // Click on ground → move selected hero (and group if enabled)
       const sel = getPCSelected();
       if (sel) {
+        const dx = pt.x - sel.grp.position.x;
+        const dz = pt.z - sel.grp.position.z;
         movePCHeroTo(sel, pt.x, pt.z);
+        if (isGroupMove()) {
+          units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0).forEach(o => {
+            movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz);
+          });
+        }
         return;
       }
     }
@@ -268,8 +276,19 @@ renderer.domElement.addEventListener('click', e => {
     const u  = selectedUnit;
     const sn = snapPoint(pt.x, pt.z, u.type);
     if (onHeroSide(sn) && tunnelFloorOk(sn) && !hasClash(sn, u) && !hasPropClash(sn)) {
+      const dx = sn.x - u.grp.position.x;
+      const dz = sn.z - u.grp.position.z;
       u.grp.position.x = sn.x; u.grp.position.z = sn.z;
       u.anchor.x = sn.x;       u.anchor.z = sn.z;
+      if (isGroupMove()) {
+        units.filter(o => o.team === 'blue' && o !== u && o.hp > 0).forEach(o => {
+          const sno = snapPoint(o.grp.position.x + dx, o.grp.position.z + dz, o.type);
+          if (onHeroSide(sno) && tunnelFloorOk(sno) && !hasPropClash(sno)) {
+            o.grp.position.x = sno.x; o.grp.position.z = sno.z;
+            o.anchor.x = sno.x;       o.anchor.z = sno.z;
+          }
+        });
+      }
     }
     clearMove(); hideMenu();
     return;

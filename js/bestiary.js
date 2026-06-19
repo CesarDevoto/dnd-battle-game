@@ -63,7 +63,7 @@ function atkDmgStr(atk, def) {
 
 function atkRangeStr(atk) {
   if (atk.type === 'melee') return '5 ft';
-  if (atk.longRange) return `${atk.range}/${atk.longRange} ft`;
+  if (atk.longRange) return `${atk.range}/<span class="bst-long-range" title="Long range (disadvantage) — halved from D&D RAW">${atk.longRange}†</span> ft`;
   return `${atk.range} ft`;
 }
 
@@ -104,7 +104,8 @@ function buildTable() {
           <span class="bst-atk-hit">${atkHitStr(atk, def)}</span>
           <span class="bst-atk-dmg">${atkDmgStr(atk, def)}</span>
           <span class="bst-atk-rng">${atkRangeStr(atk)}</span>
-          ${atk.qty !== undefined ? `<span class="bst-atk-qty">×${atk.qty}</span>` : ''}
+          ${atk.type === 'ranged' && atk.rawLongRange ? `<span class="bst-atk-dnd">${atk.range}/${atk.rawLongRange} ft</span>` : atk.type === 'ranged' ? `<span class="bst-atk-dnd">${atk.range} ft</span>` : ''}
+          ${atk.type === 'ranged' ? `<span class="bst-atk-qty">${atk.qty !== undefined ? `×${atk.qty}` : '—'}</span>` : ''}
           ${atk.note ? `<div class="bst-atk-note">${atk.note}</div>` : ''}
         </div>`).join('');
 
@@ -147,12 +148,23 @@ function buildTable() {
           <th class="bst-th-ab">CHA</th>
           <th class="bst-th-num">New Melee</th>
           <th class="bst-th-num">New Range</th>
-          <th class="bst-th-atks">ATTACKS</th>
+          <th class="bst-th-atks">ATTACKS
+            <div class="bst-atk bst-atk-col-hdr">
+              <span class="bst-atk-type"></span>
+              <span class="bst-atk-name"></span>
+              <span class="bst-atk-hit">Hit</span>
+              <span class="bst-atk-dmg">Dmg</span>
+              <span class="bst-atk-rng">Range</span>
+              <span class="bst-atk-dnd">D&amp;D Range</span>
+              <span class="bst-atk-qty">Qty</span>
+            </div>
+          </th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    <div id="bestiary-no-results">No enemies match your search.</div>`;
+    <div id="bestiary-no-results">No enemies match your search.</div>
+    <div class="bst-footnote">† Long range halved from D&D RAW — attacks beyond normal range are made with disadvantage.</div>`;
 }
 
 function filterBestiary(query) {

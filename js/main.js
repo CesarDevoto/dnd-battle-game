@@ -31,6 +31,7 @@ import { initAudio, initMixerPanel } from './audio.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initXPTable } from './xpTable.js';
 import { IS_DEV } from './devConfig.js';
+import { initGroupMove } from './groupMove.js';
 
 if (IS_DEV) document.body.classList.add('dev-mode');
 
@@ -45,6 +46,7 @@ initSpellbook();
 initHotbar();
 initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
+initGroupMove();
 
 if (IS_DEV) {
   initPropEditor();
