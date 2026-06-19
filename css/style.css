@@ -35,6 +35,9 @@
   text-shadow: 0 0 8px rgba(80,140,255,0.50);
 }
 
+/* ── Production build: hide everything marked dev-only ───────────────── */
+body:not(.dev-mode) .dev-only { display: none !important; }
+
 /* ── Play mode: hide all dev-only elements ───────────────────────────── */
 .play-mode #setup-panel-blue,
 .play-mode #setup-panel-cutscenes,

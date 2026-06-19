@@ -29,10 +29,10 @@
     <div id="combat-banner">⚔ COMBAT ⚔</div>
 
     <!-- Cutscenes / Zones / Dialogue buttons -->
-    <button id="cutscenes-btn">CUTSCENES</button>
-    <button id="zones-btn">ZONES</button>
-    <button id="dlg-log-btn">DIALOGUE</button>
-    <div id="dlg-log-panel" style="display:none">
+    <button id="cutscenes-btn" class="dev-only">CUTSCENES</button>
+    <button id="zones-btn" class="dev-only">ZONES</button>
+    <button id="dlg-log-btn" class="dev-only">DIALOGUE</button>
+    <div id="dlg-log-panel" class="dev-only" style="display:none">
       <div id="dlg-log-header">
         <div class="dlg-log-title">DIALOGUES</div>
         <button id="dlg-log-close">✕</button>
@@ -121,10 +121,10 @@
     </div>
 
     <!-- Biome button -->
-    <button id="biomes-btn">BIOMES</button>
+    <button id="biomes-btn" class="dev-only">BIOMES</button>
 
     <!-- Biome selector (hidden until BIOMES button clicked) -->
-    <div id="env-selector" style="display:none">
+    <div id="env-selector" class="dev-only" style="display:none">
       <button class="env-btn" data-env="forest">FOREST</button>
       <button class="env-btn" data-env="desert">DESERT</button>
       <button class="env-btn" data-env="swamp">SWAMP</button>
@@ -135,7 +135,7 @@
     </div>
 
     <!-- ── Zone selector panel ─────────────────────────────────────────── -->
-    <div id="setup-panel-zones">
+    <div id="setup-panel-zones" class="dev-only">
       <div id="panel-header-zones" class="panel-header">
         <div class="s-title zone-gold">ZONES</div>
         <button class="panel-toggle">▶</button>
@@ -162,7 +162,7 @@
     </div>
 
     <!-- ── Cutscene dev panel ─────────────────────────────────────────── -->
-    <div id="setup-panel-cutscenes">
+    <div id="setup-panel-cutscenes" class="dev-only">
       <div id="panel-header-cutscenes" class="panel-header">
         <div class="s-title zone-gold">CUTSCENES</div>
         <button class="panel-toggle">▶</button>
@@ -271,13 +271,13 @@
 
 
     <!-- Grid toggle (bottom-right) -->
-    <button id="grid-toggle-btn">Grid On</button>
+    <button id="grid-toggle-btn" class="dev-only">Grid On</button>
 
 <!-- Terrain Editor button (top-right) -->
-    <button id="terrain-editor-btn">TERRAIN</button>
+    <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
 
     <!-- Terrain Editor panel -->
-    <div id="terrain-editor-panel" style="display:none">
+    <div id="terrain-editor-panel" class="dev-only" style="display:none">
       <div id="te-title-row">
         <span id="te-title">TERRAIN EDITOR</span>
         <button id="te-collapse-btn" class="te-collapse">▼</button>
@@ -303,16 +303,16 @@
     </div>
 
     <!-- Spawn Editor button (top-right) -->
-    <button id="spawn-editor-btn">WAVES</button>
+    <button id="spawn-editor-btn" class="dev-only">WAVES</button>
 
     <!-- NPC Editor button (top-right) -->
-    <button id="npc-editor-btn">NPCS</button>
+    <button id="npc-editor-btn" class="dev-only">NPCS</button>
 
     <!-- NPC AI Editor button -->
-    <button id="npc-ai-editor-btn">NPC AI</button>
+    <button id="npc-ai-editor-btn" class="dev-only">NPC AI</button>
 
     <!-- NPC Editor panel -->
-    <div id="npc-editor-panel" style="display:none">
+    <div id="npc-editor-panel" class="dev-only" style="display:none">
       <div id="ne-title-row">
         <span id="ne-title">NPC EDITOR</span>
         <button id="ne-collapse-btn" class="ne-collapse">▼</button>
@@ -335,7 +335,7 @@
     </div>
 
     <!-- Spawn Editor panel -->
-    <div id="spawn-editor-panel" style="display:none">
+    <div id="spawn-editor-panel" class="dev-only" style="display:none">
       <div id="se-title-row">
         <span id="se-title">WAVE SPAWNER</span>
         <button id="se-collapse-btn" class="se-collapse">▼</button>
@@ -376,10 +376,10 @@
     </div>
 
     <!-- Prop Editor button (top-right) -->
-    <button id="prop-editor-btn">PROPS</button>
+    <button id="prop-editor-btn" class="dev-only">PROPS</button>
 
     <!-- Prop Editor panel -->
-    <div id="prop-editor-panel" style="display:none">
+    <div id="prop-editor-panel" class="dev-only" style="display:none">
       <div id="pe-title-row">
         <span id="pe-title">PROP EDITOR</span>
         <button id="pe-hide-props-btn" class="pe-collapse" title="Toggle prop visibility">👁</button>

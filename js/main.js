@@ -30,6 +30,9 @@ import { prewarmEffectShaders } from './firebolt.js';
 import { initAudio, initMixerPanel } from './audio.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initXPTable } from './xpTable.js';
+import { IS_DEV } from './devConfig.js';
+
+if (IS_DEV) document.body.classList.add('dev-mode');
 
 buildHeroPortraits();
 prewarmEffectShaders();
@@ -41,39 +44,43 @@ initXPTable();
 initSpellbook();
 initHotbar();
 initZoneUI();
-initPropEditor();
-initNpcEditor();
-initNpcAIEditor();
-initSpawnEditor();
-initTerrainEditor();
-initDevMode();
-initCutsceneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
-// ── Cutscenes panel toggle ────────────────────────────────────────────────────
-const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
-const _cutscenesBtn   = document.getElementById('cutscenes-btn');
-_cutscenesBtn.addEventListener('click', () => {
-  const shown = _cutscenesPanel.style.display !== 'none' && _cutscenesPanel.style.display !== '';
-  _cutscenesPanel.style.display = shown ? 'none' : 'flex';
-  _cutscenesBtn.classList.toggle('active', !shown);
-});
 
-// ── Zones panel toggle ────────────────────────────────────────────────────────
-const _zonesPanel = document.getElementById('setup-panel-zones');
-const _zonesBtn   = document.getElementById('zones-btn');
-_zonesBtn.addEventListener('click', () => {
-  const shown = _zonesPanel.style.display !== 'none' && _zonesPanel.style.display !== '';
-  _zonesPanel.style.display = shown ? 'none' : 'flex';
-  _zonesBtn.classList.toggle('active', !shown);
-});
+if (IS_DEV) {
+  initPropEditor();
+  initNpcEditor();
+  initNpcAIEditor();
+  initSpawnEditor();
+  initTerrainEditor();
+  initDevMode();
+  initCutsceneUI();
 
-// ── Dialogue log toggle ───────────────────────────────────────────────────────
-document.getElementById('dlg-log-btn').addEventListener('click', () => {
-  document.getElementById('dlg-log-panel').style.display = 'flex';
-});
-document.getElementById('dlg-log-close').addEventListener('click', () => {
-  document.getElementById('dlg-log-panel').style.display = 'none';
-});
+  // ── Cutscenes panel toggle ────────────────────────────────────────────────
+  const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
+  const _cutscenesBtn   = document.getElementById('cutscenes-btn');
+  _cutscenesBtn.addEventListener('click', () => {
+    const shown = _cutscenesPanel.style.display !== 'none' && _cutscenesPanel.style.display !== '';
+    _cutscenesPanel.style.display = shown ? 'none' : 'flex';
+    _cutscenesBtn.classList.toggle('active', !shown);
+  });
+
+  // ── Zones panel toggle ──────────────────────────────────────────────────────
+  const _zonesPanel = document.getElementById('setup-panel-zones');
+  const _zonesBtn   = document.getElementById('zones-btn');
+  _zonesBtn.addEventListener('click', () => {
+    const shown = _zonesPanel.style.display !== 'none' && _zonesPanel.style.display !== '';
+    _zonesPanel.style.display = shown ? 'none' : 'flex';
+    _zonesBtn.classList.toggle('active', !shown);
+  });
+
+  // ── Dialogue log toggle ─────────────────────────────────────────────────────
+  document.getElementById('dlg-log-btn').addEventListener('click', () => {
+    document.getElementById('dlg-log-panel').style.display = 'flex';
+  });
+  document.getElementById('dlg-log-close').addEventListener('click', () => {
+    document.getElementById('dlg-log-panel').style.display = 'none';
+  });
+}
 
 bindPermanentHotkey('KeyT',     'TOP<br>VIEW',      toggleTopView,  isTopViewActive);
 bindPermanentHotkey('Tab',      'TOGGLE<br>HEROES', cycleHero,      null);
@@ -168,7 +175,7 @@ let _prevNow = 0;
   updateHeroUI();
   updateSelectionHighlight(t);
   updateCameraFocus();
-  tickDevCamera(dt);
+  if (IS_DEV) tickDevCamera(dt);
   controls.update();
   updateEngagementLines(units);
   updateEnvironmentVisibility();
