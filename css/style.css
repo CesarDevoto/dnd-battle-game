@@ -4942,8 +4942,19 @@ body {
   height: 100%;
   object-fit: cover;
   pointer-events: none;
-  transition: opacity 0.38s ease;
+  z-index: 0;
 }
+
+#cs-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.42s ease;
+}
+#cs-fade.cs-fade-on { opacity: 1; }
 
 /* Ken Burns pan animations */
 @keyframes cs-pan-left  { from { transform: scale(1.07) translate( 2%, -2%); } to { transform: scale(1.07) translate(-2%,  2%); } }
@@ -4954,6 +4965,21 @@ body {
 .cs-pan-right { animation: cs-pan-right 13s linear both; }
 .cs-pan-up    { animation: cs-pan-up    13s linear both; }
 .cs-zoom-in   { animation: cs-zoom-in   13s linear both; }
+
+/* Title-card mode — no image, text centered */
+.cs-title-card #cs-text-wrap {
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  padding: 0 90px;
+}
+.cs-title-card #cs-text {
+  font-size: 1.55rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
 
 /* Bottom gradient + story text */
 #cs-text-wrap {

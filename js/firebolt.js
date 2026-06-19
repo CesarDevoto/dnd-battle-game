@@ -6,45 +6,43 @@ import { playSound } from './audio.js';
 const TRAVEL_MS  = 1050;  // ms for bolt to reach target
 const MAX_SPARKS = 200;   // ring-buffer capacity
 
-// Pre-compile all shader variants used by this effect so the first cast has no stall.
-// Three.js defers GLSL compilation until first draw; rendering to a 1×1 off-screen
-// target forces the GPU driver to compile everything synchronously at startup.
+// Keep permanent sub-pixel objects in the scene so firebolt shader variants are
+// compiled on the very first game frame and never evicted. All prewarm attempts
+// (render-target, scissor, deferred post-zone-load) failed because Three.js keyed
+// the compiled program on scene/renderer state that differed at prewarm time vs
+// cast time. Keeping live objects avoids that entirely — shaders stay warm every frame.
 export function prewarmEffectShaders() {
-  const warmScene = new THREE.Scene();
-
-  const sphGeo = new THREE.SphereGeometry(0.001, 3, 2);
-  warmScene.add(new THREE.Mesh(sphGeo,
-    new THREE.MeshBasicMaterial({ color: 0xffee66 })));
-  warmScene.add(new THREE.Mesh(sphGeo,
-    new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
-
-  // RingGeometry for shockwave — different vertex layout, own compile
-  const ringGeo = new THREE.RingGeometry(0.0001, 0.001, 6);
-  warmScene.add(new THREE.Mesh(ringGeo,
-    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
-
-  // PlaneGeometry for healing-word plus sign
+  const sphGeo   = new THREE.SphereGeometry(0.001, 3, 2);
+  const ringGeo  = new THREE.RingGeometry(0.0001, 0.001, 6);
   const planeGeo = new THREE.PlaneGeometry(0.001, 0.001);
-  warmScene.add(new THREE.Mesh(planeGeo,
-    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
-
-  // PointsMaterial with vertex colors — the most expensive compile
-  const ptGeo = new THREE.BufferGeometry();
+  const ptGeo    = new THREE.BufferGeometry();
   ptGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   ptGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(3), 3));
-  warmScene.add(new THREE.Points(ptGeo,
-    new THREE.PointsMaterial({ size: 0.001, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true })));
 
-  const rt = new THREE.WebGLRenderTarget(1, 1);
-  renderer.setRenderTarget(rt);
-  renderer.render(warmScene, camera);
-  renderer.setRenderTarget(null);
+  const warmObjects = [
+    new THREE.Mesh(sphGeo,
+      new THREE.MeshBasicMaterial({ color: 0xffee66 })),
+    new THREE.Mesh(sphGeo,
+      new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })),
+    new THREE.Mesh(ringGeo,
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })),
+    new THREE.Mesh(planeGeo,
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })),
+    new THREE.Points(ptGeo,
+      new THREE.PointsMaterial({ size: 0.001, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true })),
+  ];
 
-  rt.dispose();
-  warmScene.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+  warmObjects.forEach(o => {
+    o.position.set(0, -9999, 0);  // far below terrain, invisible
+    o.frustumCulled = false;       // always submitted so shader stays compiled
+    scene.add(o);
+  });
+  // Intentionally not disposed — these stay in the scene permanently.
 }
 
 export function playFireboltEffect(attacker, target, onImpact) {
+  playSound('fire_bolt');
+
   const start = new THREE.Vector3(
     attacker.grp.position.x,
     attacker.grp.position.y + 1.15,
@@ -161,15 +159,17 @@ export function playFireboltEffect(attacker, target, onImpact) {
   let    prevNow  = null;
   let    impacted = false;
   let    doneAt   = Infinity;
+  let    travelT  = 0;   // 0‥1, delta-driven so GPU stalls can't skip the bolt
 
   function tick(now) {
     if (t0 === null) { t0 = now; prevNow = now; }
-    const dt = Math.min((now - prevNow) / 1000, 0.05);
+    const dt = Math.min((now - prevNow) / 1000, 0.05);  // cap at 50 ms
     prevNow = now;
 
     // ─ Flying phase ─
     if (!impacted) {
-      const t = Math.min(1, (now - t0) / TRAVEL_MS);
+      travelT = Math.min(1, travelT + dt / (TRAVEL_MS / 1000));
+      const t = travelT;
       coreMesh.position.lerpVectors(start, end, t);
       coreMesh.position.y += Math.sin(t * Math.PI) * 0.38;
       projLight.position.copy(coreMesh.position);
@@ -213,7 +213,6 @@ export function playFireboltEffect(attacker, target, onImpact) {
         projLight.distance  = 26;
         screenShake();
         spawnShockwave();
-        playSound('fire_bolt');
         doneAt = now + 2600;
 
         if (onImpact) onImpact();

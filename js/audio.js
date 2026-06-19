@@ -33,12 +33,19 @@ const SOUNDS = {
   goblin_attack:      { src: 'assets/Audio/combat/goblin attack.mp3',       category: 'combat' },
   goblin_yell:        { src: 'assets/Audio/combat/goblin yell.mp3',         category: 'combat' },
   goblin_moving:      { src: 'assets/Audio/combat/goblin moving.mp3',       category: 'combat' },
+  // Weapon / spell sounds
+  berserker_rage:   { src: 'assets/Audio/combat/berserker rage.mp3',                 category: 'combat' },
+  sword_swing:      { src: 'assets/Audio/combat/sword swing.mp3',                   category: 'combat' },
+  human_attack:     { src: 'assets/Audio/combat/human warrior attack.mp3',          category: 'combat' },
+  halfling_attack:  { src: 'assets/Audio/combat/halfling attack.mp3',               category: 'combat' },
+  dwarf_attack:     { src: 'assets/Audio/combat/dwarf attack.mp3',                 category: 'combat' },
+  range_attack_bow: { src: 'assets/Audio/combat/weapon sounds/range attack bow.mp3', category: 'combat' },
+  fire_bolt:        { src: 'assets/Audio/magic sounds/fire bolt.mp3',                category: 'combat' },
+  healing:          { src: 'assets/Audio/magic sounds/healing word.mp3',             category: 'combat' },
   // Combat one-shots (files not yet added — will silently skip)
   sword_hit:     { src: 'assets/Audio/combat/sword_hit.mp3',      category: 'combat' },
   arrow_shoot:   { src: 'assets/Audio/combat/arrow_shoot.mp3',    category: 'combat' },
   arrow_hit:     { src: 'assets/Audio/combat/arrow_hit.mp3',      category: 'combat' },
-  fire_bolt:     { src: 'assets/Audio/combat/fire_bolt.mp3',      category: 'combat' },
-  healing:       { src: 'assets/Audio/combat/healing.mp3',        category: 'combat' },
   miss:          { src: 'assets/Audio/combat/miss.mp3',           category: 'combat' },
   death:         { src: 'assets/Audio/combat/death.mp3',          category: 'combat' },
   // UI (files not yet added — will silently skip)
@@ -181,6 +188,9 @@ const UNIT_SOUNDS = {
   ogre:           { aggro: 'ogre_aggro',         attack: 'ogre_attack' },
   abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
   goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
+  human:           { attack: 'human_attack' },
+  halfling:        { attack: 'halfling_attack' },
+  dwarf:           { attack: 'dwarf_attack' },
 };
 
 export function playUnitAggroSound(unitType) {

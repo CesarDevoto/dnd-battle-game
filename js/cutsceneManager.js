@@ -11,7 +11,7 @@ export const resetSeen = id => { try { localStorage.removeItem(_seenKey(id)); } 
 
 // ── state ─────────────────────────────────────────────────────────────────────
 let _playing = false, _slideIdx = 0, _cs = null, _locked = false;
-let _overlay, _img, _textEl, _promptEl, _skipBtn, _dotsEl;
+let _overlay, _img, _textEl, _promptEl, _skipBtn, _dotsEl, _fadeEl;
 
 // ── public trigger ────────────────────────────────────────────────────────────
 export function triggerCutscene(trigger) {
@@ -35,14 +35,27 @@ function _play(cs) {
 function _loadSlide(idx) {
   const slide = _cs.slides[idx];
 
-  // Reset Ken Burns animation: force reflow then clear inline override so CSS class wins
-  _img.className = 'cs-img';
-  _img.style.animation = 'none';
-  void _img.offsetWidth;
-  _img.style.animation = '';
-  _img.style.opacity   = '1';
-  _img.className = `cs-img cs-pan-${slide.pan ?? 'left'}`;
-  _img.src = slide.img;
+  // Ensure black overlay is up while image/position changes
+  _fadeEl.classList.add('cs-fade-on');
+
+  // Title-card mode (no image) vs normal image slide
+  if (slide.img) {
+    _img.style.display = '';
+    _img.className = 'cs-img';
+    _img.style.animation = 'none';
+    void _img.offsetWidth;
+    _img.style.animation = '';
+    _img.className = `cs-img cs-pan-${slide.pan ?? 'left'}`;
+    _img.style.objectPosition = slide.objPos ?? '';
+    _img.src = slide.img;
+    _overlay.classList.remove('cs-title-card');
+  } else {
+    _img.style.display = 'none';
+    _overlay.classList.add('cs-title-card');
+  }
+
+  // Fade from black once image is ready
+  setTimeout(() => _fadeEl.classList.remove('cs-fade-on'), 120);
 
   _textEl.textContent = slide.text;
   _textEl.classList.remove('cs-text-in');
@@ -67,10 +80,10 @@ function _advance() {
   _slideIdx++;
   if (_slideIdx >= _cs.slides.length) { _finish(); return; }
   _locked = true;
-  _img.style.opacity = '0';
+  _fadeEl.classList.add('cs-fade-on');
   _textEl.classList.remove('cs-text-in');
   _promptEl.classList.remove('cs-prompt-in');
-  setTimeout(() => _loadSlide(_slideIdx), 380);
+  setTimeout(() => _loadSlide(_slideIdx), 460);
 }
 
 function _finish() {
@@ -113,6 +126,7 @@ function _buildPanel() {
 export function initCutsceneUI() {
   _overlay  = document.getElementById('cutscene-overlay');
   _img      = document.getElementById('cs-img');
+  _fadeEl   = document.getElementById('cs-fade');
   _textEl   = document.getElementById('cs-text');
   _promptEl = document.getElementById('cs-prompt');
   _skipBtn  = document.getElementById('cs-skip');

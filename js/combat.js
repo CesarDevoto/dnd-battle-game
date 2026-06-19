@@ -992,6 +992,7 @@ function activateRage(u) {
   u.rageRounds = UNIT_TYPES[u.type].rage.duration;
   u.rageUses--;
   turnBonusActioned = true;
+  playSound('berserker_rage');
   showFloatingDamage(u, '⚔ RAGE!', '#ff6622');
   addLog(`${unitLabel(u)} enters RAGE! (+2 melee dmg · resist phys dmg)`, 'spell');
   const rem = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
@@ -1390,10 +1391,12 @@ function performAttack(attacker, target, atk) {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
       playUnitAttackAnim(attacker, 'ranged', () => {
+        playSound('range_attack_bow');
         fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk));
       });
     }
   } else {
+    playSound('sword_swing');
     playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk));
   }
 }
@@ -1509,9 +1512,9 @@ function _executeAttack(attacker, target, atk) {
   // Apply damage, show bar, wake sleepers — after dice result + reading pause
   setTimeout(() => {
     target.aggro = true;
-    buildTurnList();
     target.hp = Math.max(0, target.hp - finalDmg);
     target.barShowUntil = Date.now() + 5000;
+    buildTurnList();
     if (sleepingUnits.has(target)) wakeUnit(target, 'damage');
   }, hpUpdateDelay + RESULT_PAUSE);
 

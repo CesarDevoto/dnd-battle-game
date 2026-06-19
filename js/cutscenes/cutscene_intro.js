@@ -5,6 +5,21 @@ export const CUTSCENE = {
   playOnce: true,
   slides: [
     {
+      img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
+      pan:    'right',
+      objPos: 'center 18%',
+      text:   'Moradin: "Dark signs gather on the wind, Dagna… A shadow rises that may swallow kingdoms whole. The world has need of stout hearts and iron will. Go forth. Search the lands. Leave no stone unturned."',
+    },
+    {
+      img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
+      pan:    'left',
+      objPos: 'center 72%',
+      text:   'Dagna: "As you command, All-Father. It shall be done."',
+    },
+    {
+      text: 'Meanwhile, in the Sword Coast…',
+    },
+    {
       img:  'assets/Pictures%20Cutscenes%20Icons/1%20Neverwinter%20cut%20scene.jpg',
       pan:  'left',
       text: 'In the bustling city of Neverwinter, the dwarf Gundren Rockseeker hired you to escort a wagon of supplies to the frontier town of Phandalin, two days southeast.',
