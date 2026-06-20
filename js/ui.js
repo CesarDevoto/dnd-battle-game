@@ -168,11 +168,16 @@ function buildSpellPanelHTML(u) {
     return `
       <div class="ss-spell-row">
         <div class="ss-spell">
-          <div class="ss-spell-top">
-            <span class="ss-spell-name">${sp.name}</span>
-            <span class="ss-spell-type ${sp.actionType}">${sp.actionType === 'bonus' ? 'BONUS ACT' : 'ACTION'}</span>
+          <div class="ss-spell-inner">
+            <div class="ss-spell-text">
+              <div class="ss-spell-top">
+                <span class="ss-spell-name">${sp.name}</span>
+                <span class="ss-spell-type ${sp.actionType}">${sp.actionType === 'bonus' ? 'BONUS ACT' : 'ACTION'}</span>
+              </div>
+              <div class="ss-spell-desc">${sp.desc}</div>
+            </div>
+            ${sp.imgSrc ? `<img src="${sp.imgSrc}" class="ss-spell-inline-img" alt="${sp.name}">` : ''}
           </div>
-          <div class="ss-spell-desc">${sp.desc}</div>
         </div>
         ${toggleHTML}
       </div>`;
@@ -213,11 +218,7 @@ function buildSpellPanelHTML(u) {
 
   return `
     ${(()=>{
-        const cantripTitle = u.type === 'elf'
-          ? `CANTRIPS<img src="assets/Spells/Firebolt.jpg" class="ss-cantrip-img" alt="Fire Bolt">`
-          : u.type === 'dwarf'
-          ? `CANTRIPS<img src="assets/Spells/Healingword.jpg" class="ss-cantrip-img" alt="Healing Word">`
-          : 'CANTRIPS';
+        const cantripTitle = 'CANTRIPS';
         return row('cantrips', `<span class="ss-acc-left"><span class="ss-spell-title">CANTRIPS</span></span>`, cantripTitle,
           cantrips.length ? makeList(cantrips, true) : `<div class="ss-spell-empty">— none —</div>`);
       })()}
@@ -479,9 +480,15 @@ function updateSpellBar() {
     const btn = document.getElementById(`sb-btn-${i}`);
     if (!btn) continue;
     const sp = lvl1[i];
-    btn.textContent   = sp ? sp.name : '';
     btn.title         = sp ? sp.name : '';
     btn.dataset.spell = sp ? sp.key  : '';
+    if (!sp) {
+      btn.innerHTML = '';
+    } else if (sp.imgSrc) {
+      btn.innerHTML = `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">`;
+    } else {
+      btn.textContent = sp.name;
+    }
   }
 
   // Cantrip buttons

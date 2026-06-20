@@ -41,10 +41,9 @@ export const SPELLS = {
     name:          'Bless',
     level:         1,
     actionType:    'action',
-    rangeFt:       30,
-    maxTargets:    3,
     concentration: true,
-    desc:          '30 ft · up to 3 allies · +1d4 to atk & saves · conc',
+    imgSrc:        'assets/Spells/bless.jpg',
+    desc:          'Party · all allies · +1d4 to atk & saves · conc',
   },
 };
 
@@ -89,6 +88,14 @@ export const ELF_SPELLS = {
     desc:        '120 ft · 1d10+INT fire · INT to hit',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
+  mage_armor: {
+    key:        'mage_armor',
+    name:       'Mage Armor',
+    level:      1,
+    actionType: 'action',
+    imgSrc:     'assets/Spells/magearmor.jpg',
+    desc:       'Self · +3 AC until long rest · recastable',
+  },
   magic_missile: {
     key:       'magic_missile',
     name:      'Magic Missile',
@@ -117,8 +124,8 @@ export const ELF_SPELLS = {
 
 // Starting prepared spells per hero type (cantrips + levelled spells)
 export const STARTING_SPELLS = {
-  dwarf: new Set(['healing_word']),
-  elf:   new Set(['fire_bolt']),
+  dwarf: new Set(['healing_word', 'bless']),
+  elf:   new Set(['fire_bolt', 'mage_armor']),
 };
 
 // ── Spell slot initialisation (called when battle begins) ─────────────────────
@@ -129,8 +136,9 @@ export function initSpellSlots(units) {
       u.spellSlotsMax = 2;
       u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
     } else if (u.type === 'elf') {
-      u.spellSlots    = 0;
-      u.spellSlotsMax = 2;
+      const elfSlots  = u.level >= 2 ? 2 : 0;
+      u.spellSlots    = elfSlots;
+      u.spellSlotsMax = elfSlots;
       u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
     }
   });

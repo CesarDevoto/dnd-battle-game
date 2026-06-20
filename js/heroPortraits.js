@@ -224,10 +224,16 @@ export function updateHeroUI() {
       let badges = '';
       if (u && u.raging)
         badges += `<span class="cond-badge cond-rage">⚔ Raging<span class="cond-turns">${u.rageRounds}t</span></span>`;
+      if (u && u.defStanceActive)
+        badges += `<span class="cond-badge cond-stance">🛡 Def Stance<span class="cond-turns">${u.defStanceRounds}t</span></span>`;
+      if (u && u.mageArmored)
+        badges += `<span class="cond-badge cond-mage-armor">✦ Mage Armor · AC ${(u.ac ?? 12) + 3}<span class="cond-turns">∞</span></span>`;
       if (u && blessedUnits.has(u))
         badges += `<span class="cond-badge">✦ Blessed: 1d4 to Atk &amp; ST<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
       if (u && concentrating === u)
         badges += `<span class="cond-badge cond-conc">◈ Concentrating: ${concentratingSpell}<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
+      if (u && u.stealthed && u.team === 'blue')
+        badges += `<span class="cond-badge cond-stealth">👁 Hidden (${u.hideRoll ?? '?'})</span>`;
 
       refs.condEl.innerHTML = badges;
       refs.condEl.classList.toggle('has-content', badges.length > 0);

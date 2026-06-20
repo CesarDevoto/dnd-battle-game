@@ -7,7 +7,7 @@ import { updateHUD, trackSheet } from './ui.js';
 import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
-import { ANIM } from './constants.js';
+import { ANIM, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { buildHeroPortraits, updateHeroUI } from './heroPortraits.js';
 import { initBestiary } from './bestiary.js';
@@ -32,6 +32,10 @@ import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { initXPTable } from './xpTable.js';
 import { IS_DEV } from './devConfig.js';
+import { initSpellSlots } from './spells.js';
+import { updateXPBar, showLevelUpFloat } from './progression.js';
+import { showLevelUpModal } from './levelUpModal.js';
+import { playSound } from './audio.js';
 import { initGroupMove } from './groupMove.js';
 
 if (IS_DEV) document.body.classList.add('dev-mode');
@@ -84,6 +88,40 @@ if (IS_DEV) {
   document.getElementById('dlg-log-close').addEventListener('click', () => {
     document.getElementById('dlg-log-panel').style.display = 'none';
   });
+
+  // D&D 5e XP thresholds (index = level being reached, 1-indexed)
+  const _DEV_XP = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
+  window.devSetLevel = (n) => {
+    const target = Math.max(1, Math.min(20, n));
+    const blues  = units.filter(u => u.team === 'blue');
+    const dinging = [];
+    blues.forEach(hero => {
+      const oldLevel = hero.level ?? 1;
+      hero.level     = target;
+      hero.xp        = _DEV_XP[target - 1] ?? 0;
+      const levelsUp = Math.max(0, target - oldLevel);
+      const _hpRate  = { elf: 1, dwarf: 2, halfling: 2, human: 2.5 }[hero.type] ?? 2;
+      const _frac    = (hero.hpFrac ?? 0) + levelsUp * _hpRate;
+      const hpGain   = Math.floor(_frac);
+      hero.hpFrac    = _frac - hpGain;
+      if (hpGain > 0) { hero.maxHp += hpGain; hero.hp += hpGain; }
+      if (levelsUp > 0) dinging.push({ hero, oldLevel, hpGain });
+    });
+    initSpellSlots(blues);
+    updateXPBar();
+    if (dinging.length) {
+      setTimeout(() => {
+        playSound('level_up');
+        const modalEntries = dinging.map(({ hero, oldLevel, hpGain }) => {
+          showLevelUpFloat(hero);
+          window.dispatchEvent(new CustomEvent('hero:levelup', { detail: { hero, newLevel: hero.level } }));
+          return { hero, newLevel: hero.level, hpGain, oldLevel };
+        });
+        setTimeout(() => showLevelUpModal(modalEntries), 700);
+      }, 300);
+    }
+    console.log(`[DEV] Heroes set to level ${target}`);
+  };
 }
 
 bindPermanentHotkey('KeyT',     'TOP<br>VIEW',      toggleTopView,  isTopViewActive);

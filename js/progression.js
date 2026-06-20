@@ -3,6 +3,7 @@ import { camera, renderer } from './scene.js';
 import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { playSound } from './audio.js';
+import { showLevelUpModal } from './levelUpModal.js';
 
 const _pv             = new THREE.Vector3();
 const _xpBubbleFills  = Array.from(document.querySelectorAll('.xp-bubble-fill'));
@@ -52,7 +53,7 @@ function showFloatingXP(hero, amount) {
   setTimeout(() => el.remove(), 3500);
 }
 
-function showLevelUpFloat(hero) {
+export function showLevelUpFloat(hero) {
   _pv.set(hero.anchor.x, hero.anchor.y + 1.6, hero.anchor.z).project(camera);
   if (_pv.z >= 1) return;
   const el = document.createElement('div');
@@ -97,10 +98,11 @@ export function awardXP(amount, addLog) {
   // Collect all level-ups across all heroes (a single award could span multiple levels)
   const levelUps = [];
   heroes.forEach(hero => {
+    const oldLevel = hero.level ?? 1;
     hero.xp += amount;
     while ((hero.level ?? 1) < MAX_LEVEL && hero.xp >= _xpCeil(hero.level ?? 1)) {
       hero.level = (hero.level ?? 1) + 1;
-      levelUps.push({ hero, newLevel: hero.level });
+      levelUps.push({ hero, newLevel: hero.level, oldLevel });
     }
   });
 
@@ -110,15 +112,28 @@ export function awardXP(amount, addLog) {
   if (levelUps.length) {
     setTimeout(() => {
       playSound('level_up');
-      levelUps.forEach(({ hero, newLevel }) => {
+      const modalMap = new Map();
+      levelUps.forEach(({ hero, newLevel, oldLevel }) => {
         const heroDef = UNIT_TYPES[hero.type] ?? {};
-        const conMod  = Math.floor(((heroDef.abilities?.con ?? 10) - 10) / 2);
-        const hpGain  = (heroDef.hitDie ?? 8) + conMod;
+        const _hpRate = { elf: 1, dwarf: 2, halfling: 2, human: 2.5 }[hero.type] ?? 2;
+        const _frac   = (hero.hpFrac ?? 0) + _hpRate;
+        const hpGain  = Math.floor(_frac);
+        hero.hpFrac   = _frac - hpGain;
         hero.maxHp   += hpGain;
         hero.hp      += hpGain;
         showLevelUpFloat(hero);
-        addLog(`⬆ ${heroDef.name} reaches Level ${newLevel}! +${hpGain} HP (max roll + CON)`, 'levelup');
+        addLog(`⬆ ${heroDef.name} reaches Level ${newLevel}! +${hpGain} HP`, 'levelup');
+        window.dispatchEvent(new CustomEvent('hero:levelup', { detail: { hero, newLevel } }));
+        // Aggregate per hero for the modal (handles multi-level jumps)
+        if (modalMap.has(hero)) {
+          const e = modalMap.get(hero);
+          e.hpGain  += hpGain;
+          e.newLevel = newLevel;
+        } else {
+          modalMap.set(hero, { hero, newLevel, hpGain, oldLevel });
+        }
       });
+      setTimeout(() => showLevelUpModal([...modalMap.values()]), 700);
     }, 1800);
   }
 }

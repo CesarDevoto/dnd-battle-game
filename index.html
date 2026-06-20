@@ -28,10 +28,22 @@
 
     <div id="combat-banner">⚔ COMBAT ⚔</div>
 
-    <!-- Cutscenes / Zones / Dialogue buttons -->
-    <button id="cutscenes-btn" class="dev-only">CUTSCENES</button>
-    <button id="zones-btn" class="dev-only">ZONES</button>
-    <button id="dlg-log-btn" class="dev-only">DIALOGUE</button>
+    <!-- Top button bar — all top-row buttons in one touching group, right-justified -->
+    <div id="top-btn-bar">
+      <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
+      <button id="biomes-btn"         class="dev-only">BIOMES</button>
+      <button id="prop-editor-btn"    class="dev-only">PROPS</button>
+      <button id="spawn-editor-btn"   class="dev-only">WAVES</button>
+      <button id="npc-editor-btn"     class="dev-only">NPCS</button>
+      <button id="npc-ai-editor-btn"  class="dev-only">NPC AI</button>
+      <button id="zones-btn"          class="dev-only">ZONES</button>
+      <button id="cutscenes-btn"      class="dev-only">CUTSCENES</button>
+      <button id="dlg-log-btn"        class="dev-only">DIALOGUE</button>
+      <button id="spellbook-btn">SPELLS</button>
+      <button id="bestiary-btn">BESTIARY</button>
+      <button id="xp-table-btn">XP TABLE</button>
+      <button id="audio-mixer-btn">AUDIO</button>
+    </div>
     <div id="dlg-log-panel" class="dev-only" style="display:none">
       <div id="dlg-log-header">
         <div class="dlg-log-title">DIALOGUES</div>
@@ -39,9 +51,6 @@
       </div>
       <div id="dlg-log-entries"></div>
     </div>
-
-    <!-- XP Table button -->
-    <button id="xp-table-btn">XP TABLE</button>
 
     <!-- XP Table overlay -->
     <div id="xp-table-overlay">
@@ -94,8 +103,7 @@
       </div>
     </div>
 
-    <!-- Audio mixer button + panel -->
-    <button id="audio-mixer-btn">AUDIO</button>
+    <!-- Audio mixer panel -->
     <div id="audio-mixer-panel">
       <div class="amx-title">AUDIO MIXER</div>
       <div class="amx-row">
@@ -119,9 +127,6 @@
         <span class="amx-val">55%</span>
       </div>
     </div>
-
-    <!-- Biome button -->
-    <button id="biomes-btn" class="dev-only">BIOMES</button>
 
     <!-- Biome selector (hidden until BIOMES button clicked) -->
     <div id="env-selector" class="dev-only" style="display:none">
@@ -273,10 +278,7 @@
     <!-- Grid toggle (bottom-right) -->
     <button id="grid-toggle-btn">Grid Off</button>
 
-<!-- Terrain Editor button (top-right) -->
-    <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
-
-    <!-- Terrain Editor panel -->
+<!-- Terrain Editor panel -->
     <div id="terrain-editor-panel" class="dev-only" style="display:none">
       <div id="te-title-row">
         <span id="te-title">TERRAIN EDITOR</span>
@@ -301,15 +303,6 @@
         <div id="te-save-status"></div>
       </div>
     </div>
-
-    <!-- Spawn Editor button (top-right) -->
-    <button id="spawn-editor-btn" class="dev-only">WAVES</button>
-
-    <!-- NPC Editor button (top-right) -->
-    <button id="npc-editor-btn" class="dev-only">NPCS</button>
-
-    <!-- NPC AI Editor button -->
-    <button id="npc-ai-editor-btn" class="dev-only">NPC AI</button>
 
     <!-- NPC Editor panel -->
     <div id="npc-editor-panel" class="dev-only" style="display:none">
@@ -375,9 +368,6 @@
       </div>
     </div>
 
-    <!-- Prop Editor button (top-right) -->
-    <button id="prop-editor-btn" class="dev-only">PROPS</button>
-
     <!-- Prop Editor panel -->
     <div id="prop-editor-panel" class="dev-only" style="display:none">
       <div id="pe-title-row">
@@ -425,9 +415,6 @@
       </div>
     </div>
 
-    <!-- Spell Index button (top-right, left of bestiary) -->
-    <button id="spellbook-btn">SPELLS</button>
-
     <!-- Spell Index overlay -->
     <div id="spellbook-overlay">
       <div id="spellbook-modal">
@@ -443,9 +430,6 @@
         <div id="spellbook-body"></div>
       </div>
     </div>
-
-    <!-- Bestiary button (top-right) -->
-    <button id="bestiary-btn">BESTIARY</button>
 
     <!-- Bestiary overlay -->
     <div id="bestiary-overlay">

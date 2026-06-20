@@ -900,17 +900,7 @@ function castBless(caster) {
   if ((caster.spellSlots ?? 0) <= 0) return;
   playUnitAttackAnim(caster, 'spell');
   const rangeWU = atkRangeWU(SPELLS.bless.rangeFt) + 1.0;
-  const targets = units
-    .filter(u => u.team === 'blue' && u.hp > 0)
-    .map(u => {
-      const dx = u.grp.position.x - caster.grp.position.x;
-      const dz = u.grp.position.z - caster.grp.position.z;
-      return { u, dist: Math.sqrt(dx * dx + dz * dz) };
-    })
-    .filter(({ dist }) => dist <= rangeWU)
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, 3)
-    .map(e => e.u);
+  const targets = units.filter(u => u.team === 'blue' && u.hp > 0);
 
   if (!targets.length) {
     addLog(`${unitLabel(caster)}: no allies in Bless range`, 'spell');
@@ -926,7 +916,7 @@ function castBless(caster) {
 
   const names = targets.map(u => UNIT_TYPES[u.type]?.name ?? u.type).join(', ');
   addLog(`${unitLabel(caster)} casts Bless on ${names}`, 'spell');
-  setTimeout(() => targets.forEach(u => showFloatingDamage(u, 'BLESSED', '#d4af37')), 400);
+  targets.forEach((u, i) => showBlessFloat(u, 350 + i * 110));
 
   updateCombatStatus();
 
@@ -1018,6 +1008,128 @@ function doSprint() {
   showMoveRange(u);
   addLog(`${unitLabel(u)} Dashes! Movement reset to ${UNIT_TYPES[u.type]?.speed ?? 30} ft`, 'move');
   updateCombatStatus();
+}
+
+// ── Defensive Stance (Barbarian lvl 2) ───────────────────────────────────────
+
+function activateDefensiveStance() {
+  if (isAnimating || turnBonusActioned) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'human') return;
+  if (u.defStanceActive || (u.defStanceCooldown ?? 0) > 0) return;
+
+  u.defStanceActive   = true;
+  u.defStanceRounds   = 3;
+  u.defStanceCooldown = 4;
+  turnBonusActioned   = true;
+
+  addLog(`${unitLabel(u)} takes a Defensive Stance! +4 AC for 3 rounds`, 'move');
+  showFloatingDamage(u, '🛡 +4 AC', '#aaddff');
+  updateCombatStatus();
+}
+
+// ── Mage Armor (Wizard lvl 2) ─────────────────────────────────────────────────
+
+function showMageArmorFloat(u) {
+  _fv.set(u.anchor.x, u.anchor.y + 1.6, u.anchor.z).project(camera);
+  if (_fv.z >= 1) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'mage-armor-float';
+  wrap.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth) + 'px';
+  wrap.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+  const icon  = document.createElement('div'); icon.className  = 'maf-icon';  icon.textContent  = '◆';
+  const label = document.createElement('div'); label.className = 'maf-label'; label.textContent = `MAGE ARMOR · AC ${(u.ac ?? 12) + 3}`;
+  wrap.appendChild(icon);
+  wrap.appendChild(label);
+  document.getElementById('app').appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add('cast'));
+  setTimeout(() => wrap.remove(), 2700);
+}
+
+function pulseMageArmorAura(u) {
+  _fv.set(u.anchor.x, u.anchor.y + 0.7, u.anchor.z).project(camera);
+  if (_fv.z >= 1) return;
+  const el = document.createElement('div');
+  el.className = 'mage-armor-aura';
+  el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth) + 'px';
+  el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+  document.getElementById('app').appendChild(el);
+  setTimeout(() => el.remove(), 2400);
+}
+
+function activateMageArmor() {
+  if (isAnimating || turnAttacked) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'elf') return;
+  if ((u.spellSlots ?? 0) <= 0) return;
+
+  u.mageArmored = true;
+  u.spellSlots--;
+  turnAttacked  = true;
+
+  const newAC = (u.ac ?? 12) + 3;
+  addLog(`${unitLabel(u)} casts Mage Armor! AC is now ${newAC} until long rest`, 'spell');
+  showMageArmorFloat(u);
+  pulseMageArmorAura(u);
+  updateCombatStatus();
+}
+
+// ── Hide (Rogue lvl 2) ────────────────────────────────────────────────────────
+
+function activateHide() {
+  if (isAnimating || turnBonusActioned) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'halfling') return;
+  if ((u.hideCooldown ?? 0) > 0) return;
+
+  const ux = u.grp.position.x, uz = u.grp.position.z;
+  const hasEnemyLOS = units.some(e =>
+    e.team === 'red' && e.hp > 0 && e.aggro &&
+    hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz)
+  );
+  if (hasEnemyLOS) {
+    addLog(`${unitLabel(u)}: Can't hide — enemies have line of sight!`, 'dmg');
+    return;
+  }
+
+  const def    = UNIT_TYPES[u.type] ?? {};
+  const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+  const stealth = Math.floor(Math.random() * 20) + 1 + dexMod;
+
+  turnBonusActioned = true;
+  u.hideCooldown    = 2;
+
+  if (stealth >= 10) {
+    u.hideRoll = stealth;
+    setUnitStealth(u, true);
+    addLog(`${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
+    showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
+  } else {
+    addLog(`${unitLabel(u)}: Hide failed! (Stealth ${stealth} vs DC 10)`, 'dmg');
+    showFloatingDamage(u, `HIDE FAIL (${stealth})`, '#ff6644');
+  }
+  updateCombatStatus();
+}
+
+function _checkHidePerception(hero) {
+  if (!hero.stealthed || hero.team !== 'blue') return;
+  const hx = hero.grp.position.x, hz = hero.grp.position.z;
+  for (const e of units) {
+    if (e.team !== 'red' || e.hp <= 0 || !e.aggro) continue;
+    if (!hasLineOfSight(e.grp.position.x, e.grp.position.z, hx, hz)) continue;
+    const def        = UNIT_TYPES[e.type] ?? {};
+    const wisMod     = Math.floor(((def.abilities?.wis ?? 10) - 10) / 2);
+    const dx = hx - e.grp.position.x, dz = hz - e.grp.position.z;
+    const distFt     = Math.sqrt(dx * dx + dz * dz) * (GRID_SQUARE_FEET / WORLD_UNITS_PER_SQUARE);
+    const distPenalty = Math.floor(distFt / 5);
+    const percRoll   = Math.floor(Math.random() * 20) + 1 + wisMod - distPenalty;
+    if (percRoll >= (hero.hideRoll ?? 10)) {
+      setUnitStealth(hero, false);
+      addLog(`${unitLabel(e)} spots ${unitLabel(hero)}! Stealth broken (Perception ${percRoll} vs Stealth ${hero.hideRoll})`, 'dmg');
+      showFloatingDamage(hero, 'SPOTTED!', '#ff4444');
+      return;
+    }
+  }
 }
 
 // ── Rage ─────────────────────────────────────────────────────────────────────
@@ -1295,6 +1407,21 @@ export function showFloatingDamage(u, text, color) {
   setTimeout(() => el.remove(), 4500);
 }
 
+function showBlessFloat(u, delay = 0) {
+  setTimeout(() => {
+    _fv.set(u.anchor.x, u.anchor.y + 1.8, u.anchor.z).project(camera);
+    if (_fv.z >= 1) return;
+    const el = document.createElement('div');
+    el.className = 'bless-float';
+    el.textContent = '✚';
+    el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth) + 'px';
+    el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+    document.getElementById('app').appendChild(el);
+    requestAnimationFrame(() => el.classList.add('pulse'));
+    setTimeout(() => el.remove(), 2200);
+  }, delay);
+}
+
 // ── XP system — see js/progression.js ───────────────────────────────────────
 
 // ── Shared combat teardown ─────────────────────────────────────────────────────
@@ -1487,27 +1614,11 @@ function performAttack(attacker, target, atk) {
 }
 
 // Enemy damage: orig avg × mult (1.2 for CR 1/8,1/4,1; 1.4 otherwise), ±20% low-variance range. Crits roll the range twice.
-function rollScaledDamage(atk, dmgMod, isCrit, mult) {
-  const baseAvg = atk.dice * (atk.sides + 1) / 2 + dmgMod;
-  const newAvg  = baseAvg * mult;
-  const min     = Math.max(1, Math.round(newAvg * 0.8));
-  const max     = Math.round(newAvg * 1.2);
-  const span    = Math.max(0, max - min);
-  const r1      = Math.floor(Math.random() * (span + 1)) + min;
-  const r2      = isCrit ? Math.floor(Math.random() * (span + 1)) + min : 0;
-  return { total: r1 + r2, isScaled: true, min, max, isCrit };
-}
-
-// Hero damage: original avg × 1.4, ±15% low-variance range. Crits roll the range twice.
-function rollHeroDamage(atk, dmgMod, isCrit) {
-  const baseAvg = atk.dice * (atk.sides + 1) / 2 + dmgMod;
-  const newAvg  = baseAvg * 1.4;
-  const min     = Math.max(1, Math.round(newAvg * 0.85));
-  const max     = Math.round(newAvg * 1.15);
-  const span    = Math.max(0, max - min);
-  const r1      = Math.floor(Math.random() * (span + 1)) + min;
-  const r2      = isCrit ? Math.floor(Math.random() * (span + 1)) + min : 0;
-  return { total: r1 + r2, isScaled: true, min, max, isCrit };
+// Enemy damage multiplier by XP reward (maps to CR tier)
+// Standard D&D damage roll. Crits double the dice count (modifier rolled once).
+function rollDnDDamage(atk, dmgMod, isCrit) {
+  const count = isCrit ? (atk.dice ?? 1) * 2 : (atk.dice ?? 1);
+  return roll({ sides: atk.sides, count, modifier: dmgMod });
 }
 
 function dmgBreakdown(r) {
@@ -1550,7 +1661,8 @@ function _executeAttack(attacker, target, atk) {
     if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) atkMode = 'disadvantage';
   }
 
-  const targetAC  = UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC;
+  const _acBonus  = (target.defStanceActive ? 4 : 0) + (target.mageArmored ? 3 : 0);
+  const targetAC  = (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC) + _acBonus;
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
@@ -1581,21 +1693,22 @@ function _executeAttack(attacker, target, atk) {
   }
 
 
+  if (attacker.stealthed) {
+    setUnitStealth(attacker, false);
+    addLog(`${unitLabel(attacker)} breaks stealth with the attack!`, 'move');
+  }
+
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
   const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, atkResult);
 
   const isCrit    = atkResult.isCrit;
-  const _xp       = UNIT_TYPES[attacker.type]?.xpReward ?? 0;
-  const _eMult    = (_xp === 25 || _xp === 50 || _xp === 200) ? 1.2 : 1.4;
-  const dmgResult = attacker.team === 'red'
-    ? rollScaledDamage(atk, dmgMod, isCrit, _eMult)
-    : rollHeroDamage(atk, dmgMod, isCrit);
+  const dmgResult = rollDnDDamage(atk, dmgMod, isCrit);
   setTimeout(() => showRoll('Damage', dmgResult, { autoDismiss: false }), D + 800);
 
   let sneakResult = null;
   if (doSneak) {
     sneakAttackUsed = true;
-    sneakResult     = rollHeroDamage(sneakDef, 0, isCrit);
+    sneakResult     = rollDnDDamage(sneakDef, 0, isCrit);
     setTimeout(() => showRoll('Sneak Attack!', sneakResult, { autoDismiss: false }), D + 1400);
   }
 
@@ -1963,6 +2076,7 @@ renderer.domElement.addEventListener('click', e => {
             turnMovedFt += movedFt;
             addLog(`${unitLabel(curU)} moves ${movedFt} ft`, 'move');
             _checkProximityAggro(curU);
+            _checkHidePerception(curU);
             const remaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
             if (remaining > 0) { heroMode = 'move'; showMoveRange(curU); }
             else { heroMode = null; }
@@ -2124,6 +2238,10 @@ export function rollInitiative() {
       u.rageUsesMax = rageDef.uses;
       u.rageRounds  = 0;
     }
+    // Level 2 ability state reset each battle
+    if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
+    if (u.type === 'halfling') { u.hideCooldown = 0; }
+    // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
     const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
     const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
@@ -2194,6 +2312,190 @@ const HERO_HUD_NAME_COLORS = {
   halfling: { color: '#44dd66', shadow: '0 0 7px rgba(34,204,68,0.55)' },
 };
 
+function _rebuildHotbar(u) {
+  if (!u || u.team !== 'blue') return;
+  clearAllHotkeys();
+  const _attacks    = UNIT_TYPES[u.type]?.attacks ?? [];
+  const firstMelee  = _attacks.find(a => a.type === 'melee');
+  const firstRanged = _attacks.find(a => a.type === 'ranged');
+  if (firstMelee) {
+    bindHotkey('Digit2', false, firstMelee.name.toUpperCase(), () => {
+      if (!selectedTarget || turnAttacked || isAnimating) return;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return;
+      const tgt = selectedTarget;
+      turnAttacked = true;
+      hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
+      performAttack(curU, tgt, firstMelee);
+      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
+      else { heroMode = null; }
+      updateCombatStatus();
+    }, () => {
+      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return false;
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      return Math.sqrt(dx * dx + dz * dz) <= atkTriggerWU(firstMelee);
+    }, 'action');
+  }
+  if (firstRanged) {
+    bindHotkey('Digit3', false, firstRanged.name.toUpperCase(), () => {
+      if (!selectedTarget || turnAttacked || isAnimating) return;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return;
+      const tgt = selectedTarget;
+      turnAttacked = true;
+      hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
+      performAttack(curU, tgt, firstRanged);
+      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
+      else { heroMode = null; }
+      updateCombatStatus();
+    }, () => {
+      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return false;
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      return dist <= atkRangeWU(firstRanged.range) &&
+             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
+                            selectedTarget.grp.position.x, selectedTarget.grp.position.z) &&
+             atkHasQty(curU, firstRanged);
+    }, 'action');
+  }
+  const spellPanel = document.getElementById('blue-spell-panel');
+  if (spellPanel) {
+    buildHeroSpellPanel(u, spellPanel, {
+      turnAttacked,
+      turnBonusActioned,
+      onSpellBtn:    handleSpellBtnClick,
+      onRageBtn:     handleRageBtnClick,
+      onElfSpellBtn: handleElfSpellBtnClick,
+      onSneakBtn:    handleSneakAttackBtnClick,
+    });
+  }
+  if (u.type === 'human' && u.rageUses !== undefined) {
+    bindHotkey('KeyW', false, '<span class="hb-rage">RAGE</span>', () => {
+      handleRageBtnClick();
+    }, () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || !UNIT_TYPES[curU.type]?.rage) return false;
+      return (curU.rageUses ?? 0) > 0 && !curU.raging && !turnBonusActioned;
+    }, 'bonus');
+    if (u.level >= 2) {
+      bindHotkey('KeyE', false, '<span class="hb-stance">DEF<br>STANCE</span>', () => {
+        activateDefensiveStance();
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'human' || turnBonusActioned) return false;
+        return !curU.defStanceActive && (curU.defStanceCooldown ?? 0) === 0;
+      }, 'bonus');
+    }
+  } else if (u.type === 'halfling') {
+    bindHotkey('KeyW', false, '<span class="hb-sneak">SNEAK<br>ATTACK</span>', () => {
+      handleSneakAttackBtnClick();
+    }, () => {
+      if (!selectedTarget || turnAttacked || sneakAttackUsed || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'halfling') return false;
+      const ux = curU.grp.position.x, uz = curU.grp.position.z;
+      const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
+      const ddx = ttx - ux, ddz = ttz - uz;
+      const dst = Math.sqrt(ddx * ddx + ddz * ddz);
+      const _atks   = UNIT_TYPES[curU.type]?.attacks ?? [];
+      const _meleeA  = _atks.find(a => a.type === 'melee');
+      const _rangedA = _atks.find(a => a.type === 'ranged');
+      const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
+                      (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
+                       hasLineOfSight(ux, uz, ttx, ttz));
+      if (!inRange) return false;
+      const hasAlly = units.some(ally => {
+        if (ally === curU || ally.team !== curU.team || ally.hp <= 0) return false;
+        if (sleepingUnits.has(ally) || ally.stunned) return false;
+        const ax = ally.grp.position.x - ux, az = ally.grp.position.z - uz;
+        return ax * ax + az * az <= 9;
+      });
+      return hasAlly;
+    }, 'action');
+    if (u.level >= 2) {
+      bindHotkey('KeyE', false, '<span class="hb-hide">HIDE</span>', () => {
+        activateHide();
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'halfling' || turnBonusActioned) return false;
+        return (curU.hideCooldown ?? 0) === 0;
+      }, 'bonus');
+    }
+  } else if (u.type === 'dwarf') {
+    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Healingword.jpg">', () => {
+      triggerSpellBarAction('healing_word');
+    }, () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      const rangeWU = atkRangeWU(SPELLS.healing_word.rangeFt);
+      return units.some(ally => {
+        if (ally.team !== 'blue' || ally.hp <= 0) return false;
+        const dx = ally.grp.position.x - curU.grp.position.x;
+        const dz = ally.grp.position.z - curU.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
+      });
+    }, 'action');
+    if (u.level >= 2) {
+      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/Spells/bless.jpg">', () => {
+        handleSpellBtnClick('bless');
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+        return units.some(u => u.team === 'blue' && u.hp > 0);
+      }, 'action');
+    }
+  } else if (u.type === 'elf') {
+    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Firebolt.jpg">', () => {
+      triggerSpellBarAction('fire_bolt');
+    }, () => {
+      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf') return false;
+      const rangedAtk = UNIT_TYPES[curU.type]?.attacks?.find(a => a.type === 'ranged');
+      if (!rangedAtk) return false;
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      return dist <= atkRangeWU(rangedAtk.range) &&
+             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
+                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
+    }, 'action');
+    if (u.level >= 2) {
+      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/Spells/magearmor.jpg">', () => {
+        activateMageArmor();
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+        return !curU.mageArmored;
+      }, 'action');
+    }
+  }
+  bindHotkey('Digit4', false, '<span class="hb-sprint">DASH</span>', () => {
+    doSprint();
+  }, () => {
+    const curU = turnOrder[turnIndex];
+    return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
+  }, 'action');
+  bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
+    if (isAnimating || endTurnBtn.disabled) return;
+    doEndTurn();
+  });
+}
+
+window.addEventListener('hero:levelup', ({ detail: { hero } }) => {
+  if (!combatPhase) return;
+  const curU = turnOrder[turnIndex];
+  if (curU && curU === hero && curU.team === 'blue') _rebuildHotbar(curU);
+});
+
 export function activateTurn(index) {
   clearRollFeed();
   clearDiceQueue();
@@ -2208,7 +2510,7 @@ export function activateTurn(index) {
   const u = turnOrder[index];
   if (u) {
     const unawareEnemy = u.team === 'red' && activeEnv === 'dungeon' && !_dungeonAwareEnemies.has(u);
-    if (!unawareEnemy) setFollowUnit(u);
+    if (u.team === 'blue' && !unawareEnemy) setFollowUnit(u);
     if (u.team === 'blue') { u.barForced = true; onHeroTurnStart(); }
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
     activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
@@ -2244,153 +2546,14 @@ export function activateTurn(index) {
           `<span class="thud-atk-val thud-val"></span>`;
         atksEl.appendChild(row);
       });
-    } else if (!isRed) {
-      const firstMelee  = _attacks.find(a => a.type === 'melee');
-      const firstRanged = _attacks.find(a => a.type === 'ranged');
-      if (firstMelee) {
-        bindHotkey('Digit2', false, firstMelee.name.toUpperCase(), () => {
-          if (!selectedTarget || turnAttacked || isAnimating) return;
-          const curU = turnOrder[turnIndex];
-          if (!curU || curU.team !== 'blue') return;
-          const tgt = selectedTarget;
-          turnAttacked = true;
-          hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-          performAttack(curU, tgt, firstMelee);
-          const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
-          if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
-          else { heroMode = null; }
-          updateCombatStatus();
-        }, () => {
-          if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
-          const curU = turnOrder[turnIndex];
-          if (!curU || curU.team !== 'blue') return false;
-          const dx = selectedTarget.grp.position.x - curU.grp.position.x;
-          const dz = selectedTarget.grp.position.z - curU.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= atkTriggerWU(firstMelee);
-        }, 'action');
-      }
-      if (firstRanged) {
-        bindHotkey('Digit3', false, firstRanged.name.toUpperCase(), () => {
-          if (!selectedTarget || turnAttacked || isAnimating) return;
-          const curU = turnOrder[turnIndex];
-          if (!curU || curU.team !== 'blue') return;
-          const tgt = selectedTarget;
-          turnAttacked = true;
-          hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-          performAttack(curU, tgt, firstRanged);
-          const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
-          if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
-          else { heroMode = null; }
-          updateCombatStatus();
-        }, () => {
-          if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
-          const curU = turnOrder[turnIndex];
-          if (!curU || curU.team !== 'blue') return false;
-          const dx = selectedTarget.grp.position.x - curU.grp.position.x;
-          const dz = selectedTarget.grp.position.z - curU.grp.position.z;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          return dist <= atkRangeWU(firstRanged.range) &&
-                 hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                                selectedTarget.grp.position.x, selectedTarget.grp.position.z) &&
-                 atkHasQty(curU, firstRanged);
-        }, 'action');
-      }
     }
 
-    // Reset bonus action + build spell panel for casters (when panel element exists)
+    // Cooldown decrements happen at turn start only, not on mid-turn hotbar refresh
+    if (u.type === 'human' && (u.defStanceCooldown ?? 0) > 0) u.defStanceCooldown--;
+    if (u.type === 'halfling' && (u.hideCooldown ?? 0) > 0) u.hideCooldown--;
+
     turnBonusActioned = false;
-    const spellPanel = document.getElementById('blue-spell-panel');
-    if (spellPanel) {
-      buildHeroSpellPanel(u, spellPanel, {
-        turnAttacked,
-        turnBonusActioned,
-        onSpellBtn:   handleSpellBtnClick,
-        onRageBtn:    handleRageBtnClick,
-        onElfSpellBtn: handleElfSpellBtnClick,
-        onSneakBtn:   handleSneakAttackBtnClick,
-      });
-    }
-
-    // Hotkeys that depend on hero type — always registered, no spell panel needed
-    if (u.type === 'human' && u.rageUses !== undefined) {
-      bindHotkey('KeyW', false, '<span class="hb-rage">RAGE</span>', () => {
-        handleRageBtnClick();
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || !UNIT_TYPES[curU.type]?.rage) return false;
-        return (curU.rageUses ?? 0) > 0 && !curU.raging && !turnBonusActioned;
-      }, 'bonus');
-    } else if (u.type === 'halfling') {
-      bindHotkey('KeyW', false, '<span class="hb-sneak">SNEAK<br>ATTACK</span>', () => {
-        handleSneakAttackBtnClick();
-      }, () => {
-        if (!selectedTarget || turnAttacked || sneakAttackUsed || selectedTarget.hp <= 0) return false;
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'halfling') return false;
-        // Target must be in range
-        const ux = curU.grp.position.x, uz = curU.grp.position.z;
-        const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
-        const ddx = ttx - ux, ddz = ttz - uz;
-        const dst = Math.sqrt(ddx * ddx + ddz * ddz);
-        const _atks   = UNIT_TYPES[curU.type]?.attacks ?? [];
-        const _meleeA  = _atks.find(a => a.type === 'melee');
-        const _rangedA = _atks.find(a => a.type === 'ranged');
-        const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
-                        (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
-                         hasLineOfSight(ux, uz, ttx, ttz));
-        if (!inRange) return false;
-        // Sneak attack needs a conscious ally adjacent to the halfling, or advantage
-        const hasAlly = units.some(ally => {
-          if (ally === curU || ally.team !== curU.team || ally.hp <= 0) return false;
-          if (sleepingUnits.has(ally) || ally.stunned) return false;
-          const ax = ally.grp.position.x - ux, az = ally.grp.position.z - uz;
-          return ax * ax + az * az <= 9;
-        });
-        return hasAlly;
-      }, 'action');
-    } else if (u.type === 'dwarf') {
-      bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Healingword.jpg">', () => {
-        triggerSpellBarAction('healing_word');
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
-        const rangeWU = atkRangeWU(SPELLS.healing_word.rangeFt);
-        return units.some(ally => {
-          if (ally.team !== 'blue' || ally.hp <= 0) return false;
-          const dx = ally.grp.position.x - curU.grp.position.x;
-          const dz = ally.grp.position.z - curU.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
-        });
-      }, 'action');
-    } else if (u.type === 'elf') {
-      bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Firebolt.jpg">', () => {
-        triggerSpellBarAction('fire_bolt');
-      }, () => {
-        if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'elf') return false;
-        const rangedAtk = UNIT_TYPES[curU.type]?.attacks?.find(a => a.type === 'ranged');
-        if (!rangedAtk) return false;
-        const dx = selectedTarget.grp.position.x - curU.grp.position.x;
-        const dz = selectedTarget.grp.position.z - curU.grp.position.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        return dist <= atkRangeWU(rangedAtk.range) &&
-               hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                              selectedTarget.grp.position.x, selectedTarget.grp.position.z);
-      }, 'action');
-    }
-
-    bindHotkey('Digit4', false, '<span class="hb-sprint">DASH</span>', () => {
-      doSprint();
-    }, () => {
-      const curU = turnOrder[turnIndex];
-      return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
-    }, 'action');
-
-    bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
-      if (isAnimating || endTurnBtn.disabled) return;
-      doEndTurn();
-    });
+    _rebuildHotbar(u);
 
     if (combatPhase) {
       heroMode = null;
@@ -2472,11 +2635,19 @@ function doEndTurn() {
     tickBless();
     tickSleep();
     units.forEach(u => {
-      if (!u.raging) return;
-      u.rageRounds--;
-      if (u.rageRounds <= 0) {
-        u.raging = false;
-        addLog(`${unitLabel(u)}'s Rage expires`, 'dmg');
+      if (u.raging) {
+        u.rageRounds--;
+        if (u.rageRounds <= 0) {
+          u.raging = false;
+          addLog(`${unitLabel(u)}'s Rage expires`, 'dmg');
+        }
+      }
+      if (u.defStanceActive) {
+        u.defStanceRounds--;
+        if (u.defStanceRounds <= 0) {
+          u.defStanceActive = false;
+          addLog(`${unitLabel(u)}'s Defensive Stance fades`, 'move');
+        }
       }
     });
   }

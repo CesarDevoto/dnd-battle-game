@@ -30,15 +30,11 @@ function newHpOf(def) {
 }
 
 function newDmgRange(atk, def) {
-  const mod     = atk.dmgBonus !== undefined
+  const mod = atk.dmgBonus !== undefined
     ? atk.dmgBonus
     : Math.floor(((def.abilities?.[atk.statMod] ?? 10) - 10) / 2);
-  const baseAvg = atk.dice * (atk.sides + 1) / 2 + mod;
-  const xp      = def.xpReward ?? 0;
-  const mult    = (xp === 25 || xp === 50 || xp === 200) ? 1.2 : 1.4;
-  const newAvg  = baseAvg * mult;
-  const min     = Math.max(1, Math.round(newAvg * 0.8));
-  const max     = Math.round(newAvg * 1.2);
+  const min = Math.max(1, atk.dice + mod);
+  const max = atk.dice * atk.sides + mod;
   return `${min}–${max}`;
 }
 
