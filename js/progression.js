@@ -77,7 +77,7 @@ export function updateXPBar() {
   const pct    = lvl >= MAX_LEVEL ? 1 : Math.min(1, earned / span);
 
   if (_xpCurLabel)  _xpCurLabel.textContent  = earned.toLocaleString();
-  if (_xpPctLabel)  _xpPctLabel.textContent  = `${Math.round(pct * 100)}%`;
+  if (_xpPctLabel)  _xpPctLabel.textContent  = `Level ${lvl}`;
   if (_xpNextLabel) _xpNextLabel.textContent = span.toLocaleString();
 
   const N = _xpBubbleFills.length;

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
-import { showQuickDialogue, registerDialogueScene } from './dagnaEvent.js';
+import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
+import { units } from './units.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -15,10 +16,35 @@ const _LINES = [
   { s: 'Leugren', t: "Gods… This was my uncle Gundren's mare, Maggie. And that brown stallion yonder — that's Sildar's mount from Neverwinter." },
   { s: 'Gobo',    t: "These goblin arrows did the deed, no doubt about it." },
   { s: 'Rasec',   t: "Saddlebags are stripped clean. And Gundren's map case… it's empty. Strange — none of these filthy little bastards has the map on them." },
-  { s: 'Milo',    t: "Oi! Over here! These tracks tell a story. A dozen or more goblins have been back and forth along this trail… and I'd stake a platinum that these two heavy sets of prints were prisoners — dwarves or men — being hauled north." },
+  { s: 'Milo',    t: "Oi! Over here! Tracks! A dozen or more goblins have been back and forth along this trail… and I'd stake a silver that these two heavy sets of prints were prisoners — dwarves or men — being hauled north." },
 ];
 
 registerDialogueScene({ id: 'dlg_ambush_victory', name: 'Goblin Ambush — After Battle', lines: _LINES, onDone: () => _showFootsteps() });
+
+// ── Pursuit dialogue ──────────────────────────────────────────────────────────
+const _PURSUIT_LINES = [
+  { s: 'Leugren', t: "They've taken my uncle and Sildar! We must go after them!" },
+  { s: 'Rasec',   t: "Leugren, wait… What of the horses and the wagon? We still have a contract to deliver these provisions to Barthen's in Phandalin." },
+];
+
+const _PURSUIT_CHOICES = [
+  { label: 'Follow the tracks',  lines: [{ s: 'Milo', t: "This way! The tracks lead north — follow me!" }] },
+  { label: 'Head to Phandalin',  lines: [{ s: 'Gobo', t: "Smart. Let's head back to the wagon and get these supplies to Phandalin before anything else goes wrong." }] },
+];
+
+function _buildChoices() {
+  return _PURSUIT_CHOICES.map(ch => ({
+    label:  ch.label,
+    onPick: () => showQuickDialogue(ch.lines),
+  }));
+}
+
+registerDialogueScene({
+  id: 'dlg_pursuit',
+  name: 'Goblin Ambush — Pursue or Deliver?',
+  lines: _PURSUIT_LINES,
+  onDone: () => showChoiceUI(_buildChoices()),
+});
 
 // ── Combat hook (called from combat.js on victory) ────────────────────────────
 let _dialogueFired = false;
@@ -27,6 +53,27 @@ export function onAmbushCombatEnd() {
   if (_dialogueFired || _getActiveZoneIdFn?.() !== 'dungeon_entrance') return;
   _dialogueFired = true;
   setTimeout(() => showQuickDialogue(_LINES, _showFootsteps), 800);
+}
+
+// ── Pursuit trigger: fires after first hero move post-footsteps ───────────────
+let _waitingForMove = false;
+let _heroPositions  = null;
+let _pursuitFired   = false;
+
+function _startPursuitWatch() {
+  _waitingForMove = true;
+  _heroPositions  = new Map();
+  for (const u of units) {
+    if (u.team === 'blue') {
+      _heroPositions.set(u, { x: u.grp.position.x, z: u.grp.position.z });
+    }
+  }
+}
+
+function _startPursuit() {
+  if (_pursuitFired) return;
+  _pursuitFired = true;
+  showQuickDialogue(_PURSUIT_LINES, () => showChoiceUI(_buildChoices()));
 }
 
 // ── Footprint texture (canvas-drawn silhouette) ───────────────────────────────
@@ -181,6 +228,8 @@ function _showFootsteps() {
       _meshes.push(m);
     }
   }
+
+  _startPursuitWatch();
 }
 
 function _hideFootsteps() {
@@ -196,15 +245,31 @@ function _hideFootsteps() {
 
 // ── Tick (called from main.js animation loop) ─────────────────────────────────
 export function tickAmbush(dt) {
-  if (!_meshes.length) return;
-  _t += dt * 1.4;
-  _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
-  // All prints share the same pulsed color — update each material's tint
-  for (const m of _meshes) m.material.color.copy(_COLOR_TMP);
+  if (_meshes.length) {
+    _t += dt * 1.4;
+    _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
+    for (const m of _meshes) m.material.color.copy(_COLOR_TMP);
+  }
+
+  if (_waitingForMove && _heroPositions) {
+    for (const [u, pos] of _heroPositions) {
+      const dx = u.grp.position.x - pos.x;
+      const dz = u.grp.position.z - pos.z;
+      if (dx * dx + dz * dz > 0.25) {
+        _waitingForMove = false;
+        _heroPositions  = null;
+        _startPursuit();
+        break;
+      }
+    }
+  }
 }
 
 // ── Cleanup on zone change ────────────────────────────────────────────────────
 window.addEventListener('zone:loading', () => {
   _hideFootsteps();
-  _dialogueFired = false;
+  _dialogueFired  = false;
+  _waitingForMove = false;
+  _heroPositions  = null;
+  _pursuitFired   = false;
 });

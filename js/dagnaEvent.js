@@ -354,6 +354,36 @@ function _buildDlgUI() {
 
 export function showQuickDialogue(lines, onDone) { _showLines(lines, onDone); }
 
+// Shows a set of lines then replaces the Continue button with labelled choice buttons.
+// choices = [{ label: string, onPick: fn }]
+export function showChoiceUI(choices) {
+  _buildDlgUI();
+  _dlgEl.style.display = 'flex';
+
+  const footer  = _dlgEl.querySelector('.dagna-dlg-footer');
+  const origBtn = footer.querySelector('.dagna-dlg-btn');
+  origBtn.style.display = 'none';
+  footer.style.justifyContent = 'center';
+  footer.style.gap = '12px';
+
+  const tempBtns = [];
+  for (const ch of choices) {
+    const btn = document.createElement('button');
+    btn.className = 'dagna-dlg-btn';
+    btn.textContent = ch.label;
+    btn.addEventListener('click', () => {
+      origBtn.style.display = '';
+      footer.style.justifyContent = '';
+      footer.style.gap = '';
+      tempBtns.forEach(b => b.remove());
+      _hideDlg();
+      ch.onPick?.();
+    });
+    footer.appendChild(btn);
+    tempBtns.push(btn);
+  }
+}
+
 function _showLines(lines, onDone, preview = false) {
   _isPreview = preview || _forcePreview;
   _forcePreview = false;

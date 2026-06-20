@@ -1430,11 +1430,11 @@ function unitCombatLevel(u) {
 }
 
 // Percentage-based hit resolution.
-//   Hit% = 50 + (atkBonus − defAC) × 0.8 + (atkLvl − defLvl) × 3  [clamped 15–85]
+//   Hit% = 50 + (atkBonus − defAC) × 3.5 + (atkLvl − defLvl) × 3  [clamped 15–85]
 //   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
 //   Advantage: keep higher die. Disadvantage: keep lower die.
 function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
-  const rawPct    = 50 + (atkBonus - defAC) * 0.8 + (atkLvl - defLvl) * 3;
+  const rawPct    = 50 + (atkBonus - defAC) * 3.5 + (atkLvl - defLvl) * 3;
   const hitChance = Math.round(Math.max(15, Math.min(85, rawPct)));
   const threshold = 100 - hitChance;
 
