@@ -27,7 +27,7 @@ import { initTerrainEditor } from './terrainEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickStars } from './investigateStars.js';
-import { prewarmEffectShaders } from './firebolt.js';
+import { prewarmEffectShaders, initFireboltLight } from './firebolt.js';
 import { initAudio, initMixerPanel } from './audio.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initAmbush, tickAmbush } from './ambushEvent.js';
@@ -44,6 +44,7 @@ if (IS_DEV) document.body.classList.add('dev-mode');
 
 buildHeroPortraits();
 prewarmEffectShaders();
+initFireboltLight();
 initAudio();
 initMixerPanel();
 initEngagementLines();
@@ -74,6 +75,19 @@ initSpellbook();
     sagClose.addEventListener('click', () => sagOverlay.classList.remove('show'));
     sagOverlay.addEventListener('click', e => { if (e.target === sagOverlay) sagOverlay.classList.remove('show'); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') sagOverlay.classList.remove('show'); });
+  }
+}
+
+// Smart Hit % overlay
+{
+  const shpBtn     = document.getElementById('smart-hit-btn');
+  const shpOverlay = document.getElementById('smart-hit-overlay');
+  const shpClose   = document.getElementById('smart-hit-close');
+  if (shpBtn && shpOverlay) {
+    shpBtn.addEventListener('click', () => shpOverlay.classList.toggle('show'));
+    shpClose.addEventListener('click', () => shpOverlay.classList.remove('show'));
+    shpOverlay.addEventListener('click', e => { if (e.target === shpOverlay) shpOverlay.classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') shpOverlay.classList.remove('show'); });
   }
 }
 initHotbar();

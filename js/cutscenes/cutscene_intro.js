@@ -14,7 +14,7 @@ export const CUTSCENE = {
       img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
       pan:    'left',
       objPos: 'center 72%',
-      text:   'Dagna: "As you command, All-Father. It shall be done."',
+      text:   'Dagna: "As thou command, All-Father. It shall be done."',
     },
     {
       text: 'Meanwhile, in the Sword Coast…',

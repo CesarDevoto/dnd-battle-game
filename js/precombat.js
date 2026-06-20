@@ -187,6 +187,10 @@ function _triggerAggro(spotter) {
       }
     }
   }
+  // Explicitly mark non-alerted enemies so rollInitiative skips them
+  for (const e of enemies) {
+    if (!alerted.has(e)) e.aggro = false;
+  }
 
   const _doStart = () => { exitPrecombat(); rollInitiative(); };
   if (getActiveZone()?.id === 'dungeon_entrance') {

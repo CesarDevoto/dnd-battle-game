@@ -44,6 +44,7 @@
       <button id="spellbook-btn">SPELLS</button>
       <button id="bestiary-btn">BESTIARY</button>
       <button id="xp-table-btn">XP TABLE</button>
+      <button id="smart-hit-btn">SMART HIT %</button>
       <button id="audio-mixer-btn">AUDIO</button>
     </div>
     <div id="dlg-log-panel" class="dev-only" style="display:none">
@@ -174,6 +175,103 @@
             Beat monsters <em>above</em> your threshold and earn a <strong>bonus</strong> — the game rewards courage.
             Beat monsters well below it and XP fades, eventually hitting zero once they're trivially beneath your level.
             The floor is always <strong>50%</strong> — no enemy is completely worthless as long as they still count.
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Smart Hit % overlay -->
+    <div id="smart-hit-overlay">
+      <div id="smart-hit-modal">
+        <div id="smart-hit-header">
+          <div id="smart-hit-title">SMART HIT % SYSTEM</div>
+          <div id="smart-hit-subtitle">D&amp;D Hit Chances Converted to Percentages · Level Scaling</div>
+          <button id="smart-hit-close">✕</button>
+        </div>
+        <div id="smart-hit-body">
+
+          <div class="sxp-section-hdr">THE FORMULA</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">Base Hit %</span><span class="sxp-val">((Attacker Bonus + 20 − Defender AC) ÷ 20) × 100</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Level Adjustment</span><span class="sxp-val">( (Attacker Level ÷ 5) + 1 ) − Defender Tier ) × 3</span></div>
+            <div class="sxp-formula-row sxp-formula-cutoff"><span class="sxp-label">Final Hit %</span><span class="sxp-val">Base % + Level Adjustment &nbsp;·&nbsp; clamped <strong>15 – 85%</strong></span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Resolution</span><span class="sxp-val">Roll 1d100 — need to roll <strong>high</strong> · need ≥ (100 − Hit%) to hit · 96–100 always crits</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Advantage</span><span class="sxp-val">Roll 2d100 · keep the higher die</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Disadvantage</span><span class="sxp-val">Roll 2d100 · keep the lower die</span></div>
+          </div>
+
+          <div class="sxp-section-hdr">SAMPLE MATCHUPS</div>
+          <div class="sxp-table-wrap">
+            <table class="sxp-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Atk +</th>
+                  <th>vs AC</th>
+                  <th>Base %</th>
+                  <th>Lvl Adj</th>
+                  <th>Hit %</th>
+                  <th>Need ≥</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="shp-scenario">Lv 1 Barbarian (+5) vs Goblin (AC 14)</td>
+                  <td>+5</td><td>14</td>
+                  <td>55%</td>
+                  <td class="shp-lvl-neg">−2%</td>
+                  <td class="shp-hit-ok">53%</td>
+                  <td class="shp-roll">47</td>
+                </tr>
+                <tr>
+                  <td class="shp-scenario">Lv 5 Barbarian (+8) vs Goblin (AC 14)</td>
+                  <td>+8</td><td>14</td>
+                  <td>70%</td>
+                  <td class="shp-lvl-neutral">0%</td>
+                  <td class="shp-hit-good">70%</td>
+                  <td class="shp-roll">30</td>
+                </tr>
+                <tr>
+                  <td class="shp-scenario">Lv 1 Goblin (+4) vs Lv 1 Wizard (AC 13)</td>
+                  <td>+4</td><td>13</td>
+                  <td>55%</td>
+                  <td class="shp-lvl-pos">+1%</td>
+                  <td class="shp-hit-ok">56%</td>
+                  <td class="shp-roll">44</td>
+                </tr>
+                <tr>
+                  <td class="shp-scenario">Lv 1 Goblin (+4) vs Lv 20 Barbarian (AC 19)</td>
+                  <td>+4</td><td>19</td>
+                  <td>25%</td>
+                  <td class="shp-lvl-neg">−56%</td>
+                  <td class="shp-hit-floor">15% ⌊</td>
+                  <td class="shp-roll">85</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sxp-section-hdr">HOW D&amp;D HIT CHANCES BECOME PERCENTAGES</div>
+          <div class="sxp-explainer">
+            In standard D&amp;D 5e you roll a d20, add your attack bonus, and compare to the target's AC.
+            A <strong>+5 attack vs AC 15</strong> means you need to roll <strong>10 or higher</strong> — that's 11 winning faces out of 20, or <strong>55%</strong>.
+            The Smart Hit % formula captures this exactly: <em>(AtkBonus + 20 − AC) ÷ 20 × 100</em>.
+            The "20" in the formula is the d20; the numerator counts how many faces on that die would hit.
+            Every <strong>+1 attack bonus</strong> gained or <strong>−1 AC</strong> on the target shifts your hit chance by exactly <strong>5%</strong> — the same as flipping one extra face on a d20.
+            Instead of rolling a d20, the game rolls a d100 and resolves it as a percentage directly, giving smoother results.
+          </div>
+
+          <div class="sxp-section-hdr">HOW LEVEL DIFFERENCES FACTOR IN</div>
+          <div class="sxp-explainer">
+            The base formula alone treats a <strong>Level 1 hero</strong> and a <strong>Level 50 hero</strong> identically — only attack bonus and AC matter.
+            The level adjustment closes that gap.
+            Every <strong>5 character levels</strong> a hero gains equals one <em>power tier</em>; enemies have a fixed tier based on their Challenge Rating.
+            For each tier you <strong>outclass</strong> your target, you gain <strong>+3%</strong> to hit.
+            For each tier they <strong>outclass</strong> you, you lose <strong>3%</strong>.
+            A Level 5 Barbarian fighting a goblin (tier 2) sits at even (0 adjustment) — that's the intended equal-footing level for a goblin encounter.
+            A Level 20 Barbarian gets a <strong>+9%</strong> bonus against that same goblin; a goblin attacking a Level 20 Barbarian gets crushed to the <strong>15% floor</strong>.
+            The clamp ensures no one is completely helpless (15%) and no one is infallible (85%) — even the most one-sided fights have meaningful dice.
           </div>
 
         </div>

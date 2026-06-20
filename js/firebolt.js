@@ -6,6 +6,16 @@ import { playSound } from './audio.js';
 const TRAVEL_MS  = 1050;  // ms for bolt to reach target
 const MAX_SPARKS = 200;   // ring-buffer capacity
 
+// Pre-add the projectile light permanently at intensity 0 so adding it never
+// triggers a shader-cache invalidation (adding a light mid-scene recompiles every
+// lit material — the same issue dagnaEvent.js solved for its portal/dagna lights).
+let _projLight = null;
+export function initFireboltLight() {
+  _projLight = new THREE.PointLight(0xff8800, 0, 14);
+  _projLight.position.set(0, -9999, 0);
+  scene.add(_projLight);
+}
+
 // Keep permanent sub-pixel objects in the scene so firebolt shader variants are
 // compiled on the very first game frame and never evicted. All prewarm attempts
 // (render-target, scissor, deferred post-zone-load) failed because Three.js keyed
@@ -76,11 +86,12 @@ export function playFireboltEffect(attacker, target, onImpact) {
   });
   coreMesh.add(new THREE.Mesh(outerGeo, outerMat));
 
-  const projLight = new THREE.PointLight(0xff8800, 3.0, 14);
-  scene.add(projLight);
+  const projLight = _projLight;
+  projLight.intensity = 3.0;
+  projLight.distance  = 14;
+  projLight.position.copy(start);
   scene.add(coreMesh);
   coreMesh.position.copy(start);
-  projLight.position.copy(start);
 
   // ── Spark particle system ────────────────────────────────────────────────────
   const posArr  = new Float32Array(MAX_SPARKS * 3);
@@ -264,7 +275,8 @@ export function playFireboltEffect(attacker, target, onImpact) {
     // ─ Final cleanup ─
     if (now >= doneAt) {
       scene.remove(sparkPts);
-      scene.remove(projLight);
+      projLight.intensity = 0;
+      projLight.position.set(0, -9999, 0);
       sparkGeo.dispose();
       sparkMat.dispose();
       flash.remove();

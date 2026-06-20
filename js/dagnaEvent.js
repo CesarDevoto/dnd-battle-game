@@ -298,8 +298,8 @@ const _LINES_A = [
   { s: 'Leugren', t: "Disciple of... our great Father Moradin?" },
   { s: 'Dagna',   t: "Indeed, and may he wash us in his precious light this and all days." },
   { s: 'Leugren', t: "Why has our Father sent ye Dagna?" },
-  { s: 'Dagna',   t: "Thy devotion to our blessed Lord has not gone unnoticed, brave Leugren. Nor the harmony of thy fellowship, forged in this bloody conflict that hath sown death among thee." },
-  { s: 'Dagna',   t: "Though thy death is a heavy misfortune, it is tempered by the great fortune that our Lord Father's eye hath fallen upon thee. He would set a task before thy fellowship — a grim test. Fulfill it, and he shall restore life among thee." },
+  { s: 'Dagna',   t: "Thy devotion to our blessed Lord hath not gone unnoticed, brave Leugren. Nor the harmony of thy fellowship, forged in this bloody conflict that hath sown death among thee." },
+  { s: 'Dagna',   t: "Though death among thee is a heavy misfortune, it is tempered by the great fortune that our Lord Father's eye hath fallen upon thee. He would set a task before thy fellowship — a grim test. Fulfill it, and he shall restore life among thee." },
   { s: 'Leugren', t: "What... trial does our Father ask of us?" },
   { s: 'Dagna',   t: "A trial that if passed shall boon thy fellowship with life's renewal… yet a trial most dire indeed... But take courage in this truth: even the smallest pebble can loose an avalanche mighty enough to entomb kingdoms." },
   { s: 'Dagna',   t: "Come...", goStyx: true },
@@ -453,7 +453,7 @@ function _buildDlgPanel() {
     row.innerHTML =
       `<div class="dlg-panel-info">
         <div class="dlg-panel-name">${sc.name}</div>
-        <div class="dlg-panel-meta">${lineCount} lines · Dagna &amp; Leugren</div>
+        <div class="dlg-panel-meta">${lineCount} lines · 4 Heroes</div>
       </div>
       <button class="dlg-panel-play-btn" data-id="${sc.id}">&#9654;</button>`;
     el.appendChild(row);

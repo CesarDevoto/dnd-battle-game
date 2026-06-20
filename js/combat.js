@@ -1543,24 +1543,22 @@ export function addLog(text, cls = '') {
 
 // ── Attack execution ──────────────────────────────────────────────────────────
 
-// Maps profBonus → a compact "combat tier" used by the hit-chance formula.
-// Leveled-up heroes get +1 tier over their base value.
+// Returns the "level" value fed into rollToHit.
+// Heroes: actual character level (1–100) so the formula's tier scaling is meaningful.
+// Enemies: profBonus tier (2–6) which maps to CR — treated as their power tier directly.
 function unitCombatLevel(u) {
-  const def  = UNIT_TYPES[u.type] ?? {};
-  const base = def.profBonus ?? 2;
-  if (u.team === 'blue') {
-    const xpNext = def.xpNext;
-    if (xpNext && (u.xp ?? 0) >= xpNext) return base + 1;
-  }
-  return base;
+  if (u.team === 'blue') return u.level ?? 1;
+  return (UNIT_TYPES[u.type] ?? {}).profBonus ?? 2;
 }
 
 // Percentage-based hit resolution.
-//   Hit% = 50 + (atkBonus − defAC) × 3.5 + (atkLvl − defLvl) × 3  [clamped 15–85]
+//   Hit% = ((AtkBonus + 20 − DefAC) / 20) × 100 + (((AtkLvl/5)+1) − DefLvl) × 3  [clamped 15–85]
+//   Base term mirrors d20 math: each ±1 attack/AC point = ±5%. Baseline atkBonus=5 vs AC=15 → 55%.
+//   Level term: hero power tier (1 tier per 5 levels) vs enemy tier (profBonus); ±3% per tier gap.
 //   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
 //   Advantage: keep higher die. Disadvantage: keep lower die.
 function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
-  const rawPct    = 50 + (atkBonus - defAC) * 3.5 + (atkLvl - defLvl) * 3;
+  const rawPct    = ((atkBonus + 20 - defAC) / 20) * 100 + (((atkLvl / 5) + 1) - defLvl) * 3;
   const hitChance = Math.round(Math.max(15, Math.min(85, rawPct)));
   const threshold = 100 - hitChance;
 
@@ -2211,10 +2209,11 @@ export function rollInitiative() {
   _dungeonAwareEnemies.clear();
   initSpellSlots(units);
 
-  // Non-dungeon: all red units are immediately aggro.
+  // Non-dungeon: all red units are immediately aggro, unless precombat BFS explicitly
+  // marked them aggro=false (out-of-range enemies that shouldn't join yet).
   // Dungeon: enemies start unaware; aggro is set when they gain LOS.
   if (activeEnv !== 'dungeon') {
-    units.forEach(u => { if (u.team === 'red') u.aggro = true; });
+    units.forEach(u => { if (u.team === 'red' && u.aggro !== false) u.aggro = true; });
   }
 
   // Snap heroes to grid — precombat movement stops mid-step on aggro trigger,
@@ -2272,6 +2271,7 @@ export function buildTurnList() {
   // Assign stable labels in turnOrder sequence, then sort display by initiative
   const entries = turnOrder
     .map((u, i) => {
+      if (u.team === 'red' && u.aggro === false) return null;
       if (u.roams && !u.aggro) return null;
       const key    = u.team + u.type;
       counter[key] = (counter[key] || 0) + 1;
@@ -2526,7 +2526,10 @@ export function activateTurn(index) {
 
   const u = turnOrder[index];
   if (u) {
-    const unawareEnemy = u.team === 'red' && activeEnv === 'dungeon' && !_dungeonAwareEnemies.has(u);
+    const unawareEnemy = u.team === 'red' && (
+      (activeEnv === 'dungeon' && !_dungeonAwareEnemies.has(u)) ||
+      u.aggro === false
+    );
     if (u.team === 'blue' && !unawareEnemy) setFollowUnit(u);
     if (u.team === 'blue') { u.barForced = true; onHeroTurnStart(); }
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
@@ -2820,6 +2823,30 @@ function runAITurn(u) {
           setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
         });
       }, 300);
+      return;
+    }
+  }
+
+  // Dormant enemy (precombat BFS didn't alert them): check detect range each turn.
+  // If a hero has walked close enough, aggro and fight this turn; otherwise skip.
+  if (u.aggro === false) {
+    const def    = UNIT_TYPES[u.type] ?? {};
+    const range  = _dynamicAggroRangeWU(u, def);
+    const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+    const spotted = heroes.some(h => {
+      const dx = h.grp.position.x - u.grp.position.x;
+      const dz = h.grp.position.z - u.grp.position.z;
+      return dx * dx + dz * dz <= range * range;
+    });
+    if (spotted) {
+      u.aggro = true;
+      u.grp.visible = true;
+      if (u.stealthed) setUnitStealth(u, false);
+      addLog(`⚠ ${unitLabel(u)} is alerted by the heroes!`, 'round');
+      buildTurnList();
+      // Fall through — enemy acts this turn
+    } else {
+      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 150);
       return;
     }
   }
