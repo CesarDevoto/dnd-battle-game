@@ -1006,7 +1006,7 @@ function handleSpellBtnClick(spellKey) {
 
 }
 
-// ── Sprint (Dash action) ──────────────────────────────────────────────────────
+// ── Dash action ───────────────────────────────────────────────────────────────
 
 function doSprint() {
   if (isAnimating || turnAttacked) return;
@@ -1016,7 +1016,7 @@ function doSprint() {
   turnMovedFt  = 0;
   heroMode     = 'move';
   showMoveRange(u);
-  addLog(`${unitLabel(u)} sprints! Movement reset to ${UNIT_TYPES[u.type]?.speed ?? 30} ft`, 'move');
+  addLog(`${unitLabel(u)} Dashes! Movement reset to ${UNIT_TYPES[u.type]?.speed ?? 30} ft`, 'move');
   updateCombatStatus();
 }
 
@@ -2380,7 +2380,7 @@ export function activateTurn(index) {
       }, 'action');
     }
 
-    bindHotkey('Digit4', false, '<span class="hb-sprint">SPRINT</span>', () => {
+    bindHotkey('Digit4', false, '<span class="hb-sprint">DASH</span>', () => {
       doSprint();
     }, () => {
       const curU = turnOrder[turnIndex];
@@ -2754,7 +2754,7 @@ function runAITurn(u) {
         hideMoveRange();
         updateCombatStatus();
         if (!sprintDest) { endAITurn(); return; }
-        addLog(`${unitLabel(u)} uses Sprint (action) — double move: ${(_def0.speed ?? 30) * 2} ft`, 'move');
+        addLog(`${unitLabel(u)} uses Dash (action) — double move: ${(_def0.speed ?? 30) * 2} ft`, 'move');
         moveToAndThen(sprintDest, endAITurn);
         return;
       }

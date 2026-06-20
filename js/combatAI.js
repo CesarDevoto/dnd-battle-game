@@ -13,9 +13,9 @@ export function aiPickTarget(u, units, hasLineOfSight) {
   const scored = heroes.map(h => {
     const dx = h.grp.position.x - ux, dz = h.grp.position.z - uz;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    const distScore = 1 / (dist + 1);
+    const distScore = 1 / ((dist + 1) * (dist + 1));
     const losBonus = hasLineOfSight(ux, uz, h.grp.position.x, h.grp.position.z) ? 1.5 : 1.0;
-    const jitter = 0.80 + Math.random() * 0.40;
+    const jitter = 0.90 + Math.random() * 0.20;
     return { h, score: distScore * losBonus * jitter };
   });
 
