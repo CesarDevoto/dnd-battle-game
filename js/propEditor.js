@@ -468,6 +468,8 @@ export function prewarmGLBs(modelKeys) {
   }
 }
 
+export function getPlacedProps() { return _placedProps; }
+
 export function clearEditorProps() {
   clearAllStars();
   _placedProps.forEach(p => scene.remove(p.mesh));

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { COLORS, SCENE, GROUND_SIZE, GRID_DIVISIONS } from './constants.js';
+import { COLORS, SCENE, GROUND_SIZE, GRID_DIVISIONS, WORLD_UNITS_PER_SQUARE } from './constants.js';
+
+let _sceneGS = GROUND_SIZE;
+export function setSceneGroundSize(s) { _sceneGS = s; }
 import { buildTerrainMesh, getTerrainHeight } from './terrain.js';
 
 export const scene = new THREE.Scene();
@@ -64,12 +67,14 @@ const _GRID_SUB    = 4;     // sub-steps per cell — captures fine terrain deta
 const _GRID_Y_LIFT = 0.07;  // world-units above the surface (avoids z-fighting)
 
 function _buildGridGeo() {
-  const CELL = GROUND_SIZE / GRID_DIVISIONS;   // 2 WU per cell
-  const STEP = CELL / _GRID_SUB;               // 0.5 WU per sub-step
-  const half = GROUND_SIZE * 0.5;
+  const GS   = _sceneGS;
+  const DIVS = Math.round(GS / WORLD_UNITS_PER_SQUARE);  // always 1 cell = 1 grid square
+  const CELL = GS / DIVS;
+  const STEP = CELL / _GRID_SUB;
+  const half = GS * 0.5;
 
   // Pre-compute all heights on a (DIVS*SUB+1)² sub-grid — each point sampled once
-  const pts  = GRID_DIVISIONS * _GRID_SUB + 1;   // 145 points per axis
+  const pts  = DIVS * _GRID_SUB + 1;
   const h    = new Float32Array(pts * pts);
   for (let iz = 0; iz < pts; iz++) {
     for (let ix = 0; ix < pts; ix++) {
@@ -81,9 +86,9 @@ function _buildGridGeo() {
   const verts = [];
 
   // Lines running in X (constant Z row)
-  for (let iz = 0; iz <= GRID_DIVISIONS; iz++) {
+  for (let iz = 0; iz <= DIVS; iz++) {
     const row = iz * _GRID_SUB;
-    for (let ix = 0; ix < GRID_DIVISIONS * _GRID_SUB; ix++) {
+    for (let ix = 0; ix < DIVS * _GRID_SUB; ix++) {
       const x0 = -half + ix       * STEP;
       const x1 = -half + (ix + 1) * STEP;
       const z  = -half + iz       * CELL;
@@ -93,9 +98,9 @@ function _buildGridGeo() {
   }
 
   // Lines running in Z (constant X column)
-  for (let ix = 0; ix <= GRID_DIVISIONS; ix++) {
+  for (let ix = 0; ix <= DIVS; ix++) {
     const col = ix * _GRID_SUB;
-    for (let iz = 0; iz < GRID_DIVISIONS * _GRID_SUB; iz++) {
+    for (let iz = 0; iz < DIVS * _GRID_SUB; iz++) {
       const z0 = -half + iz       * STEP;
       const z1 = -half + (iz + 1) * STEP;
       const x  = -half + ix       * CELL;

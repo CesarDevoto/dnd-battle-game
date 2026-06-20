@@ -18,14 +18,14 @@ const CR_SORT = {
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-const COL_COUNT = 16; // NAME HP NewHP AC MOVE XP NewXP STR DEX CON INT WIS CHA NewMelee NewRange ATTACKS
+const COL_COUNT = 14; // NAME HP NewHP AC MOVE XP NewXP STR DEX CON INT WIS CHA ATTACKS
 
 function crOf(def)     { return XP_TO_CR[def.xpReward] ?? '?'; }
 function crSortOf(def) { return CR_SORT[crOf(def)] ?? 999; }
 
 function newHpOf(def) {
   const xp   = def.xpReward ?? 0;
-  const mult = xp >= 5000 ? 1.3 : xp >= 1100 ? 1.6 : 2.0;
+  const mult = xp >= 5000 ? 1.0 : xp >= 1100 ? 1.2 : 1.5;
   return Math.round(def.hp * mult);
 }
 
@@ -117,8 +117,6 @@ function buildTable() {
           <td class="bst-num bst-col-retired">${def.xpReward}</td>
           <td class="bst-num">${Math.round((def.xpReward ?? 0) / 5)}</td>
           ${abCells(def)}
-          <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'melee') .map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
-          <td class="bst-num">${(def.attacks ?? []).filter(a => a.type === 'ranged').map(a => newDmgRange(a, def)).join(', ') || '—'}</td>
           <td class="bst-atks-cell">${atksHTML}</td>
         </tr>`;
     }
@@ -144,8 +142,6 @@ function buildTable() {
           <th class="bst-th-ab">INT</th>
           <th class="bst-th-ab">WIS</th>
           <th class="bst-th-ab">CHA</th>
-          <th class="bst-th-num">New Melee</th>
-          <th class="bst-th-num">New Range</th>
           <th class="bst-th-atks">ATTACKS
             <div class="bst-atk bst-atk-col-hdr">
               <span class="bst-atk-type"></span>

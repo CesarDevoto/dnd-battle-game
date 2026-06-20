@@ -2575,7 +2575,11 @@ export function activateTurn(index) {
     if (combatPhase) {
       heroMode = null;
       if (u.team === 'red') {
-        runAITurn(u);
+        if (u.dormant) {
+          setTimeout(() => doEndTurn(), 150);
+        } else {
+          runAITurn(u);
+        }
       } else {
         showRangeRings(u);
         heroMode = 'move';
@@ -2587,6 +2591,24 @@ export function activateTurn(index) {
   updateCombatStatus();
 }
 
+// ── Dynamic aggro radius ──────────────────────────────────────────────────────
+// CR ≤1 all map to effective level 1; CR 2+ map 1:1.
+const _XP_TO_EFF = { 25:1, 50:1, 100:1, 200:1, 450:2, 700:3, 1100:4, 1800:5 };
+function _effLevelOf(def) { return _XP_TO_EFF[def.xpReward ?? 0] ?? 1; }
+
+function _partyHeroLevel() {
+  const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
+  if (!heroes.length) return 1;
+  return Math.round(heroes.reduce((s, h) => s + (h.level ?? 1), 0) / heroes.length);
+}
+
+function _dynamicAggroRangeWU(u, def) {
+  const baseWU   = u.detectRange ?? def.detect ?? 20;
+  const tierDiff = Math.ceil(_partyHeroLevel() / 5) - (_effLevelOf(def) + 4);
+  if (tierDiff < 0) return baseWU;
+  return baseWU * Math.max(0, 1 - (tierDiff + 1) / 5);
+}
+
 // ── Proximity aggro (triggered after each hero move step) ─────────────────────
 
 function _checkProximityAggro(hero) {
@@ -2594,7 +2616,7 @@ function _checkProximityAggro(hero) {
   for (const u of units) {
     if (u.team !== 'red' || u.aggro || u.hp <= 0) continue;
     const def   = UNIT_TYPES[u.type] ?? {};
-    const range = u.detectRange ?? def.detect ?? 20;
+    const range = _dynamicAggroRangeWU(u, def);
     const dx    = hero.grp.position.x - u.grp.position.x;
     const dz    = hero.grp.position.z - u.grp.position.z;
     if (dx * dx + dz * dz > range * range) continue;
@@ -2681,7 +2703,7 @@ endTurnBtn.addEventListener('click', () => {
 function _roamAggroCheck(u) {
   if (u.aggro) return;
   const def    = UNIT_TYPES[u.type] ?? {};
-  const range  = u.detectRange ?? def.detect ?? 20;
+  const range  = _dynamicAggroRangeWU(u, def);
   const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
   const spotted = heroes.some(h => {
     const dx = h.grp.position.x - u.grp.position.x;

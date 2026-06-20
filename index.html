@@ -31,6 +31,8 @@
     <!-- Top button bar — all top-row buttons in one touching group, right-justified -->
     <div id="top-btn-bar">
       <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
+      <button id="smart-xp-btn"        class="dev-only">SMART XP</button>
+      <button id="smart-aggro-btn"     class="dev-only">SMART AGGRO</button>
       <button id="biomes-btn"         class="dev-only">BIOMES</button>
       <button id="prop-editor-btn"    class="dev-only">PROPS</button>
       <button id="spawn-editor-btn"   class="dev-only">WAVES</button>
@@ -50,6 +52,132 @@
         <button id="dlg-log-close">✕</button>
       </div>
       <div id="dlg-log-entries"></div>
+    </div>
+
+    <!-- Smart Aggro overlay (dev-only) -->
+    <div id="smart-aggro-overlay" class="dev-only">
+      <div id="smart-aggro-modal">
+        <div id="smart-aggro-header">
+          <div id="smart-aggro-title">SMART AGGRO SYSTEM</div>
+          <div id="smart-aggro-subtitle">Dynamic Detect Radius · Party Level Scaling</div>
+          <button id="smart-aggro-close">✕</button>
+        </div>
+        <div id="smart-aggro-body">
+
+          <div class="sxp-section-hdr">HOW IT WORKS</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">Base Radius</span><span class="sxp-val">Whatever the enemy's assigned detect range is (default 50 ft · zone or per-enemy overrides apply)</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Monster Eff. Level</span><span class="sxp-val">CR ¼, ½, or 1 → Level 1 &nbsp;·&nbsp; CR 2 → Level 2 &nbsp;·&nbsp; CR N → Level N</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Hero Level Used</span><span class="sxp-val">Average level of all living heroes (rounded)</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Tier Difference</span><span class="sxp-val">tierDiff = ceil( heroLevel ÷ 5 ) − ( monsterEffLevel + 4 )</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Reduction Trigger</span><span class="sxp-val">Reduction only starts when tierDiff ≥ 0</span></div>
+            <div class="sxp-formula-row sxp-formula-cutoff"><span class="sxp-label">Final Radius</span><span class="sxp-val">max( <strong>0 ft</strong>, baseRadius × ( 1 − (tierDiff + 1) ÷ 5 ) )</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Step Size</span><span class="sxp-val">−20% of base per tier &nbsp;·&nbsp; always 5 tiers from trigger to 0 ft &nbsp;·&nbsp; proportional regardless of base</span></div>
+          </div>
+
+          <div class="sxp-section-hdr">SAMPLE TABLE — AGGRO RADIUS (50 ft base)</div>
+          <div class="sxp-table-wrap">
+            <table class="sxp-table">
+              <thead>
+                <tr>
+                  <th>Hero Lvl</th>
+                  <th>tierDiff</th>
+                  <th>Goblin<br><span class="sxp-mel">Eff Lv 1</span></th>
+                  <th>Bugbear<br><span class="sxp-mel">Eff Lv 1</span></th>
+                  <th>Ogre<br><span class="sxp-mel">Eff Lv 2</span></th>
+                  <th>Black Spider<br><span class="sxp-mel">Eff Lv 4</span></th>
+                  <th>Yng Green Dragon<br><span class="sxp-mel">Eff Lv 8</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>5</td><td>−4</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>10</td><td>−3</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>15</td><td>−2</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>20</td><td>−1</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>25</td><td class="sag-trigger">0</td><td class="sag-reduced">40 ft</td><td class="sag-reduced">40 ft</td><td>50 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>30</td><td class="sag-trigger">1</td><td class="sag-reduced">30 ft</td><td class="sag-reduced">30 ft</td><td class="sag-reduced">40 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>35</td><td class="sag-trigger">2</td><td class="sag-reduced">20 ft</td><td class="sag-reduced">20 ft</td><td class="sag-reduced">30 ft</td><td>50 ft</td><td>50 ft</td></tr>
+                <tr><td>40</td><td class="sag-trigger">3</td><td class="sag-reduced">10 ft</td><td class="sag-reduced">10 ft</td><td class="sag-reduced">20 ft</td><td class="sag-reduced">40 ft</td><td>50 ft</td></tr>
+                <tr><td>45</td><td class="sag-trigger">4</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-reduced">10 ft</td><td class="sag-reduced">30 ft</td><td>50 ft</td></tr>
+                <tr><td>50</td><td class="sag-trigger">5</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-reduced">20 ft</td><td>50 ft</td></tr>
+                <tr><td>55</td><td class="sag-trigger">6</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-reduced">10 ft</td><td>50 ft</td></tr>
+                <tr><td>60</td><td class="sag-trigger">7</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-reduced">40 ft</td></tr>
+                <tr><td>65</td><td class="sag-trigger">8</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-zero">0 ft</td><td class="sag-reduced">30 ft</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sxp-section-hdr">PLAYER EXPLANATION</div>
+          <div class="sxp-explainer">
+            As your heroes grow in power, weaker enemies sense the danger gap and become more cautious — their alert zone shrinks.
+            A goblin that normally spots you from <strong>50 feet</strong> will barely notice you at <strong>10 feet</strong> by level 40,
+            and ignores you entirely by level 45. The same reduction applies proportionally to any enemy regardless of their base radius —
+            a dungeon guard with a 30 ft patrol zone shrinks at the same rate (−20% of base per tier).
+            Only the most powerful monsters stay fully vigilant deep into your journey:
+            the Young Green Dragon remains on high alert past level 55, because creatures like that never truly feel threatened.
+            At <strong>0 ft</strong>, the monster will not aggro unless attacked directly.
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Smart XP overlay (dev-only) -->
+    <div id="smart-xp-overlay" class="dev-only">
+      <div id="smart-xp-modal">
+        <div id="smart-xp-header">
+          <div id="smart-xp-title">SMART XP SYSTEM</div>
+          <div id="smart-xp-subtitle">Dynamic XP Scaling · 100-Level Game</div>
+          <button id="smart-xp-close">✕</button>
+        </div>
+        <div id="smart-xp-body">
+
+          <div class="sxp-section-hdr">FORMULAS</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">Monster Effective Level</span><span class="sxp-val">CR ¼, ½, or 1 → Level 1 &nbsp;·&nbsp; CR 2 → Level 2 &nbsp;·&nbsp; CR N → Level N</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Hero Threshold</span><span class="sxp-val">ceil( Hero Level ÷ 5 )</span></div>
+            <div class="sxp-formula-row sxp-formula-cutoff"><span class="sxp-label">Hard Cutoff</span><span class="sxp-val">If Monster Level ≤ (Hero Level ÷ 10) − 2 → <strong>0% XP</strong></span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">XP Multiplier</span><span class="sxp-val">max( 0.5, &nbsp;1.0 − 0.08 × (Threshold − Monster Level) )</span></div>
+          </div>
+
+          <div class="sxp-section-hdr">SAMPLE TABLE — XP MULTIPLIERS</div>
+          <div class="sxp-table-wrap">
+            <table class="sxp-table">
+              <thead>
+                <tr>
+                  <th>Hero Lvl</th>
+                  <th>Threshold</th>
+                  <th>Goblin<br><span class="sxp-mel">MEL 1</span></th>
+                  <th>Bugbear<br><span class="sxp-mel">MEL 1</span></th>
+                  <th>Ogre<br><span class="sxp-mel">MEL 2</span></th>
+                  <th>Black Spider<br><span class="sxp-mel">MEL 4</span></th>
+                  <th>Yng Green Dragon<br><span class="sxp-mel">MEL 8</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>5</td><td>1</td><td>100%</td><td>100%</td><td class="sxp-bonus">108%</td><td class="sxp-bonus">124%</td><td class="sxp-bonus">156%</td></tr>
+                <tr><td>10</td><td>2</td><td>92%</td><td>92%</td><td>100%</td><td class="sxp-bonus">116%</td><td class="sxp-bonus">148%</td></tr>
+                <tr><td>15</td><td>3</td><td>84%</td><td>84%</td><td>92%</td><td class="sxp-bonus">108%</td><td class="sxp-bonus">140%</td></tr>
+                <tr><td>20</td><td>4</td><td>76%</td><td>76%</td><td>84%</td><td>100%</td><td class="sxp-bonus">132%</td></tr>
+                <tr><td>25</td><td>5</td><td>68%</td><td>68%</td><td>76%</td><td>92%</td><td class="sxp-bonus">124%</td></tr>
+                <tr><td>30</td><td>6</td><td class="sxp-zero">✗ 0%</td><td class="sxp-zero">✗ 0%</td><td>68%</td><td>84%</td><td class="sxp-bonus">116%</td></tr>
+                <tr><td>40</td><td>8</td><td class="sxp-zero">✗ 0%</td><td class="sxp-zero">✗ 0%</td><td class="sxp-zero">✗ 0%</td><td>68%</td><td>100%</td></tr>
+                <tr><td>50</td><td>10</td><td class="sxp-zero">✗ 0%</td><td class="sxp-zero">✗ 0%</td><td class="sxp-zero">✗ 0%</td><td>52%</td><td>84%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sxp-section-hdr">HOW IT WORKS</div>
+          <div class="sxp-explainer">
+            As your heroes grow in power, weak enemies become beneath you and stop giving meaningful XP.
+            Your <strong>Threshold</strong> (your level ÷ 5, rounded up) marks the monster difficulty where you earn full XP.
+            Beat monsters <em>above</em> your threshold and earn a <strong>bonus</strong> — the game rewards courage.
+            Beat monsters well below it and XP fades, eventually hitting zero once they're trivially beneath your level.
+            The floor is always <strong>50%</strong> — no enemy is completely worthless as long as they still count.
+          </div>
+
+        </div>
+      </div>
     </div>
 
     <!-- XP Table overlay -->

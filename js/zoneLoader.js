@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed } from './terrain.js';
-import { UNIT_TYPES } from './constants.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize } from './terrain.js';
+import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
+import { setSceneGroundSize } from './scene.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
@@ -12,7 +13,7 @@ import { isDevMode } from './devMode.js';
 import { turnOrder, addLog, registerPendingSpawnCheck } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
-import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_cragmaw_entrance.js';
+import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_road_to_cragmaw.js';
 import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
 
 // ── Registry ──────────────────────────────────────────────────────────────────
@@ -158,6 +159,11 @@ export function loadZone(id, repositionHeroes = false) {
       corpses.splice(i, 1);
     }
   }
+
+  // Apply ground size before biome switch so terrain + grid are rebuilt at the right scale
+  const zoneGS = zone.groundSize ?? GROUND_SIZE;
+  setActiveGroundSize(zoneGS);
+  setSceneGroundSize(zoneGS);
 
   // Apply terrain control points + seed before biome switch so they're baked into the rebuild
   setTerrainControlPoints(zone.terrain ?? []);

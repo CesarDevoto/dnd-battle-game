@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { GROUND_SIZE } from './constants.js';
 
+let _gs = GROUND_SIZE;  // active ground size — can differ per zone
+export function setActiveGroundSize(s) { _gs = s; }
+
 const R = (a, b) => a + Math.random() * (b - a);
 
 // ── Tunnel terrain mode ───────────────────────────────────────────────────────
@@ -181,7 +184,7 @@ function rawNoise(x, z) {
 // ── Edge fade ─────────────────────────────────────────────────────────────────
 
 function edgeFade(x, z) {
-  const half = GROUND_SIZE * 0.5;
+  const half = _gs * 0.5;
   const ex = Math.max(0, (Math.abs(x) - half * 0.82) / (half * 0.18));
   const ez = Math.max(0, (Math.abs(z) - half * 0.82) / (half * 0.18));
   const b  = Math.min(1, Math.max(ex, ez));
@@ -189,20 +192,20 @@ function edgeFade(x, z) {
 }
 
 // ── Bowl rim ──────────────────────────────────────────────────────────────────
-// Linear 45° rise starting at _RIM_INNER WU from centre toward each edge.
+// Linear 45° rise starting at 83.3% of half-size from centre toward each edge.
 // Chebyshev (box) distance gives clean flat ramps on all 4 sides; corners
-// blend naturally.  At the terrain boundary (half=36) the wall is 6 WU tall.
-const _RIM_INNER = GROUND_SIZE * 0.5 * 0.833;          // 30 WU — where rim begins
-const _RIM_RANGE = GROUND_SIZE * 0.5 - _RIM_INNER;     // 6 WU of rim width
-const _RIM_SLOPE = 3.0;                                 // peak height multiplier
+// blend naturally.
+const _RIM_SLOPE = 3.0;   // peak height multiplier (fixed)
 
 function _rimHeight(wx, wz) {
-  const dx   = Math.max(0, Math.abs(wx) - _RIM_INNER);
-  const dz   = Math.max(0, Math.abs(wz) - _RIM_INNER);
-  const dist = Math.sqrt(dx * dx + dz * dz);            // Euclidean → round corners
-  const t    = Math.min(1, dist / _RIM_RANGE);
-  const ease = t * t;                                    // quadratic: very gradual at base
-  return ease * _RIM_RANGE * _RIM_SLOPE;
+  const rimInner = _gs * 0.5 * 0.833;
+  const rimRange = _gs * 0.5 - rimInner;
+  const dx   = Math.max(0, Math.abs(wx) - rimInner);
+  const dz   = Math.max(0, Math.abs(wz) - rimInner);
+  const dist = Math.sqrt(dx * dx + dz * dz);   // Euclidean → round corners
+  const t    = Math.min(1, dist / rimRange);
+  const ease = t * t;                           // quadratic: very gradual at base
+  return ease * rimRange * _RIM_SLOPE;
 }
 
 // ── Terrain control points ────────────────────────────────────────────────────
@@ -320,7 +323,7 @@ export function colorTerrainVertices(geo, biome) {
 
 function buildGeo(biome) {
   const SEGS = 128;
-  const geo  = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, SEGS, SEGS);
+  const geo  = new THREE.PlaneGeometry(_gs, _gs, SEGS, SEGS);
 
   // PlaneGeometry starts in the XY plane; after rotation.x = -π/2:
   //   geom X → world X,  geom Y → world -Z,  geom Z → world Y (up)

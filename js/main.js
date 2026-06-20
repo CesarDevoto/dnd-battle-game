@@ -18,7 +18,8 @@ import { toggleAllBars, getAllBarsVisible } from './units.js';
 import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
-import { initPropEditor } from './propEditor.js';
+import { initPropEditor, getPlacedProps } from './propEditor.js';
+import { tickActivationRadius } from './activationRadius.js';
 import { initNpcEditor } from './npcEditor.js';
 import { initNpcAIEditor } from './npcAIEditor.js';
 import { initSpawnEditor } from './spawnEditor.js';
@@ -48,6 +49,32 @@ initEngagementLines();
 initBestiary();
 initXPTable();
 initSpellbook();
+
+// Smart XP overlay (dev-only)
+{
+  const sxpBtn     = document.getElementById('smart-xp-btn');
+  const sxpOverlay = document.getElementById('smart-xp-overlay');
+  const sxpClose   = document.getElementById('smart-xp-close');
+  if (sxpBtn && sxpOverlay) {
+    sxpBtn.addEventListener('click', () => sxpOverlay.classList.toggle('show'));
+    sxpClose.addEventListener('click', () => sxpOverlay.classList.remove('show'));
+    sxpOverlay.addEventListener('click', e => { if (e.target === sxpOverlay) sxpOverlay.classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') sxpOverlay.classList.remove('show'); });
+  }
+}
+
+// Smart Aggro overlay (dev-only)
+{
+  const sagBtn     = document.getElementById('smart-aggro-btn');
+  const sagOverlay = document.getElementById('smart-aggro-overlay');
+  const sagClose   = document.getElementById('smart-aggro-close');
+  if (sagBtn && sagOverlay) {
+    sagBtn.addEventListener('click', () => sagOverlay.classList.toggle('show'));
+    sagClose.addEventListener('click', () => sagOverlay.classList.remove('show'));
+    sagOverlay.addEventListener('click', e => { if (e.target === sagOverlay) sagOverlay.classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') sagOverlay.classList.remove('show'); });
+  }
+}
 initHotbar();
 initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
@@ -230,6 +257,7 @@ let _prevNow = 0;
   tickStars(dt);
   tickDagna(dt);
   tickAmbush(dt);
+  tickActivationRadius(getPlacedProps());
   renderer.render(scene, camera);
 })();
 
