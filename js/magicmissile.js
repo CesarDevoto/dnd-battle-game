@@ -3,6 +3,16 @@ import * as THREE from 'three';
 import { scene } from './scene.js';
 
 const MISSILE_COUNT = 4;
+
+const _mmLights = [];
+export function initMagicMissileLights() {
+  for (let i = 0; i < MISSILE_COUNT; i++) {
+    const light = new THREE.PointLight(0xcc22ff, 0, 11);
+    light.position.set(0, -9999, 0);
+    scene.add(light);
+    _mmLights.push(light);
+  }
+}
 const TRAVEL_MS     = 1400;  // ms per bolt to reach target
 const STAGGER_MS    = 420;   // launch delay between successive bolts
 const MAX_PARTS     = 320;   // shared ring-buffer for all trails + impact bursts
@@ -119,9 +129,8 @@ export function playMagicMissileEffect(attacker, target, onImpact) {
         depthWrite: false, blending: THREE.AdditiveBlending,
       })));
 
-    // Per-bolt point light
-    const light = new THREE.PointLight(0xcc22ff, 2.4, 11);
-    grp.add(light);
+    const light = _mmLights[m];
+    light.intensity = 0;  // will activate when bolt becomes visible
 
     grp.position.copy(origin);
     grp.visible = false;
@@ -179,11 +188,14 @@ export function playMagicMissileEffect(attacker, target, onImpact) {
       // Trail particles
       if (Math.random() < 0.70) emitTrail(ms.grp.position.x, ms.grp.position.y, ms.grp.position.z);
 
-      // Pulse light intensity
+      // Pulse light — positioned manually since it's no longer a child of grp
+      ms.light.position.copy(ms.grp.position);
       ms.light.intensity = 2.4 + 0.8 * Math.sin(now * 0.020 + ms.wobblePhase);
 
       if (t >= 1) {
         ms.impacted = true;
+        ms.light.intensity = 0;
+        ms.light.position.set(0, -9999, 0);
         scene.remove(ms.grp);
         ms.grp.traverse(c => { c.geometry?.dispose(); c.material?.dispose(); });
         emitImpact(dest.x, dest.y, dest.z);

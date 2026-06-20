@@ -4,6 +4,24 @@ import { scene, renderer } from './scene.js';
 import { playSound } from './audio.js';
 
 const TRAVEL_MS  = 760;   // ms to reach target
+
+export function prewarmArrowShaders() {
+  const geo = new THREE.CylinderGeometry(0.001, 0.001, 0.001, 3);
+  const ptGeo = new THREE.BufferGeometry();
+  ptGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+  ptGeo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(3), 3));
+  const warmObjects = [
+    new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.02 })),
+    new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.38, metalness: 0.78 })),
+    new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide })),
+    new THREE.Points(ptGeo, new THREE.PointsMaterial({ size: 0.001, vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true })),
+  ];
+  warmObjects.forEach(o => {
+    o.position.set(0, -9999, 0);
+    o.frustumCulled = false;
+    scene.add(o);
+  });
+}
 const ARC_HEIGHT = 0.80;  // peak of parabolic arc (world units)
 const MAX_PARTS  = 110;   // ring-buffer for trail + impact particles
 

@@ -6,6 +6,13 @@ import { playSound } from './audio.js';
 const TRAVEL_MS  = 950;
 const MAX_SPARKS = 140;
 
+let _healLight = null;
+export function initHealingWordLight() {
+  _healLight = new THREE.PointLight(0x44ccff, 0, 12);
+  _healLight.position.set(0, -9999, 0);
+  scene.add(_healLight);
+}
+
 export function playHealingWordEffect(attacker, target, onImpact) {
   const start = new THREE.Vector3(
     attacker.grp.position.x,
@@ -31,11 +38,12 @@ export function playHealingWordEffect(attacker, target, onImpact) {
   });
   coreMesh.add(new THREE.Mesh(outerGeo, outerMat));
 
-  const projLight = new THREE.PointLight(0x44ccff, 2.2, 12);
-  scene.add(projLight);
+  const projLight = _healLight;
+  projLight.intensity = 2.2;
+  projLight.distance  = 12;
+  projLight.position.copy(start);
   scene.add(coreMesh);
   coreMesh.position.copy(start);
-  projLight.position.copy(start);
 
   // ── Particle trail ────────────────────────────────────────────────────────────
   const posArr  = new Float32Array(MAX_SPARKS * 3);
@@ -202,7 +210,8 @@ export function playHealingWordEffect(attacker, target, onImpact) {
 
     if (now >= doneAt) {
       scene.remove(sparkPts);
-      scene.remove(projLight);
+      projLight.intensity = 0;
+      projLight.position.set(0, -9999, 0);
       sparkGeo.dispose();
       sparkMat.dispose();
       return;
