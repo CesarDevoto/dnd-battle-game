@@ -13,7 +13,7 @@ export function initAmbush({ getActiveZoneId }) {
 
 // ── Dialogue ──────────────────────────────────────────────────────────────────
 const _LINES = [
-  { s: 'Leugren', t: "Gods… This was my uncle Gundren's mare, Maggie. And that brown stallion yonder — that's Sildar's mount from Neverwinter." },
+  { s: 'Leugren', t: "Gods… This was my cousin Gundren's mare, Maggie. And that brown stallion yonder — that's Sildar's mount from Neverwinter." },
   { s: 'Gobo',    t: "These goblin arrows did the deed, no doubt about it." },
   { s: 'Rasec',   t: "Saddlebags are stripped clean. And Gundren's map case… it's empty. Strange — none of these filthy little bastards has the map on them." },
   { s: 'Milo',    t: "Oi! Over here! Tracks! A dozen or more goblins have been back and forth along this trail… and I'd stake a silver that these two heavy sets of prints were prisoners — dwarves or men — being hauled north." },
