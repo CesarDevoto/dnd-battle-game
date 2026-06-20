@@ -20,6 +20,7 @@ import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, getUnitAttackDuration, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
+import { onAmbushCombatEnd } from './ambushEvent.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
 // Maps sleeping unit → { roundsLeft, zzzEl }
@@ -267,7 +268,7 @@ export const moveRangeRing = new THREE.Mesh(
   new THREE.BufferGeometry(),
   new THREE.MeshBasicMaterial({
     color: 0x44FF44, side: THREE.DoubleSide, transparent: true, opacity: 1.0,
-    depthWrite: false,
+    depthWrite: false, depthTest: false,
   })
 );
 moveRangeRing.frustumCulled = false;
@@ -280,7 +281,7 @@ export const hoverRing = new THREE.Mesh(
   new THREE.BufferGeometry(),
   new THREE.MeshBasicMaterial({
     color: 0xff66ff, side: THREE.DoubleSide, transparent: true, opacity: 0.95,
-    depthWrite: false,
+    depthWrite: false, depthTest: false,
   })
 );
 hoverRing.frustumCulled = false;
@@ -769,7 +770,7 @@ function showMoveRange(u, overrideFt) {
   if (validTiles.size > 0) {
     moveRangeRing.geometry.dispose();
     moveRangeRing.geometry = makeMoveRingGeo(ux, uz, maxDist);
-    moveRangeRing.position.set(ux, 1, uz);
+    moveRangeRing.position.set(ux, 0, uz);
     moveRangeRing.visible = true;
   }
 }
@@ -993,6 +994,13 @@ function handleSpellBtnClick(spellKey) {
   hideMoveRange();
   hideAttackTargets();
   showHealTargets(u, spellKey);
+
+  // If a valid heal target is already selected, cast immediately
+  if (selectedTarget && healTargets.has(selectedTarget)) {
+    castHeal(u, selectedTarget, spellKey);
+    return;
+  }
+
   showSpellRangeRing(u, spell.rangeFt);
   updateCombatStatus();
 
@@ -1322,6 +1330,7 @@ function exitCombat() {
   stopCombatMusic();
   addLog('All threats cleared.', 'round');
   onCombatEnd();
+  onAmbushCombatEnd();
   window.dispatchEvent(new CustomEvent('combat:ended'));
 }
 
@@ -1422,27 +1431,27 @@ function unitCombatLevel(u) {
 
 // Percentage-based hit resolution.
 //   Hit% = 50 + (atkBonus − defAC) × 0.8 + (atkLvl − defLvl) × 3  [clamped 15–85]
-//   Roll 1d100: ≤ Hit% → hit;  96-100 → automatic critical hit.
-//   Advantage:    roll twice, keep lower (better for attacker).
-//   Disadvantage: roll twice, keep higher (worse for attacker).
+//   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
+//   Advantage: keep higher die. Disadvantage: keep lower die.
 function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
   const rawPct    = 50 + (atkBonus - defAC) * 0.8 + (atkLvl - defLvl) * 3;
   const hitChance = Math.round(Math.max(15, Math.min(85, rawPct)));
+  const threshold = 100 - hitChance;
 
   const r1 = Math.floor(Math.random() * 100) + 1;
   let r2 = null, kept;
   if (mode === 'advantage') {
     r2   = Math.floor(Math.random() * 100) + 1;
-    kept = Math.min(r1, r2);
+    kept = Math.max(r1, r2);
   } else if (mode === 'disadvantage') {
     r2   = Math.floor(Math.random() * 100) + 1;
-    kept = Math.max(r1, r2);
+    kept = Math.min(r1, r2);
   } else {
     kept = r1;
   }
 
   const isCrit = kept >= 96;
-  return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, hitChance, isHit: kept <= hitChance || isCrit, isCrit };
+  return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, hitChance, threshold, isHit: kept >= threshold || isCrit, isCrit };
 }
 
 function faceTarget(unit, target) {
@@ -1517,7 +1526,7 @@ function dmgBreakdown(r) {
 function atkBreakdown(r) {
   const adv    = r.mode === 'advantage' ? 'ADV ' : r.mode === 'disadvantage' ? 'DIS ' : '';
   const dieStr = r.mode !== 'normal' ? `[${r.dice.join('/')} → ${r.kept}]` : String(r.kept);
-  return `${adv}d100 rolled ${dieStr}, needed ≤ ${r.hitChance}`;
+  return `${adv}d100 rolled ${dieStr}, needed ≥ ${r.threshold}`;
 }
 
 function _executeAttack(attacker, target, atk) {

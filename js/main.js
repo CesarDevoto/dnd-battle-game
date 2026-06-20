@@ -15,7 +15,7 @@ import { initSpellbook } from './spellbook.js';
 import { initHotbar, bindPermanentHotkey } from './hotbar.js';
 import { cycleHero, removeUnits } from './army.js';
 import { toggleAllBars, getAllBarsVisible } from './units.js';
-import { initZoneUI, tickZone, loadZone } from './zoneLoader.js';
+import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
 import { initPropEditor } from './propEditor.js';
@@ -29,6 +29,7 @@ import { tickStars } from './investigateStars.js';
 import { prewarmEffectShaders } from './firebolt.js';
 import { initAudio, initMixerPanel } from './audio.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
+import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { initXPTable } from './xpTable.js';
 import { IS_DEV } from './devConfig.js';
 import { initGroupMove } from './groupMove.js';
@@ -46,6 +47,7 @@ initSpellbook();
 initHotbar();
 initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
+initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initGroupMove();
 
 if (IS_DEV) {
@@ -189,6 +191,7 @@ let _prevNow = 0;
   tickPrecombat(dt);
   tickStars(dt);
   tickDagna(dt);
+  tickAmbush(dt);
   renderer.render(scene, camera);
 })();
 

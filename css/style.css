@@ -3623,10 +3623,8 @@ td.bst-col-retired { color: #343228 !important; }
   gap: 4px;
   padding: 5px 6px 7px;
   background: rgba(7,4,1,0.94);
-  border-top: 1px solid rgba(212,175,55,0.20);
-  border-left: 1px solid rgba(212,175,55,0.20);
-  border-right: 1px solid rgba(212,175,55,0.20);
-  border-radius: 6px 6px 0 0;
+  border: 1px solid rgba(212,175,55,0.20);
+  border-radius: 6px;
   box-shadow: 0 -4px 22px rgba(0,0,0,0.80);
   pointer-events: auto;
   align-self: flex-end;

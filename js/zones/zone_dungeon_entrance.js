@@ -92,7 +92,7 @@ export const ZONE = {
     { model: 'dryshrub', x: 26.13, z: 2.09, y: 4.6282, rotY: 0, scale: 1 },
     { model: 'boulder', x: -29.45, z: 20.21, y: 3.7023, rotY: 0, scale: 1 },
     { model: 'boulder', x: -15.25, z: 9.27, y: 4.0739, rotY: 0, scale: 1 },
-    { model: 'boulder', x: -12.24, z: 2.15, y: 3.5634, rotY: 0, scale: 1 },
+    { model: 'boulder', x: -7.49, z: 0.15, y: 3.2916, rotY: 0, scale: 1 },
     { model: 'boulder', x: -8.92, z: -14.61, y: 1.7455, rotY: 0, scale: 1 },
     { model: 'boulder', x: 8.67, z: 1.48, y: 4.765, yOff: 0.375, rotY: 0, scale: 1.1 },
     { model: 'boulder', x: -24.85, z: -21.97, y: 0.7284, rotY: 0, scale: 1 },

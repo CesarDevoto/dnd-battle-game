@@ -139,6 +139,7 @@ export function loadZone(id, repositionHeroes = false) {
 
   _active = zone;
   _transitioning = false;
+  window.dispatchEvent(new CustomEvent('zone:loading'));
   _clearExits();
   _pendingSpawns = (zone.spawns ?? []).slice();  // fresh copy for this zone
   _firedOneshotIdx.clear();

@@ -19,7 +19,7 @@ export function initDagna({ removeUnits, loadZone, setPrecombatFrozen }) {
 
 // ── One-time state ────────────────────────────────────────────────────────────
 let _heroDiedThisCombat = false;
-let _dagnaSeen           = false;   // intro sequence played once per session
+let _dagnaSeen          = false;   // intro sequence played once per session
 let _leugrenLastPos      = new THREE.Vector3(0, 0, 20);
 
 let _inStyxZone      = false;
@@ -325,6 +325,11 @@ const _SCENES = [
   { id: 'dlg_out', name: 'Victory',       lines: _LINES_OUT },
 ];
 
+// Zone-specific event modules register their dialogues here so they appear in the dev panel.
+export function registerDialogueScene({ id, name, lines, onDone }) {
+  _SCENES.push({ id, name, lines, onDone });
+}
+
 let _isPreview = false;
 
 function _buildDlgUI() {
@@ -431,7 +436,7 @@ function _buildDlgPanel() {
     const sc = _SCENES.find(s => s.id === btn.dataset.id);
     if (!sc) return;
     document.getElementById('dlg-log-panel').style.display = 'none';
-    _showLines(sc.lines, null, true);
+    _showLines(sc.lines, sc.onDone ?? null, true);
   });
 }
 
@@ -457,8 +462,7 @@ function _renderLine() {
   _dlgEl.querySelector('.dagna-dlg-text').textContent = l.t;
   _dlgEl.querySelector('#dagna-bust').src = _BUST_SRC[l.s] ?? _BUST_SRC.Dagna;
   const isLast = _lineIdx === _lines.length - 1;
-  _dlgEl.querySelector('.dagna-dlg-btn').textContent =
-    isLast ? (_isPreview ? 'End Sequence' : 'Close') : 'Continue';
+  _dlgEl.querySelector('.dagna-dlg-btn').textContent = isLast ? 'Close' : 'Continue';
 }
 
 function _previewCleanup() {

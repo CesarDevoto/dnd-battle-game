@@ -8,7 +8,7 @@ export const CUTSCENE = {
       img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
       pan:    'right',
       objPos: 'center 18%',
-      text:   'Moradin: "Dark signs gather on the wind, Dagna… A shadow rises that may swallow kingdoms whole. The world has need of stout hearts and iron will. Go forth. Search the lands. Leave no stone unturned."',
+      text:   'Moradin: "Dark signs gather on the wind, Dagna… A shadow rises that may swallow kingdoms whole. The world has need of stout hearts and iron will. Search the lands. Leave no stone unturned."',
     },
     {
       img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
