@@ -9,7 +9,7 @@ import { clearDiceQueue, showHitBanner, showMissBanner } from './dice3d.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { fireRangedAttack }        from './arrow.js';
@@ -1067,8 +1067,7 @@ function activateMageArmor() {
   u.spellSlots--;
   turnAttacked  = true;
 
-  const newAC = (u.ac ?? 12) + 3;
-  addLog(`${unitLabel(u)} casts Mage Armor! AC is now ${newAC} until long rest`, 'spell');
+  addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) until long rest`, 'spell');
   showMageArmorFloat(u);
   pulseMageArmorAura(u);
   updateCombatStatus();
@@ -2490,7 +2489,25 @@ function _rebuildHotbar(u) {
   });
 }
 
-window.addEventListener('hero:levelup', ({ detail: { hero } }) => {
+window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
+  // Add any spells that unlock at this exact level
+  const unlocks = LEVEL_SPELLS[hero.type] ?? {};
+  if (unlocks[newLevel]) {
+    if (!hero.preparedSpells) hero.preparedSpells = new Set();
+    unlocks[newLevel].forEach(k => hero.preparedSpells.add(k));
+  }
+  // Grant additional spell slots when leveling up
+  if (hero.type === 'dwarf') {
+    const clericSlots = newLevel >= 3 ? 3 : newLevel >= 2 ? 2 : 0;
+    const gain = clericSlots - (hero.spellSlotsMax ?? 0);
+    hero.spellSlotsMax = clericSlots;
+    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
+  } else if (hero.type === 'elf') {
+    const wizSlots = newLevel >= 2 ? 2 : 0;
+    const gain = wizSlots - (hero.spellSlotsMax ?? 0);
+    hero.spellSlotsMax = wizSlots;
+    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
+  }
   if (!combatPhase) return;
   const curU = turnOrder[turnIndex];
   if (curU && curU === hero && curU.team === 'blue') _rebuildHotbar(curU);

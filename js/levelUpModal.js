@@ -17,6 +17,9 @@ const LEVEL_UNLOCKS = {
       { name: 'Bless',
         imgSrc: 'assets/Spells/bless.jpg',
         desc: 'Target all allies · +1d4 to attack rolls & saving throws · Concentration · costs 1 spell slot' },
+      { name: 'Spell Slots ×2',
+        icon: '◈',
+        desc: '2 level-1 spell slots per combat · replenish on long rest' },
     ],
   },
   human: {
@@ -37,7 +40,7 @@ const LEVEL_UNLOCKS = {
     2: [
       { name: 'Mage Armor',
         imgSrc: 'assets/Spells/magearmor.jpg',
-        desc: 'Self · AC becomes 15 until long rest · costs 1 spell slot' },
+        desc: 'Self · +3 AC until long rest · stacks with base AC · costs 1 spell slot' },
       { name: 'Spell Slots ×2',
         icon: '◈',
         desc: '2 level-1 spell slots per combat · replenish on long rest' },

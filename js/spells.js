@@ -94,7 +94,7 @@ export const ELF_SPELLS = {
     level:      1,
     actionType: 'action',
     imgSrc:     'assets/Spells/magearmor.jpg',
-    desc:       'Self · +3 AC until long rest · recastable',
+    desc:       'Self · +3 AC until long rest · stacks with base AC',
   },
   magic_missile: {
     key:       'magic_missile',
@@ -122,24 +122,38 @@ export const ELF_SPELLS = {
   },
 };
 
-// Starting prepared spells per hero type (cantrips + levelled spells)
+// Spells available from level 1
 export const STARTING_SPELLS = {
-  dwarf: new Set(['healing_word', 'bless']),
-  elf:   new Set(['fire_bolt', 'mage_armor']),
+  dwarf: new Set(['healing_word']),
+  elf:   new Set(['fire_bolt']),
+};
+
+// Spells that unlock at specific levels (keyed by required level)
+export const LEVEL_SPELLS = {
+  dwarf: { 2: ['bless'] },
+  elf:   { 2: ['mage_armor'] },
 };
 
 // ── Spell slot initialisation (called when battle begins) ─────────────────────
 export function initSpellSlots(units) {
   units.forEach(u => {
+    const lvl = u.level ?? 1;
     if (u.type === 'dwarf') {
-      u.spellSlots    = 2;
-      u.spellSlotsMax = 2;
+      const clericSlots = lvl >= 3 ? 3 : lvl >= 2 ? 2 : 0;
+      u.spellSlots     = clericSlots;
+      u.spellSlotsMax  = clericSlots;
       u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
     } else if (u.type === 'elf') {
-      const elfSlots  = u.level >= 2 ? 2 : 0;
-      u.spellSlots    = elfSlots;
-      u.spellSlotsMax = elfSlots;
+      const elfSlots   = lvl >= 2 ? 2 : 0;
+      u.spellSlots     = elfSlots;
+      u.spellSlotsMax  = elfSlots;
       u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
+    } else {
+      return;
+    }
+    // Add any spells that unlock at or below the hero's current level
+    for (const [reqLvl, keys] of Object.entries(LEVEL_SPELLS[u.type] ?? {})) {
+      if (lvl >= +reqLvl) keys.forEach(k => u.preparedSpells.add(k));
     }
   });
 }
