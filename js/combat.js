@@ -484,6 +484,8 @@ let turnBonusActioned = false;  // bonus action used this turn (e.g. Healing Wor
 let sneakAttackUsed  = false;   // halfling sneak attack — once per turn
 let prevMoveState = null; // { x, z, movedFt } saved just before a move for undo
 
+const _delayed = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy_in_melee_range' | 'ally_loses_hp')
+
 const blueUndo   = document.getElementById('blue-undo-btn');
 const endTurnBtn = document.getElementById('end-turn-btn');
 const moveDistEl = document.getElementById('move-dist');
@@ -1587,6 +1589,10 @@ function faceTarget(unit, target) {
 // Ranged attacks show a targeting line first; melee fires immediately.
 // Fire Bolt (elf) gets the full cinematic particle effect instead.
 function performAttack(attacker, target, atk) {
+  // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves
+  if (_delayCtx && attacker === turnOrder[turnIndex]) {
+    setTimeout(_endDelayInterrupt, 2600);
+  }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
   if (atk.type === 'ranged') {
@@ -2207,6 +2213,7 @@ export function rollInitiative() {
   divider.visible = false;
   setGridVisible(true);
   _dungeonAwareEnemies.clear();
+  _delayed.clear();
   initSpellSlots(units);
 
   // Non-dungeon: all red units are immediately aggro, unless precombat BFS explicitly
@@ -2292,9 +2299,11 @@ export function buildTurnList() {
     const el      = document.createElement('div');
     el.className  = 'turn-entry';
     el.dataset.ti = i;
+    const readyTag = (u.team === 'blue' && _delayed.has(u))
+      ? '<span class="turn-ready-tag">⚡</span>' : '';
     el.innerHTML  =
       `<div class="turn-hpbar-wrap"><div class="turn-hpbar" style="width:${hpPct}%;background:${barColor}"></div></div>` +
-      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}</span>` +
+      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${readyTag}</span>` +
       `<span class="turn-init">${u.initiative}</span>`;
     el.addEventListener('click', () => {
       if (u.team === 'red' && u.hp > 0) showTargetMarker(u);
@@ -2310,6 +2319,160 @@ const HERO_HUD_NAME_COLORS = {
   elf:      { color: '#cc55ee', shadow: '0 0 7px rgba(170,34,238,0.55)' },
   halfling: { color: '#44dd66', shadow: '0 0 7px rgba(34,204,68,0.55)' },
 };
+
+// ── Delay Action ──────────────────────────────────────────────────────────────
+
+const _DELAY_LABELS = {
+  enemy_in_los:      'Enemy enters line of sight',
+  enemy_in_melee_range: 'Enemy enters melee range',
+  ally_loses_hp:        'Ally loses hit points',
+};
+
+// _delayCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
+let _delayCtx = null;
+
+function _openDelayModal(hero) {
+  const modal = document.getElementById('delay-action-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
+    btn.onclick = () => {
+      const trigger = btn.dataset.trigger;
+      _delayed.set(hero, trigger);
+      turnAttacked = true;
+      modal.style.display = 'none';
+      addLog(`${unitLabel(hero)} delays: trigger "${_DELAY_LABELS[trigger]}"`, 'move');
+      buildTurnList();
+      updateCombatStatus();
+      _rebuildHotbar(hero);
+    };
+  });
+  document.getElementById('dam-cancel-btn').onclick = () => { modal.style.display = 'none'; };
+  modal.style.display = 'flex';
+}
+
+// Helper: returns true if enemy is within ranged range AND has LOS to hero
+function _enemyInHeroLOS(enemy, hero) {
+  const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
+  const rangedAtk = heroAtks.find(a => a.type === 'ranged');
+  if (!rangedAtk) return false;
+  const dx = enemy.grp.position.x - hero.grp.position.x;
+  const dz = enemy.grp.position.z - hero.grp.position.z;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+  if (dist > atkRangeWU(rangedAtk.longRange ?? rangedAtk.range)) return false;
+  return hasLineOfSight(
+    enemy.grp.position.x, enemy.grp.position.z,
+    hero.grp.position.x,  hero.grp.position.z
+  );
+}
+
+function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
+  const matches = [];
+  for (const [hero, trigger] of _delayed) {
+    if (!units.includes(hero) || hero.hp <= 0) { _delayed.delete(hero); continue; }
+    const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
+
+    if (eventType === 'enemy_moved' || eventType === 'enemy_turn_start') {
+      const enemy = eventCtx;
+      const dx = enemy.grp.position.x - hero.grp.position.x;
+      const dz = enemy.grp.position.z - hero.grp.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      if (trigger === 'enemy_in_los' && _enemyInHeroLOS(enemy, hero)) {
+        matches.push({ hero, trigger });
+      } else if (trigger === 'enemy_in_melee_range') {
+        const atk = heroAtks.find(a => a.type === 'melee');
+        if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger });
+      }
+    }
+
+    if (eventType === 'ally_damaged' && trigger === 'ally_loses_hp') {
+      const victim = eventCtx;
+      // Only fire if the ally ACTUALLY lost HP (not a miss) and isn't the delayed hero themselves
+      if (hpLost && victim.team === 'blue' && victim !== hero) {
+        matches.push({ hero, trigger });
+      }
+    }
+  }
+
+  if (!matches.length) { continuation(); return; }
+
+  // Chain all matches so every delayed hero gets to act before the original continuation resumes
+  function _fireNext(idx) {
+    if (idx >= matches.length) { continuation(); return; }
+    _delayCtx = {
+      savedIdx:      turnIndex,
+      savedHeroMode: heroMode,
+      savedAttacked: turnAttacked,  // must restore so enemy turn resumes with correct attack state
+      savedMovedFt:  turnMovedFt,
+      cont: () => _fireNext(idx + 1),
+    };
+    _showDelayInterrupt(matches[idx]);
+  }
+  _fireNext(0);
+}
+
+function _showDelayInterrupt({ hero, trigger }) {
+  if (!_delayCtx) return;
+  const heroIdx = turnOrder.indexOf(hero);
+  if (heroIdx < 0) {
+    _delayed.delete(hero);
+    // Hero left combat — skip their interrupt and call the chain continuation
+    const cont = _delayCtx.cont;
+    _delayCtx = null;
+    cont?.();
+    return;
+  }
+
+  _delayed.delete(hero);
+
+  // Temporarily make this hero the active unit so all hotbar callbacks work naturally
+  turnIndex    = heroIdx;
+  turnAttacked = false;
+  turnMovedFt  = 0;   // delay action has no movement
+  heroMode     = null;
+
+  setFollowUnit(hero);
+  showRangeRings(hero);
+  showAttackTargets(hero);
+  _rebuildHotbar(hero);
+
+  // Remove DASH (no movement) and replace End Turn with Skip
+  unbindHotkey('Digit4', false);
+  bindHotkey('Digit5', false, '<span class="hb-end-turn">SKIP<br>DELAY</span>', () => _endDelayInterrupt());
+
+  // Show the delay banner
+  const banner = document.getElementById('delay-banner');
+  if (banner) {
+    banner.querySelector('.db-hero').textContent    = unitLabel(hero);
+    banner.querySelector('.db-trigger').textContent = _DELAY_LABELS[trigger];
+    document.getElementById('db-skip-btn').onclick  = () => _endDelayInterrupt();
+    banner.style.display = 'flex';
+  }
+
+  addLog(`⚡ ${unitLabel(hero)}'s Delay Action fires (${_DELAY_LABELS[trigger]})! Choose an action.`, 'move');
+}
+
+function _endDelayInterrupt() {
+  if (!_delayCtx) return;
+  const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, cont } = _delayCtx;
+  _delayCtx = null;
+
+  const banner = document.getElementById('delay-banner');
+  if (banner) banner.style.display = 'none';
+
+  hideRangeRings();
+  hideMoveRange();
+  hideAttackTargets();
+  hideTargetMarker();
+  clearAllHotkeys();
+
+  turnIndex    = savedIdx;
+  heroMode     = savedHeroMode;
+  turnAttacked = savedAttacked;  // restore enemy's pre-interrupt attack state
+  turnMovedFt  = savedMovedFt;
+
+  if (cont) cont();
+}
 
 function _rebuildHotbar(u) {
   if (!u || u.team !== 'blue') return;
@@ -2483,6 +2646,29 @@ function _rebuildHotbar(u) {
     const curU = turnOrder[turnIndex];
     return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
   }, 'action');
+  {
+    const armed = _delayed.has(u);
+    bindHotkey('Digit6', false,
+      armed
+        ? '<span class="hb-ready hb-ready-armed">DELAY ✓</span>'
+        : '<span class="hb-ready">DELAY<br>ACTION</span>',
+      () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.team !== 'blue' || isAnimating) return;
+        if (_delayed.has(curU)) {
+          addLog(`${unitLabel(curU)} is delaying: trigger "${_DELAY_LABELS[_delayed.get(curU)]}"`, 'move');
+          return;
+        }
+        if (turnAttacked) return;
+        _openDelayModal(curU);
+      },
+      () => {
+        const curU = turnOrder[turnIndex];
+        return !!curU && curU.team === 'blue' && !isAnimating && (!turnAttacked || _delayed.has(curU));
+      },
+      'action'
+    );
+  }
   bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
     if (isAnimating || endTurnBtn.disabled) return;
     doEndTurn();
@@ -2540,6 +2726,12 @@ export function activateTurn(index) {
     turnMovedFt     = 0;
     turnAttacked    = false;
     sneakAttackUsed = false;
+    // If this hero's delayed action never fired, it expires at turn start
+    if (u.team === 'blue' && _delayed.has(u)) {
+      addLog(`${unitLabel(u)}'s delayed action expires (trigger never fired).`, 'move');
+      _delayed.delete(u);
+      buildTurnList();
+    }
     if (u.team === 'blue') playSound('turn_start');
     clearAllHotkeys();
     hideUndoBtn();
@@ -2906,8 +3098,10 @@ function runAITurn(u) {
         turnAttacked = true;
         hideUndoBtn();
         updateCombatStatus();
+        const hpBefore = target.hp;
         performAttack(u, target, atk);
-        setTimeout(cb, ATK_RESOLVE);
+        // After attack resolves, check ally_loses_hp delayed actions — only if HP actually dropped
+        setTimeout(() => _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, cb), ATK_RESOLVE);
       }, PRE_ATK_MS);
     }
 
@@ -2928,76 +3122,84 @@ function runAITurn(u) {
           u.grp.rotation.y = Math.atan2(fdx, fdz);
         }
         updateCombatStatus();
-        cb();
+        _checkDelayedTriggers('enemy_moved', u, false, cb);
       });
     }
 
-    // ── Determine current range ───────────────────────────────────────────────
-    const _dx0  = target.grp.position.x - u.grp.position.x;
-    const _dz0  = target.grp.position.z - u.grp.position.z;
-    const _dist = Math.sqrt(_dx0 * _dx0 + _dz0 * _dz0);
-    const _def0 = UNIT_TYPES[u.type] ?? {};
-    const _meleeA0 = (_def0.attacks ?? []).find(a => a.type === 'melee');
-    const inMeleeRange = _meleeA0 && _dist <= atkTriggerWU(_meleeA0);
+    // ── Check delayed triggers before enemy acts ──────────────────────────────
+    // Catches enemies that never move (Path 1/2) — fire LOS/melee triggers now
+    function runPaths() {
+      if (!combatPhase || !units.includes(u)) return;
 
-    // Path 1: Already in melee → swing immediately, end turn
-    if (inMeleeRange) {
-      doAttack(endAITurn);
-      return;
-    }
+      // ── Determine current range ─────────────────────────────────────────────
+      const _dx0  = target.grp.position.x - u.grp.position.x;
+      const _dz0  = target.grp.position.z - u.grp.position.z;
+      const _dist = Math.sqrt(_dx0 * _dx0 + _dz0 * _dz0);
+      const _def0 = UNIT_TYPES[u.type] ?? {};
+      const _meleeA0 = (_def0.attacks ?? []).find(a => a.type === 'melee');
+      const inMeleeRange = _meleeA0 && _dist <= atkTriggerWU(_meleeA0);
 
-    // Path 2: In ranged range (not melee) → throw javelin, then close to melee
-    const rangedAtk = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
-    if (rangedAtk?.type === 'ranged') {
-      showAttackTargets(u);
-      setTimeout(() => {
-        hideAttackTargets();
-        turnAttacked = true;
-        hideUndoBtn();
-        updateCombatStatus();
-        performAttack(u, target, rangedAtk);
-        setTimeout(() => {
-          if (!units.includes(u) || !units.includes(target)) { endAITurn(); return; }
-          showMoveRange(u);
-          const dest = aiPickDestTowardMelee(u, target, validTiles, atkTriggerWU);
-          hideMoveRange();
-          if (!dest) { endAITurn(); return; }
-          moveToAndThen(dest, endAITurn);
-        }, ATK_RESOLVE);
-      }, PRE_ATK_MS);
-      return;
-    }
-
-    // Path 3: Out of all attack range → move toward melee, attack if now in range
-    showMoveRange(u);
-    const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
-    hideMoveRange();
-    if (!dest) { endAITurn(); return; }
-
-    // Sprint: melee-only enemies that can't reach their target with normal movement
-    // spend their action to dash (double movement), forfeiting their attack.
-    const _isMeleeOnly = !(_def0.attacks ?? []).some(a => a.type === 'ranged');
-    if (_isMeleeOnly && !turnAttacked) {
-      const _ddx = target.grp.position.x - dest.x;
-      const _ddz = target.grp.position.z - dest.z;
-      const _destDist = Math.sqrt(_ddx * _ddx + _ddz * _ddz);
-      const _meleeTrigger = _meleeA0 ? atkTriggerWU(_meleeA0) : 0;
-      const _destInMelee  = _meleeTrigger > 0 && _destDist <= _meleeTrigger;
-      if (!_destInMelee) {
-        turnAttacked = true;
-        const _sprintBudgetFt = (_def0.speed ?? 30) * 2 - turnMovedFt;
-        showMoveRange(u, _sprintBudgetFt);
-        const sprintDest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
-        hideMoveRange();
-        updateCombatStatus();
-        if (!sprintDest) { endAITurn(); return; }
-        addLog(`${unitLabel(u)} uses Dash (action) — double move: ${(_def0.speed ?? 30) * 2} ft`, 'move');
-        moveToAndThen(sprintDest, endAITurn);
+      // Path 1: Already in melee → swing immediately, end turn
+      if (inMeleeRange) {
+        doAttack(endAITurn);
         return;
       }
+
+      // Path 2: In ranged range (not melee) → throw javelin, then close to melee
+      const rangedAtk = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      if (rangedAtk?.type === 'ranged') {
+        showAttackTargets(u);
+        setTimeout(() => {
+          hideAttackTargets();
+          turnAttacked = true;
+          hideUndoBtn();
+          updateCombatStatus();
+          performAttack(u, target, rangedAtk);
+          setTimeout(() => {
+            if (!units.includes(u) || !units.includes(target)) { endAITurn(); return; }
+            showMoveRange(u);
+            const dest = aiPickDestTowardMelee(u, target, validTiles, atkTriggerWU);
+            hideMoveRange();
+            if (!dest) { endAITurn(); return; }
+            moveToAndThen(dest, endAITurn);
+          }, ATK_RESOLVE);
+        }, PRE_ATK_MS);
+        return;
+      }
+
+      // Path 3: Out of all attack range → move toward melee, attack if now in range
+      showMoveRange(u);
+      const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+      hideMoveRange();
+      if (!dest) { endAITurn(); return; }
+
+      // Sprint: melee-only enemies that can't reach their target with normal movement
+      // spend their action to dash (double movement), forfeiting their attack.
+      const _isMeleeOnly = !(_def0.attacks ?? []).some(a => a.type === 'ranged');
+      if (_isMeleeOnly && !turnAttacked) {
+        const _ddx = target.grp.position.x - dest.x;
+        const _ddz = target.grp.position.z - dest.z;
+        const _destDist = Math.sqrt(_ddx * _ddx + _ddz * _ddz);
+        const _meleeTrigger = _meleeA0 ? atkTriggerWU(_meleeA0) : 0;
+        const _destInMelee  = _meleeTrigger > 0 && _destDist <= _meleeTrigger;
+        if (!_destInMelee) {
+          turnAttacked = true;
+          const _sprintBudgetFt = (_def0.speed ?? 30) * 2 - turnMovedFt;
+          showMoveRange(u, _sprintBudgetFt);
+          const sprintDest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+          hideMoveRange();
+          updateCombatStatus();
+          if (!sprintDest) { endAITurn(); return; }
+          addLog(`${unitLabel(u)} uses Dash (action) — double move: ${(_def0.speed ?? 30) * 2} ft`, 'move');
+          moveToAndThen(sprintDest, endAITurn);
+          return;
+        }
+      }
+
+      moveToAndThen(dest, () => setTimeout(() => doAttack(endAITurn), PRE_ATK_MS));
     }
 
-    moveToAndThen(dest, () => setTimeout(() => doAttack(endAITurn), PRE_ATK_MS));
+    _checkDelayedTriggers('enemy_turn_start', u, false, runPaths);
   }, THINK_MS);
 }
 

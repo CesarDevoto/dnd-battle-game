@@ -506,6 +506,25 @@
     <!-- Quest log panel — right side, player-facing -->
     <div id="quest-log"></div>
 
+    <!-- Delay Action: trigger selection modal -->
+    <div id="delay-action-modal" style="display:none">
+      <div class="dam-header">⚡ DELAY ACTION</div>
+      <div class="dam-sub">Trigger your action when…</div>
+      <button class="dam-trigger-btn" data-trigger="enemy_in_los">Enemy enters line of sight</button>
+      <button class="dam-trigger-btn" data-trigger="enemy_in_melee_range">Enemy enters melee range</button>
+      <button class="dam-trigger-btn" data-trigger="ally_loses_hp">Ally loses hit points</button>
+      <button id="dam-cancel-btn">Cancel</button>
+    </div>
+
+    <!-- Delay Action: interrupt banner shown when trigger fires -->
+    <div id="delay-banner" style="display:none">
+      <div class="db-title">⚡ DELAY ACTION</div>
+      <div class="db-hero"></div>
+      <div class="db-trigger"></div>
+      <div class="db-hint">Choose any action from your hotbar, or skip.</div>
+      <button id="db-skip-btn">Skip</button>
+    </div>
+
 <!-- Terrain Editor panel -->
     <div id="terrain-editor-panel" class="dev-only" style="display:none">
       <div id="te-title-row">

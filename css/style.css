@@ -4429,6 +4429,151 @@ td.bst-col-retired { color: #343228 !important; }
   letter-spacing: 0.8px;
 }
 
+/* ── Ready Action hotbar label ─────────────────────────────────────────── */
+.hb-ready {
+  color: #ffe066;
+  text-shadow: 0 0 8px rgba(255,220,50,0.60);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
+}
+.hb-ready-armed {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,220,50,1), 0 0 22px rgba(255,200,30,0.70);
+  letter-spacing: 0.4px;
+}
+
+/* ── Turn-list ready indicator ─────────────────────────────────────────── */
+.turn-ready-tag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.65em;
+  vertical-align: middle;
+  text-shadow: 0 0 6px rgba(255,220,50,0.90);
+}
+
+/* ── Delay Action trigger-selection modal ──────────────────────────────── */
+#delay-action-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 28px 20px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-outer);
+  border-radius: 6px;
+  box-shadow: var(--panel-shadow), 0 0 32px rgba(255,220,50,0.15);
+  min-width: 260px;
+}
+.dam-header {
+  font-family: var(--font-fantasy);
+  font-size: 0.80rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ffe066;
+  text-shadow: 0 0 10px rgba(255,220,50,0.70);
+  margin-bottom: 2px;
+}
+.dam-sub {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  color: #9090a8;
+  margin-bottom: 6px;
+}
+.dam-trigger-btn {
+  width: 100%;
+  padding: 8px 14px;
+  font-family: var(--font-fantasy);
+  font-size: 0.64rem;
+  letter-spacing: 0.8px;
+  color: #e8e0c8;
+  background: rgba(255,220,50,0.08);
+  border: 1px solid rgba(255,220,50,0.28);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  text-align: left;
+}
+.dam-trigger-btn:hover {
+  background: rgba(255,220,50,0.18);
+  border-color: rgba(255,220,50,0.60);
+  color: #fff8cc;
+}
+#dam-cancel-btn {
+  margin-top: 4px;
+  padding: 5px 18px;
+  font-family: var(--font-fantasy);
+  font-size: 0.58rem;
+  letter-spacing: 1px;
+  color: #666680;
+  background: transparent;
+  border: 1px solid rgba(100,100,140,0.30);
+  border-radius: 3px;
+  cursor: pointer;
+}
+#dam-cancel-btn:hover { color: #aaaacc; border-color: rgba(150,150,200,0.55); }
+
+/* ── Delay Action interrupt banner ─────────────────────────────────────── */
+#delay-banner {
+  position: fixed;
+  top: 14%; left: 50%;
+  transform: translateX(-50%);
+  z-index: 130;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 24px 12px;
+  background: var(--panel-bg);
+  border: 1px solid rgba(255,220,50,0.55);
+  border-radius: 6px;
+  box-shadow: var(--panel-shadow), 0 0 36px rgba(255,220,50,0.20);
+  min-width: 230px;
+  text-align: center;
+}
+.db-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ffe066;
+  text-shadow: 0 0 10px rgba(255,220,50,0.80);
+}
+.db-hero {
+  font-family: var(--font-fantasy);
+  font-size: 0.74rem;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.db-trigger {
+  font-family: var(--font-body);
+  font-size: 0.63rem;
+  color: #b0a878;
+}
+.db-hint {
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  color: #777790;
+  margin-top: 2px;
+}
+#db-skip-btn {
+  margin-top: 6px;
+  padding: 5px 18px;
+  font-family: var(--font-fantasy);
+  font-size: 0.58rem;
+  letter-spacing: 1px;
+  color: #888899;
+  background: transparent;
+  border: 1px solid rgba(120,120,160,0.35);
+  border-radius: 3px;
+  cursor: pointer;
+}
+#db-skip-btn:hover { color: #bbbbdd; border-color: rgba(160,160,200,0.65); }
+
 /* Sneak Attack spell-panel button — green tint */
 .spell-btn.sneak-btn {
   color: #44cc66;
