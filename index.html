@@ -196,7 +196,9 @@
           <div class="sxp-section-hdr">THE FORMULA</div>
           <div class="sxp-formula-block">
             <div class="sxp-formula-row"><span class="sxp-label">Base Hit %</span><span class="sxp-val">((Attacker Bonus + 20 − Defender AC) ÷ 20) × 100</span></div>
-            <div class="sxp-formula-row"><span class="sxp-label">Level Adjustment</span><span class="sxp-val">( (Attacker Level ÷ 5) + 1 ) − Defender Tier ) × 3</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Level Adjustment</span><span class="sxp-val">( ( (Attacker Tier) − Defender Tier ) × 3</span></div>
+            <div class="sxp-formula-row sxp-formula-indent"><span class="sxp-label">Attacker Tier</span><span class="sxp-val">Heroes: (level ÷ 5) + 1 &nbsp;·&nbsp; Enemies: CR rounded up (CR &lt;1 = tier 1)</span></div>
+            <div class="sxp-formula-row sxp-formula-indent"><span class="sxp-label">Defender Tier</span><span class="sxp-val">Heroes: character level &nbsp;·&nbsp; Enemies: CR rounded up (CR &lt;1 = tier 1)</span></div>
             <div class="sxp-formula-row sxp-formula-cutoff"><span class="sxp-label">Final Hit %</span><span class="sxp-val">Base % + Level Adjustment &nbsp;·&nbsp; clamped <strong>15 – 85%</strong></span></div>
             <div class="sxp-formula-row"><span class="sxp-label">Resolution</span><span class="sxp-val">Roll 1d100 — need to roll <strong>high</strong> · need ≥ (100 − Hit%) to hit · 96–100 always crits</span></div>
             <div class="sxp-formula-row"><span class="sxp-label">Advantage</span><span class="sxp-val">Roll 2d100 · keep the higher die</span></div>
@@ -219,20 +221,20 @@
               </thead>
               <tbody>
                 <tr>
-                  <td class="shp-scenario">Lv 1 Barbarian (+5) vs Goblin (AC 14)</td>
+                  <td class="shp-scenario">Lv 1 Barbarian (+5) vs Goblin CR¼ (AC 14)</td>
                   <td>+5</td><td>14</td>
                   <td>55%</td>
-                  <td class="shp-lvl-neg">−2%</td>
-                  <td class="shp-hit-ok">53%</td>
-                  <td class="shp-roll">47</td>
+                  <td class="shp-lvl-pos">+1%</td>
+                  <td class="shp-hit-ok">56%</td>
+                  <td class="shp-roll">44</td>
                 </tr>
                 <tr>
-                  <td class="shp-scenario">Lv 5 Barbarian (+8) vs Goblin (AC 14)</td>
+                  <td class="shp-scenario">Lv 5 Barbarian (+8) vs Goblin CR¼ (AC 14)</td>
                   <td>+8</td><td>14</td>
                   <td>70%</td>
-                  <td class="shp-lvl-neutral">0%</td>
-                  <td class="shp-hit-good">70%</td>
-                  <td class="shp-roll">30</td>
+                  <td class="shp-lvl-pos">+3%</td>
+                  <td class="shp-hit-good">73%</td>
+                  <td class="shp-roll">27</td>
                 </tr>
                 <tr>
                   <td class="shp-scenario">Lv 1 Goblin (+4) vs Lv 1 Wizard (AC 13)</td>
@@ -268,11 +270,11 @@
           <div class="sxp-explainer">
             The base formula alone treats a <strong>Level 1 hero</strong> and a <strong>Level 50 hero</strong> identically — only attack bonus and AC matter.
             The level adjustment closes that gap.
-            Every <strong>5 character levels</strong> a hero gains equals one <em>power tier</em>; enemies have a fixed tier based on their Challenge Rating.
-            For each tier you <strong>outclass</strong> your target, you gain <strong>+3%</strong> to hit.
-            For each tier they <strong>outclass</strong> you, you lose <strong>3%</strong>.
-            A Level 5 Barbarian fighting a goblin (tier 2) sits at even (0 adjustment) — that's the intended equal-footing level for a goblin encounter.
-            A Level 20 Barbarian gets a <strong>+9%</strong> bonus against that same goblin; a goblin attacking a Level 20 Barbarian gets crushed to the <strong>15% floor</strong>.
+            Every <strong>5 character levels</strong> a hero gains equals one <em>power tier</em> — so level 1 is tier 1.2, level 5 is tier 2, level 10 is tier 3, and so on.
+            Enemies have a fixed tier equal to their <strong>CR rounded up</strong>, with a minimum of 1 — so a goblin (CR ¼) is tier 1, an ogre (CR 2) is tier 2, a troll (CR 5) is tier 5.
+            For each tier you <strong>outclass</strong> your target you gain <strong>+3%</strong> to hit; for each tier they outclass you, you lose <strong>3%</strong>.
+            A Level 5 Barbarian (tier 2) fighting a goblin (tier 1) outclasses it by 1 tier — <strong>+3% to hit</strong>.
+            A Level 20 Barbarian (tier 5) gets a <strong>+12%</strong> bonus against that same goblin; a goblin attacking a Level 20 Barbarian is crushed to the <strong>15% floor</strong>.
             The clamp ensures no one is completely helpless (15%) and no one is infallible (85%) — even the most one-sided fights have meaningful dice.
           </div>
 

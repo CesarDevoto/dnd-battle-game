@@ -6613,6 +6613,7 @@ td.bst-col-retired { color: #343228 !important; }
   line-height: 1.5;
 }
 .sxp-formula-cutoff .sxp-val strong { color: #ff6644; }
+.sxp-formula-indent { padding-left: 16px; opacity: 0.80; }
 
 .sxp-table-wrap { overflow-x: auto; }
 .sxp-table {
