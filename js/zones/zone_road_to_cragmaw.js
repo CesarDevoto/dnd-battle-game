@@ -9,8 +9,12 @@ export const ZONE = {
     { x: -1, z: 85, type: 'elf' },
     { x:  1, z: 85, type: 'halfling' },
   ],
-  enemies: [],
-  exits: [],
+  enemies: [
+    { type: 'grassling', x: 6.71, z: 71.66, animOverrides: {idle:0,walk:2} },
+  ],
+  exits: [
+    { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: 0, arrivalZ: 36, label: 'Goblin Territory' },
+  ],
   terrain: [
     { x: 17, z: 20, h: 3, r: 16 },
   ],
@@ -47,7 +51,7 @@ export const ZONE = {
     { model: 'foresttree', x: -4, z: -80, y: 0.0033, rotY: 4.1, scale: 8.5 },
     { model: 'foresttree', x: 18, z: -88, y: 1.6363, rotY: 1.6, scale: 12 },
     { model: 'rock', x: 17.43, z: 38.02, y: 0.0734, rotY: 0, scale: 1 },
-    { model: 'rock', x: -12, z: 76, y: -0.2, rotY: 0.5, scale: 0.9 },
+    { model: 'rock', x: -22.75, z: 69.25, y: -0.2, rotY: 0.5, scale: 0.9 },
     { model: 'rock', x: 35, z: 72, y: 1.9936, rotY: 2.3, scale: 1.2 },
     { model: 'rock', x: -42, z: 66, y: -0.2, rotY: 1.1, scale: 0.7 },
     { model: 'rock', x: 5, z: 62, y: -0.2, rotY: 3.8, scale: 1.1 },
@@ -109,5 +113,6 @@ export const ZONE = {
     { model: 'boulder', x: 44, z: -82, y: -0.2, rotY: 0.3, scale: 0.9 },
     { model: 'boulder', x: -6, z: -78, y: -0.0666, rotY: 2.1, scale: 1 },
     { model: 'foresttree', x: 60.67, z: -40.1, y: 0, rotY: 0, scale: 10 },
+    { model: 'glowmushroom', x: 3.32, z: 87.47, y: 0.2048, rotY: 0, scale: 1 },
   ],
 };

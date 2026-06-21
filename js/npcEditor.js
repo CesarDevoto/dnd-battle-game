@@ -69,7 +69,7 @@ function _pickRedUnit(cx, cy) {
   _ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_ndc, camera);
   for (const u of units) {
-    if (u.team === 'red' && _rc.intersectObject(u.grp, true).length) return u;
+    if ((u.team === 'red' || u.team === 'npc') && _rc.intersectObject(u.grp, true).length) return u;
   }
   return null;
 }
@@ -239,10 +239,14 @@ async function _saveToZone() {
   if (!_activeZoneId) { _setSave('No zone loaded', 'error'); return; }
 
   const enemies = units
-    .filter(u => u.team === 'red')
+    .filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc')
     .map(u => {
+      const canonicalTeam = UNIT_TYPES[u.type]?.team ?? u.team;
       const e = { type: u.type, x: +u.grp.position.x.toFixed(2), z: +u.grp.position.z.toFixed(2) };
+      if (canonicalTeam !== 'red') e.team = canonicalTeam;
       if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
+      const r = +u.grp.rotation.y.toFixed(4);
+      if (Math.abs(r) > 0.0001)                     e.rotY  = r;
       const s = +u.grp.scale.x.toFixed(3);
       if (Math.abs(s - 1) > 0.001)                  e.scale = s;
       // Preserve AI properties so NPC editor save never strips roaming/patrol data
@@ -332,9 +336,13 @@ function _buildTypeList() {
   if (!listEl) return;
 
   const redEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'red');
-  listEl.innerHTML = redEntries
-    .map(([k, d]) => `<button class="ne-type-btn" data-type="${k}">${d.name}</button>`)
-    .join('');
+  const npcEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'npc');
+  listEl.innerHTML =
+    redEntries.map(([k, d]) => `<button class="ne-type-btn" data-type="${k}">${d.name}</button>`).join('') +
+    (npcEntries.length
+      ? `<div class="ne-section-hdr">FRIENDLY NPCs</div>` +
+        npcEntries.map(([k, d]) => `<button class="ne-type-btn ne-npc-btn" data-type="${k}">${d.name}</button>`).join('')
+      : '');
 
   listEl.addEventListener('click', e => {
     const btn = e.target.closest('.ne-type-btn');
@@ -381,9 +389,9 @@ export function initNpcEditor() {
   // Save
   document.getElementById('ne-save-btn')?.addEventListener('click', _saveToZone);
 
-  // Clear all red units from scene
+  // Clear all red + npc units from scene
   document.getElementById('ne-clear-btn')?.addEventListener('click', () => {
-    const toRemove = units.filter(u => u.team === 'red');
+    const toRemove = units.filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc');
     toRemove.forEach(_removeUnit);
     _selectedUnit = null;
     _ring.visible = false;
@@ -404,8 +412,9 @@ export function initNpcEditor() {
         const src = _selectedUnit;
         const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length
           ? { ...src.animOverrides } : null;
-        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), 'red', src.type, ovCopy);
+        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), src.team, src.type, ovCopy);
         nu.grp.scale.setScalar(src.grp.scale.x);
+        nu.grp.rotation.y = src.grp.rotation.y;
         nu.hoverY = src.hoverY ?? 0;
         nu.grp.position.y = getTerrainHeight(nu.grp.position.x, nu.grp.position.z) + nu.hoverY;
         if (src.detectRange      != null) nu.detectRange      = src.detectRange;
@@ -418,7 +427,7 @@ export function initNpcEditor() {
         if (src.attackPref)               nu.attackPref       = src.attackPref;
         _selectedUnit = nu;
         _syncRing();
-        openAIPanel(nu);
+        if (nu.team !== 'npc') openAIPanel(nu);
         _showAnimPanel(nu);
       }
       _updateStatus();
@@ -438,7 +447,7 @@ export function initNpcEditor() {
       _selectedUnit = hit;
       _syncRing();
       _updateStatus();
-      openAIPanel(hit);
+      if (hit.team !== 'npc') openAIPanel(hit);
       _showAnimPanel(hit);
       return;
     }
@@ -452,7 +461,11 @@ export function initNpcEditor() {
     _hideAnimPanel();
     if (_selectedType) {
       const pt = _groundPt(e.clientX, e.clientY);
-      if (pt) { _snapshot(); buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), 'red', _selectedType, _typeAnimDefaults[_selectedType] ?? null); }
+      if (pt) {
+        _snapshot();
+        const team = UNIT_TYPES[_selectedType]?.team ?? 'red';
+        buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), team, _selectedType, _typeAnimDefaults[_selectedType] ?? null);
+      }
     }
     _updateStatus();
   }, true);

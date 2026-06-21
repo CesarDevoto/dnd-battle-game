@@ -843,6 +843,15 @@ export const UNIT_TYPES = {
       { name: 'Shortbow',   type: 'ranged', range: 40, longRange: 80, rawLongRange: 160, dice: 1, sides: 6, statMod: 'dex' },
     ],
   },
+  // ── Friendly NPCs ──────────────────────────────────────────────────────────
+
+  grassling: {
+    name: 'Grassling',
+    team: 'npc',
+    scale:      [0.3, 0.3, 0.3],
+    anchorY:    0.3,
+    modelRotY:  -Math.PI / 4,
+  },
 };
 
 // Convenience lists

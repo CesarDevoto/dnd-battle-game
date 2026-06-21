@@ -50,6 +50,8 @@ const MODEL_PATHS = {
   mane:             'assets/models/mane.glb',
   abyssal_wretch:   'assets/models/abyssalwretch.glb',
   abyssal_chicken:  'assets/models/abyssalchicken.glb',
+  // Friendly NPCs
+  grassling: 'assets/models/grassling.glb',
   // Swamp monsters — proxied to closest existing GLB until dedicated models are added
   giant_frog:        'assets/models/goblin.glb',
   bullywug:          'assets/models/goblin.glb',
@@ -187,6 +189,7 @@ export const modelsReady = Promise.all(Object.keys(MODEL_PATHS).map(loadOne));
 const TEAM_TINT = {
   red:  new THREE.Color(0x220808),
   blue: new THREE.Color(0x080822),
+  npc:  new THREE.Color(0x000000),
 };
 
 // ── Unit builder ──────────────────────────────────────────────────────────────
@@ -205,7 +208,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
   const grp = new THREE.Group();
   grp.position.set(worldX, terrainY, worldZ);
-  grp.rotation.y = team === 'red' ? 0 : Math.PI;  // enemies face south (+Z), heroes face north (-Z)
+  grp.rotation.y = team === 'blue' ? Math.PI : 0;  // heroes face north (-Z); enemies and NPCs face south (+Z)
 
   // Animation state — only populated for ANIMATED_TYPES
   let mixer = null, idleAction = null, walkAction = null, runAction = null, attackAction = null, rangedAttackAction = null, spellCastAction = null, deathAction = null;
@@ -263,6 +266,8 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
       // Auto-detect roles — returns clip objects directly so duplicate meshy.ai names can't collide
       const autoClips = autoMapAnimClips(clips) ?? {};
+      // Fallback: if bone names didn't match (no position tracks found), treat first clip as idle
+      if (!autoClips.idle && clips.length > 0) autoClips.idle = clips[0];
 
       // Type-level overrides: clip names we control, safe to look up by name
       for (const [role, clipName] of Object.entries(ANIM_CLIP_NAMES[type] ?? {})) {

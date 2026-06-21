@@ -1,16 +1,15 @@
 import * as THREE from 'three';
-import { scene } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
-import { setSceneGroundSize } from './scene.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
-import { turnOrder, addLog, registerPendingSpawnCheck } from './combat.js';
+import { turnOrder, addLog, registerPendingSpawnCheck, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
 import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_road_to_cragmaw.js';
@@ -30,9 +29,12 @@ prewarmGLBs([...new Set(ZONE_ORDER.flatMap(z => (z.props ?? []).map(p => p.model
 
 let _active      = null;
 let _exitsLive   = false;
+let _postCombat  = false;
 let _transitioning = false;
 let _exitMeshes  = [];
 let _exitT       = 0;
+const _exitRay   = new THREE.Raycaster();
+const _exitPt    = new THREE.Vector2();
 
 export function getActiveZone()  { return _active; }
 export function getAllZones()     { return Object.values(_registry); }
@@ -89,7 +91,9 @@ window.addEventListener('round:start', e => _tickSpawns(e.detail.round));
 function _clearExits() {
   _exitMeshes.forEach(m => scene.remove(m));
   _exitMeshes = [];
-  _exitsLive  = false;
+  _exitsLive   = false;
+  _postCombat  = false;
+  _transitioning = false;
 }
 
 function _buildExitMarker(exit) {
@@ -124,6 +128,7 @@ function _buildExitMarker(exit) {
   const inner = new THREE.Mesh(innerGeo, innerMat);
   inner.rotation.x = -Math.PI / 2;
   inner.position.set(wx, y + 0.01, wz);
+  inner.userData.exit = exit;
   inner.visible = false;
 
   scene.add(outer);
@@ -134,7 +139,7 @@ function _buildExitMarker(exit) {
 
 // ── Load a zone ───────────────────────────────────────────────────────────────
 
-export function loadZone(id, repositionHeroes = false) {
+export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   const zone = _registry[id];
   if (!zone) { console.warn(`[zoneLoader] Unknown zone: ${id}`); return; }
 
@@ -149,8 +154,8 @@ export function loadZone(id, repositionHeroes = false) {
   const srPanel = document.getElementById('short-rest-panel');
   if (srPanel) srPanel.style.display = 'none';
 
-  // Remove all enemies (living)
-  removeUnits(u => u.team === 'red');
+  // Remove all enemies and friendly NPCs (living)
+  removeUnits(u => u.team === 'red' || u.team === 'npc');
 
   // Remove enemy corpses left by death animations
   for (let i = corpses.length - 1; i >= 0; i--) {
@@ -177,17 +182,19 @@ export function loadZone(id, repositionHeroes = false) {
   } else {
     setEnv(zone.biome, zone.ambient);
   }
+  _postCombat = false;
+
   // Place heroes (initial load) or reposition existing ones (zone transition)
   if (repositionHeroes) {
     const heroes = units.filter(u => u.team === 'blue');
-    zone.heroEntry.forEach((pos, i) => {
+    const positions = arrivalPos
+      ? [[-1,-1],[1,-1],[-1,1],[1,1]].map(([ox,oz]) => ({ x: arrivalPos.x + ox, z: arrivalPos.z + oz }))
+      : zone.heroEntry;
+    positions.forEach((pos, i) => {
       const h = heroes[i];
       if (!h) return;
       h.grp.position.set(pos.x, getTerrainHeight(pos.x, pos.z), pos.z);
-      if (h.anchor) {
-        h.anchor.x = pos.x;
-        h.anchor.z = pos.z;
-      }
+      if (h.anchor) { h.anchor.x = pos.x; h.anchor.z = pos.z; }
     });
   } else {
     // Fresh load — place heroes if none exist yet
@@ -207,10 +214,12 @@ export function loadZone(id, repositionHeroes = false) {
   // Apply zone-specific hero skin — must run after heroes are built
   applyHeroSkin(zone.heroSkin ?? null);
 
-  // Place enemies
+  // Place enemies and friendly NPCs
   zone.enemies.forEach(e => {
-    const u = buildUnit(e.x, e.z, 'red', e.type, e.animOverrides ?? null);
+    const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
+    const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
     if (e.yOff)                           u.hoverY = e.yOff;
+    if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
     if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
     if (e.patrol?.length >= 2)            { u.patrolPath = e.patrol; u._patrolIdx = 0; }
     // AI settings
@@ -223,8 +232,9 @@ export function loadZone(id, repositionHeroes = false) {
     if (e.attackPref)           u.attackPref   = e.attackPref;
   });
 
-  // Build exit markers (hidden until victory)
+  // Build exit markers — visible whenever outside combat (tickZone drives this)
   zone.exits.forEach(exit => _buildExitMarker(exit));
+  if (zone.exits?.length) _exitsLive = true;
 
   // Update zone label in UI
   _updateZoneLabel();
@@ -239,21 +249,12 @@ export function loadZone(id, repositionHeroes = false) {
 // ── Activate exits after victory ──────────────────────────────────────────────
 
 export function activateExits() {
-  const isFinal = !_active?.exits.length;
-
-  if (isFinal) return;
-
-  _exitsLive = true;
-  _exitMeshes.forEach(m => { m.visible = true; });
-
-  const targetId = _active.exits[0]?.targetZone;
-  if (targetId) _showShortRestPanel(targetId);
-
-  // Update zone progress dots
+  if (!_active?.exits?.length) return;
+  _postCombat = true;
   _updateZoneProgress();
 }
 
-function _showShortRestPanel(targetZoneId) {
+function _showShortRestPanel(targetZoneId, arrivalPos = null) {
   const panel   = document.getElementById('short-rest-panel');
   const rowsEl  = document.getElementById('sr-hero-rows');
   const rollBtn = document.getElementById('sr-roll-btn');
@@ -314,17 +315,17 @@ function _showShortRestPanel(targetZoneId) {
   if (skipBtn) {
     skipBtn.onclick = () => {
       panel.style.display = 'none';
-      _triggerNextZone(targetZoneId);
+      _triggerNextZone(targetZoneId, arrivalPos);
     };
   }
 
   panel.style.display = 'block';
 }
 
-function _triggerNextZone(targetId) {
+function _triggerNextZone(targetId, arrivalPos = null) {
   const outcomeEl = document.getElementById('battle-outcome');
   if (outcomeEl) { outcomeEl.style.display = 'none'; outcomeEl.className = ''; }
-  loadZone(targetId, true);
+  loadZone(targetId, true, arrivalPos);
   _showSetupAfterTransition();
 }
 
@@ -332,7 +333,12 @@ function _triggerNextZone(targetId) {
 
 export function tickZone(dt) {
   _exitT += dt;
-  if (!_exitsLive || _exitMeshes.length < 2) return;
+  if (!_exitsLive || !_exitMeshes.length) return;
+
+  // Show exits only outside of combat
+  const show = !combatPhase;
+  _exitMeshes.forEach(m => { if (m.visible !== show) m.visible = show; });
+  if (!show) return;
 
   // Pulse outer ring + inner disc
   const pulse = 0.35 + Math.sin(_exitT * 2.8) * 0.25;
@@ -366,6 +372,29 @@ function _updateZoneProgress() {
 }
 
 export function initZoneUI() {
+  // ── Exit disc click trigger ──────────────────────────────────────────────
+  renderer.domElement.addEventListener('click', e => {
+    if (!_exitsLive || _transitioning || combatPhase) return;
+    _exitPt.set(
+      (e.clientX / window.innerWidth) * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1
+    );
+    _exitRay.setFromCamera(_exitPt, camera);
+    const hits = _exitRay.intersectObjects(_exitMeshes.filter(m => m.visible));
+    if (!hits.length) return;
+    const exit = hits.find(h => h.object.userData.exit)?.object.userData.exit;
+    if (!exit) return;
+    e.stopImmediatePropagation();
+    _transitioning = true;
+    const ap = exit.arrivalX != null ? { x: exit.arrivalX, z: exit.arrivalZ } : null;
+    if (_postCombat) {
+      _showShortRestPanel(exit.targetZone, ap);
+      _transitioning = false; // panel handles its own flow
+    } else {
+      _triggerNextZone(exit.targetZone, ap);
+    }
+  }, true); // capture phase — runs before hero-click handlers
+
   // ── Zone row helpers ────────────────────────────────────────────────────
   function _makeZoneRow(id, name) {
     const row = document.createElement('div');

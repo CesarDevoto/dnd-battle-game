@@ -42,6 +42,7 @@ import { updateXPBar, showLevelUpFloat } from './progression.js';
 import { showLevelUpModal } from './levelUpModal.js';
 import { playSound } from './audio.js';
 import { initGroupMove } from './groupMove.js';
+import { initQuests } from './quests.js';
 
 if (IS_DEV) document.body.classList.add('dev-mode');
 
@@ -101,6 +102,7 @@ initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
 initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initGroupMove();
+initQuests();
 
 if (IS_DEV) {
   initPropEditor();

@@ -2247,24 +2247,11 @@ body {
   box-shadow: inset 0 1px 0 rgba(212,175,55,0.14), 0 0 10px rgba(212,175,55,0.12);
 }
 
-/* ── Grid toggle button ──────────────────────────────────────────────── */
+/* ── Grid toggle button (lives in #top-btn-bar) ──────────────────────── */
 #grid-toggle-btn {
-  position: absolute;
-  top: 14px;
-  right: 238px;
-  z-index: 20;
-  padding: 5px 12px;
-  font-family: var(--font-fantasy);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
   color: #8888aa;
   background: rgba(8,8,20,0.60);
-  border: 1px solid rgba(80,80,140,0.28);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-color: rgba(80,80,140,0.28);
 }
 #grid-toggle-btn:hover {
   color: #ccccee;
@@ -2283,6 +2270,162 @@ body {
 #grid-toggle-btn.dark-biome.off {
   color: #5a7a5a;
   border-color: rgba(70,115,70,0.32);
+}
+
+/* ── Quest log button (lives in #top-btn-bar) ────────────────────────── */
+#quest-log-btn {
+  color: #b89428;
+  background: rgba(20,14,4,0.60);
+  border-color: rgba(180,140,30,0.35);
+}
+#quest-log-btn:hover {
+  color: #f0d060;
+  border-color: rgba(220,180,50,0.65);
+  background: rgba(30,22,6,0.78);
+}
+#quest-log-btn.active {
+  color: #f5da60;
+  border-color: rgba(220,180,50,0.80);
+  background: rgba(40,30,8,0.85);
+  box-shadow: 0 0 8px rgba(220,180,50,0.30);
+}
+
+/* ── Quest log panel ─────────────────────────────────────────────────── */
+#quest-log {
+  position: fixed;
+  top: 25%;
+  right: 14px;
+  width: 260px;
+  z-index: 50;
+  display: none;
+  pointer-events: none;
+}
+#quest-log.show {
+  display: block;
+}
+.ql-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000,
+    0 0 8px rgba(212,175,55,0.50);
+  margin-bottom: 10px;
+}
+.ql-section-done {
+  font-family: var(--font-fantasy);
+  font-size: 0.52rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #665828;
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000;
+  margin: 12px 0 6px;
+}
+.ql-item {
+  margin-bottom: 5px;
+}
+.ql-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+}
+.ql-row:hover .ql-name {
+  color: #fff8c0;
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000,
+    0 0 10px rgba(255,240,160,0.50);
+}
+.ql-arrow {
+  font-size: 0.52rem;
+  color: var(--gold);
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000;
+  min-width: 10px;
+  flex-shrink: 0;
+}
+.ql-name {
+  font-family: var(--font-fantasy);
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--gold);
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000;
+  transition: color 0.12s, text-shadow 0.12s;
+  line-height: 1.4;
+}
+/* Expanded quest item — panel background appears, vanishes when collapsed */
+.ql-item.ql-open {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-outer);
+  border-radius: 4px;
+  box-shadow: var(--panel-shadow);
+  padding: 7px 10px 8px;
+  margin-bottom: 6px;
+}
+.ql-desc {
+  font-family: var(--font-body);
+  font-size: 0.70rem;
+  color: #e2c254;
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000;
+  line-height: 1.55;
+  padding: 5px 0 4px 16px;
+  max-width: 244px;
+}
+/* Completed quests */
+.ql-done .ql-name {
+  color: #6a5c1e;
+  text-decoration: line-through;
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000;
+}
+.ql-done .ql-arrow { color: #6a5c1e; }
+.ql-done .ql-desc  { color: #6a5c1e; }
+
+/* ── Quest complete floating notification ────────────────────────────── */
+.quest-complete-float {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  z-index: 200;
+  font-family: var(--font-fantasy);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-align: center;
+  white-space: pre-line;
+  color: var(--gold-bright);
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000,
+    -1px  1px 0 #000, 1px  1px 0 #000,
+    0 0 16px rgba(212,175,55,0.70);
+  opacity: 0;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none;
+}
+.quest-complete-float.ql-float-in {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.quest-complete-float.ql-float-out {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-18px);
+  transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
 }
 
 /* ── Per-hero conditions panel (floats right of each portrait card) ── */
@@ -5107,6 +5250,23 @@ td.bst-col-retired { color: #343228 !important; }
   border-color: #8a3018;
   color: #ff8866;
   text-shadow: 0 0 8px rgba(220,100,60,0.45);
+}
+/* Friendly NPC section in npc editor */
+.ne-section-hdr {
+  font-family: var(--font-fantasy);
+  font-size: 0.50rem;
+  letter-spacing: 1.5px;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  padding: 6px 2px 3px;
+  border-top: 1px solid rgba(212,175,55,0.15);
+  margin-top: 4px;
+}
+.ne-npc-btn:hover { border-color: #70a030; color: #aada60; }
+.ne-npc-btn.active {
+  border-color: #508020;
+  color: #ccee88;
+  background: linear-gradient(180deg, rgba(10,22,4,0.97) 0%, rgba(5,12,2,0.99) 100%);
 }
 #ne-selected-row {
   display: flex;
