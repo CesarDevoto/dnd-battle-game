@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
-         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
+         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed } from './dice.js';
 import { clearDiceQueue, showHitBanner, showMissBanner } from './dice3d.js';
@@ -1550,7 +1550,9 @@ export function addLog(text, cls = '') {
 // Enemies: profBonus tier (2–6) which maps to CR — treated as their power tier directly.
 function unitCombatLevel(u) {
   if (u.team === 'blue') return u.level ?? 1;
-  return (UNIT_TYPES[u.type] ?? {}).profBonus ?? 2;
+  // CR → tier: all fractions < 1 ceil to 1; CR 2 → 2; CR 3 → 3; etc.
+  const cr = ENEMY_CR[u.type] ?? 1;
+  return Math.max(1, Math.ceil(cr));
 }
 
 // Percentage-based hit resolution.

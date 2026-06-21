@@ -858,6 +858,72 @@ export const UNIT_TYPES = {
 export const ENEMY_TYPES = ['kobold', 'goblin', 'orc', 'ogre'];
 export const HERO_TYPES  = ['dwarf', 'human', 'elf', 'halfling'];
 
+// CR values used to derive defender/attacker tier for the hit-chance formula.
+// Stored as decimals so Math.ceil() works correctly (0.25 → ceil → 1, 2 → 2, etc.).
+// All CRs < 1 produce tier 1; CR 2 → tier 2; CR 3 → tier 3; etc.
+export const ENEMY_CR = {
+  // ── CR 1/8 ──────────────────────────────────────────────────────
+  kobold:           0.125,
+  twig_blight:      0.125,
+  stirge:           0.125,
+  giant_rat:        0.125,
+  mane:             0.125,
+  abyssal_chicken:  0.125,
+  // ── CR 1/4 ──────────────────────────────────────────────────────
+  goblin:           0.25,
+  wolf:             0.25,
+  troglodyte:       0.25,
+  constrictor_snake: 0.25,
+  giant_frog:       0.25,
+  bullywug:         0.25,
+  mud_mephit:       0.25,
+  zombie:           0.25,
+  skeleton:         0.25,
+  abyssal_wretch:   0.25,
+  hyena:            0.25,  // 5e CR 0 — bump to 0.25 so tier stays 1 without special casing
+  // ── CR 1/2 ──────────────────────────────────────────────────────
+  orc:              0.5,
+  ice_mephit:       0.5,
+  gnoll:            0.5,
+  lizardfolk:       0.5,
+  hobgoblin:        0.5,
+  crocodile:        0.5,
+  swarm_of_insects: 0.5,
+  shadow:           0.5,
+  // ── CR 1 ────────────────────────────────────────────────────────
+  giant_spider:     1,
+  bugbear:          1,
+  dire_wolf:        1,
+  yuan_ti_pureblood: 1,
+  giant_toad:       1,
+  bullywug_croaker: 1,
+  ghoul:            1,
+  specter:          1,
+  // ── CR 2 ────────────────────────────────────────────────────────
+  ogre:             2,
+  gnoll_pack_lord:  2,
+  giant_constrictor_snake: 2,
+  lizardfolk_shaman: 2,
+  ghast:            2,
+  // ── CR 3 ────────────────────────────────────────────────────────
+  yeti:             3,
+  owlbear:          3,
+  werewolf:         3,
+  minotaur:         3,
+  yuan_ti_malison:  3,
+  green_hag:        3,
+  wight:            3,
+  // ── CR 4 ────────────────────────────────────────────────────────
+  gnoll_fang:       4,
+  banshee:          4,
+  ettin:            4,
+  // ── CR 5 ────────────────────────────────────────────────────────
+  troll:            5,
+  shambling_mound:  5,
+  revenant:         5,
+  hill_giant:       5,
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 //  COMBAT DEFAULTS  (fallback when a type entry is missing)
 // ════════════════════════════════════════════════════════════════════════════
