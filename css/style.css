@@ -6784,7 +6784,7 @@ td.bst-col-retired { color: #343228 !important; }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
-  z-index: 80;
+  z-index: 210;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(5px);
@@ -6792,7 +6792,7 @@ td.bst-col-retired { color: #343228 !important; }
 #smart-hit-overlay.show { display: flex; }
 
 #smart-hit-modal {
-  width: min(820px, 96vw);
+  width: min(1080px, 96vw);
   max-height: 88vh;
   background:
     repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(30,60,180,0.006) 3px, rgba(30,60,180,0.006) 4px),
