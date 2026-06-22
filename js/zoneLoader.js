@@ -9,7 +9,7 @@ import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
-import { turnOrder, addLog, registerPendingSpawnCheck, combatPhase } from './combat.js';
+import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
 import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_road_to_cragmaw.js';
@@ -169,6 +169,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   const zoneGS = zone.groundSize ?? GROUND_SIZE;
   setActiveGroundSize(zoneGS);
   setSceneGroundSize(zoneGS);
+  setGroundBounds(zoneGS / 2);
 
   // Apply terrain control points + seed before biome switch so they're baked into the rebuild
   setTerrainControlPoints(zone.terrain ?? []);

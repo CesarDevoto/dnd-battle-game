@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
-         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR } from './constants.js';
+         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed } from './dice.js';
 import { clearDiceQueue, showHitBanner, showMissBanner } from './dice3d.js';
@@ -472,6 +472,9 @@ export let combatPhase = false;
 // Callback registered by zoneLoader to block premature victory while spawns are pending.
 let _pendingSpawnCheckFn = () => false;
 export function registerPendingSpawnCheck(fn) { _pendingSpawnCheckFn = fn; }
+
+let _halfGroundSize = GROUND_SIZE / 2;
+export function setGroundBounds(half) { _halfGroundSize = half; }
 let turnMovedFt  = 0;   // feet used this turn (can interleave with attack)
 let turnAttacked = false;
 
@@ -649,7 +652,7 @@ function findPath(sx, sz, tx, tz) {
       const nx = x + dx, nz = z + dz;
       const k  = key(nx, nz);
       if (parent.has(k)) continue;
-      if (Math.abs(nx) > 40 || Math.abs(nz) > 40) continue;
+      if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;   // prop tiles are always impassable
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
@@ -762,7 +765,7 @@ function showMoveRange(u, overrideFt) {
       const tz = uz + dz * WORLD_UNITS_PER_SQUARE;
       const wx = tx - ux, wz = tz - uz;
       if (wx * wx + wz * wz > maxDist * maxDist) continue;
-      if (Math.abs(tx) > 37 || Math.abs(tz) > 37) continue;
+      if (Math.abs(tx) > _halfGroundSize || Math.abs(tz) > _halfGroundSize) continue;
       if (isOccupied(tx, tz, u)) continue;
       if (hasPropClash(tx, tz)) continue;
       validTiles.add(`${tx},${tz}`);
@@ -2258,7 +2261,7 @@ export function rollInitiative() {
     u.initiative = roll({ sides: 20, modifier: bonus }).total;
     if (u.stealthed) setUnitStealth(u, true);
   });
-  turnOrder = [...units].sort((a, b) =>
+  turnOrder = [...units].filter(u => u.team !== 'npc').sort((a, b) =>
     b.initiative - a.initiative || (a.team === 'red' ? -1 : 1)
   );
   turnIndex = 0;

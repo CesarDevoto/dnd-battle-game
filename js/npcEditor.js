@@ -335,9 +335,10 @@ function _buildTypeList() {
   const listEl = document.getElementById('ne-type-list');
   if (!listEl) return;
 
-  const redEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'red');
-  const npcEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'npc');
+  const redEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'red').sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const npcEntries = Object.entries(UNIT_TYPES).filter(([, d]) => d.team === 'npc').sort((a, b) => a[1].name.localeCompare(b[1].name));
   listEl.innerHTML =
+    `<div class="ne-section-hdr">ENEMIES</div>` +
     redEntries.map(([k, d]) => `<button class="ne-type-btn" data-type="${k}">${d.name}</button>`).join('') +
     (npcEntries.length
       ? `<div class="ne-section-hdr">FRIENDLY NPCs</div>` +

@@ -352,6 +352,17 @@ export const UNIT_TYPES = {
     ],
   },
 
+  warg: {
+    name: 'Warg', team: 'red',
+    scale: [1.45, 1.45, 1.45], anchorY: 1.6,
+    hp: 26, ac: 13, speed: 50, initiative: 0, xpReward: 100, profBonus: 2,
+    abilities: { str: 17, dex: 12, con: 13, int: 7, wis: 11, cha: 8 },
+    attacks: [
+      { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
+        note: 'DC 13 STR save or knocked prone' },
+    ],
+  },
+
   dire_wolf: {
     name: 'Dire Wolf', team: 'red',
     scale: [1.3, 1.3, 1.3], anchorY: 1.9,
@@ -883,6 +894,7 @@ export const ENEMY_CR = {
   hyena:            0.25,  // 5e CR 0 — bump to 0.25 so tier stays 1 without special casing
   // ── CR 1/2 ──────────────────────────────────────────────────────
   orc:              0.5,
+  warg:             0.5,
   ice_mephit:       0.5,
   gnoll:            0.5,
   lizardfolk:       0.5,

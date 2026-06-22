@@ -31,6 +31,9 @@ const MODEL_PATHS = {
   twig_blight: 'assets/models/twigblight.glb',
   hyena:        'assets/models/hyena.glb',
   wolf:         'assets/models/wolf.glb',
+  dire_wolf:    'assets/models/wolf.glb',
+  werewolf:     'assets/models/wolf.glb',
+  warg:         'assets/models/warg.glb',
   ice_mephit:   'assets/models/icemephit.glb',
   stirge:       'assets/models/stirge.glb',
   // Dedicated models
