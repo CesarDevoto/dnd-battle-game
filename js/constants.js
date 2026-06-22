@@ -157,7 +157,7 @@ export const UNIT_TYPES = {
     anchorY: 0.69,
     // CR 1/8 — Very Easy
     detect: 20,
-    hp: 5, ac: 12, speed: 30, initiative: 0, xpReward: 25,
+    hp: 5, ac: 12, speed: 30, initiative: 0, xpReward: 5,
     profBonus: 2,
     abilities: { str: 7, dex: 15, con: 9, int: 8, wis: 7, cha: 8 },
     attacks: [
@@ -175,7 +175,7 @@ export const UNIT_TYPES = {
     anchorY: 1.4,
     // CR 1/4 — Easy
     detect: 20,
-    hp: 7, ac: 15, speed: 30, initiative: 0, xpReward: 50,
+    hp: 7, ac: 15, speed: 30, initiative: 0, xpReward: 10,
     profBonus: 2,
     abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
     attacks: [
@@ -193,7 +193,7 @@ export const UNIT_TYPES = {
     anchorY: 2.8,
     // CR 1/2 — Medium
     detect: 20,
-    hp: 15, ac: 13, speed: 30, initiative: 0, xpReward: 100,
+    hp: 15, ac: 13, speed: 30, initiative: 0, xpReward: 20,
     profBonus: 2,
     abilities: { str: 16, dex: 12, con: 16, int: 7, wis: 11, cha: 10 },
     attacks: [
@@ -214,7 +214,7 @@ export const UNIT_TYPES = {
     anchorY: 3.5,
     // CR 2 — Hard
     detect: 20,
-    hp: 59, ac: 11, speed: 40, initiative: 0, xpReward: 450,
+    hp: 59, ac: 11, speed: 40, initiative: 0, xpReward: 90,
     profBonus: 2,
     abilities: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
     attacks: [
@@ -226,7 +226,7 @@ export const UNIT_TYPES = {
   wolf: {
     name: 'Wolf', team: 'red',
     scale: [1.242, 1.242, 1.242], anchorY: 1.3,
-    hp: 11, ac: 13, speed: 40, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 11, ac: 13, speed: 40, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'dex',
@@ -237,7 +237,7 @@ export const UNIT_TYPES = {
   ice_mephit: {
     name: 'Ice Mephit', team: 'red',
     scale: [0.75, 0.75, 0.75], anchorY: 1.2,
-    hp: 21, ac: 11, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 21, ac: 11, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 7, dex: 13, con: 10, int: 9, wis: 11, cha: 12 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'dex' },
@@ -247,7 +247,7 @@ export const UNIT_TYPES = {
   gnoll: {
     name: 'Gnoll', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.0,
-    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 11, int: 6, wis: 10, cha: 7 },
     attacks: [
       { name: 'Spear',   type: 'melee',  range: 5,   dice: 1, sides: 6, statMod: 'str' },
@@ -258,7 +258,7 @@ export const UNIT_TYPES = {
   hyena: {
     name: 'Hyena', team: 'red',
     scale: [0.825, 0.825, 0.825], anchorY: 1.1,
-    hp: 5, ac: 11, speed: 50, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 5, ac: 11, speed: 50, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 11, dex: 13, con: 12, int: 2, wis: 12, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'dex' },
@@ -268,7 +268,7 @@ export const UNIT_TYPES = {
   giant_spider: {
     name: 'Giant Spider', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 1.6,
-    hp: 26, ac: 14, speed: 30, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 26, ac: 14, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 14, dex: 16, con: 12, int: 2, wis: 11, cha: 4 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'dex',
@@ -279,7 +279,7 @@ export const UNIT_TYPES = {
   twig_blight: {
     name: 'Twig Blight', team: 'red',
     scale: [0.65, 0.65, 0.65], anchorY: 0.9,
-    hp: 4, ac: 13, speed: 20, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 4, ac: 13, speed: 20, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 6, dex: 13, con: 12, int: 4, wis: 8, cha: 3 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -289,7 +289,7 @@ export const UNIT_TYPES = {
   stirge: {
     name: 'Stirge', team: 'red',
     scale: [0.5, 0.5, 0.5], anchorY: 0.8, hoverY: 2.5,
-    hp: 2, ac: 14, speed: 10, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 2, ac: 14, speed: 10, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 4, dex: 16, con: 11, int: 2, wis: 8, cha: 6 },
     attacks: [
       { name: 'Blood Drain', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
@@ -300,7 +300,7 @@ export const UNIT_TYPES = {
   giant_rat: {
     name: 'Giant Rat', team: 'red',
     scale: [0.65, 0.65, 0.65], anchorY: 0.9,
-    hp: 7, ac: 12, speed: 30, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 7, ac: 12, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 7, dex: 15, con: 11, int: 2, wis: 10, cha: 4 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -310,7 +310,7 @@ export const UNIT_TYPES = {
   troglodyte: {
     name: 'Troglodyte', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 1.6,
-    hp: 13, ac: 11, speed: 30, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 13, ac: 11, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 14, int: 6, wis: 10, cha: 6 },
     attacks: [
       { name: 'Claw', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'str' },
@@ -321,7 +321,7 @@ export const UNIT_TYPES = {
   constrictor_snake: {
     name: 'Constrictor Snake', team: 'red',
     scale: [0.95, 0.95, 0.95], anchorY: 1.2,
-    hp: 13, ac: 12, speed: 30, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 13, ac: 12, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
@@ -333,7 +333,7 @@ export const UNIT_TYPES = {
   lizardfolk: {
     name: 'Lizardfolk', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 7, wis: 12, cha: 7 },
     attacks: [
       { name: 'Heavy Club', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -344,7 +344,7 @@ export const UNIT_TYPES = {
   bugbear: {
     name: 'Bugbear', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.4,
-    hp: 27, ac: 16, speed: 30, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 27, ac: 16, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9 },
     attacks: [
       { name: 'Morningstar', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
@@ -355,7 +355,7 @@ export const UNIT_TYPES = {
   warg: {
     name: 'Warg', team: 'red',
     scale: [1.45, 1.45, 1.45], anchorY: 1.6,
-    hp: 26, ac: 13, speed: 50, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 26, ac: 13, speed: 50, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 17, dex: 12, con: 13, int: 7, wis: 11, cha: 8 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -366,7 +366,7 @@ export const UNIT_TYPES = {
   dire_wolf: {
     name: 'Dire Wolf', team: 'red',
     scale: [1.3, 1.3, 1.3], anchorY: 1.9,
-    hp: 37, ac: 14, speed: 50, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 37, ac: 14, speed: 50, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 17, dex: 15, con: 15, int: 3, wis: 12, cha: 7 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -377,7 +377,7 @@ export const UNIT_TYPES = {
   hobgoblin: {
     name: 'Hobgoblin', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 11, ac: 18, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 11, ac: 18, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 13, dex: 12, con: 12, int: 10, wis: 10, cha: 9 },
     attacks: [
       { name: 'Longsword', type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
@@ -388,7 +388,7 @@ export const UNIT_TYPES = {
   gnoll_pack_lord: {
     name: 'Gnoll Pack Lord', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,
-    hp: 49, ac: 15, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
+    hp: 49, ac: 15, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 11, cha: 9 },
     attacks: [
       { name: 'Flail',   type: 'melee',  range: 5,   dice: 1, sides: 8, statMod: 'str' },
@@ -399,7 +399,7 @@ export const UNIT_TYPES = {
   yuan_ti_pureblood: {
     name: 'Yuan-ti Pureblood', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.1,
-    hp: 40, ac: 11, speed: 30, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 40, ac: 11, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 11, dex: 16, con: 11, int: 13, wis: 12, cha: 14 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'dex' },
@@ -410,7 +410,7 @@ export const UNIT_TYPES = {
   giant_constrictor_snake: {
     name: 'Giant Constrictor Snake', team: 'red',
     scale: [1.35, 1.35, 1.35], anchorY: 1.8,
-    hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
+    hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 19, dex: 14, con: 12, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str' },
@@ -422,7 +422,7 @@ export const UNIT_TYPES = {
   troll: {
     name: 'Troll', team: 'red',
     scale: [1.6, 1.6, 1.6], anchorY: 3.6,
-    hp: 84, ac: 15, speed: 30, initiative: 0, xpReward: 1800, profBonus: 3,
+    hp: 84, ac: 15, speed: 30, initiative: 0, xpReward: 360, profBonus: 3,
     abilities: { str: 18, dex: 13, con: 20, int: 7, wis: 9, cha: 7 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
@@ -434,7 +434,7 @@ export const UNIT_TYPES = {
   yeti: {
     name: 'Yeti', team: 'red',
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
-    hp: 51, ac: 12, speed: 40, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 51, ac: 12, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 18, dex: 13, con: 16, int: 8, wis: 12, cha: 7 },
     attacks: [
       { name: 'Claw', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -445,7 +445,7 @@ export const UNIT_TYPES = {
   gnoll_fang: {
     name: 'Gnoll Fang of Yeenoghu', team: 'red',
     scale: [1.3, 1.3, 1.3], anchorY: 2.5,
-    hp: 65, ac: 14, speed: 30, initiative: 0, xpReward: 1100, profBonus: 3,
+    hp: 65, ac: 14, speed: 30, initiative: 0, xpReward: 220, profBonus: 3,
     abilities: { str: 17, dex: 12, con: 14, int: 10, wis: 11, cha: 12 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str' },
@@ -456,7 +456,7 @@ export const UNIT_TYPES = {
   owlbear: {
     name: 'Owlbear', team: 'red',
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
-    hp: 59, ac: 13, speed: 40, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 59, ac: 13, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 20, dex: 12, con: 17, int: 3, wis: 12, cha: 7 },
     attacks: [
       { name: 'Beak',  type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str' },
@@ -467,7 +467,7 @@ export const UNIT_TYPES = {
   werewolf: {
     name: 'Werewolf', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 2.4,
-    hp: 58, ac: 12, speed: 30, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 58, ac: 12, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 15, dex: 13, con: 14, int: 10, wis: 11, cha: 10 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str',
@@ -479,7 +479,7 @@ export const UNIT_TYPES = {
   minotaur: {
     name: 'Minotaur', team: 'red',
     scale: [1.6, 1.6, 1.6], large: true, anchorY: 3.5,
-    hp: 114, ac: 14, speed: 40, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 114, ac: 14, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 18, dex: 11, con: 16, int: 6, wis: 16, cha: 9 },
     attacks: [
       { name: 'Greataxe', type: 'melee', range: 5, dice: 2, sides: 12, statMod: 'str' },
@@ -491,7 +491,7 @@ export const UNIT_TYPES = {
   yuan_ti_malison: {
     name: 'Yuan-ti Malison', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,
-    hp: 66, ac: 15, speed: 30, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 66, ac: 15, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 16, dex: 14, con: 13, int: 14, wis: 12, cha: 16 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'str' },
@@ -503,7 +503,7 @@ export const UNIT_TYPES = {
   shambling_mound: {
     name: 'Shambling Mound', team: 'red',
     scale: [1.6, 1.6, 1.6], large: true, anchorY: 3.5,
-    hp: 136, ac: 15, speed: 20, initiative: 0, xpReward: 1800, profBonus: 3,
+    hp: 136, ac: 15, speed: 20, initiative: 0, xpReward: 360, profBonus: 3,
     abilities: { str: 18, dex: 8, con: 16, int: 5, wis: 10, cha: 5 },
     attacks: [
       { name: 'Slam', type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str',
@@ -514,7 +514,7 @@ export const UNIT_TYPES = {
   giant_frog: {
     name: 'Giant Frog', team: 'red',
     scale: [0.85, 0.85, 0.85], anchorY: 1.2,
-    hp: 18, ac: 11, speed: 30, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 18, ac: 11, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 12, dex: 13, con: 11, int: 2, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str',
@@ -525,7 +525,7 @@ export const UNIT_TYPES = {
   bullywug: {
     name: 'Bullywug', team: 'red',
     scale: [0.90, 0.90, 0.90], anchorY: 1.5,
-    hp: 11, ac: 15, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 11, ac: 15, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 14, dex: 12, con: 13, int: 7, wis: 10, cha: 7 },
     attacks: [
       { name: 'Bite',  type: 'melee',  range: 5,  dice: 1, sides: 4, statMod: 'str' },
@@ -536,7 +536,7 @@ export const UNIT_TYPES = {
   mud_mephit: {
     name: 'Mud Mephit', team: 'red',
     scale: [0.75, 0.75, 0.75], anchorY: 1.1,
-    hp: 27, ac: 11, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 27, ac: 11, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 8, dex: 12, con: 14, int: 9, wis: 11, cha: 7 },
     attacks: [
       { name: 'Claws',      type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -548,7 +548,7 @@ export const UNIT_TYPES = {
   crocodile: {
     name: 'Crocodile', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 1.2,
-    hp: 19, ac: 12, speed: 20, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 19, ac: 12, speed: 20, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 2, wis: 10, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str',
@@ -559,7 +559,7 @@ export const UNIT_TYPES = {
   giant_toad: {
     name: 'Giant Toad', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 1.3,
-    hp: 39, ac: 11, speed: 20, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 39, ac: 11, speed: 20, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 15, dex: 13, con: 11, int: 2, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str',
@@ -570,7 +570,7 @@ export const UNIT_TYPES = {
   bullywug_croaker: {
     name: 'Bullywug Croaker', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 1.8,
-    hp: 30, ac: 15, speed: 20, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 30, ac: 15, speed: 20, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 10, cha: 8 },
     attacks: [
       { name: 'Bite',  type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -581,7 +581,7 @@ export const UNIT_TYPES = {
   swarm_of_insects: {
     name: 'Swarm of Insects', team: 'red',
     scale: [0.80, 0.80, 0.80], anchorY: 0.8,
-    hp: 22, ac: 12, speed: 20, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 22, ac: 12, speed: 20, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 3, dex: 13, con: 10, int: 1, wis: 7, cha: 1 },
     attacks: [
       { name: 'Bites', type: 'melee', range: 0, dice: 4, sides: 4, statMod: 'dex',
@@ -592,7 +592,7 @@ export const UNIT_TYPES = {
   lizardfolk_shaman: {
     name: 'Lizardfolk Shaman', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 2.1,
-    hp: 45, ac: 13, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
+    hp: 45, ac: 13, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 11, wis: 14, cha: 11 },
     attacks: [
       { name: 'Claws',           type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -604,7 +604,7 @@ export const UNIT_TYPES = {
   green_hag: {
     name: 'Green Hag', team: 'red',
     scale: [1.10, 1.10, 1.10], anchorY: 2.2,
-    hp: 82, ac: 17, speed: 30, initiative: 0, xpReward: 700, profBonus: 3,
+    hp: 82, ac: 17, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 18, dex: 12, con: 16, int: 13, wis: 14, cha: 14 },
     attacks: [
       { name: 'Claws',          type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
@@ -616,7 +616,7 @@ export const UNIT_TYPES = {
   ghoul: {
     name: 'Ghoul', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 22, ac: 12, speed: 30, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 22, ac: 12, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 13, dex: 15, con: 10, int: 7, wis: 10, cha: 6 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 6, hitBonus: 2, dmgBonus: 2 },
@@ -628,7 +628,7 @@ export const UNIT_TYPES = {
   zombie: {
     name: 'Zombie', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 22, ac: 8, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 22, ac: 8, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
     attacks: [
       { name: 'Slam', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str',
@@ -639,7 +639,7 @@ export const UNIT_TYPES = {
   skeleton: {
     name: 'Skeleton', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 13, ac: 13, speed: 30, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 13, ac: 13, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
@@ -651,7 +651,7 @@ export const UNIT_TYPES = {
   shadow: {
     name: 'Shadow', team: 'red',
     scale: [0.9, 0.9, 0.9], anchorY: 1.8,
-    hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
     attacks: [
       { name: 'Strength Drain', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'dex',
@@ -662,7 +662,7 @@ export const UNIT_TYPES = {
   specter: {
     name: 'Specter', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.5,
-    hp: 22, ac: 12, speed: 50, initiative: 0, xpReward: 200, profBonus: 2,
+    hp: 22, ac: 12, speed: 50, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 1, dex: 14, con: 11, int: 10, wis: 10, cha: 11 },
     attacks: [
       { name: 'Life Drain', type: 'melee', range: 5, dice: 3, sides: 6, statMod: 'dex', dmgBonus: 0,
@@ -673,7 +673,7 @@ export const UNIT_TYPES = {
   ghast: {
     name: 'Ghast', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.2,
-    hp: 36, ac: 13, speed: 30, initiative: 0, xpReward: 450, profBonus: 2,
+    hp: 36, ac: 13, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 16, dex: 14, con: 14, int: 11, wis: 10, cha: 8 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, hitBonus: 3, statMod: 'str' },
@@ -685,7 +685,7 @@ export const UNIT_TYPES = {
   wight: {
     name: 'Wight', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.2,
-    hp: 45, ac: 14, speed: 30, initiative: 0, xpReward: 700, profBonus: 2,
+    hp: 45, ac: 14, speed: 30, initiative: 0, xpReward: 140, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 16, int: 10, wis: 13, cha: 15 },
     attacks: [
       { name: 'Longsword',  type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -697,7 +697,7 @@ export const UNIT_TYPES = {
   banshee: {
     name: 'Banshee', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.8,
-    hp: 58, ac: 12, speed: 40, initiative: 0, xpReward: 1100, profBonus: 3,
+    hp: 58, ac: 12, speed: 40, initiative: 0, xpReward: 220, profBonus: 3,
     abilities: { str: 1, dex: 14, con: 12, int: 12, wis: 11, cha: 17 },
     attacks: [
       { name: 'Corrupting Touch', type: 'melee', range: 5, dice: 3, sides: 6, statMod: 'dex', dmgBonus: 0,
@@ -708,7 +708,7 @@ export const UNIT_TYPES = {
   revenant: {
     name: 'Revenant', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 2.4,
-    hp: 136, ac: 13, speed: 30, initiative: 0, xpReward: 1800, profBonus: 3,
+    hp: 136, ac: 13, speed: 30, initiative: 0, xpReward: 360, profBonus: 3,
     abilities: { str: 18, dex: 14, con: 18, int: 12, wis: 14, cha: 16 },
     attacks: [
       { name: 'Greatsword', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -719,7 +719,7 @@ export const UNIT_TYPES = {
   hill_giant: {
     name: 'Hill Giant', team: 'red',
     scale: [1.0, 1.0, 1.0], large: true, anchorY: 3.2,
-    hp: 105, ac: 13, speed: 40, initiative: 0, xpReward: 1800, profBonus: 3,
+    hp: 105, ac: 13, speed: 40, initiative: 0, xpReward: 360, profBonus: 3,
     abilities: { str: 21, dex: 8, con: 19, int: 5, wis: 9, cha: 6 },
     attacks: [
       { name: 'Greatclub', type: 'melee',  range: 5,  dice: 3, sides: 8,  statMod: 'str' },
@@ -730,7 +730,7 @@ export const UNIT_TYPES = {
   ettin: {
     name: 'Ettin', team: 'red',
     scale: [1.8, 1.8, 1.8], large: true, anchorY: 3.8,
-    hp: 85, ac: 12, speed: 40, initiative: 0, xpReward: 1100, profBonus: 2,
+    hp: 85, ac: 12, speed: 40, initiative: 0, xpReward: 220, profBonus: 2,
     abilities: { str: 21, dex: 8, con: 17, int: 6, wis: 10, cha: 8 },
     attacks: [
       { name: 'Battleaxe',   type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str', dmgBonus: 5 },
@@ -743,7 +743,7 @@ export const UNIT_TYPES = {
     scale: [0.85, 0.85, 0.85], anchorY: 1.4,
     // CR 1/8 — Very Easy
     detect: 20,
-    hp: 9, ac: 9, speed: 20, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 9, ac: 9, speed: 20, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 10, dex: 9, con: 13, int: 3, wis: 8, cha: 4 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'str' },
@@ -756,7 +756,7 @@ export const UNIT_TYPES = {
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     // CR 1/4 — Easy
     detect: 20,
-    hp: 18, ac: 11, speed: 20, initiative: 0, xpReward: 50, profBonus: 2,
+    hp: 18, ac: 11, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 9, dex: 12, con: 11, int: 5, wis: 8, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'dex', dmgBonus: 1,
@@ -769,7 +769,7 @@ export const UNIT_TYPES = {
     scale: [0.33, 0.33, 0.33], anchorY: 0.47,
     // CR 1/8 — Very Easy (Tiny fiend)
     detect: 20,
-    hp: 10, ac: 13, speed: 30, initiative: 0, xpReward: 25, profBonus: 2,
+    hp: 10, ac: 13, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 4, wis: 8, cha: 5 },
     attacks: [
       { name: 'Bite',   type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },

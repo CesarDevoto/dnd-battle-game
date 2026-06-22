@@ -1,14 +1,14 @@
 import { UNIT_TYPES } from './constants.js';
 
 const XP_TO_CR = {
-  25:   '1/8',
-  50:   '1/4',
-  100:  '1/2',
-  200:  '1',
-  450:  '2',
-  700:  '3',
-  1100: '4',
-  1800: '5',
+  5:   '1/8',
+  10:  '1/4',
+  20:  '1/2',
+  40:  '1',
+  90:  '2',
+  140: '3',
+  220: '4',
+  360: '5',
 };
 
 const CR_SORT = {
@@ -18,14 +18,14 @@ const CR_SORT = {
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-const COL_COUNT = 14; // NAME HP NewHP AC MOVE XP NewXP STR DEX CON INT WIS CHA ATTACKS
+const COL_COUNT = 13; // NAME HP NewHP AC MOVE XP STR DEX CON INT WIS CHA ATTACKS
 
 function crOf(def)     { return XP_TO_CR[def.xpReward] ?? '?'; }
 function crSortOf(def) { return CR_SORT[crOf(def)] ?? 999; }
 
 function newHpOf(def) {
   const xp   = def.xpReward ?? 0;
-  const mult = xp >= 5000 ? 1.0 : xp >= 1100 ? 1.2 : 1.5;
+  const mult = xp >= 1000 ? 1.0 : xp >= 220 ? 1.2 : 1.5;
   return Math.round(def.hp * mult);
 }
 
@@ -114,8 +114,7 @@ function buildTable() {
           <td class="bst-num">${newHpOf(def)}</td>
           <td class="bst-num">${def.ac}</td>
           <td class="bst-num">${def.speed ?? 30} ft</td>
-          <td class="bst-num bst-col-retired">${def.xpReward}</td>
-          <td class="bst-num">${Math.round((def.xpReward ?? 0) / 5)}</td>
+          <td class="bst-num">${def.xpReward ?? 0}</td>
           ${abCells(def)}
           <td class="bst-atks-cell">${atksHTML}</td>
         </tr>`;
@@ -134,8 +133,7 @@ function buildTable() {
           <th class="bst-th-num">New HP</th>
           <th class="bst-th-num">AC</th>
           <th class="bst-th-num">MOVE</th>
-          <th class="bst-th-num bst-col-retired">XP</th>
-          <th class="bst-th-num">New XP</th>
+          <th class="bst-th-num">XP</th>
           <th class="bst-th-ab">STR</th>
           <th class="bst-th-ab">DEX</th>
           <th class="bst-th-ab">CON</th>

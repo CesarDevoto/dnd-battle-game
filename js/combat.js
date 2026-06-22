@@ -1433,6 +1433,7 @@ function showBlessFloat(u, delay = 0) {
 function _teardownCombat() {
   combatPhase = false;
   heroMode    = null;
+  isAnimating = false;
   setFollowUnit(null);
   clearBless();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();

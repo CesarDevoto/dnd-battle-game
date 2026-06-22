@@ -363,6 +363,15 @@ document.getElementById('start-battle-btn').addEventListener('click', () => {
 // Clear precombat selection ring when combat kicks off
 window.addEventListener('combat:start', () => clearMove());
 
+// After combat ends, auto-select the first alive hero so the camera follows
+// them and the player can immediately move without hunting for a hero to click.
+window.addEventListener('combat:ended', () => {
+  const firstHero = _HERO_TAB_ORDER
+    .map(type => units.find(u => u.type === type && u.team === 'blue' && u.hp > 0))
+    .find(Boolean);
+  if (firstHero) _selectHero(firstHero);
+});
+
 // ── Keyboard shortcuts (play mode) ────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
