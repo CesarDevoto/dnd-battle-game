@@ -34,6 +34,12 @@ const SOUNDS = {
   goblin_attack:      { src: 'assets/Audio/combat/goblin attack.mp3',       category: 'combat' },
   goblin_yell:        { src: 'assets/Audio/combat/goblin yell.mp3',         category: 'combat' },
   goblin_moving:      { src: 'assets/Audio/combat/goblin moving.mp3',       category: 'combat' },
+  wolf_aggro:         { src: 'assets/audio/combat/wolf aggro.mp3',          category: 'combat' },
+  wolf_attack:        { src: 'assets/audio/combat/wolf attack.mp3',         category: 'combat' },
+  wolf_moving:        { src: 'assets/audio/combat/wolf moving.mp3',         category: 'combat' },
+  warg_aggro:         { src: 'assets/audio/combat/warg aggro.mp3',          category: 'combat' },
+  warg_attack:        { src: 'assets/audio/combat/warg attack.mp3',         category: 'combat' },
+  warg_moving:        { src: 'assets/audio/combat/warg moving.mp3',         category: 'combat' },
   // Combat music
   combat_music:    { src: 'assets/Audio/combat/combat background music.mp3', category: 'music', loop: true },
   // Weapon / spell sounds
@@ -230,6 +236,8 @@ const UNIT_SOUNDS = {
   ogre:           { aggro: 'ogre_aggro',         attack: 'ogre_attack' },
   abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
   goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
+  wolf:            { aggro: 'wolf_aggro',        attack: 'wolf_attack',  move: 'wolf_moving' },
+  warg:            { aggro: 'warg_aggro',        attack: 'warg_attack',  move: 'warg_moving' },
   human:           { attack: 'human_attack' },
   halfling:        { attack: 'halfling_attack' },
   dwarf:           { attack: 'dwarf_attack' },

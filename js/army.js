@@ -3,7 +3,7 @@ import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFoll
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
-import { isGroupMove } from './groupMove.js';
+import { isGroupMove, setGroupMove } from './groupMove.js';
 import { COLORS, HERO_RING_COLORS, BOUNDS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, UNIT_TYPES, SCENE } from './constants.js';
 import { hideSheet } from './ui.js';
 import { propPositions, activeEnv } from './environments.js';
@@ -363,13 +363,22 @@ document.getElementById('start-battle-btn').addEventListener('click', () => {
 // Clear precombat selection ring when combat kicks off
 window.addEventListener('combat:start', () => clearMove());
 
-// After combat ends, auto-select the first alive hero so the camera follows
-// them and the player can immediately move without hunting for a hero to click.
+// After combat ends, snap camera to Leugren (dwarf) or first alive hero and
+// restore group move so one click gets the whole party walking.
 window.addEventListener('combat:ended', () => {
   const firstHero = _HERO_TAB_ORDER
     .map(type => units.find(u => u.type === type && u.team === 'blue' && u.hp > 0))
     .find(Boolean);
-  if (firstHero) _selectHero(firstHero);
+  if (!firstHero) return;
+  _selectHero(firstHero);
+  setGroupMove(true);
+  // Instant camera snap — shift target to hero, move camera by same delta so
+  // orbit offset is preserved, then update controls so it takes effect now.
+  const p = firstHero.grp.position;
+  const newTarget = new THREE.Vector3(p.x, p.y + 1, p.z - 3);
+  camera.position.add(newTarget).sub(controls.target);
+  controls.target.copy(newTarget);
+  controls.update();
 });
 
 // ── Keyboard shortcuts (play mode) ────────────────────────────────────────────
