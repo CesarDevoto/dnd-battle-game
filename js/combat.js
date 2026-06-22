@@ -2108,6 +2108,7 @@ renderer.domElement.addEventListener('click', e => {
     targetNameEl.textContent        = unitLabel(hit);
     attackConfirmWrap.style.display = 'none';
     targetMarkerEl.style.display    = 'block';
+    showTargetWindow(hit);
   }
 });
 
@@ -2301,11 +2302,14 @@ export function buildTurnList() {
     const el      = document.createElement('div');
     el.className  = 'turn-entry';
     el.dataset.ti = i;
-    const readyTag = (u.team === 'blue' && _delayed.has(u))
+    const isActiveDelay = u === _activeDelayHero;
+    const readyTag  = (u.team === 'blue' && (_delayed.has(u) || isActiveDelay))
       ? '<span class="turn-ready-tag">⚡</span>' : '';
+    const arrowTag  = isActiveDelay
+      ? '<span class="turn-delay-arrow">◀</span>' : '';
     el.innerHTML  =
       `<div class="turn-hpbar-wrap"><div class="turn-hpbar" style="width:${hpPct}%;background:${barColor}"></div></div>` +
-      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${readyTag}</span>` +
+      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${readyTag}${arrowTag}</span>` +
       `<span class="turn-init">${u.initiative}</span>`;
     el.addEventListener('click', () => {
       if (u.team === 'red' && u.hp > 0) showTargetMarker(u);
@@ -2332,6 +2336,26 @@ const _DELAY_LABELS = {
 
 // _delayCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
 let _delayCtx = null;
+// tracks each hero's turnBonusActioned state at the moment they committed to delay
+const _delayedBonusActioned = new Map();
+// hero whose delay interrupt is currently active (for turn-list arrow)
+let _activeDelayHero = null;
+
+function _showDelayTriggerFloat(hero) {
+  const heroName = UNIT_TYPES[hero.type]?.name ?? hero.type;
+  const color    = '#' + (HERO_RING_COLORS[hero.type] ?? 0xffdd44).toString(16).padStart(6, '0');
+  _fv.set(hero.anchor.x, hero.anchor.y + 0.5, hero.anchor.z).project(camera);
+  if (_fv.z >= 1) return;
+  const el = document.createElement('div');
+  el.className  = 'delay-trigger-float';
+  el.style.color = color;
+  el.innerHTML  = `⚡ Triggered<br>${heroName}'s Delayed Action!`;
+  el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
+  el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+  document.getElementById('app').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('rise'));
+  setTimeout(() => el.remove(), 4000);
+}
 
 function _openDelayModal(hero) {
   const modal = document.getElementById('delay-action-modal');
@@ -2340,6 +2364,7 @@ function _openDelayModal(hero) {
     btn.onclick = () => {
       const trigger = btn.dataset.trigger;
       _delayed.set(hero, trigger);
+      _delayedBonusActioned.set(hero, turnBonusActioned);
       turnAttacked = true;
       modal.style.display = 'none';
       addLog(`${unitLabel(hero)} delays: trigger "${_DELAY_LABELS[trigger]}"`, 'move');
@@ -2402,10 +2427,15 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
   function _fireNext(idx) {
     if (idx >= matches.length) { continuation(); return; }
     _delayCtx = {
-      savedIdx:      turnIndex,
-      savedHeroMode: heroMode,
-      savedAttacked: turnAttacked,  // must restore so enemy turn resumes with correct attack state
-      savedMovedFt:  turnMovedFt,
+      savedIdx:            turnIndex,
+      savedHeroMode:       heroMode,
+      savedAttacked:       turnAttacked,  // must restore so enemy turn resumes with correct attack state
+      savedMovedFt:        turnMovedFt,
+      savedBonusActioned:  turnBonusActioned,
+      savedRingX:          activeRing.position.x,
+      savedRingZ:          activeRing.position.z,
+      savedRingColor:      activeRing.material.color.getHex(),
+      savedRingVisible:    activeRing.visible,
       cont: () => _fireNext(idx + 1),
     };
     _showDelayInterrupt(matches[idx]);
@@ -2426,12 +2456,28 @@ function _showDelayInterrupt({ hero, trigger }) {
   }
 
   _delayed.delete(hero);
+  _activeDelayHero = hero;
 
   // Temporarily make this hero the active unit so all hotbar callbacks work naturally
-  turnIndex    = heroIdx;
-  turnAttacked = false;
-  turnMovedFt  = 0;   // delay action has no movement
-  heroMode     = null;
+  turnIndex         = heroIdx;
+  turnAttacked      = false;
+  turnMovedFt       = 0;   // delay action has no movement
+  turnBonusActioned = _delayedBonusActioned.get(hero) ?? false;
+  _delayedBonusActioned.delete(hero);
+  heroMode          = null;
+
+  endTurnBtn.disabled = false;
+
+  // Move active ring to this hero with their ring colour
+  updateConformingRingGeo(activeRing, hero.grp.position.x, hero.grp.position.z);
+  activeRing.position.set(hero.grp.position.x, 0, hero.grp.position.z);
+  activeRing.material.color.set(HERO_RING_COLORS[hero.type] ?? COLORS.activeRing);
+  activeRing.visible = true;
+  showSelectionHighlight(hero);
+
+  // Floating "Triggered!" text and pulsing arrow in turn list
+  _showDelayTriggerFloat(hero);
+  buildTurnList();
 
   setFollowUnit(hero);
   showRangeRings(hero);
@@ -2456,7 +2502,8 @@ function _showDelayInterrupt({ hero, trigger }) {
 
 function _endDelayInterrupt() {
   if (!_delayCtx) return;
-  const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, cont } = _delayCtx;
+  const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
+          savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _delayCtx;
   _delayCtx = null;
 
   const banner = document.getElementById('delay-banner');
@@ -2468,10 +2515,21 @@ function _endDelayInterrupt() {
   hideTargetMarker();
   clearAllHotkeys();
 
-  turnIndex    = savedIdx;
-  heroMode     = savedHeroMode;
-  turnAttacked = savedAttacked;  // restore enemy's pre-interrupt attack state
-  turnMovedFt  = savedMovedFt;
+  turnIndex         = savedIdx;
+  heroMode          = savedHeroMode;
+  turnAttacked      = savedAttacked;  // restore enemy's pre-interrupt attack state
+  turnMovedFt       = savedMovedFt;
+  turnBonusActioned = savedBonusActioned;
+  endTurnBtn.disabled = true;  // back to enemy's turn — button stays locked
+
+  // Restore the active ring to the enemy that was acting
+  updateConformingRingGeo(activeRing, savedRingX, savedRingZ);
+  activeRing.position.set(savedRingX, 0, savedRingZ);
+  activeRing.material.color.set(savedRingColor);
+  activeRing.visible = savedRingVisible;
+
+  _activeDelayHero = null;
+  buildTurnList();
 
   if (cont) cont();
 }
@@ -2892,6 +2950,7 @@ function doEndTurn() {
 
 endTurnBtn.addEventListener('click', () => {
   if (isAnimating) return;
+  if (_delayCtx) { _endDelayInterrupt(); return; }
   doEndTurn();
 });
 

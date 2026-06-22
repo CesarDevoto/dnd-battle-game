@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { combatPhase, turnOrder, turnIndex } from './combat.js';
@@ -8,83 +6,18 @@ import { blessedUnits, concentrating, concentratingSpell, getBlessRoundsLeft } f
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
-const PORTRAIT_W = 52;
-const PORTRAIT_H = 52;
-
-// ── Shared portrait scene & camera (re-used across all four renders) ──────────
-// Each hero's canvas gets its own WebGLRenderer (same pattern as targetWindow.js).
-// The scene is cleared between renders; renders happen sequentially so sharing is safe.
-
-const _pScene  = new THREE.Scene();
-const _pCamera = new THREE.PerspectiveCamera(38, 1, 0.01, 300);
-
-_pScene.add(new THREE.AmbientLight(0xffe8c8, 1.3));
-const _pKey = new THREE.DirectionalLight(0xffd080, 2.4);
-_pKey.position.set(2, 5, -4);
-_pScene.add(_pKey);
-const _pFill = new THREE.DirectionalLight(0x88aaff, 0.7);
-_pFill.position.set(-3, 1, 2);
-_pScene.add(_pFill);
-
-let _pModelNode = null;
-
-function _clearPortraitScene() {
-  if (_pModelNode) { _pScene.remove(_pModelNode); _pModelNode = null; }
-}
-
-// Per-hero WebGLRenderer instances, keyed by type
-const _renderers = {};
-
-function _makeRenderer(canvasEl) {
-  const pr = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true });
-  pr.setSize(PORTRAIT_W, PORTRAIT_H);
-  pr.setClearColor(0x000000, 0);
-  return pr;
-}
-
-function _renderHero(unit, pr) {
-  _clearPortraitScene();
-  if (!unit?.grp) return;
-
-  const clone = SkeletonUtils.clone(unit.grp);
-  clone.position.set(0, 0, 0);
-  _pScene.add(clone);
-  _pModelNode = clone;
-
-  _pScene.updateMatrixWorld(true);
-
-  const box    = new THREE.Box3().setFromObject(clone);
-  const center = box.getCenter(new THREE.Vector3());
-  const size   = box.getSize(new THREE.Vector3());
-  if (size.y < 0.01) return;
-
-  // Tight crop on head/face: look at ~83% up the model, small half-height
-  const lookY  = box.min.y + size.y * 0.83;
-  const halfH  = size.y * 0.10;
-  const fovRad = _pCamera.fov * (Math.PI / 180);
-  const dist   = halfH / Math.tan(fovRad / 2);
-  const maxXZ  = Math.max(size.x, size.z) || 1;
-
-  _pCamera.position.set(
-    center.x - maxXZ * 0.18,
-    lookY    + size.y * 0.02,
-    center.z - dist
-  );
-  _pCamera.lookAt(center.x, lookY, center.z);
-
-  pr.render(_pScene, _pCamera);
-  _clearPortraitScene();
-}
+const AVATAR_SRC = {
+  elf:      'assets/pictures cutscenes icons/rasecavatar.jpg',
+  dwarf:    'assets/pictures cutscenes icons/leugrenavatar.jpg',
+  human:    'assets/pictures cutscenes icons/goboavatar.jpg',
+  halfling: 'assets/pictures cutscenes icons/mioavatar.jpg',
+};
 
 // ── Card registry ─────────────────────────────────────────────────────────────
 const _cards = {};
 
-export function renderHeroPortrait(unit) {
-  const refs = _cards[unit.type];
-  const pr   = _renderers[unit.type];
-  if (!refs || !pr) return;
-  _renderHero(unit, pr);
-}
+// No-op: static images don't need a render call
+export function renderHeroPortrait(_unit) {}
 
 const blueHudEl = document.getElementById('blue-turn-hud');
 
@@ -102,19 +35,15 @@ export function buildHeroPortraits() {
     const card = document.createElement('div');
     card.className = `hero-portrait-card hpc-${type}`;
 
-    // ── Top row: [portrait canvas] [stats col | sheet btn] ────────────
+    // ── Top row: [portrait img] [stats col | sheet btn] ────────────────
     const topRow = document.createElement('div');
     topRow.className = 'hpc-top-row';
 
-    // Canvas rendered into directly by the per-hero WebGLRenderer
-    const portraitCanvas = document.createElement('canvas');
-    portraitCanvas.width     = PORTRAIT_W;
-    portraitCanvas.height    = PORTRAIT_H;
-    portraitCanvas.className = 'hpc-avatar';
-    portraitCanvas.draggable = false;
-
-    // Create the renderer for this hero's canvas now
-    _renderers[type] = _makeRenderer(portraitCanvas);
+    const avatarImg = document.createElement('img');
+    avatarImg.src       = AVATAR_SRC[type] ?? '';
+    avatarImg.className = 'hpc-avatar';
+    avatarImg.draggable = false;
+    avatarImg.alt       = def.name;
 
     const meta = document.createElement('div');
     meta.className = 'hpc-meta';
@@ -134,7 +63,7 @@ export function buildHeroPortraits() {
 
     meta.appendChild(statsCol);
     meta.appendChild(sheetBtn);
-    topRow.appendChild(portraitCanvas);
+    topRow.appendChild(avatarImg);
     topRow.appendChild(meta);
 
     // ── Name ──────────────────────────────────────────────────────────

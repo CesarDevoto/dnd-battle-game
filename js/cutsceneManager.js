@@ -57,22 +57,21 @@ function _loadSlide(idx) {
   // Fade from black once image is ready
   setTimeout(() => _fadeEl.classList.remove('cs-fade-on'), 120);
 
-  _textEl.textContent = slide.text;
   _textEl.classList.remove('cs-text-in');
   _promptEl.classList.remove('cs-prompt-in');
 
   _dotsEl.innerHTML = _cs.slides.map((_, i) =>
     `<span class="cs-dot${i === idx ? ' cs-dot-on' : ''}"></span>`).join('');
 
-  // Brief lock — prevents accidental immediate advance
+  // Lock click-through briefly, then reveal text 1 second after image fades in (~120ms)
+  // textContent is set here — not earlier — so the new text never flashes during the fade-out
   _locked = true;
+  setTimeout(() => { _locked = false; }, 400);
   setTimeout(() => {
-    _locked = false;
-    setTimeout(() => {
-      _textEl.classList.add('cs-text-in');
-      setTimeout(() => _promptEl.classList.add('cs-prompt-in'), 700);
-    }, 600);
-  }, 400);
+    _textEl.textContent = slide.text;
+    _textEl.classList.add('cs-text-in');
+    setTimeout(() => _promptEl.classList.add('cs-prompt-in'), 700);
+  }, 1120);
 }
 
 function _advance() {
