@@ -6,8 +6,9 @@ import { units, setUnitStealth } from './units.js';
 import { getMarkersVisible, setMarkersVisible } from './terrainEditor.js';
 import { setPointLightOrbsVisible } from './environments.js';
 import { isAIPanelOpen } from './npcAIEditor.js';
+import { IS_DEV } from './devConfig.js';
 
-let _dev = true;
+let _dev = IS_DEV;
 const _wasOpen = { prop: false, npc: false, terrain: false };
 let _markersWereVisible = true;
 
@@ -170,7 +171,12 @@ function _tickSocialRings() {
 
 // ── Public init ───────────────────────────────────────────────────────────────
 export function initDevMode() {
-  document.getElementById('dev-mode-btn')?.addEventListener('click', _toggle);
+  const _btn = document.getElementById('dev-mode-btn');
+  if (!IS_DEV) {
+    if (_btn) _btn.style.display = 'none';
+  } else {
+    _btn?.addEventListener('click', _toggle);
+  }
 
   window.addEventListener('env:set', e => {
     _currentEnv = e.detail;
