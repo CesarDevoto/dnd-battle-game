@@ -162,6 +162,10 @@ function _checkAggro() {
 function _triggerAggro(spotter) {
   _aggroed = true;
   spotter.aggro = true;
+  units.filter(u => u.team === 'blue').forEach(u => {
+    u._pcTarget = null;
+    setUnitWalking(u, false);
+  });
   playUnitAggroSound(spotter.type);
   showCenterAlert('Combat!');
   addLog(`⚠ ${unitLabel(spotter)} attacks the heroes!`, 'round');

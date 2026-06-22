@@ -1591,9 +1591,11 @@ function faceTarget(unit, target) {
 // Ranged attacks show a targeting line first; melee fires immediately.
 // Fire Bolt (elf) gets the full cinematic particle effect instead.
 function performAttack(attacker, target, atk) {
-  // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves
+  // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves.
+  // Capture the context reference so a later hero's interrupt isn't accidentally closed.
   if (_delayCtx && attacker === turnOrder[turnIndex]) {
-    setTimeout(_endDelayInterrupt, 2600);
+    const _myCtx = _delayCtx;
+    setTimeout(() => { if (_delayCtx === _myCtx) _endDelayInterrupt(); }, 2600);
   }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
@@ -2281,8 +2283,7 @@ export function buildTurnList() {
   // Assign stable labels in turnOrder sequence, then sort display by initiative
   const entries = turnOrder
     .map((u, i) => {
-      if (u.team === 'red' && u.aggro === false) return null;
-      if (u.roams && !u.aggro) return null;
+      if (u.team === 'red' && !u.aggro) return null;
       const key    = u.team + u.type;
       counter[key] = (counter[key] || 0) + 1;
       const baseName = UNIT_TYPES[u.type]?.name ?? u.type;
@@ -2349,7 +2350,7 @@ function _showDelayTriggerFloat(hero) {
   const el = document.createElement('div');
   el.className  = 'delay-trigger-float';
   el.style.color = color;
-  el.innerHTML  = `⚡ Triggered<br>${heroName}'s Delayed Action!`;
+  el.innerHTML  = `⚡ Delayed Action<br>Triggered!`;
   el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
   el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
   document.getElementById('app').appendChild(el);
@@ -2414,8 +2415,8 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
 
     if (eventType === 'ally_damaged' && trigger === 'ally_loses_hp') {
       const victim = eventCtx;
-      // Only fire if the ally ACTUALLY lost HP (not a miss) and isn't the delayed hero themselves
-      if (hpLost && victim.team === 'blue' && victim !== hero) {
+      // Only fire if a blue unit actually lost HP (includes the delayed hero themselves)
+      if (hpLost && victim.team === 'blue') {
         matches.push({ hero, trigger });
       }
     }
@@ -2762,6 +2763,7 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
 export function activateTurn(index) {
   clearRollFeed();
   clearDiceQueue();
+  buildTurnList();
   // Transfer barForced to the newly-active unit so its health bar stays visible
   units.forEach(u => u.barForced = false);
   document.querySelectorAll('.turn-entry').forEach(el =>
@@ -3050,6 +3052,7 @@ function runAITurn(u) {
       u.aggro = true;
       setUnitStealth(u, false);
       addLog(`⚠ ${unitLabel(u)} emerges from the shadows!`, 'move');
+      buildTurnList();
     } else {
       // No LOS yet — silently creep toward the nearest hero while staying hidden
       const nearest = heroes.reduce((best, h) => {
@@ -3120,6 +3123,7 @@ function runAITurn(u) {
       _dungeonAwareEnemies.add(u);
       u.aggro = true;
       addLog(`⚠ ${unitLabel(u)} spots the heroes!`, 'move');
+      buildTurnList();
     } else {
       setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
       return;
@@ -3215,14 +3219,18 @@ function runAITurn(u) {
           turnAttacked = true;
           hideUndoBtn();
           updateCombatStatus();
+          const hpBefore = target.hp;
           performAttack(u, target, rangedAtk);
           setTimeout(() => {
-            if (!units.includes(u) || !units.includes(target)) { endAITurn(); return; }
-            showMoveRange(u);
-            const dest = aiPickDestTowardMelee(u, target, validTiles, atkTriggerWU);
-            hideMoveRange();
-            if (!dest) { endAITurn(); return; }
-            moveToAndThen(dest, endAITurn);
+            const continueAfterRanged = () => {
+              if (!units.includes(u) || !units.includes(target)) { endAITurn(); return; }
+              showMoveRange(u);
+              const dest = aiPickDestTowardMelee(u, target, validTiles, atkTriggerWU);
+              hideMoveRange();
+              if (!dest) { endAITurn(); return; }
+              moveToAndThen(dest, endAITurn);
+            };
+            _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, continueAfterRanged);
           }, ATK_RESOLVE);
         }, PRE_ATK_MS);
         return;

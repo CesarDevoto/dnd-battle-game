@@ -365,6 +365,9 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp: hp, team, type,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
+              _animPhaseOffset: team === 'blue'
+                ? units.filter(u => u.team === 'blue').length * 0.3
+                : Math.random(),
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {} };
   units.push(u);
@@ -391,7 +394,9 @@ export function setUnitWalking(unit, walking, run = false) {
     ? (run && unit.runAction ? unit.runAction : unit.walkAction)
     : unit.idleAction;
   if (!action) return;
-  action.reset().setEffectiveWeight(1).play();
+  action.reset().setEffectiveWeight(1);
+  if (walking) action.time = unit._animPhaseOffset ?? 0;
+  action.play();
 }
 
 export function playUnitAttackAnim(unit, type = 'melee', onComplete = null) {
