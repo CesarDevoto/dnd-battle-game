@@ -1595,7 +1595,7 @@ function performAttack(attacker, target, atk) {
   // Capture the context reference so a later hero's interrupt isn't accidentally closed.
   if (_delayCtx && attacker === turnOrder[turnIndex]) {
     const _myCtx = _delayCtx;
-    setTimeout(() => { if (_delayCtx === _myCtx) _endDelayInterrupt(); }, 2600);
+    _delayAutoCloseTimer = setTimeout(() => { if (_delayCtx === _myCtx) _endDelayInterrupt(); }, 2600);
   }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
@@ -2337,6 +2337,8 @@ const _DELAY_LABELS = {
 
 // _delayCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
 let _delayCtx = null;
+// timer ID for the auto-close after a delay-interrupt attack; cancelled on manual end
+let _delayAutoCloseTimer = null;
 // tracks each hero's turnBonusActioned state at the moment they committed to delay
 const _delayedBonusActioned = new Map();
 // hero whose delay interrupt is currently active (for turn-list arrow)
@@ -2502,6 +2504,8 @@ function _showDelayInterrupt({ hero, trigger }) {
 }
 
 function _endDelayInterrupt() {
+  clearTimeout(_delayAutoCloseTimer);
+  _delayAutoCloseTimer = null;
   if (!_delayCtx) return;
   const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
           savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _delayCtx;
@@ -2725,7 +2729,7 @@ function _rebuildHotbar(u) {
       },
       () => {
         const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !isAnimating && (!turnAttacked || _delayed.has(curU));
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked;
       },
       'action'
     );
