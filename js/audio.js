@@ -40,9 +40,9 @@ const SOUNDS = {
   warg_aggro:         { src: 'assets/audio/combat/warg aggro.mp3',          category: 'combat' },
   warg_attack:        { src: 'assets/audio/combat/warg attack.mp3',         category: 'combat' },
   warg_moving:        { src: 'assets/audio/combat/warg moving.mp3',         category: 'combat' },
-  snake_aggro:        { src: 'assets/audio/combat/snake aggro.mp3',         category: 'combat' },
-  snake_attack:       { src: 'assets/audio/combat/snake attacking.mp3',     category: 'combat' },
-  snake_moving:       { src: 'assets/audio/combat/snake moving.mp3',        category: 'combat' },
+  snake_aggro:        { src: 'assets/Audio/combat/snake aggro.mp3',         category: 'combat' },
+  snake_attack:       { src: 'assets/Audio/combat/snake attacking.mp3',     category: 'combat' },
+  snake_moving:       { src: 'assets/Audio/combat/snake moving.mp3',        category: 'combat' },
   // Cutscene / prologue music
   prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
