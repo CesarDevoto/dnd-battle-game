@@ -3,6 +3,7 @@ import { scene, camera, renderer, setSceneGroundSize } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
+import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
@@ -567,15 +568,23 @@ function _fullReset() {
   const setupZones     = document.getElementById('setup-panel-zones');
   const setupCutscenes = document.getElementById('setup-panel-cutscenes');
   const startWrap      = document.getElementById('start-battle-btn-wrap');
-  if (setupZones)     setupZones.style.display     = '';
-  if (setupCutscenes) setupCutscenes.style.display = '';
-  if (startWrap)      startWrap.style.display      = '';
+  if (IS_DEV) {
+    if (setupZones)     setupZones.style.display     = '';
+    if (setupCutscenes) setupCutscenes.style.display = '';
+    if (startWrap)      startWrap.style.display      = '';
+  } else {
+    document.getElementById('start-battle-btn')?.click();
+  }
 }
 
 function _showSetupAfterTransition() {
   resetToSetup();
-  ['setup-panel-zones', 'setup-panel-cutscenes', 'start-battle-btn-wrap'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-  });
+  if (IS_DEV) {
+    ['setup-panel-zones', 'setup-panel-cutscenes', 'start-battle-btn-wrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  } else {
+    document.getElementById('start-battle-btn')?.click();
+  }
 }
