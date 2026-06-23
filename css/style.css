@@ -51,6 +51,7 @@ body:not(.dev-mode) .dev-only { display: none !important; }
 .play-mode #pe-export-overlay,
 .play-mode #terrain-editor-panel,
 .play-mode #spawn-editor-panel,
+.play-mode #start-battle-btn-wrap,
 .play-mode #top-btn-bar .dev-only { display: none !important; }
 
 /* ── CSS Variables ────────────────────────────────────────────────────── */
