@@ -478,8 +478,8 @@ const _BUST_SRC = {
   Dagna:   '/assets/Pictures%20Cutscenes%20Icons/dagnabust.jpg',
   Leugren: '/assets/Pictures%20Cutscenes%20Icons/leugrenbust.jpg',
   Milo:    '/assets/Pictures%20Cutscenes%20Icons/milobust.jpg',
-  Gobo:    '/assets/Pictures%20Cutscenes%20Icons/gobobust.jpg',
-  Rasec:   '/assets/Pictures%20Cutscenes%20Icons/rasecbust.jpg',
+  Gobo:    '/assets/Pictures%20Cutscenes%20Icons/Gobobust.jpg',
+  Rasec:   '/assets/Pictures%20Cutscenes%20Icons/Rasecbust.jpg',
 };
 
 function _renderLine() {
