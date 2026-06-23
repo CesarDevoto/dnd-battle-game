@@ -2181,7 +2181,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 99;
+  z-index: 200;
   opacity: 0;
   transition: opacity 0.8s ease;
 }

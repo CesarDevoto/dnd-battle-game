@@ -41,7 +41,7 @@ const SOUNDS = {
   warg_attack:        { src: 'assets/audio/combat/warg attack.mp3',         category: 'combat' },
   warg_moving:        { src: 'assets/audio/combat/warg moving.mp3',         category: 'combat' },
   // Cutscene / prologue music
-  prologue_music:  { src: 'assets/audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
+  prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
   combat_music:    { src: 'assets/Audio/combat/combat background music.mp3', category: 'music', loop: true },
   // Weapon / spell sounds
