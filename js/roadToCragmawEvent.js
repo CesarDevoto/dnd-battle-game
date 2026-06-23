@@ -1,10 +1,6 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
-import { units } from './units.js';
-
-const WAKE_SQ  = 72 * 72;   // 180 ft — wake threshold (WU²)
-const SLEEP_SQ = 80 * 80;   // 200 ft — sleep threshold (WU²)
 
 // ── Footprint texture (canvas-drawn bare-foot silhouette) ─────────────────────
 function _makeFootTex(mirror = false) {
@@ -40,27 +36,11 @@ function _makeFootTex(mirror = false) {
   return tex;
 }
 
-// ── Trail waypoints — mushroom positions defining the path ────────────────────
+// ── Trail waypoints — short trail from arrival portal to near the grassling ───
+// Ends ~15 footprints in, near the grassling at (6.71, 71.66).
 const _WAYPOINTS = [
-  { x:  -0.55, z:  87.39 },
-  { x:  -4.28, z:  73.41 },
-  { x: -10.91, z:  59.30 },
-  { x: -24.77, z:  44.59 },
-  { x: -31.30, z:  37.81 },
-  { x: -40.41, z:  26.65 },
-  { x: -46.67, z:  19.93 },
-  { x: -40.04, z:   5.15 },
-  { x: -27.06, z:   2.18 },
-  { x: -14.22, z:  -0.53 },
-  { x:  -3.53, z:  -6.23 },
-  { x:   4.70, z: -14.73 },
-  { x:  15.26, z: -25.68 },
-  { x:  27.44, z: -36.56 },
-  { x:  36.75, z: -41.42 },
-  { x:  43.66, z: -52.30 },
-  { x:  54.58, z: -60.17 },
-  { x:  61.97, z: -74.27 },
-  { x:  67.39, z: -90.14 },
+  { x: -0.55, z: 87.39 },  // arrival portal area
+  { x:  6.71, z: 71.66 },  // grassling position
 ];
 
 // Three walkers: lateral nudge + along-trail start offset (world units)
@@ -109,12 +89,14 @@ let _meshes   = [];
 let _texLeft  = null;
 let _texRight = null;
 let _t        = 0;
-const _COLOR_A   = new THREE.Color(0x1a0a04);  // dark brown
-const _COLOR_B   = new THREE.Color(0x4a2010);  // mid brown
+let _fadeIn   = 0;
+const _COLOR_A   = new THREE.Color(0x1a0a04);
+const _COLOR_B   = new THREE.Color(0x4a2010);
 const _COLOR_TMP = new THREE.Color();
 
 function _showFootsteps() {
   _hideFootsteps();
+  _fadeIn   = 0;
   _texLeft  = _makeFootTex(false);
   _texRight = _makeFootTex(true);
 
@@ -125,7 +107,8 @@ function _showFootsteps() {
         map:         isLeft ? _texLeft : _texRight,
         color:       _COLOR_A.clone(),
         transparent: true,
-        alphaTest:   0.08,
+        opacity:     0,
+        alphaTest:   0.0,
         depthWrite:  false,
         depthTest:   true,
         polygonOffset: true,
@@ -133,7 +116,7 @@ function _showFootsteps() {
         polygonOffsetUnits: -1,
         side:        THREE.DoubleSide,
       });
-      const geo = new THREE.PlaneGeometry(0.45, 0.70);
+      const geo = new THREE.PlaneGeometry(0.22, 0.34);
       const m   = new THREE.Mesh(geo, mat);
       m.rotation.x = -Math.PI / 2;
       m.rotation.z = yaw + sign * 0.18;
@@ -152,31 +135,15 @@ function _hideFootsteps() {
   _texRight?.dispose(); _texRight = null;
 }
 
-// ── Tick: distance cull + pulse color ────────────────────────────────────────
+// ── Tick: fade-in + pulse color ───────────────────────────────────────────────
 export function tickRoadToCragmaw(dt) {
   if (!_meshes.length) return;
-
-  const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
-
   _t += dt * 1.4;
   _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
-
+  const opacity = _fadeIn < 1 ? (_fadeIn = Math.min(1, _fadeIn + dt / 1.5)) : 1;
   for (const m of _meshes) {
-    let nearSq = Infinity;
-    for (const h of heroes) {
-      const dx = m.position.x - h.grp.position.x;
-      const dz = m.position.z - h.grp.position.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < nearSq) nearSq = d2;
-    }
-
-    if (m.visible) {
-      if (nearSq > SLEEP_SQ) m.visible = false;
-    } else {
-      if (nearSq < WAKE_SQ)  m.visible = true;
-    }
-
-    if (m.visible) m.material.color.copy(_COLOR_TMP);
+    m.material.color.copy(_COLOR_TMP);
+    if (opacity < 1) m.material.opacity = opacity;
   }
 }
 
