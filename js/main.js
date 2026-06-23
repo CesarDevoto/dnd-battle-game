@@ -290,11 +290,21 @@ function dismissOverlay() {
   const overlay = document.getElementById('loading-overlay');
   if (!overlay || overlay.classList.contains('done')) return;
   overlay.classList.add('done');
-  // Primary removal: after the CSS opacity transition finishes
   overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-  // Fallback: remove after 700 ms in case transitionend never fires
   setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 700);
-  window.dispatchEvent(new CustomEvent('ui:ready'));
+
+  if (IS_DEV) {
+    window.dispatchEvent(new CustomEvent('ui:ready'));
+  } else {
+    const splash = document.getElementById('splash-screen');
+    splash.style.display = 'flex';
+    requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add('splash-visible')));
+    document.getElementById('splash-btn').addEventListener('click', () => {
+      splash.classList.remove('splash-visible');
+      splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+      window.dispatchEvent(new CustomEvent('ui:ready'));
+    }, { once: true });
+  }
 }
 
 Promise.all([modelsReady, evergreenReady]).then(dismissOverlay);
