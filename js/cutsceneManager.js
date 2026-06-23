@@ -18,7 +18,10 @@ let _overlay, _img, _textEl, _promptEl, _skipBtn, _dotsEl, _fadeEl;
 export function triggerCutscene(trigger) {
   if (_playing) return;
   const cs = _ORDER.find(c => c.trigger === trigger);
-  if (!cs || (cs.playOnce && _wasSeen(cs.id))) return;
+  if (!cs || (cs.playOnce && _wasSeen(cs.id))) {
+    if (trigger === 'game_start') window.dispatchEvent(new CustomEvent('game:ready'));
+    return;
+  }
   _play(cs);
 }
 
@@ -89,9 +92,15 @@ function _advance() {
 
 function _finish() {
   if (_cs.playOnce) _markSeen(_cs.id);
+  const trigger = _cs.trigger;
   stopCombatMusic();
   _overlay.classList.remove('cs-active');
-  setTimeout(() => { _overlay.style.display = 'none'; _playing = false; _cs = null; }, 420);
+  setTimeout(() => {
+    _overlay.style.display = 'none';
+    _playing = false;
+    _cs = null;
+    if (trigger === 'game_start') window.dispatchEvent(new CustomEvent('game:ready'));
+  }, 420);
 }
 
 // ── dev panel ─────────────────────────────────────────────────────────────────

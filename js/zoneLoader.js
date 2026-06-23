@@ -541,6 +541,13 @@ export function initZoneUI() {
     if (_active) activateExits();
   });
 
+  // Production: start game automatically once the intro cutscene ends (or is skipped)
+  if (!IS_DEV) {
+    window.addEventListener('game:ready', () => {
+      document.getElementById('start-battle-btn')?.click();
+    }, { once: true });
+  }
+
   // Auto-resume last zone after HMR page reload; fall back to first zone for new players
   try {
     const lastZone = localStorage.getItem('dnd-last-zone');
