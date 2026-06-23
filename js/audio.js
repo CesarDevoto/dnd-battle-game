@@ -34,12 +34,12 @@ const SOUNDS = {
   goblin_attack:      { src: 'assets/Audio/combat/goblin attack.mp3',       category: 'combat' },
   goblin_yell:        { src: 'assets/Audio/combat/goblin yell.mp3',         category: 'combat' },
   goblin_moving:      { src: 'assets/Audio/combat/goblin moving.mp3',       category: 'combat' },
-  wolf_aggro:         { src: 'assets/audio/combat/wolf aggro.mp3',          category: 'combat' },
-  wolf_attack:        { src: 'assets/audio/combat/wolf attack.mp3',         category: 'combat' },
-  wolf_moving:        { src: 'assets/audio/combat/wolf moving.mp3',         category: 'combat' },
-  warg_aggro:         { src: 'assets/audio/combat/warg aggro.mp3',          category: 'combat' },
-  warg_attack:        { src: 'assets/audio/combat/warg attack.mp3',         category: 'combat' },
-  warg_moving:        { src: 'assets/audio/combat/warg moving.mp3',         category: 'combat' },
+  wolf_aggro:         { src: 'assets/Audio/combat/wolf aggro.mp3',          category: 'combat' },
+  wolf_attack:        { src: 'assets/Audio/combat/wolf attack.mp3',         category: 'combat' },
+  wolf_moving:        { src: 'assets/Audio/combat/wolf moving.mp3',         category: 'combat' },
+  warg_aggro:         { src: 'assets/Audio/combat/warg aggro.mp3',          category: 'combat' },
+  warg_attack:        { src: 'assets/Audio/combat/warg attack.mp3',         category: 'combat' },
+  warg_moving:        { src: 'assets/Audio/combat/warg moving.mp3',         category: 'combat' },
   snake_aggro:        { src: 'assets/Audio/combat/snake aggro.mp3',         category: 'combat' },
   snake_attack:       { src: 'assets/Audio/combat/snake attacking.mp3',     category: 'combat' },
   snake_moving:       { src: 'assets/Audio/combat/snake moving.mp3',        category: 'combat' },
@@ -71,7 +71,7 @@ const SOUNDS = {
   // UI (files not yet added — will silently skip)
   combat_start:  { src: 'assets/Audio/ui/combat_start.mp3',       category: 'ui' },
   turn_start:    { src: 'assets/Audio/ui/turn_start.mp3',         category: 'ui' },
-  level_up:      { src: 'assets/audio/system sounds/Ding.mp3',    category: 'ui' },
+  level_up:      { src: 'assets/Audio/system sounds/Ding.mp3',    category: 'ui' },
 };
 
 const FADE_SECS = 1.5;   // ambient crossfade duration
