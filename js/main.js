@@ -104,14 +104,15 @@ initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initGroupMove();
 initQuests();
 
+initDevMode();
+initCutsceneUI();
+
 if (IS_DEV) {
   initPropEditor();
   initNpcEditor();
   initNpcAIEditor();
   initSpawnEditor();
   initTerrainEditor();
-  initDevMode();
-  initCutsceneUI();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
