@@ -2175,13 +2175,13 @@ body {
 
 /* ── Splash screen ───────────────────────────────────────────────────── */
 #splash-screen {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(10,6,2,0.97) 0%, rgba(2,2,8,1) 100%);
+  background: radial-gradient(ellipse at center, #0a0602 0%, #020208 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 9999;
   opacity: 0;
   transition: opacity 0.8s ease;
 }

@@ -40,6 +40,9 @@ const SOUNDS = {
   warg_aggro:         { src: 'assets/audio/combat/warg aggro.mp3',          category: 'combat' },
   warg_attack:        { src: 'assets/audio/combat/warg attack.mp3',         category: 'combat' },
   warg_moving:        { src: 'assets/audio/combat/warg moving.mp3',         category: 'combat' },
+  snake_aggro:        { src: 'assets/audio/combat/snake aggro.mp3',         category: 'combat' },
+  snake_attack:       { src: 'assets/audio/combat/snake attacking.mp3',     category: 'combat' },
+  snake_moving:       { src: 'assets/audio/combat/snake moving.mp3',        category: 'combat' },
   // Cutscene / prologue music
   prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
@@ -240,6 +243,9 @@ const UNIT_SOUNDS = {
   goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
   wolf:            { aggro: 'wolf_aggro',        attack: 'wolf_attack',  move: 'wolf_moving' },
   warg:            { aggro: 'warg_aggro',        attack: 'warg_attack',  move: 'warg_moving' },
+  snake:                  { aggro: 'snake_aggro', attack: 'snake_attack', move: 'snake_moving' },
+  constrictor_snake:      { aggro: 'snake_aggro', attack: 'snake_attack', move: 'snake_moving' },
+  giant_constrictor_snake: { aggro: 'snake_aggro', attack: 'snake_attack', move: 'snake_moving' },
   human:           { attack: 'human_attack' },
   halfling:        { attack: 'halfling_attack' },
   dwarf:           { attack: 'dwarf_attack' },
