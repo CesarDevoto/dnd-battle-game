@@ -18,6 +18,7 @@ import { bindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee } from './combatAI.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
+import { rollLoot, spawnLootOrb } from './loot.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, getUnitAttackDuration, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
 import { onAmbushCombatEnd } from './ambushEvent.js';
@@ -1489,6 +1490,12 @@ function removeDefeatedUnit(u) {
     const reward = UNIT_TYPES[u.type]?.xpReward ?? 0;
     if (reward > 0) awardXP(reward, addLog);
     onEnemyKilled(u);
+    const cr   = ENEMY_CR[u.type] ?? 0;
+    const loot = rollLoot(cr);
+    spawnLootOrb(u.grp.position, loot);
+    window.dispatchEvent(new CustomEvent('enemy:looted', {
+      detail: { enemyName: UNIT_TYPES[u.type]?.name ?? u.type, coins: loot.coins, items: loot.items },
+    }));
   }
   if (u.team === 'blue') onHeroDied(u);
   if (u.mixer) {

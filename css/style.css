@@ -4989,6 +4989,201 @@ td.bst-col-retired { color: #343228 !important; }
   text-shadow: 0 0 16px rgba(0,255,180,0.80);
 }
 
+/* ── Loot Panel ──────────────────────────────────────────────────────── */
+#loot-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 380px;
+  max-height: 82vh;
+  background: linear-gradient(180deg, rgba(14,10,4,0.97) 0%, rgba(6,4,2,0.99) 100%);
+  border: 1px solid rgba(212,175,55,0.45);
+  border-radius: 5px;
+  box-shadow: 0 0 30px rgba(0,0,0,0.80), 0 0 60px rgba(180,130,20,0.10);
+  overflow: hidden;
+}
+#lp-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(212,175,55,0.20);
+  flex-shrink: 0;
+}
+#lp-title {
+  color: var(--gold);
+  font-family: var(--font-fantasy);
+  font-size: 0.85rem;
+  letter-spacing: 4px;
+  text-shadow: 0 0 12px rgba(212,175,55,0.55);
+}
+#lp-sub {
+  color: rgba(200,180,120,0.55);
+  font-family: var(--font-fantasy);
+  font-size: 0.52rem;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+#lp-coins-section {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.lp-section-label {
+  color: rgba(212,175,55,0.45);
+  font-family: var(--font-fantasy);
+  font-size: 0.48rem;
+  letter-spacing: 3px;
+  margin-bottom: 4px;
+}
+#lp-coins {
+  color: #e8c84a;
+  font-family: var(--font-fantasy);
+  font-size: 0.74rem;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(232,200,74,0.35);
+}
+#lp-split {
+  color: rgba(180,160,90,0.65);
+  font-family: var(--font-fantasy);
+  font-size: 0.52rem;
+  margin-top: 2px;
+}
+#lp-items-section {
+  padding: 8px 14px 6px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+#lp-items-section::-webkit-scrollbar { width: 4px; }
+#lp-items-section::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+#lp-items-section::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.25); border-radius: 2px; }
+.lp-no-items {
+  color: rgba(180,160,120,0.35);
+  font-family: var(--font-fantasy);
+  font-size: 0.54rem;
+  font-style: italic;
+  padding: 8px 0;
+}
+.lp-item-card {
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid rgba(180,160,120,0.30);
+  border-radius: 0 3px 3px 0;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+}
+.lp-item-card:last-child { margin-bottom: 0; }
+.lp-rarity-common   { border-left-color: rgba(200,200,200,0.50); }
+.lp-rarity-uncommon { border-left-color: rgba(68,255,136,0.65); }
+.lp-rarity-rare     { border-left-color: rgba(68,136,255,0.65); }
+.lp-rarity-veryRare { border-left-color: rgba(210,68,255,0.65); }
+.lp-rarity-gem      { border-left-color: rgba(68,220,255,0.65); }
+.lp-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.lp-item-rarity {
+  font-family: var(--font-fantasy);
+  font-size: 0.46rem;
+  letter-spacing: 1px;
+  opacity: 0.65;
+  text-transform: uppercase;
+}
+.lp-rarity-common   .lp-item-rarity { color: #cccccc; }
+.lp-rarity-uncommon .lp-item-rarity { color: #44ff88; }
+.lp-rarity-rare     .lp-item-rarity { color: #4488ff; }
+.lp-rarity-veryRare .lp-item-rarity { color: #dd44ff; }
+.lp-rarity-gem      .lp-item-rarity { color: #44ddff; }
+.lp-item-name {
+  color: #e8d8a0;
+  font-family: var(--font-fantasy);
+  font-size: 0.66rem;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+.lp-item-value {
+  color: rgba(232,200,74,0.55);
+  font-family: var(--font-fantasy);
+  font-size: 0.48rem;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.lp-item-desc {
+  color: rgba(200,185,150,0.65);
+  font-size: 0.58rem;
+  line-height: 1.4;
+  margin-bottom: 5px;
+}
+.lp-item-assign {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.lp-hero-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(212,175,55,0.20);
+  border-radius: 2px;
+  color: rgba(200,180,120,0.60);
+  font-family: var(--font-fantasy);
+  font-size: 0.48rem;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.lp-hero-btn:hover {
+  border-color: rgba(212,175,55,0.55);
+  color: var(--gold);
+}
+.lp-hero-btn.lp-assigned {
+  background: rgba(212,175,55,0.18);
+  border-color: rgba(212,175,55,0.70);
+  color: var(--gold);
+  box-shadow: 0 0 6px rgba(212,175,55,0.25);
+}
+#lp-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid rgba(212,175,55,0.15);
+  flex-shrink: 0;
+}
+#lp-collect-btn {
+  flex: 2;
+  background: linear-gradient(180deg, rgba(30,22,4,0.96) 0%, rgba(12,9,2,0.99) 100%);
+  border: 1px solid rgba(212,175,55,0.55);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: var(--font-fantasy);
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  padding: 6px 10px;
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(212,175,55,0.40);
+  box-shadow: inset 0 1px 0 rgba(212,175,55,0.12);
+}
+#lp-collect-btn:hover {
+  border-color: var(--gold);
+  text-shadow: 0 0 12px rgba(212,175,55,0.70);
+}
+#lp-skip-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid rgba(212,175,55,0.14);
+  border-radius: 3px;
+  color: #4a3e28;
+  font-family: var(--font-fantasy);
+  font-size: 0.54rem;
+  letter-spacing: 1px;
+  padding: 6px 6px;
+  cursor: pointer;
+}
+#lp-skip-btn:hover { color: var(--gold); border-color: rgba(212,175,55,0.35); }
+
 /* ── Prop Editor button ──────────────────────────────────────────────── */
 /* ── Prop Editor panel ───────────────────────────────────────────────── */
 #prop-editor-panel {
