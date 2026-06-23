@@ -13,9 +13,15 @@
 
 const _handlers = [];
 
+// Returns an unsubscribe function — call it to remove the handler permanently.
 export function registerPostCombatHandler(priority, fn) {
-  _handlers.push({ priority, fn });
+  const entry = { priority, fn };
+  _handlers.push(entry);
   _handlers.sort((a, b) => a.priority - b.priority);
+  return () => {
+    const i = _handlers.indexOf(entry);
+    if (i >= 0) _handlers.splice(i, 1);
+  };
 }
 
 export function runPostCombat(ctx) {

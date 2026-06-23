@@ -86,12 +86,14 @@ export function onCombatEnd() {
 }
 
 // Post-combat handler (priority 20): fires after loot panel on victory only.
-// Intentionally does NOT call done() when Dagna triggers — her sequence ends
-// in a zone change, which terminates the post-combat chain naturally.
-registerPostCombatHandler(20, (ctx, done) => {
+// When Dagna fires she unregisters herself — this intro happens exactly once.
+// After that, no post-combat slot is consumed for this in future combats.
+// Intentionally does NOT call done() when firing — zone change is terminal.
+const _unregisterDagnaIntro = registerPostCombatHandler(20, (ctx, done) => {
   if (!_heroDiedThisCombat || _dagnaSeen) { done(); return; }
   _dagnaSeen = true;
   _heroDiedThisCombat = false;
+  _unregisterDagnaIntro(); // one-shot: remove from hierarchy permanently
   setTimeout(_startIntroA, 800);
 });
 
