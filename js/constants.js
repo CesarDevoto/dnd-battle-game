@@ -65,6 +65,7 @@ export const GHOST_COLORS = {
   dwarf:    0x8b5a2b,
   human:    0x7878a0,
   halfling: 0xaa8844,
+  snake:    0x4a7a22,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -320,7 +321,7 @@ export const UNIT_TYPES = {
 
   constrictor_snake: {
     name: 'Constrictor Snake', team: 'red',
-    scale: [0.95, 0.95, 0.95], anchorY: 1.2,
+    scale: [5.0, 5.0, 5.0], anchorY: 4.0,
     hp: 13, ac: 12, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
@@ -407,9 +408,20 @@ export const UNIT_TYPES = {
     ],
   },
 
+  snake: {
+    name: 'Giant Poisonous Snake', team: 'red',
+    scale: [3.0, 3.0, 3.0], anchorY: 2.4,
+    hp: 11, ac: 14, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    abilities: { str: 10, dex: 18, con: 11, int: 1, wis: 10, cha: 3 },
+    attacks: [
+      { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
+        note: 'DC 11 CON or 3d6 poison dmg' },
+    ],
+  },
+
   giant_constrictor_snake: {
     name: 'Giant Constrictor Snake', team: 'red',
-    scale: [1.35, 1.35, 1.35], anchorY: 1.8,
+    scale: [7.0, 7.0, 7.0], anchorY: 5.6,
     hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 19, dex: 14, con: 12, int: 1, wis: 10, cha: 3 },
     attacks: [
@@ -903,6 +915,7 @@ export const ENEMY_CR = {
   swarm_of_insects: 0.5,
   shadow:           0.5,
   // ── CR 1 ────────────────────────────────────────────────────────
+  snake:            0.25,
   giant_spider:     1,
   bugbear:          1,
   dire_wolf:        1,
@@ -913,9 +926,9 @@ export const ENEMY_CR = {
   specter:          1,
   // ── CR 2 ────────────────────────────────────────────────────────
   ogre:             2,
-  gnoll_pack_lord:  2,
+  gnoll_pack_lord:         2,
   giant_constrictor_snake: 2,
-  lizardfolk_shaman: 2,
+  lizardfolk_shaman:       2,
   ghast:            2,
   // ── CR 3 ────────────────────────────────────────────────────────
   yeti:             3,

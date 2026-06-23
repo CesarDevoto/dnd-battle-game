@@ -13,6 +13,8 @@ export const ZONE = {
     { type: 'grassling', x: 6.71, z: 71.66, animOverrides: {idle:0,walk:2} },
     { type: 'wolf', x: -15.93, z: 57.04, animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
     { type: 'warg', x: -13.2, z: 56.66, scale: 1.1, animOverrides: {idle:3,walk:4,run:4,attack:0,death:1} },
+    { type: 'constrictor_snake', x: -11.14, z: 57.65 },
+    { type: 'snake', x: -8.67, z: 56.02 },
   ],
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: 0, arrivalZ: 36, label: 'Goblin Territory' },

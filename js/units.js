@@ -28,6 +28,9 @@ const MODEL_PATHS = {
   dwarf:      'assets/models/dwarf.glb',
   human:      'assets/models/barbarian.glb',
   halfling:   'assets/models/halfling.glb',
+  snake:                   'assets/models/snake.glb',
+  constrictor_snake:       'assets/models/snake.glb',
+  giant_constrictor_snake: 'assets/models/snake.glb',
   twig_blight: 'assets/models/twigblight.glb',
   hyena:        'assets/models/hyena.glb',
   wolf:         'assets/models/wolf.glb',
@@ -89,6 +92,16 @@ const ANIM_CLIP_NAMES = {
   // spellCast slot needed because dwarf has both a crossbow and separate spell animation
   dwarf: {
     walk: 'Walking', rangedAttack: 'Archery_Shot_1', spellCast: 'mage_soell_cast_7',
+  },
+  // Non-humanoid rig — no Hips/Pelvis bone; pin clips by name directly
+  snake: {
+    idle: 'Idle', walk: 'Side winding', attack: 'Bite', death: 'Death',
+  },
+  constrictor_snake: {
+    idle: 'Idle', walk: 'Side winding', attack: 'Bite', death: 'Death',
+  },
+  giant_constrictor_snake: {
+    idle: 'Idle', walk: 'Side winding', attack: 'Bite', death: 'Death',
   },
   // Angry_Ground_Stomp has a larger hip Y-range than Attack; pin Attack explicitly
   owlbear: {

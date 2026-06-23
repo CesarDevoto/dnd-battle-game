@@ -22,8 +22,8 @@ export const ZONE = {
     { type: 'stirge', x: -34.68, z: -21.04, yOff: 4.25 },
   ],
   exits: [
-    { x: -4, z: 44, targetZone: 'road_to_cragmaw', arrivalX: 3, arrivalZ: 85, label: 'Back to the Road' },
-    { x: 0, z: -26, targetZone: 'dungeon_hall', label: 'Stairs Down' },
+    { x: -44.43, z: -16.52, targetZone: 'road_to_cragmaw', arrivalX: 3, arrivalZ: 85, label: 'Back to the Road' },
+    { x: -4, z: 44, targetZone: 'dungeon_hall', label: 'Stairs Down' },
   ],
   terrain: [
     { x: 9.31, z: 15.7, h: -1.5, r: 11 },
