@@ -142,7 +142,5 @@ export const ZONE = {
     { model: 'saddlebag', x: 15.25, z: 11.21, y: 0.4133, rotY: 6.152, rotX: -1.0472, scale: 0.386 },
     { model: 'saddlebag', x: 17.26, z: 18.94, y: 1.4402, rotY: 3.142, rotX: 5.1051, scale: 0.386 },
     { model: 'investigate_star', x: 15.2, z: 10.79, y: 0.8177, yOff: 0.75, rotY: 0, scale: 1 },
-    { model: 'glowmushroom', x: -44.43, z: -16.52, y: 1.5534, rotY: 0, scale: 1 },
-    { model: 'glowmushroom', x: -4, z: 44, y: 1.5, rotY: 0, scale: 1 },
   ],
 };

@@ -117,6 +117,5 @@ export const ZONE = {
     { model: 'boulder', x: 44, z: -82, y: -0.2, rotY: 0.3, scale: 0.9 },
     { model: 'boulder', x: -6, z: -78, y: -0.0666, rotY: 2.1, scale: 1 },
     { model: 'foresttree', x: 60.67, z: -40.1, y: 0, rotY: 0, scale: 10 },
-    { model: 'glowmushroom', x: 3.32, z: 87.47, y: 0.2048, rotY: 0, scale: 1 },
   ],
 };
