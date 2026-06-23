@@ -3,6 +3,7 @@ import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
+import { registerPostCombatHandler } from './postCombat.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -46,14 +47,19 @@ registerDialogueScene({
   onDone: () => showChoiceUI(_buildChoices()),
 });
 
-// ── Combat hook (called from combat.js on victory) ────────────────────────────
+// ── Post-combat handler (priority 30) ────────────────────────────────────────
+// Fires after loot panel (10) and Dagna (20). If Dagna triggered a zone change,
+// this handler never runs — which is correct, since the players are gone.
 let _dialogueFired = false;
 
-export function onAmbushCombatEnd() {
-  if (_dialogueFired || _getActiveZoneIdFn?.() !== 'dungeon_entrance') return;
+registerPostCombatHandler(30, (ctx, done) => {
+  if (_dialogueFired || _getActiveZoneIdFn?.() !== 'dungeon_entrance') { done(); return; }
   _dialogueFired = true;
-  setTimeout(() => showQuickDialogue(_LINES, _showFootsteps), 800);
-}
+  setTimeout(() => showQuickDialogue(_LINES, () => {
+    _showFootsteps();
+    done();
+  }), 400);
+});
 
 // ── Pursuit trigger: fires after first hero move post-footsteps ───────────────
 let _waitingForMove = false;

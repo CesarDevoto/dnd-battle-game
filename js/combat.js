@@ -19,9 +19,9 @@ import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee } from './
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
 import { rollLoot, spawnLootOrb } from './loot.js';
+import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, getUnitAttackDuration, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
-import { onAmbushCombatEnd } from './ambushEvent.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
 // Maps sleeping unit → { roundsLeft, zzzEl }
@@ -1462,9 +1462,11 @@ function exitCombat() {
   _teardownCombat();
   stopCombatMusic();
   addLog('All threats cleared.', 'round');
-  onCombatEnd();
-  onAmbushCombatEnd();
+  // combat:ended fires immediately so game-state listeners (precombat, army, etc.) respond at once.
   window.dispatchEvent(new CustomEvent('combat:ended'));
+  // Narrative post-combat sequence (loot → Dagna if hero died → zone events).
+  // Handlers run in priority order; each calls done() to advance, or omits it to terminate.
+  runPostCombat({ isVictory: true });
 }
 
 // ── Defeat ────────────────────────────────────────────────────────────────────

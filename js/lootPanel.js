@@ -3,6 +3,7 @@
 import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { clearLootOrbs } from './loot.js';
+import { registerPostCombatHandler } from './postCombat.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 let _panelEl  = null;
@@ -11,21 +12,34 @@ let _allItems = [];   // flat list with assignedTo index (hero idx or null)
 let _heroes   = [];
 let _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
 let _perHero  = 0;
+let _done     = null; // post-combat sequencer callback
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// ── Register as first post-combat handler (priority 10) ──────────────────────
+// Runs only on victory. If there are drops, shows the panel and waits for
+// player input before calling done() to advance the sequence.
+// On defeat the panel never shows — zone:defeat listener clears orbs instead.
+registerPostCombatHandler(10, (ctx, done) => {
+  if (!_drops.length) { done(); return; }
+  _done = done;
+  _buildPanel();
+  _panelEl.style.display = 'flex';
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 export function initLootPanel() {
   _panelEl = document.getElementById('loot-panel');
   document.getElementById('lp-collect-btn')?.addEventListener('click', _collectLoot);
-  document.getElementById('lp-skip-btn')?.addEventListener('click', _close);
+  document.getElementById('lp-skip-btn')?.addEventListener('click', _skipLoot);
+  // Accumulate drops as enemies die during combat
   window.addEventListener('enemy:looted', e => _drops.push(e.detail));
-  window.addEventListener('combat:ended',  _onCombatEnd);
+  // On party wipe: clear orbs and drops silently — no panel
+  window.addEventListener('zone:defeat', _onDefeat);
 }
 
-// ── Show panel when combat ends ───────────────────────────────────────────────
-function _onCombatEnd() {
-  if (!_drops.length) return;
-  _buildPanel();
-  _panelEl.style.display = 'flex';
+function _onDefeat() {
+  _drops    = [];
+  _allItems = [];
+  clearLootOrbs();
 }
 
 // ── Build panel DOM ───────────────────────────────────────────────────────────
@@ -117,21 +131,20 @@ function _rarityLabel(rarity) {
 
 // ── Collect loot ──────────────────────────────────────────────────────────────
 function _collectLoot() {
-  // Gold split
+  // Gold split among living heroes
   _heroes.forEach(h => { h.gold = (h.gold ?? 0) + _perHero; });
 
-  // Remaining coin types on party leader
+  // Remainder and non-gp coins go on party leader
   if (_heroes.length) {
     const leader = _heroes[0];
     leader.partyCp = (leader.partyCp ?? 0) + _total.cp;
     leader.partySp = (leader.partySp ?? 0) + _total.sp;
     leader.partyPp = (leader.partyPp ?? 0) + _total.pp;
-    // Remainder gp not evenly split
     const remainder = _total.gp - _perHero * _heroes.length;
     if (remainder > 0) leader.gold = (leader.gold ?? 0) + remainder;
   }
 
-  // Assign items to heroes
+  // Assign items to chosen heroes
   _allItems.forEach(item => {
     if (item.assignedTo == null) return;
     const hero = _heroes[item.assignedTo];
@@ -145,15 +158,22 @@ function _collectLoot() {
     });
   });
 
-  _close();
+  _finish();
 }
 
-// ── Close / reset ─────────────────────────────────────────────────────────────
-function _close() {
+function _skipLoot() {
+  _finish();
+}
+
+// ── Shared teardown — advances the post-combat sequence ──────────────────────
+function _finish() {
   _panelEl.style.display = 'none';
   _drops    = [];
   _allItems = [];
   _heroes   = [];
   _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
   clearLootOrbs();
+  const advance = _done;
+  _done = null;
+  advance?.(); // hand off to the next post-combat handler (Dagna, zone event, etc.)
 }

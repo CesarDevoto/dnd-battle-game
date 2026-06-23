@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit } from './scene.js';
 import { units, corpses } from './units.js';
 import { getTerrainHeight } from './terrain.js';
+import { registerPostCombatHandler } from './postCombat.js';
 
 // Injected at init time to avoid circular deps (both importers of combat.js)
 let _removeUnitsFn      = null;
@@ -76,12 +77,23 @@ export function onHeroDied(u) {
   if (!_dagnaSeen) _heroDiedThisCombat = true;
 }
 
+// Called from endBattle() (party wipe) — Dagna still appears on full defeat.
 export function onCombatEnd() {
   if (!_heroDiedThisCombat || _dagnaSeen) return;
   _dagnaSeen = true;
   _heroDiedThisCombat = false;
   setTimeout(_startIntroA, 800);
 }
+
+// Post-combat handler (priority 20): fires after loot panel on victory only.
+// Intentionally does NOT call done() when Dagna triggers — her sequence ends
+// in a zone change, which terminates the post-combat chain naturally.
+registerPostCombatHandler(20, (ctx, done) => {
+  if (!_heroDiedThisCombat || _dagnaSeen) { done(); return; }
+  _dagnaSeen = true;
+  _heroDiedThisCombat = false;
+  setTimeout(_startIntroA, 800);
+});
 
 export function onEnemyKilled(u) {
   if (u.team !== 'red' || !_inStyxZone || _styxMissionDone) return;
