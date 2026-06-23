@@ -43,12 +43,12 @@ const SOUNDS = {
   snake_aggro:        { src: 'assets/Audio/combat/snake aggro.mp3',         category: 'combat' },
   snake_attack:       { src: 'assets/Audio/combat/snake attacking.mp3',     category: 'combat' },
   snake_moving:       { src: 'assets/Audio/combat/snake moving.mp3',        category: 'combat' },
-  stirge_aggro:       { src: 'assets/audio/combat/stirge aggro.mp3',        category: 'combat' },
-  stirge_attack:      { src: 'assets/audio/combat/stirge attack.mp3',       category: 'combat' },
-  stirge_moving:      { src: 'assets/audio/combat/stirge moving.mp3',       category: 'combat' },
-  ghoul_aggro:        { src: 'assets/audio/combat/ghoul aggro.mp3',         category: 'combat' },
-  ghoul_attack:       { src: 'assets/audio/combat/ghoul attack.mp3',        category: 'combat' },
-  ghoul_moving:       { src: 'assets/audio/combat/ghoul moving.mp3',        category: 'combat' },
+  stirge_aggro:       { src: 'assets/Audio/combat/stirge aggro.mp3',        category: 'combat' },
+  stirge_attack:      { src: 'assets/Audio/combat/stirge attack.mp3',       category: 'combat' },
+  stirge_moving:      { src: 'assets/Audio/combat/stirge moving.mp3',       category: 'combat' },
+  ghoul_aggro:        { src: 'assets/Audio/combat/ghoul aggro.mp3',         category: 'combat' },
+  ghoul_attack:       { src: 'assets/Audio/combat/ghoul attack.mp3',        category: 'combat' },
+  ghoul_moving:       { src: 'assets/Audio/combat/ghoul moving.mp3',        category: 'combat' },
   // Cutscene / prologue music
   prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
