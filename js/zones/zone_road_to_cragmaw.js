@@ -17,7 +17,7 @@ export const ZONE = {
     { type: 'snake', x: -8.67, z: 56.02 },
   ],
   exits: [
-    { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: 0, arrivalZ: 36, label: 'Goblin Territory' },
+    { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
   ],
   terrain: [
     { x: 17, z: 20, h: 3, r: 16 },

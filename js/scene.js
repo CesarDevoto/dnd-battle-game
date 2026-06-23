@@ -192,6 +192,20 @@ export function focusCameraOnUnit(unit) {
   _camFocusActive = true;
 }
 
+// Instantly teleport the camera to look at a unit, preserving orbit angle/distance.
+// Use on zone transitions so the camera doesn't lerp from the previous zone position.
+export function snapCameraToUnit(unit) {
+  if (!unit) return;
+  const p = unit.grp.position;
+  const newTarget = new THREE.Vector3(p.x, p.y + 1, p.z - 3);
+  const delta = newTarget.clone().sub(controls.target);
+  controls.target.copy(newTarget);
+  camera.position.add(delta);
+  _camFocusLook.copy(newTarget);
+  _followUnit = unit;
+  _camFocusActive = false; // updateCameraFocus re-activates via _followUnit each frame
+}
+
 // ── Top-view toggle ───────────────────────────────────────────────────────────
 
 // ── Scroll zoom ───────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
@@ -198,6 +198,8 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
       h.grp.position.set(pos.x, getTerrainHeight(pos.x, pos.z), pos.z);
       if (h.anchor) { h.anchor.x = pos.x; h.anchor.z = pos.z; }
     });
+    // Snap camera instantly to party leader — prevents lerping from the previous zone.
+    snapCameraToUnit(heroes[0]);
   } else {
     // Fresh load — place heroes if none exist yet
     const existing = units.filter(u => u.team === 'blue');
