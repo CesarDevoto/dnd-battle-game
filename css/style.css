@@ -2152,7 +2152,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 500;
   opacity: 1;
   transition: opacity 0.5s ease;
 }

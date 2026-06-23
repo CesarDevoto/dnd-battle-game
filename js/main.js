@@ -296,9 +296,10 @@ function dismissOverlay() {
   if (IS_DEV) {
     window.dispatchEvent(new CustomEvent('ui:ready'));
   } else {
+    // Show splash at full opacity BEFORE loading overlay fades — no gap where hotbars bleed through
     const splash = document.getElementById('splash-screen');
     splash.style.display = 'flex';
-    requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add('splash-visible')));
+    splash.classList.add('splash-visible');
     document.getElementById('splash-btn').addEventListener('click', () => {
       splash.classList.remove('splash-visible');
       splash.addEventListener('transitionend', () => splash.remove(), { once: true });
