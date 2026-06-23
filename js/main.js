@@ -303,6 +303,7 @@ function dismissOverlay() {
     document.getElementById('splash-btn').addEventListener('click', () => {
       splash.classList.remove('splash-visible');
       splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+      setTimeout(() => { if (splash.parentNode) splash.remove(); }, 1000);
       window.dispatchEvent(new CustomEvent('ui:ready'));
     }, { once: true });
   }
