@@ -49,6 +49,8 @@ const SOUNDS = {
   ghoul_aggro:        { src: 'assets/Audio/combat/ghoul aggro.mp3',         category: 'combat' },
   ghoul_attack:       { src: 'assets/Audio/combat/ghoul attack.mp3',        category: 'combat' },
   ghoul_moving:       { src: 'assets/Audio/combat/ghoul moving.mp3',        category: 'combat' },
+  zombie_attack:      { src: 'assets/Audio/combat/zombie attack.mp3',       category: 'combat' },
+  zombie_moving:      { src: 'assets/Audio/combat/zombie move.mp3',         category: 'combat' },
   // Cutscene / prologue music
   prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
@@ -254,6 +256,7 @@ const UNIT_SOUNDS = {
   giant_constrictor_snake: { aggro: 'snake_aggro', attack: 'snake_attack', move: 'snake_moving' },
   stirge:                 { aggro: 'stirge_aggro', attack: 'stirge_attack', move: 'stirge_moving' },
   ghoul:                  { aggro: 'ghoul_aggro',  attack: 'ghoul_attack',  move: 'ghoul_moving' },
+  zombie:                 { attack: 'zombie_attack', move: 'zombie_moving' },
   human:           { attack: 'human_attack' },
   halfling:        { attack: 'halfling_attack' },
   dwarf:           { attack: 'dwarf_attack' },
