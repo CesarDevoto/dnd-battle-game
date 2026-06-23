@@ -1,4 +1,5 @@
 import { CUTSCENE as CUTSCENE_INTRO } from './cutscenes/cutscene_intro.js';
+import { playCombatMusic, stopCombatMusic } from './audio.js';
 
 const _ORDER    = [CUTSCENE_INTRO];
 const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
@@ -24,6 +25,7 @@ export function triggerCutscene(trigger) {
 // ── player ────────────────────────────────────────────────────────────────────
 function _play(cs) {
   _cs = cs; _playing = true; _slideIdx = 0;
+  playCombatMusic('prologue_music');
   _overlay.style.display = 'flex';
   // double-rAF so display:flex has painted before opacity transition starts
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -87,6 +89,7 @@ function _advance() {
 
 function _finish() {
   if (_cs.playOnce) _markSeen(_cs.id);
+  stopCombatMusic();
   _overlay.classList.remove('cs-active');
   setTimeout(() => { _overlay.style.display = 'none'; _playing = false; _cs = null; }, 420);
 }
