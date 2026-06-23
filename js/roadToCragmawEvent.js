@@ -109,8 +109,8 @@ let _meshes   = [];
 let _texLeft  = null;
 let _texRight = null;
 let _t        = 0;
-const _COLOR_A   = new THREE.Color(0x0d2e0d);
-const _COLOR_B   = new THREE.Color(0xd4a017);
+const _COLOR_A   = new THREE.Color(0x1a0a04);  // dark brown
+const _COLOR_B   = new THREE.Color(0x4a2010);  // mid brown
 const _COLOR_TMP = new THREE.Color();
 
 function _showFootsteps() {
@@ -127,7 +127,10 @@ function _showFootsteps() {
         transparent: true,
         alphaTest:   0.08,
         depthWrite:  false,
-        depthTest:   false,
+        depthTest:   true,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
         side:        THREE.DoubleSide,
       });
       const geo = new THREE.PlaneGeometry(0.45, 0.70);

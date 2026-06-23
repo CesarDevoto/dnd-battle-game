@@ -128,8 +128,8 @@ let _meshes   = [];
 let _texLeft  = null;
 let _texRight = null;
 let _t        = 0;
-const _COLOR_A   = new THREE.Color(0x0d2e0d);  // dark green
-const _COLOR_B   = new THREE.Color(0xd4a017);  // gold
+const _COLOR_A   = new THREE.Color(0x1a0a04);  // dark brown
+const _COLOR_B   = new THREE.Color(0x4a2010);  // mid brown
 const _COLOR_TMP = new THREE.Color();
 
 // Waypoints traced by mushroom props — defines the trail path
@@ -214,7 +214,10 @@ function _showFootsteps() {
         transparent: true,
         alphaTest: 0.08,
         depthWrite: false,
-        depthTest: false,
+        depthTest: true,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
         side: THREE.DoubleSide,
       });
 
