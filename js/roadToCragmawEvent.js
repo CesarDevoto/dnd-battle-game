@@ -36,11 +36,10 @@ function _makeFootTex(mirror = false) {
   return tex;
 }
 
-// ── Trail waypoints — short trail from arrival portal to near the grassling ───
-// Ends ~15 footprints in, near the grassling at (6.71, 71.66).
+// ── Trail waypoints — heads southwest toward wolves/snakes, stops halfway ─────
 const _WAYPOINTS = [
   { x: -0.55, z: 87.39 },  // arrival portal area
-  { x:  6.71, z: 71.66 },  // grassling position
+  { x: -7.00, z: 72.00 },  // ~halfway to the wolf/snake cluster at (-13, 57)
 ];
 
 // Three walkers: lateral nudge + along-trail start offset (world units)
