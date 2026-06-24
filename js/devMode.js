@@ -184,6 +184,12 @@ export function initDevMode() {
     _syncDevLight();
   });
 
+  // Zone loads call snapCameraToUnit which re-sets _followUnit — release it in dev mode
+  // so the camera stays free instead of continuously chasing the hero.
+  window.addEventListener('zone:loaded', () => {
+    if (_dev) setFollowUnit(null);
+  });
+
   window.addEventListener('keydown', e => {
     // Don't intercept when typing in search boxes etc.
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
