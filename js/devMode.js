@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { camera, controls, scene, getFollowUnit } from './scene.js';
+import { camera, controls, scene, getFollowUnit, setFollowUnit } from './scene.js';
 import { SCENE, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { units, setUnitStealth } from './units.js';
@@ -236,6 +236,8 @@ function _toggle() {
       if (u.stealthed) setUnitStealth(u, false);
     }
     setPointLightOrbsVisible(true);
+    // Release camera from hero-follow so WASD is fully free in dev view
+    setFollowUnit(null);
   }
 
   _applyCamera();

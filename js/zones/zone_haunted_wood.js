@@ -4,10 +4,10 @@ export const ZONE = {
   groundSize: 216,
   biome: 'graveyard',
   heroEntry: [
-    { x: -73, z: 73, type: 'dwarf' },
-    { x: -71, z: 73, type: 'human' },
-    { x: -73, z: 75, type: 'elf' },
-    { x: -71, z: 75, type: 'halfling' },
+    { x: -83, z: 77, type: 'dwarf' },
+    { x: -81, z: 77, type: 'human' },
+    { x: -83, z: 79, type: 'elf' },
+    { x: -81, z: 79, type: 'halfling' },
   ],
   enemies: [
     // First encounter — skeletons and zombie, near SW entry
@@ -23,7 +23,7 @@ export const ZONE = {
     { type: 'wight',    x:  58, z: -48 },
   ],
   exits: [
-    { x: -82, z: 82, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw' },
+    { x: -82, z: 70, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw', fogPush: 16, fogOffsetZ: 1 },
   ],
   terrain: [
     { x: 40, z: -30, h: 2.5, r: 18 },

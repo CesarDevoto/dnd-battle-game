@@ -39,6 +39,7 @@ export function setPrecombatFrozen(frozen) {
 export function enterPrecombat(silent = false) {
   _active   = true;
   _aggroed  = false;
+  _frozen   = false;
   _selected = null;
   if (!silent) addLog('Heroes approach… enemies are unaware.', 'move');
 }

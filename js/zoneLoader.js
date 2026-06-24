@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches } from './terrain.js';
-import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
+import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
@@ -122,9 +122,9 @@ function _buildExitMarker(exit) {
   const eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
   const dirX  = exit.x / eDist;
   const dirZ  = exit.z / eDist;
-  const PUSH  = 7.0;
-  const wx    = exit.x + dirX * PUSH;
-  const wz    = exit.z + dirZ * PUSH;
+  const PUSH  = exit.fogPush ?? 7.0;
+  const wx    = exit.x + dirX * PUSH + (exit.fogOffsetX ?? 0);
+  const wz    = exit.z + dirZ * PUSH + (exit.fogOffsetZ ?? 0);
   const gy    = getTerrainHeight(wx, wz);
   const BALL_Y = 1.8;   // float above ground
 
@@ -442,6 +442,21 @@ export function initZoneUI() {
     if (!hits.length) return;
     const exit = hits.find(h => h.object.userData.exit)?.object.userData.exit;
     if (!exit) return;
+    // Require at least one hero within 1 square of the fog ball center.
+    // The ball is pushed fogPush WU along the exit direction — check against
+    // that world position, not the raw exit disc coordinates.
+    const _eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
+    const _push  = exit.fogPush ?? 7.0;
+    const _fogX  = exit.x + (exit.x / _eDist) * _push;
+    const _fogZ  = exit.z + (exit.z / _eDist) * _push;
+    const _r     = WORLD_UNITS_PER_SQUARE;
+    const nearEnough = units.some(u => {
+      if (u.team !== 'blue' || u.hp <= 0) return false;
+      const dx = u.grp.position.x - _fogX;
+      const dz = u.grp.position.z - _fogZ;
+      return dx * dx + dz * dz <= _r * _r;
+    });
+    if (!nearEnough) return;
     e.stopImmediatePropagation();
     _transitioning = true;
     const ap = exit.arrivalX != null ? { x: exit.arrivalX, z: exit.arrivalZ } : null;
@@ -517,7 +532,7 @@ export function initZoneUI() {
 
     listEl.addEventListener('click', e => {
       const loadBtn = e.target.closest('.zone-btn');
-      if (loadBtn) { loadZone(loadBtn.dataset.zone, false); return; }
+      if (loadBtn) { loadZone(loadBtn.dataset.zone, true); return; }
 
       const delBtn = e.target.closest('.zone-del-btn');
       if (delBtn) {
@@ -574,7 +589,7 @@ export function initZoneUI() {
 
       listEl?.appendChild(_makeZoneRow(zone.id, zone.name));
       _hideCreateForm();
-      loadZone(zone.id, false);  // switch to new zone + set localStorage for HMR auto-resume
+      loadZone(zone.id, true);  // switch to new zone + set localStorage for HMR auto-resume
     } catch (err) {
       console.error('[createZone]', err);
       if (statusEl) statusEl.textContent = `Error: ${err.message}`;
@@ -642,17 +657,11 @@ function _fullReset() {
 
 function _showSetupAfterTransition() {
   resetToSetup();
-  if (IS_DEV) {
-    ['setup-panel-zones', 'setup-panel-cutscenes', 'start-battle-btn-wrap'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = '';
-    });
-  } else {
-    document.getElementById('start-battle-btn')?.click();
-    // start-battle-btn resets the camera to the default scene position — override
-    // it immediately so the camera stays on the arriving heroes and ground
-    // raycasting works correctly for movement clicks from the first frame.
-    const firstHero = units.find(u => u.team === 'blue' && u.hp > 0);
-    if (firstHero) snapCameraToUnit(firstHero);
-  }
+  // Always auto-proceed into precombat on zone transitions — dev setup panels
+  // are for initial zone loads from the panel, not mid-gameplay transitions.
+  document.getElementById('start-battle-btn')?.click();
+  // start-battle-btn resets camera to default scene position; re-snap to heroes
+  // immediately so raycasting and camera are correct from the first frame.
+  const firstHero = units.find(u => u.team === 'blue' && u.hp > 0);
+  if (firstHero) snapCameraToUnit(firstHero);
 }
