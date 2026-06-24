@@ -1,5 +1,6 @@
 import { units } from './units.js';
 import { WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
+import { isDevMode } from './devMode.js';
 
 // 200ft = 80 WU (sleep), 180ft = 72 WU (wake) — hysteresis prevents edge thrashing
 const FT_PER_WU = GRID_SQUARE_FEET / WORLD_UNITS_PER_SQUARE; // 2.5 ft per WU
@@ -35,6 +36,24 @@ function _minDistToHeroes(wx, wz, heroes) {
 }
 
 export function tickActivationRadius(props) {
+  // Dev mode: bypass distance culling
+  if (isDevMode()) {
+    // Props: only clear activation/fade state — prop editor controls visibility directly
+    for (const p of props) {
+      if (!p.mesh) continue;
+      p._active = true;
+      p._opacity = 1;
+    }
+    // Enemies: force all visible and awake
+    for (const u of units) {
+      if (u.team !== 'red' || u.hp <= 0) continue;
+      if (!u.grp.visible) u.grp.visible = true;
+      if (u._opacity !== 1) { _applyOpacity(u.grp, 1); u._opacity = 1; }
+      u.dormant = false;
+    }
+    return;
+  }
+
   const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
   if (!heroes.length) return;
 

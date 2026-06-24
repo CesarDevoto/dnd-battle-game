@@ -581,7 +581,7 @@ export const UNIT_TYPES = {
 
   swarm_of_insects: {
     name: 'Swarm of Insects', team: 'red',
-    scale: [0.80, 0.80, 0.80], anchorY: 0.8,
+    scale: [0.80, 0.80, 0.80], anchorY: 0.8, hoverY: 2,
     hp: 22, ac: 12, speed: 20, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 3, dex: 13, con: 10, int: 1, wis: 7, cha: 1 },
     attacks: [

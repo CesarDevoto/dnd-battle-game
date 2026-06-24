@@ -3,6 +3,7 @@ export const ZONE = {
   name: 'Haunted Wood',
   groundSize: 216,
   biome: 'graveyard',
+  ambient: 'haunted_wood',
   heroEntry: [
     { x: -83, z: 77, type: 'dwarf' },
     { x: -81, z: 77, type: 'human' },

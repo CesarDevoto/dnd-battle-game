@@ -122,6 +122,10 @@ const ANIM_CLIP_NAMES = {
   kobold: {
     walk: 'Walking', rangedAttack: 'Archery_Shot_1',
   },
+  // No dedicated idle clip — use Walking for idle so the fallback doesn't assign Dead.
+  twig_blight: {
+    idle: 'Walking', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+  },
 };
 
 // Auto-detect animation roles by analysing Hips/Root bone Y-axis movement in each clip.
