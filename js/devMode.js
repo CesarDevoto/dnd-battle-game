@@ -20,7 +20,8 @@ scene.add(_devSkyLight);
 let _currentEnv = 'forest';
 
 function _syncDevLight() {
-  _devSkyLight.intensity = (_dev && _currentEnv === 'dungeon') ? 3.0 : 0;
+  const darkEnv = _currentEnv === 'dungeon' || _currentEnv === 'graveyard';
+  _devSkyLight.intensity = (_dev && darkEnv) ? 3.0 : 0;
 }
 
 export const isDevMode = () => _dev;

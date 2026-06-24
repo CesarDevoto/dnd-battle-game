@@ -1000,10 +1000,10 @@ export const ENVS = {
     rimColor:  0xff4400, rimInt:  1.08,
   },
   graveyard: {
-    sky: 0x0c0e16, fog: 0x14182a, density: 0.052, ground: 0x1e2030,
-    ambColor: 0x1e2438, ambInt: 4.2,
-    moonColor: 0xa8b4cc, moonInt: 3.6,
-    rimColor:  0x4a5878, rimInt:  1.2,
+    sky: 0x060810, fog: 0x0a0e1a, density: 0.052, ground: 0x1e2030,
+    ambColor: 0x080c18, ambInt: 1.4,
+    moonColor: 0xa8b4cc, moonInt: 0.0,
+    rimColor:  0x4a5878, rimInt:  0.0,
   },
   dungeon: {
     sky: 0x050505, fog: 0x080808, density: 0.028, ground: 0x0c0c0c,

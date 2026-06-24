@@ -288,8 +288,9 @@ function clearProps() {
 const _heroDungeonLights = [];
 
 export function addUnitDungeonLight(grp) {
-  if (activeEnv !== 'dungeon') return;
-  const light = new THREE.PointLight(0xffcc88, 12, 320, 2);
+  if (activeEnv !== 'dungeon' && activeEnv !== 'graveyard') return;
+  const isDungeon = activeEnv === 'dungeon';
+  const light = new THREE.PointLight(isDungeon ? 0xffcc88 : 0xd0e8ff, isDungeon ? 12 : 8, isDungeon ? 320 : 260, 2);
   light.position.set(0, 1.5, 0);
   grp.add(light);
   _heroDungeonLights.push({ light, grp });
@@ -1635,7 +1636,7 @@ export function setEnv(name, ambientKey) {
   fire.color.set(e.rimColor);
   fire.intensity = e.rimInt;
 
-  if (name === 'dungeon') {
+  if (name === 'dungeon' || name === 'graveyard') {
     moon.intensity = 0;
     fire.intensity = 0;
   } else {

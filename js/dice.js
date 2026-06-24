@@ -1,5 +1,3 @@
-import { show3DRoll } from './dice3d.js';
-
 // ── Core die functions ────────────────────────────────────────────────────────
 
 export function rollDie(sides) {

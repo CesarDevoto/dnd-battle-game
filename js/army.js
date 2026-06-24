@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFollowUnit } from './scene.js';
+import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
@@ -242,6 +242,19 @@ window.addEventListener('combat:ended', () => {
   camera.position.add(newTarget).sub(controls.target);
   controls.target.copy(newTarget);
   controls.update();
+});
+
+// Re-select and re-snap after the full post-combat sequence (loot panel etc.)
+// so the player is immediately ready to move right after the loot window closes.
+// Dagna's handler never calls done() so postcombat:done won't fire when she triggers.
+window.addEventListener('postcombat:done', () => {
+  const firstHero = _HERO_TAB_ORDER
+    .map(type => units.find(u => u.type === type && u.team === 'blue' && u.hp > 0))
+    .find(Boolean);
+  if (!firstHero) return;
+  _selectHero(firstHero);
+  setGroupMove(true);
+  snapCameraToUnit(firstHero);
 });
 
 // ── Keyboard shortcuts (play mode) ────────────────────────────────────────────

@@ -5,7 +5,6 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed } from './dice.js';
-import { clearDiceQueue, showHitBanner, showMissBanner } from './dice3d.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
@@ -2789,7 +2788,6 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
 
 export function activateTurn(index) {
   clearRollFeed();
-  clearDiceQueue();
   buildTurnList();
   // Transfer barForced to the newly-active unit so its health bar stays visible
   units.forEach(u => u.barForced = false);
