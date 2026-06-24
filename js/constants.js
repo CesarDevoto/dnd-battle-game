@@ -829,7 +829,7 @@ export const UNIT_TYPES = {
     hp: 19, ac: 14, speed: 30, initiative: 0,
     hitDie: 12,
     profBonus: 2, xpNext: 300,
-    rage: { uses: 2, dmgBonus: 2, duration: 10 },
+    rage: { uses: 3, dmgBonus: 2 },
     abilities: { str: 16, dex: 12, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },

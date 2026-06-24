@@ -1139,8 +1139,7 @@ function _checkHidePerception(hero) {
 // ── Rage ─────────────────────────────────────────────────────────────────────
 
 function activateRage(u) {
-  u.raging     = true;
-  u.rageRounds = UNIT_TYPES[u.type].rage.duration;
+  u.raging  = true;
   u.rageUses--;
   turnBonusActioned = true;
   playSound('berserker_rage');
@@ -1438,7 +1437,7 @@ function _teardownCombat() {
   clearBless();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
-  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; });
+  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
   meleeRangeRing.visible = false;
@@ -2259,10 +2258,11 @@ export function rollInitiative() {
   units.forEach(u => {
     const rageDef = UNIT_TYPES[u.type]?.rage;
     if (rageDef) {
-      u.raging      = false;
-      u.rageUses    = rageDef.uses;
-      u.rageUsesMax = rageDef.uses;
-      u.rageRounds  = 0;
+      u.raging = false;
+      if (u.rageUses === undefined) {
+        u.rageUses    = rageDef.uses;
+        u.rageUsesMax = rageDef.uses;
+      }
     }
     // Level 2 ability state reset each battle
     if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
@@ -2942,8 +2942,7 @@ function doEndTurn() {
   // Rage ends if barbarian didn't attack this turn
   const cur = turnOrder[turnIndex];
   if (cur?.raging && !turnAttacked && UNIT_TYPES[cur.type]?.rage) {
-    cur.raging     = false;
-    cur.rageRounds = 0;
+    cur.raging = false;
     addLog(`${unitLabel(cur)}'s Rage ends (no attack)`, 'dmg');
   }
 
@@ -2956,13 +2955,6 @@ function doEndTurn() {
     tickBless();
     tickSleep();
     units.forEach(u => {
-      if (u.raging) {
-        u.rageRounds--;
-        if (u.rageRounds <= 0) {
-          u.raging = false;
-          addLog(`${unitLabel(u)}'s Rage expires`, 'dmg');
-        }
-      }
       if (u.defStanceActive) {
         u.defStanceRounds--;
         if (u.defStanceRounds <= 0) {

@@ -358,7 +358,7 @@ function buildActionsPanelHTML(u) {
         <span class="ss-rage-dmg">+${rageDef.dmgBonus} melee damage</span>
         <span class="ss-rage-resist">½ physical damage</span>
       </div>
-      <div class="ss-rage-desc">Lasts ${rageDef.duration} rounds or until no attack this turn</div>
+      <div class="ss-rage-desc">Lasts full combat · ends if no attack this turn · ${rageDef.uses} uses per long rest</div>
     </div>` : `<div class="ss-spell-empty">— none —</div>`;
 
   // ── Reactions ──────────────────────────────────────────────────────────────

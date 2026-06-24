@@ -152,7 +152,7 @@ export function updateHeroUI() {
     if (refs.condEl) {
       let badges = '';
       if (u && u.raging)
-        badges += `<span class="cond-badge cond-rage">⚔ Raging<span class="cond-turns">${u.rageRounds}t</span></span>`;
+        badges += `<span class="cond-badge cond-rage">⚔ Raging</span>`;
       if (u && u.defStanceActive)
         badges += `<span class="cond-badge cond-stance">🛡 Def Stance<span class="cond-turns">${u.defStanceRounds}t</span></span>`;
       if (u && u.mageArmored)
