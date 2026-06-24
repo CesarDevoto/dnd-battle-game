@@ -42,6 +42,7 @@ let _portalLight  = null; // THREE.PointLight added/removed per-sequence
 const _loader = new GLTFLoader();
 let _dagnaGrp        = null;
 let _dagnaMixer      = null;
+let _dagnaIdleAction = null;
 let _dagnaWalkAction = null;
 let _dagnaLight      = null; // THREE.PointLight parented to Dagna's group
 
@@ -256,13 +257,16 @@ function _spawnDagna(at, facing, onReady) {
     const clips = gltf.animations ?? [];
     _dagnaMixer = new THREE.AnimationMixer(_dagnaGrp);
 
+    const idleClip = clips.find(c => /idle/i.test(c.name)) ?? clips[0];
     const walkClip = clips.find(c => /walk/i.test(c.name))
                   ?? clips.find(c => /run/i.test(c.name))
-                  ?? clips[1]
-                  ?? clips[0];
+                  ?? clips[1];
+    if (idleClip) {
+      _dagnaIdleAction = _dagnaMixer.clipAction(idleClip);
+      _dagnaIdleAction.play();
+    }
     if (walkClip) {
       _dagnaWalkAction = _dagnaMixer.clipAction(walkClip);
-      _dagnaWalkAction.play();
     }
     onReady?.();
   });
@@ -274,6 +278,7 @@ function _removeDagna() {
   scene.remove(_dagnaGrp);
   _dagnaGrp = null;
   _dagnaMixer = null;
+  _dagnaIdleAction = null;
   _dagnaWalkAction = null;
   _moveActive = false;
   _moveOnDone = null;
@@ -286,6 +291,12 @@ function _startMove(from, to, dur, onDone) {
   _moveDur    = dur;
   _moveOnDone = onDone;
   _moveActive = true;
+  if (_dagnaIdleAction && _dagnaWalkAction) {
+    _dagnaWalkAction.reset().play();
+    _dagnaIdleAction.crossFadeTo(_dagnaWalkAction, 0.3, false);
+  } else if (_dagnaWalkAction) {
+    _dagnaWalkAction.reset().play();
+  }
 }
 
 function _tickMove(dt) {
@@ -294,7 +305,12 @@ function _tickMove(dt) {
   _dagnaGrp.position.lerpVectors(_moveStart, _moveEnd, _moveCurr / _moveDur);
   if (_moveCurr >= _moveDur) {
     _moveActive = false;
-    if (_dagnaWalkAction) { _dagnaWalkAction.stop(); _dagnaWalkAction = null; }
+    if (_dagnaIdleAction && _dagnaWalkAction) {
+      _dagnaIdleAction.reset().play();
+      _dagnaWalkAction.crossFadeTo(_dagnaIdleAction, 0.3, false);
+    } else if (_dagnaWalkAction) {
+      _dagnaWalkAction.stop();
+    }
     const cb = _moveOnDone;
     _moveOnDone = null;
     cb?.();

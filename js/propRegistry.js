@@ -5,8 +5,8 @@ import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubb
 
 export const PROP_MODELS = {
   // ── GLB assets ────────────────────────────────────────────────────────────────
-  deadhorse:    { label: 'Dead Horse',  path: 'assets/models/Deadhorse.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
-  wagonhorses:  { label: 'Wagon Horses',path: 'assets/models/Wagonhorses.glb',         defaultScale: 1.0, blocksLOS: true,  clashR: 1.5  },
+  deadhorse:    { label: 'Dead Horse',  path: 'assets/models/deadhorse.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
+  wagonhorses:  { label: 'Wagon Horses',path: 'assets/models/wagonhorses.glb',         defaultScale: 1.0, blocksLOS: true,  clashR: 1.5  },
   tombstone:    { label: 'Tombstone',   path: 'assets/environment/tombstone1.glb',     defaultScale: 1.0, blocksLOS: true,  clashR: 0.6  },
   deadtree:     { label: 'Dead Tree',   path: 'assets/environment/deadtree.glb',        defaultScale: 1.2, blocksLOS: true,  clashR: 0.9  },
   brokentree:   { label: 'Broken Tree', path: 'assets/environment/brokentree.glb',      defaultScale: 1.0, blocksLOS: true,  clashR: 0.7  },
