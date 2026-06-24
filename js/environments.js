@@ -262,6 +262,13 @@ export function getSurfaceHeight(x, z) {
 export const activeProps = [];
 export const propPositions    = [];
 export const losBlockerMeshes = [];
+export const barrierSegments  = []; // [{x1,z1,x2,z2}] — impassable lines for movement BFS
+
+export function loadBarriersData(arr) {
+  barrierSegments.length = 0;
+  if (arr?.length) for (const b of arr) barrierSegments.push({ x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2 });
+}
+export function clearBarriersData() { barrierSegments.length = 0; }
 
 function _disposeObject(obj) {
   obj.traverse(child => {

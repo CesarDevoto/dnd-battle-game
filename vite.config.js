@@ -327,6 +327,55 @@ function _removeZoneFromLoader(id) {
   fs.writeFileSync(loaderPath, src, 'utf-8');
 }
 
+function saveZoneBarriersPlugin() {
+  return {
+    name: 'save-zone-barriers',
+    configureServer(server) {
+      server.middlewares.use('/__save_zone_barriers', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, barriers } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath))
+              throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+
+            const r = (n) => Math.round(n * 1e4) / 1e4;
+            const itemLines = barriers.map(b =>
+              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`
+            );
+            const barriersBlock = barriers.length
+              ? `  barriers: [\n${itemLines.join('\n')}\n  ],`
+              : `  barriers: [],`;
+
+            if (/[ \t]*barriers\s*:/.test(src)) {
+              src = src.replace(/[ \t]*barriers\s*:[\s\S]*?\],?/, barriersBlock);
+            } else {
+              src = src.replace(/^(\};)/m, `${barriersBlock}\n$1`);
+            }
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 function createZonePlugin() {
   return {
     name: 'create-zone',
@@ -402,5 +451,5 @@ function deleteZonePlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), createZonePlugin(), deleteZonePlugin()],
 });

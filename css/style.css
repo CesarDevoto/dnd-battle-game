@@ -5612,6 +5612,34 @@ td.bst-col-retired { color: #343228 !important; }
 #te-save-status.te-save-status-ok    { color: #88ff66; }
 #te-save-status.te-save-status-error { color: #ff6644; }
 
+.te-section-divider {
+  font-size: 0.60rem;
+  color: #7a5020;
+  letter-spacing: 1px;
+  margin: 6px 0 4px;
+  text-align: center;
+}
+.te-status-small {
+  font-size: 0.62rem;
+  color: #c8822a;
+  min-height: 14px;
+  margin-bottom: 2px;
+}
+#te-barrier-draw-btn.active {
+  background: rgba(255, 100, 0, 0.25);
+  border-color: #ff6600;
+  color: #ffaa44;
+}
+#te-barrier-save-status {
+  font-size: 0.68rem;
+  font-family: var(--font-fantasy);
+  color: #aaaaaa;
+  min-height: 12px;
+  transition: opacity 0.4s;
+}
+#te-barrier-save-status.te-save-status-ok    { color: #88ff66; }
+#te-barrier-save-status.te-save-status-error { color: #ff6644; }
+
 /* ── NPC Editor button ──────────────────────────────────────────────── */
 /* ── NPC Editor panel ───────────────────────────────────────────────── */
 #npc-editor-panel {

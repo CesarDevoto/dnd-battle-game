@@ -3,6 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
+import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove } from './barrierEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -408,6 +409,13 @@ export function initTerrainEditor() {
   renderer.domElement.addEventListener('click', e => {
     if (!_open) return;
     e.stopImmediatePropagation();
+
+    // Barrier draw mode intercepts all terrain clicks
+    if (isBarrierModeActive()) {
+      const pt = _groundPt(e.clientX, e.clientY);
+      if (pt) handleBarrierClick(pt);
+      return;
+    }
 
     const idx = _pickMarker(e.clientX, e.clientY);
     if (idx >= 0) {

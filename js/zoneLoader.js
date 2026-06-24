@@ -7,6 +7,7 @@ import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
+import { loadBarrierVisuals } from './barrierEditor.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
@@ -235,6 +236,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   } else {
     setEnv(zone.biome, zone.ambient);
   }
+
+  // Load barrier segments (collision data + dev visuals)
+  loadBarrierVisuals(zone.barriers ?? []);
   _postCombat = false;
 
   // Place heroes (initial load) or reposition existing ones (zone transition)

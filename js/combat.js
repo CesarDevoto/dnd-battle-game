@@ -6,7 +6,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
-import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv } from './environments.js';
+import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
@@ -546,6 +546,21 @@ function hasPropClash(x, z) {
   });
 }
 
+// Returns true if the step from (ax,az) to (bx,bz) crosses any barrier segment.
+function crossesBarrier(ax, az, bx, bz) {
+  for (const s of barrierSegments) {
+    const rx = bx - ax, rz = bz - az;
+    const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
+    const denom = rx * sz - rz * sx;
+    if (Math.abs(denom) < 1e-9) continue; // parallel
+    const qpx = s.x1 - ax, qpz = s.z1 - az;
+    const t = (qpx * sz - qpz * sx) / denom;
+    const u = (qpx * rz - qpz * rx) / denom;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+  }
+  return false;
+}
+
 // 3-D line-of-sight: cast a ray from the attacker's eye to the target's eye.
 // Hits on prop meshes that are above eye level (tree canopy, elevated foliage)
 // are ignored — only trunk/boulder-height obstructions block.
@@ -653,7 +668,8 @@ function findPath(sx, sz, tx, tz) {
       const k  = key(nx, nz);
       if (parent.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
-      if (hasPropClash(nx, nz)) continue;   // prop tiles are always impassable
+      if (hasPropClash(nx, nz)) continue;
+      if (crossesBarrier(x, z, nx, nz)) continue;
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
     }
@@ -768,6 +784,7 @@ function showMoveRange(u, overrideFt) {
       if (Math.abs(tx) > _halfGroundSize || Math.abs(tz) > _halfGroundSize) continue;
       if (isOccupied(tx, tz, u)) continue;
       if (hasPropClash(tx, tz)) continue;
+      if (crossesBarrier(ux, uz, tx, tz)) continue;
       validTiles.add(`${tx},${tz}`);
     }
   }
