@@ -494,12 +494,13 @@ const _BUST_SRC = {
   Milo:    '/assets/Pictures%20Cutscenes%20Icons/milobust.jpg',
   Gobo:    '/assets/Pictures%20Cutscenes%20Icons/Gobobust.jpg',
   Rasec:   '/assets/Pictures%20Cutscenes%20Icons/Rasecbust.jpg',
+  Floosh:  '/assets/pictures%20cutscenes%20icons/grassling.jpg',
 };
 
 function _renderLine() {
   const l = _lines[_lineIdx];
   const isDagna   = l.s === 'Dagna';
-  const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec' };
+  const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec', Floosh: 'dlg-speaker-floosh' };
   const speakerEl = _dlgEl.querySelector('.dagna-dlg-speaker');
   speakerEl.textContent = l.s;
   speakerEl.className   = 'dagna-dlg-speaker' + (isDagna ? '' : ` ${_SPEAKER_CLS[l.s] ?? 'dlg-speaker-leugren'}`);

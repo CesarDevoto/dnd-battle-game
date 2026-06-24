@@ -1,6 +1,53 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
+import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
+import { units } from './units.js';
+
+// ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
+
+const _KEY_INTRO = 'dnd-floosh-intro-seen';
+const _KEY_QUEST = 'dnd-floosh-quest-seen';
+
+// Grassling (Floosh) world position in road_to_cragmaw
+const _FLOOSH_X  = 6.71;
+const _FLOOSH_Z  = 71.66;
+const _PROX_SQ   = 36;    // 15 ft = 6 WU  →  6² = 36
+
+let _watchingProximity = false;
+
+const _INTRO_LINES = [
+  { s: 'Milo',    t: "Ahead! I've lost the tracks! What now?" },
+  { s: 'Leugren', t: "We must keep looking! Those fiends can't have gotten far!" },
+  { s: 'Floosh',  t: "Hail, noble giants! Over here!" },
+];
+
+const _QUEST_LINES = [
+  { s: 'Floosh', t: "I am Floosh, voice of King Sproutling the Third, Lord of the fields of Neverwinter Wood, and his verdant kin. By your path you must be following the goblin spoor." },
+  { s: 'Gobo',   t: "Aye, those green-skinned cretins took two of our friends prisoner. Can you help us find them?" },
+  { s: 'Floosh', t: "What's wrong with green skin? Verily, I know the path the goblins took, but beware for our woods are cursed! Shambling zombies and undead roam the forest, devouring every beast they find. No deer, no rabbits — nothing to leave noble droppings to nourish our soil. Our people wither!" },
+  { s: 'Floosh', t: "Rid our forest of these abominations, brave ones, and I shall personally guide you straight to the goblins you seek. This I swear on the deepest roots." },
+];
+
+const _ACCEPT_LINES = [
+  { s: 'Gobo',   t: "You've got yourself a deal, little sprout. Point us toward the undead." },
+  { s: 'Floosh', t: "Follow me when you are ready! May the soil strengthen your steps!" },
+];
+
+registerDialogueScene({ id: 'dlg_floosh_intro', name: 'Floosh — Zone Entry',   lines: _INTRO_LINES });
+registerDialogueScene({ id: 'dlg_floosh_quest', name: 'Floosh — Quest Offer',  lines: _QUEST_LINES });
+registerDialogueScene({ id: 'dlg_floosh_accept', name: 'Floosh — Accept Quest', lines: _ACCEPT_LINES });
+
+function _startQuestDialogue() {
+  _watchingProximity = false;
+  try { localStorage.setItem(_KEY_QUEST, '1'); } catch {}
+  showQuickDialogue(_QUEST_LINES, () => {
+    showChoiceUI([
+      { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES) },
+      { label: 'Decline',      onPick: null },
+    ]);
+  });
+}
 
 // ── Footprint texture (canvas-drawn bare-foot silhouette) ─────────────────────
 function _makeFootTex(mirror = false) {
@@ -134,18 +181,52 @@ function _hideFootsteps() {
   _texRight?.dispose(); _texRight = null;
 }
 
-// ── Tick: fade-in + pulse color ───────────────────────────────────────────────
+// ── Tick: footprint fade-in + pulse color, proximity watch ───────────────────
 export function tickRoadToCragmaw(dt) {
-  if (!_meshes.length) return;
-  _t += dt * 1.4;
-  _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
-  const opacity = _fadeIn < 1 ? (_fadeIn = Math.min(1, _fadeIn + dt / 1.5)) : 1;
-  for (const m of _meshes) {
-    m.material.color.copy(_COLOR_TMP);
-    if (opacity < 1) m.material.opacity = opacity;
+  if (_meshes.length) {
+    _t += dt * 1.4;
+    _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
+    const opacity = _fadeIn < 1 ? (_fadeIn = Math.min(1, _fadeIn + dt / 1.5)) : 1;
+    for (const m of _meshes) {
+      m.material.color.copy(_COLOR_TMP);
+      if (opacity < 1) m.material.opacity = opacity;
+    }
+  }
+
+  if (_watchingProximity) {
+    for (const u of units) {
+      if (u.team !== 'blue' || u.hp <= 0) continue;
+      const dx = u.grp.position.x - _FLOOSH_X;
+      const dz = u.grp.position.z - _FLOOSH_Z;
+      if (dx * dx + dz * dz <= _PROX_SQ) {
+        _startQuestDialogue();
+        break;
+      }
+    }
   }
 }
 
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
-window.addEventListener('zone:loaded',  e => { if (e.detail?.id === 'road_to_cragmaw') _showFootsteps(); });
-window.addEventListener('zone:loading', _hideFootsteps);
+window.addEventListener('zone:loaded', e => {
+  if (e.detail?.id !== 'road_to_cragmaw') return;
+  _showFootsteps();
+
+  try {
+    if (!localStorage.getItem(_KEY_INTRO)) {
+      localStorage.setItem(_KEY_INTRO, '1');
+      setTimeout(() => {
+        showQuickDialogue(_INTRO_LINES, () => {
+          if (!localStorage.getItem(_KEY_QUEST)) _watchingProximity = true;
+        });
+      }, 1200);
+    } else if (!localStorage.getItem(_KEY_QUEST)) {
+      // Intro already seen but quest not yet triggered — re-arm proximity watch
+      _watchingProximity = true;
+    }
+  } catch {}
+});
+
+window.addEventListener('zone:loading', () => {
+  _hideFootsteps();
+  _watchingProximity = false;
+});

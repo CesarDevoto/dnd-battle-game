@@ -7,17 +7,6 @@ export const WORLD_UNITS_PER_SQUARE = 2;   // 2 Three.js world units = 1 grid sq
 export const GROUND_SIZE            = 108; // ground plane side length (world units)
 export const GRID_DIVISIONS         = 54;  // GridHelper line count
 
-// Playfield boundaries per team (world coords, z=0 is centre divider)
-// Enemies (red) = north = negative Z.  Heroes (blue) = south = positive Z.
-export const BOUNDS = {
-  red:      { zMin: -32, zMax: 15.5 },   // enemies — north 75%
-  blue:     { zMin: 16.5, zMax:  32 },   // heroes  — south 25%
-  xMax:     32,
-  autoRed:  { zMin: -30, zMax: 13   },
-  autoBlue: { zMin: 18,  zMax:  30  },
-  autoXMax: 14,
-};
-
 // Fixed 5 × 5 grid square (10 × 10 WU) hero start zone at the south edge.
 // Props must not spawn here; heroes always auto-place inside these bounds.
 export const HERO_ZONE = { xMin: -5, xMax: 5, zMin: 22, zMax: 32 };

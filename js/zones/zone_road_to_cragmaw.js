@@ -18,6 +18,7 @@ export const ZONE = {
   ],
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
+    { x: 82, z: -82, targetZone: 'haunted_wood', arrivalX: -74, arrivalZ: 74, label: 'Haunted Wood' },
   ],
   terrain: [
     { x: 17, z: 20, h: 3, r: 16 },

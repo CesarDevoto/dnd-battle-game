@@ -1505,7 +1505,7 @@ function removeDefeatedUnit(u) {
   } else {
     scene.remove(u.grp);   // non-animated units vanish as before
   }
-  u.barEl.remove();
+  u.barEl?.remove();
 
   const ui = units.indexOf(u);
   if (ui >= 0) units.splice(ui, 1);

@@ -107,6 +107,11 @@ const ANIM_CLIP_NAMES = {
   owlbear: {
     idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
   },
+  // Idle_03 has large hip rangeY (18.4) so auto-detection misclassifies it as attack;
+  // null in attack slot explicitly clears the mis-detected slot.
+  grassling: {
+    idle: 'Idle_03', walk: 'Walking', run: 'Running', attack: null,
+  },
 };
 
 // Auto-detect animation roles by analysing Hips/Root bone Y-axis movement in each clip.
@@ -285,8 +290,10 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       // Fallback: if bone names didn't match (no position tracks found), treat first clip as idle
       if (!autoClips.idle && clips.length > 0) autoClips.idle = clips[0];
 
-      // Type-level overrides: clip names we control, safe to look up by name
+      // Type-level overrides: clip names we control, safe to look up by name.
+      // null explicitly clears a slot that auto-detection filled incorrectly.
       for (const [role, clipName] of Object.entries(ANIM_CLIP_NAMES[type] ?? {})) {
+        if (clipName === null) { delete autoClips[role]; continue; }
         const found = clips.find(c => c.name === clipName);
         if (found) autoClips[role] = found;
       }
@@ -296,43 +303,43 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
         if (clip) autoClips[role] = clip;
       }
 
-      const idleClip         = autoClips.idle         ?? null;
-      const walkClip         = autoClips.walk         ?? null;
-      const runClip          = autoClips.run          ?? null;
-      const attackClip       = autoClips.attack       ?? null;
-      const rangedAttackClip = autoClips.rangedAttack ?? null;
-      const spellCastClip    = autoClips.spellCast    ?? null;
-      const deathClip        = autoClips.death        ?? null;
+      const idleClip = autoClips.idle ?? null;
+      const walkClip = autoClips.walk ?? null;
+      const runClip  = autoClips.run  ?? null;
 
       if (idleClip) {
         idleAction = mixer.clipAction(idleClip);
         idleAction.reset().setEffectiveWeight(1).play();
       }
-      if (walkClip) {
-        walkAction = mixer.clipAction(walkClip);
-      }
-      if (runClip) {
-        runAction = mixer.clipAction(runClip);
-      }
-      if (attackClip) {
-        attackAction = mixer.clipAction(attackClip);
-        attackAction.setLoop(THREE.LoopOnce, 1);
-        attackAction.clampWhenFinished = false;
-      }
-      if (rangedAttackClip) {
-        rangedAttackAction = mixer.clipAction(rangedAttackClip);
-        rangedAttackAction.setLoop(THREE.LoopOnce, 1);
-        rangedAttackAction.clampWhenFinished = false;
-      }
-      if (spellCastClip) {
-        spellCastAction = mixer.clipAction(spellCastClip);
-        spellCastAction.setLoop(THREE.LoopOnce, 1);
-        spellCastAction.clampWhenFinished = false;
-      }
-      if (deathClip) {
-        deathAction = mixer.clipAction(deathClip);
-        deathAction.setLoop(THREE.LoopOnce, 1);
-        deathAction.clampWhenFinished = true;
+      if (walkClip) walkAction = mixer.clipAction(walkClip);
+      if (runClip)  runAction  = mixer.clipAction(runClip);
+
+      // NPCs never enter combat — skip attack/death actions entirely.
+      if (team !== 'npc') {
+        const attackClip       = autoClips.attack       ?? null;
+        const rangedAttackClip = autoClips.rangedAttack ?? null;
+        const spellCastClip    = autoClips.spellCast    ?? null;
+        const deathClip        = autoClips.death        ?? null;
+        if (attackClip) {
+          attackAction = mixer.clipAction(attackClip);
+          attackAction.setLoop(THREE.LoopOnce, 1);
+          attackAction.clampWhenFinished = false;
+        }
+        if (rangedAttackClip) {
+          rangedAttackAction = mixer.clipAction(rangedAttackClip);
+          rangedAttackAction.setLoop(THREE.LoopOnce, 1);
+          rangedAttackAction.clampWhenFinished = false;
+        }
+        if (spellCastClip) {
+          spellCastAction = mixer.clipAction(spellCastClip);
+          spellCastAction.setLoop(THREE.LoopOnce, 1);
+          spellCastAction.clampWhenFinished = false;
+        }
+        if (deathClip) {
+          deathAction = mixer.clipAction(deathClip);
+          deathAction.setLoop(THREE.LoopOnce, 1);
+          deathAction.clampWhenFinished = true;
+        }
       }
     }
 
@@ -351,35 +358,38 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   scene.add(grp);
   if (team === 'blue') addUnitDungeonLight(grp);
 
-  // ── Health bar DOM ────────────────────────────────────────────────────────
-  const barEl = document.createElement('div');
-  barEl.className = 'hp-bar';
-  const track = document.createElement('div'); track.className = 'hp-track';
-  const fill  = document.createElement('div'); fill.className  = `hp-fill ${team} ${type}`;
-  track.appendChild(fill);
-  barEl.appendChild(track);
-  hud.appendChild(barEl);
-
   const anchorY = def.anchorY;
   const hoverY  = def.hoverY ?? 0;
   const anchor  = new THREE.Vector3(worldX, terrainY + anchorY, worldZ);
-  const baseHp  = def.hp ?? COMBAT.defaultHP;
-  // Enemies: ×2 at low CR, ×1.6 at mid CR (4-8), ×1.3 at high CR (9+).
-  // Heroes: level-1 HP is D&D base ×2; further gains come from progression.js on level-up.
-  const _xp   = def.xpReward ?? 0;
-  const _mult = team !== 'red' ? 1 : _xp >= 1000 ? 1.0 : _xp >= 220 ? 1.2 : 1.5;
-  const hp    = Math.round(baseHp * _mult);
 
-  // Per-attack quantity limits (e.g. javelins). Keyed by attack name.
-  const atkQty = {};
-  for (const atk of (def.attacks ?? [])) {
-    if (atk.qty !== undefined) atkQty[atk.name] = atk.qty;
+  // NPCs have no hp bar and no combat stats — they are animated props.
+  let barEl = null, fill = null, hp = 0, maxHp = 1, atkQty = {};
+  if (team !== 'npc') {
+    // ── Health bar DOM ──────────────────────────────────────────────────────
+    const _barEl = document.createElement('div');
+    _barEl.className = 'hp-bar';
+    const track = document.createElement('div'); track.className = 'hp-track';
+    const _fill = document.createElement('div'); _fill.className = `hp-fill ${team} ${type}`;
+    track.appendChild(_fill);
+    _barEl.appendChild(track);
+    hud.appendChild(_barEl);
+    barEl = _barEl;
+    fill  = _fill;
+
+    const baseHp = def.hp ?? COMBAT.defaultHP;
+    const _xp    = def.xpReward ?? 0;
+    const _mult  = team !== 'red' ? 1 : _xp >= 1000 ? 1.0 : _xp >= 220 ? 1.2 : 1.5;
+    hp    = Math.round(baseHp * _mult);
+    maxHp = hp;
+    for (const atk of (def.attacks ?? [])) {
+      if (atk.qty !== undefined) atkQty[atk.name] = atk.qty;
+    }
   }
 
   // Ranged/spell anim rotation: elf spell faces forward with CCW (+π/2); all others CW (-π/2)
   const rangedRotY = type === 'elf' ? 0 : -Math.PI / 2;
 
-  const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp: hp, team, type,
+  const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               _animPhaseOffset: team === 'blue'
                 ? units.filter(u => u.team === 'blue').length * 0.3
@@ -477,6 +487,7 @@ export function applyUnitAnimOverride(unit, role, clipIdx) {
   // Re-resolve: auto baseline → type-level name overrides → instance index overrides
   const autoClips = autoMapAnimClips(clips) ?? {};
   for (const [r, name] of Object.entries(ANIM_CLIP_NAMES[unit.type] ?? {})) {
+    if (name === null) { delete autoClips[r]; continue; }
     const found = clips.find(c => c.name === name);
     if (found) autoClips[r] = found;
   }

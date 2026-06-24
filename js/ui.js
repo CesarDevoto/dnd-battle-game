@@ -26,6 +26,7 @@ export function updateHUD() {
   const now = Date.now();
 
   units.forEach(u => {
+    if (!u.barEl) return;  // NPCs have no hp bar
     _vec.copy(u.anchor).project(camera);
 
     // Behind the near plane — hide instantly, no CSS transition needed.
