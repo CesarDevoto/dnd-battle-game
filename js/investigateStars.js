@@ -23,6 +23,8 @@ export function untrackStar(mesh) {
 }
 
 export function clearAllStars() {
+  for (const s of _stars)   scene.remove(s.mesh);
+  for (const p of _pending) scene.remove(p.mesh);
   _stars.length   = 0;
   _pending.length = 0;
 }

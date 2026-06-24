@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -98,45 +98,93 @@ function _clearExits() {
   _transitioning = false;
 }
 
+function _makeFogBallTex(bright) {
+  const S   = 256;
+  const cv  = document.createElement('canvas');
+  cv.width  = S;
+  cv.height = S;
+  const ctx = cv.getContext('2d');
+  const a0  = bright ? 0.90 : 0.52;
+  const a1  = bright ? 0.65 : 0.30;
+  const a2  = bright ? 0.32 : 0.12;
+  const grad = ctx.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  grad.addColorStop(0.00, `rgba(248, 250, 255, ${a0})`);
+  grad.addColorStop(0.38, `rgba(218, 232, 255, ${a1})`);
+  grad.addColorStop(0.72, `rgba(188, 212, 255, ${a2})`);
+  grad.addColorStop(1.00, 'rgba(168, 196, 255, 0.00)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(cv);
+}
+
 function _buildExitMarker(exit) {
-  const wx = exit.x;
-  const wz = exit.z;
-  const y  = getTerrainHeight(wx, wz) + 0.15;
+  // Push fog position deeper into the wall notch along the exit direction
+  const eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
+  const dirX  = exit.x / eDist;
+  const dirZ  = exit.z / eDist;
+  const PUSH  = 7.0;
+  const wx    = exit.x + dirX * PUSH;
+  const wz    = exit.z + dirZ * PUSH;
+  const gy    = getTerrainHeight(wx, wz);
+  const BALL_Y = 1.8;   // float above ground
 
-  // Outer glow ring
-  const outerGeo = new THREE.RingGeometry(1.5, 2.2, 40);
-  const outerMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffcc,
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide,
-    depthWrite: false,
+  const texBright = _makeFogBallTex(true);
+  const texSoft   = _makeFogBallTex(false);
+
+  // Camera-facing sprites clustered into a sphere shape.
+  // ox/oy/oz are offsets from ball centre; bp=bob phase; rs=material rotation speed.
+  const sprDefs = [
+    { ox:  0.00, oy:  0.00, oz:  0.00, s:  9.0, os: 1.00, bright: true,  bp: 0.0, rs:  0.11 },
+    { ox:  0.00, oy:  2.40, oz:  0.00, s:  6.6, os: 0.72, bright: true,  bp: 1.1, rs: -0.09 },
+    { ox:  0.00, oy: -1.50, oz:  0.00, s:  7.5, os: 0.60, bright: false, bp: 0.7, rs:  0.07 },
+    { ox:  1.95, oy:  0.45, oz:  0.00, s:  5.7, os: 0.55, bright: false, bp: 2.0, rs: -0.10 },
+    { ox: -1.95, oy:  0.45, oz:  0.00, s:  5.7, os: 0.55, bright: false, bp: 3.3, rs:  0.08 },
+    { ox:  0.00, oy:  0.45, oz:  1.50, s:  5.4, os: 0.50, bright: false, bp: 4.2, rs: -0.06 },
+    { ox:  0.00, oy:  0.45, oz: -1.50, s:  5.4, os: 0.50, bright: false, bp: 5.1, rs:  0.11 },
+    { ox:  0.00, oy:  4.05, oz:  0.00, s:  4.5, os: 0.38, bright: false, bp: 1.8, rs: -0.07 },
+  ];
+
+  sprDefs.forEach(def => {
+    const mat = new THREE.SpriteMaterial({
+      map:         def.bright ? texBright : texSoft,
+      transparent: true,
+      opacity:     0,
+      depthWrite:  false,
+    });
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(def.s, def.s, 1);
+    spr.position.set(wx + def.ox, gy + BALL_Y + def.oy, wz + def.oz);
+    spr.userData.exit         = exit;
+    spr.userData.isFogSprite  = true;
+    spr.userData.opacityScale = def.os;
+    spr.userData.bobPhase     = def.bp;
+    spr.userData.baseY        = gy + BALL_Y + def.oy;
+    spr.userData.rotSpeed     = def.rs;
+    spr.visible = false;
+    scene.add(spr);
+    _exitMeshes.push(spr);
   });
-  const outer = new THREE.Mesh(outerGeo, outerMat);
-  outer.rotation.x = -Math.PI / 2;
-  outer.position.set(wx, y, wz);
-  outer.userData.exit = exit;
-  outer.visible = false;
 
-  // Inner fill disc
-  const innerGeo = new THREE.CircleGeometry(1.4, 40);
-  const innerMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffcc,
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide,
-    depthWrite: false,
+  // Flat ground fog at the base — spills out onto the floor
+  [{ size: 11.4, yOff: 0.04, rotSpeed:  0.08, os: 0.40 },
+   { size: 16.2, yOff: 0.10, rotSpeed: -0.05, os: 0.20 }].forEach(def => {
+    const mat = new THREE.MeshBasicMaterial({
+      map:         _makeFogBallTex(false),
+      transparent: true,
+      opacity:     0,
+      depthWrite:  false,
+      side:        THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size, def.size), mat);
+    mesh.rotation.x        = -Math.PI / 2;
+    mesh.position.set(wx, gy + def.yOff, wz);
+    mesh.userData.exit         = exit;
+    mesh.userData.opacityScale = def.os;
+    mesh.userData.rotSpeed     = def.rotSpeed;
+    mesh.visible = false;
+    scene.add(mesh);
+    _exitMeshes.push(mesh);
   });
-  const inner = new THREE.Mesh(innerGeo, innerMat);
-  inner.rotation.x = -Math.PI / 2;
-  inner.position.set(wx, y + 0.01, wz);
-  inner.userData.exit = exit;
-  inner.visible = false;
-
-  scene.add(outer);
-  scene.add(inner);
-  _exitMeshes.push(outer, inner);
-  return outer;
 }
 
 // ── Load a zone ───────────────────────────────────────────────────────────────
@@ -173,9 +221,11 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   setSceneGroundSize(zoneGS);
   setGroundBounds(zoneGS / 2);
 
-  // Apply terrain control points + seed before biome switch so they're baked into the rebuild
+  // Apply terrain control points, seed, and gate notches before biome switch
+  // so they're all baked into the terrain rebuild.
   setTerrainControlPoints(zone.terrain ?? []);
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
+  setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: 2 })));
 
   // Switch biome — skip random props if zone defines its own
   clearEditorProps();
@@ -345,13 +395,16 @@ export function tickZone(dt) {
   _exitMeshes.forEach(m => { if (m.visible !== show) m.visible = show; });
   if (!show) return;
 
-  // Pulse outer ring + inner disc
-  const pulse = 0.35 + Math.sin(_exitT * 2.8) * 0.25;
-  for (let i = 0; i < _exitMeshes.length; i += 2) {
-    const outer = _exitMeshes[i];
-    const inner = _exitMeshes[i + 1];
-    if (outer) { outer.material.opacity = pulse; outer.rotation.z += dt * 0.9; }
-    if (inner) inner.material.opacity = pulse * 0.18;
+  // Pulse base opacity; sprites bob + spin via material.rotation, planes spin on Z
+  const baseOpacity = 0.50 + Math.sin(_exitT * 1.3) * 0.13;
+  for (const m of _exitMeshes) {
+    m.material.opacity = baseOpacity * (m.userData.opacityScale ?? 1.0);
+    if (m.userData.isFogSprite) {
+      m.material.rotation += dt * (m.userData.rotSpeed ?? 0.10);
+      m.position.y = m.userData.baseY + Math.sin(_exitT * 1.1 + (m.userData.bobPhase ?? 0)) * 0.12;
+    } else {
+      m.rotation.z += dt * (m.userData.rotSpeed ?? 0.08);
+    }
   }
 }
 

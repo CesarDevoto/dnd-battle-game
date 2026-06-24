@@ -47,7 +47,7 @@ registerDialogueScene({ id: 'dlg_floosh_accept', name: 'Floosh — Accept Quest'
 function _spawnFlooshExcl() {
   if (_flooshExcl) return;
   _flooshExcl = mkInvestigateStar();
-  const y = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z) + 4.0;
+  const y = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z) + 2.5;
   _flooshExcl.position.set(_FLOOSH_X, y, _FLOOSH_Z);
   scene.add(_flooshExcl);
   _flooshExclT = 0;

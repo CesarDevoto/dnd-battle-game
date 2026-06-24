@@ -197,6 +197,29 @@ function edgeFade(x, z) {
 // blend naturally.
 const _RIM_SLOPE = 3.0;   // peak height multiplier (fixed)
 
+// Gate notches: each {x, z, halfWidth} suppresses the rim in a corridor along
+// the ray from zone-centre through (x,z). halfWidth is in world units.
+// 20 ft opening = 4 WU total = halfWidth 2 WU.
+let _gateNotches = [];
+export function setGateNotches(notches) { _gateNotches = notches ?? []; }
+
+function _gateSuppress(wx, wz) {
+  if (!_gateNotches.length) return 1.0;
+  let minSuppress = 1.0;
+  for (const gate of _gateNotches) {
+    const gLen = Math.sqrt(gate.x * gate.x + gate.z * gate.z);
+    if (gLen < 0.001) continue;
+    // Unit perpendicular to the ray from centre → gate
+    const perpX = -gate.z / gLen;
+    const perpZ =  gate.x / gLen;
+    const perp  = Math.abs(wx * perpX + wz * perpZ);
+    const t = Math.min(1, perp / gate.halfWidth);
+    const s = t * t * (3 - 2 * t);   // smoothstep: 0 at centre, 1 at edge
+    if (s < minSuppress) minSuppress = s;
+  }
+  return minSuppress;
+}
+
 function _rimHeight(wx, wz) {
   const rimInner = _gs * 0.5 * 0.833;
   const rimRange = _gs * 0.5 - rimInner;
@@ -205,7 +228,7 @@ function _rimHeight(wx, wz) {
   const dist = Math.sqrt(dx * dx + dz * dz);   // Euclidean → round corners
   const t    = Math.min(1, dist / rimRange);
   const ease = t * t;                           // quadratic: very gradual at base
-  return ease * rimRange * _RIM_SLOPE;
+  return ease * rimRange * _RIM_SLOPE * _gateSuppress(wx, wz);
 }
 
 // ── Terrain control points ────────────────────────────────────────────────────

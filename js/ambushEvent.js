@@ -4,6 +4,7 @@ import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
+import { clearAllStars } from './investigateStars.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -55,6 +56,7 @@ let _dialogueFired = false;
 registerPostCombatHandler(30, (ctx, done) => {
   if (_dialogueFired || _getActiveZoneIdFn?.() !== 'dungeon_entrance') { done(); return; }
   _dialogueFired = true;
+  clearAllStars();
   setTimeout(() => showQuickDialogue(_LINES, () => {
     _showFootsteps();
     done();
