@@ -65,13 +65,18 @@ const MODEL_PATHS = {
   mud_mephit:        'assets/models/kobold.glb',
   crocodile:         'assets/models/hyena.glb',
   giant_toad:        'assets/models/hyena.glb',
-  swarm_of_insects:  'assets/models/kobold.glb',
+  swarm_of_insects:  'assets/models/swarm.glb',
   lizardfolk_shaman: 'assets/models/orc.glb',
   green_hag:         'assets/models/goblin.glb',
 };
 
 // All GLB-loaded types are eligible for animation — derived from MODEL_PATHS so it stays in sync automatically.
 const ANIMATED_TYPES = new Set(Object.keys(MODEL_PATHS));
+
+// Types that have no skeleton — animated purely via grp.scale manipulation each frame.
+const SCALE_ANIMATE_TYPES = new Set(['swarm_of_insects']);
+const _SCALE_ATTACK_DUR   = 0.30; // seconds for the attack swell
+const _SCALE_DEATH_DUR    = 0.70; // seconds to shrink to zero
 
 // Manual overrides for animation clip → role mapping.
 // Auto-detection handles new models; add an entry here only when auto-detection
@@ -111,6 +116,11 @@ const ANIM_CLIP_NAMES = {
   // null in attack slot explicitly clears the mis-detected slot.
   grassling: {
     idle: 'Idle_03', walk: 'Walking', run: 'Running', attack: null,
+  },
+  // Archery_Shot_1 (rangeY 8.6) beats Walking (7.0) on the loco tiebreak since both are 1.0s;
+  // pin the two swapped slots to fix it.
+  kobold: {
+    walk: 'Walking', rangedAttack: 'Archery_Shot_1',
   },
 };
 
@@ -281,7 +291,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     grp.add(model);
 
     // ── Skeletal animation setup ─────────────────────────────────────────────
-    if (ANIMATED_TYPES.has(type) && gltf.animations?.length) {
+    if (ANIMATED_TYPES.has(type) && !SCALE_ANIMATE_TYPES.has(type) && gltf.animations?.length) {
       const clips = gltf.animations;
       mixer = new THREE.AnimationMixer(model);
 
@@ -389,13 +399,19 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   // Ranged/spell anim rotation: elf spell faces forward with CCW (+π/2); all others CW (-π/2)
   const rangedRotY = type === 'elf' ? 0 : -Math.PI / 2;
 
+  const _phaseOff = team === 'blue'
+    ? units.filter(u => u.team === 'blue').length * 0.3
+    : Math.random();
+
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
-              _animPhaseOffset: team === 'blue'
-                ? units.filter(u => u.team === 'blue').length * 0.3
-                : Math.random(),
+              _animPhaseOffset: _phaseOff,
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
-              rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {} };
+              rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {},
+              // scale-animate state (only used when SCALE_ANIMATE_TYPES.has(type))
+              _scaleMode: SCALE_ANIMATE_TYPES.has(type) ? 'idle' : null,
+              _scaleElapsed: 0,
+              _scaleOnComplete: null };
   units.push(u);
   return u;
 }
@@ -407,9 +423,44 @@ const _ANIM_FADE = 0.25; // crossfade duration in seconds
 export function updateMixers(dt) {
   for (const u of units)   u.mixer?.update(dt);
   for (const u of corpses) u.mixer?.update(dt);
+
+  // Scale-animate units (no skeleton)
+  for (const u of units) {
+    if (!u._scaleMode) continue;
+    u._scaleElapsed += dt;
+    const t   = u._scaleElapsed;
+    const phi = u._animPhaseOffset ?? 0;
+    let s = 1;
+    if (u._scaleMode === 'idle') {
+      s = 1 + 0.06 * Math.sin(t * 1.5 + phi);
+    } else if (u._scaleMode === 'walk') {
+      s = 1 + 0.10 * Math.sin(t * 3.0 + phi);
+    } else if (u._scaleMode === 'attack') {
+      const p = Math.min(u._scaleAttackT / _SCALE_ATTACK_DUR, 1);
+      u._scaleAttackT += dt;
+      s = 1 + 0.45 * Math.sin(p * Math.PI);
+      if (p >= 1) {
+        u._scaleMode = 'idle';
+        u._scaleElapsed = 0;
+        const cb = u._scaleOnComplete;
+        u._scaleOnComplete = null;
+        cb?.();
+      }
+    } else if (u._scaleMode === 'death') {
+      const p = Math.min(t / _SCALE_DEATH_DUR, 1);
+      s = 1 - p;
+      if (p >= 1) { u._scaleMode = 'dead'; s = 0; }
+    }
+    u.grp.scale.setScalar(s);
+  }
 }
 
 export function setUnitWalking(unit, walking, run = false) {
+  if (unit._scaleMode !== null) {
+    if (unit._scaleMode === 'attack' || unit._scaleMode === 'death' || unit._scaleMode === 'dead') return;
+    unit._scaleMode = walking ? 'walk' : 'idle';
+    return;
+  }
   if (!unit.mixer) return;
   if (unit.isWalking === walking && (unit._runMode ?? false) === run) return;
   unit.isWalking = walking;
@@ -426,6 +477,12 @@ export function setUnitWalking(unit, walking, run = false) {
 }
 
 export function playUnitAttackAnim(unit, type = 'melee', onComplete = null) {
+  if (unit._scaleMode !== null) {
+    unit._scaleMode    = 'attack';
+    unit._scaleAttackT = 0;
+    unit._scaleOnComplete = onComplete;
+    return;
+  }
   const action = type === 'ranged' ? unit.rangedAttackAction
                : type === 'spell'  ? (unit.spellCastAction ?? unit.rangedAttackAction)
                :                     unit.attackAction;
@@ -451,6 +508,12 @@ export function playUnitAttackAnim(unit, type = 'melee', onComplete = null) {
 }
 
 export function playUnitDeathAnim(unit) {
+  if (unit._scaleMode !== null) {
+    unit._scaleMode    = 'death';
+    unit._scaleElapsed = 0;
+    corpses.push(unit);
+    return;
+  }
   if (!unit.mixer) return;
   unit.isWalking = false;
   unit.mixer.stopAllAction();
