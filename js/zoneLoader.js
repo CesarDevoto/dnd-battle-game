@@ -649,5 +649,10 @@ function _showSetupAfterTransition() {
     });
   } else {
     document.getElementById('start-battle-btn')?.click();
+    // start-battle-btn resets the camera to the default scene position — override
+    // it immediately so the camera stays on the arriving heroes and ground
+    // raycasting works correctly for movement clicks from the first frame.
+    const firstHero = units.find(u => u.team === 'blue' && u.hp > 0);
+    if (firstHero) snapCameraToUnit(firstHero);
   }
 }
