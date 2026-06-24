@@ -488,7 +488,7 @@ let turnBonusActioned = false;  // bonus action used this turn (e.g. Healing Wor
 let sneakAttackUsed  = false;   // halfling sneak attack — once per turn
 let prevMoveState = null; // { x, z, movedFt } saved just before a move for undo
 
-const _delayed = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy_in_melee_range' | 'ally_loses_hp')
+const _delayed = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy_in_melee_range' | 'enemy_in_ranged_range' | 'ally_loses_hp')
 
 const blueUndo   = document.getElementById('blue-undo-btn');
 const endTurnBtn = document.getElementById('end-turn-btn');
@@ -1603,7 +1603,7 @@ function faceTarget(unit, target) {
 
 // Ranged attacks show a targeting line first; melee fires immediately.
 // Fire Bolt (elf) gets the full cinematic particle effect instead.
-function performAttack(attacker, target, atk) {
+function performAttack(attacker, target, atk, onSettled = null) {
   // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves.
   // Capture the context reference so a later hero's interrupt isn't accidentally closed.
   if (_delayCtx && attacker === turnOrder[turnIndex]) {
@@ -1616,20 +1616,20 @@ function performAttack(attacker, target, atk) {
     _consumeAtkQty(attacker, atk);
     if (attacker.type === 'elf' && atk.name === 'Fire Bolt') {
       playUnitAttackAnim(attacker, 'ranged');
-      playFireboltEffect(attacker, target, () => _executeAttack(attacker, target, atk));
+      playFireboltEffect(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
     } else {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
       playUnitAttackAnim(attacker, 'ranged', () => {
         const delay = getUnitAttackDuration(attacker.type) * 1000;
         setTimeout(() => playSound('range_attack_bow'), delay);
-        fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk));
+        fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
       });
     }
   } else {
     const delay = getUnitAttackDuration(attacker.type) * 1000;
     setTimeout(() => playSound('sword_swing'), delay);
-    playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk));
+    playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk, onSettled));
   }
 }
 
@@ -1660,7 +1660,7 @@ function atkBreakdown(r) {
   return `${adv}d100 rolled ${dieStr}, needed ≥ ${r.threshold}`;
 }
 
-function _executeAttack(attacker, target, atk) {
+function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
   const ab      = def.abilities ?? {};
   const statMod = Math.floor(((ab[atk.statMod] ?? 10) - 10) / 2);
@@ -1708,6 +1708,7 @@ function _executeAttack(attacker, target, atk) {
       addLog(`${aLabel} misses ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'miss');
       showFloatingDamage(target, 'MISS', '#999999');
       _logAtkQtyMsg(attacker, atk);
+      onSettled?.();
     }, D + FAST_ROLL_MS);
     return;
   }
@@ -1793,6 +1794,9 @@ function _executeAttack(attacker, target, atk) {
   if (willDie) {
     setTimeout(() => removeDefeatedUnit(target), hpUpdateDelay + RESULT_PAUSE + 400);
   }
+
+  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable)
+  setTimeout(() => onSettled?.(), hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50));
 
   // Ammo-remaining message fires after all damage/effect lines settle
   const _qtyDelay = resisted
@@ -2343,9 +2347,10 @@ const HERO_HUD_NAME_COLORS = {
 // ── Delay Action ──────────────────────────────────────────────────────────────
 
 const _DELAY_LABELS = {
-  enemy_in_los:      'Enemy enters line of sight',
-  enemy_in_melee_range: 'Enemy enters melee range',
-  ally_loses_hp:        'Ally loses hit points',
+  enemy_in_los:          'Enemy enters line of sight',
+  enemy_in_melee_range:  'Enemy enters melee range',
+  enemy_in_ranged_range: 'Enemy enters ranged attack range',
+  ally_loses_hp:         'Ally loses hit points',
 };
 
 // _delayCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
@@ -2414,7 +2419,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
     if (!units.includes(hero) || hero.hp <= 0) { _delayed.delete(hero); continue; }
     const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
 
-    if (eventType === 'enemy_moved' || eventType === 'enemy_turn_start') {
+    if (eventType === 'enemy_moved') {
       const enemy = eventCtx;
       const dx = enemy.grp.position.x - hero.grp.position.x;
       const dz = enemy.grp.position.z - hero.grp.position.z;
@@ -2425,6 +2430,11 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       } else if (trigger === 'enemy_in_melee_range') {
         const atk = heroAtks.find(a => a.type === 'melee');
         if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger });
+      } else if (trigger === 'enemy_in_ranged_range') {
+        const rangedAtk = heroAtks.find(a => a.type === 'ranged');
+        if (rangedAtk && dist <= atkRangeWU(rangedAtk.longRange ?? rangedAtk.range)) {
+          matches.push({ hero, trigger });
+        }
       }
     }
 
@@ -3181,9 +3191,9 @@ function runAITurn(u) {
         hideUndoBtn();
         updateCombatStatus();
         const hpBefore = target.hp;
-        performAttack(u, target, atk);
-        // After attack resolves, check ally_loses_hp delayed actions — only if HP actually dropped
-        setTimeout(() => _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, cb), ATK_RESOLVE);
+        performAttack(u, target, atk, () => {
+          _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, cb);
+        });
       }, PRE_ATK_MS);
     }
 
@@ -3237,8 +3247,7 @@ function runAITurn(u) {
           hideUndoBtn();
           updateCombatStatus();
           const hpBefore = target.hp;
-          performAttack(u, target, rangedAtk);
-          setTimeout(() => {
+          performAttack(u, target, rangedAtk, () => {
             const continueAfterRanged = () => {
               if (!units.includes(u) || !units.includes(target)) { endAITurn(); return; }
               showMoveRange(u);
@@ -3248,7 +3257,7 @@ function runAITurn(u) {
               moveToAndThen(dest, endAITurn);
             };
             _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, continueAfterRanged);
-          }, ATK_RESOLVE);
+          });
         }, PRE_ATK_MS);
         return;
       }
@@ -3285,7 +3294,7 @@ function runAITurn(u) {
       moveToAndThen(dest, () => setTimeout(() => doAttack(endAITurn), PRE_ATK_MS));
     }
 
-    _checkDelayedTriggers('enemy_turn_start', u, false, runPaths);
+    runPaths();
   }, THINK_MS);
 }
 

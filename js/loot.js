@@ -161,67 +161,112 @@ export function rollLoot(cr) {
   return { coins, items };
 }
 
-// ── 3D loot orbs ──────────────────────────────────────────────────────────────
-const _orbs  = [];
-let   _orbT  = 0;
+// ── PoE-style loot drop labels ────────────────────────────────────────────────
+const _labels = [];
 
-const _ORB_COLORS = {
-  coin:     new THREE.Color(0xffd700),
-  gem:      new THREE.Color(0x44eeff),
-  common:   new THREE.Color(0xcccccc),
-  uncommon: new THREE.Color(0x44ff88),
-  rare:     new THREE.Color(0x4488ff),
-  veryRare: new THREE.Color(0xdd44ff),
+const _LABEL_COLOR = {
+  coin:     '#ffd700',
+  gem:      '#44eeff',
+  common:   '#d0d0d0',
+  uncommon: '#44ff88',
+  rare:     '#4d9eff',
+  veryRare: '#cc44ff',
 };
+
+function _roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x,     y + h, x,     y + h - r, r);
+  ctx.lineTo(x,     y + r);
+  ctx.arcTo(x,     y,     x + r, y,         r);
+  ctx.closePath();
+}
+
+function _makeSprite(text, color) {
+  const S      = 2;             // supersampling
+  const FONT   = 13 * S;
+  const PAD_X  = 10 * S;
+  const PAD_Y  =  5 * S;
+  const RADIUS =  4 * S;
+
+  const cv  = document.createElement('canvas');
+  const ctx = cv.getContext('2d');
+  ctx.font  = `bold ${FONT}px 'Segoe UI', Arial, sans-serif`;
+  const tw  = ctx.measureText(text).width;
+
+  cv.width  = Math.ceil(tw) + PAD_X * 2;
+  cv.height = FONT + PAD_Y * 2;
+
+  const c  = cv.getContext('2d');
+  c.font   = `bold ${FONT}px 'Segoe UI', Arial, sans-serif`;
+
+  // Dark pill
+  c.fillStyle = 'rgba(0,0,0,0.78)';
+  _roundRect(c, 0, 0, cv.width, cv.height, RADIUS);
+  c.fill();
+
+  // Thin colored border
+  c.strokeStyle = color;
+  c.lineWidth   = 1.5 * S;
+  _roundRect(c, 0, 0, cv.width, cv.height, RADIUS);
+  c.stroke();
+
+  // Label text
+  c.fillStyle    = color;
+  c.textBaseline = 'middle';
+  c.fillText(text, PAD_X, cv.height / 2);
+
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const spr = new THREE.Sprite(mat);
+
+  const worldH = 0.48;
+  spr.scale.set((cv.width / cv.height) * worldH, worldH, 1);
+  return spr;
+}
 
 export function spawnLootOrb(position, loot) {
   const { coins, items } = loot;
-  const hasCoins = Object.values(coins).some(v => v > 0);
-  const toSpawn  = [];
+  const toLabel = [];
 
-  if (hasCoins) toSpawn.push('coin');
-  items.forEach(it => toSpawn.push(it.rarity));
+  // Coin line — consolidate all denominations
+  const parts = [];
+  if (coins.pp) parts.push(`${coins.pp} pp`);
+  if (coins.gp) parts.push(`${coins.gp} gp`);
+  if (coins.sp) parts.push(`${coins.sp} sp`);
+  if (coins.cp) parts.push(`${coins.cp} cp`);
+  if (parts.length) toLabel.push({ text: parts.join(' · '), type: 'coin' });
 
-  toSpawn.forEach((type, i) => {
-    const angle = (i / Math.max(toSpawn.length, 1)) * Math.PI * 2;
-    const spread = toSpawn.length > 1 ? 0.45 : 0;
-    const ox = position.x + Math.cos(angle) * spread + (Math.random() - 0.5) * 0.15;
-    const oz = position.z + Math.sin(angle) * spread + (Math.random() - 0.5) * 0.15;
-    const oy = position.y + 0.9 + Math.random() * 0.25;
+  items.forEach(it => toLabel.push({ text: it.name, type: it.rarity }));
 
-    const geo  = type === 'coin'
-      ? new THREE.SphereGeometry(0.11, 6, 6)
-      : new THREE.OctahedronGeometry(0.14, 0);
-    const mat  = new THREE.MeshBasicMaterial({
-      color: _ORB_COLORS[type] ?? _ORB_COLORS.common,
-      transparent: true,
-      opacity: 0.92,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(ox, oy, oz);
-    mesh.userData.baseY = oy;
-    mesh.userData.phase = Math.random() * Math.PI * 2;
-    scene.add(mesh);
-    _orbs.push(mesh);
+  toLabel.forEach((entry, i) => {
+    const spr   = _makeSprite(entry.text, _LABEL_COLOR[entry.type] ?? '#d0d0d0');
+    const baseY = position.y + 1.1 + i * 0.56;
+    spr.position.set(
+      position.x + (Math.random() - 0.5) * 0.3,
+      baseY,
+      position.z + (Math.random() - 0.5) * 0.3,
+    );
+    spr.userData.baseY = baseY;
+    scene.add(spr);
+    _labels.push(spr);
   });
 }
 
 export function clearLootOrbs() {
-  for (const m of _orbs) {
-    m.geometry.dispose();
-    m.material.dispose();
-    scene.remove(m);
+  for (const s of _labels) {
+    s.material.map?.dispose();
+    s.material.dispose();
+    scene.remove(s);
   }
-  _orbs.length = 0;
+  _labels.length = 0;
 }
 
-export function tickLoot(dt) {
-  if (!_orbs.length) return;
-  _orbT += dt;
-  for (const m of _orbs) {
-    const ph = m.userData.phase;
-    m.position.y = m.userData.baseY + Math.sin(_orbT * 2.2 + ph) * 0.13;
-    const s = 0.82 + Math.sin(_orbT * 3.1 + ph) * 0.18;
-    m.scale.setScalar(s);
-  }
+export function tickLoot(_dt) {
+  // Labels are static — cleared only by clearLootOrbs() on loot collect or party wipe
 }

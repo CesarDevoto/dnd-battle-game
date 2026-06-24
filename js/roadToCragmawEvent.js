@@ -3,6 +3,9 @@ import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
+import { mkInvestigateStar } from './propBuilders.js';
+import { isPrecombat } from './precombat.js';
+import { registerPostCombatHandler } from './postCombat.js';
 
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
@@ -14,7 +17,10 @@ const _FLOOSH_X  = 6.71;
 const _FLOOSH_Z  = 71.66;
 const _PROX_SQ   = 36;    // 15 ft = 6 WU  →  6² = 36
 
-let _watchingProximity = false;
+let _watchingProximity  = false;
+let _flooshQuestPending = false;  // true if proximity triggered during combat
+let _flooshExcl         = null;   // "!" sprite above Floosh
+let _flooshExclT        = 0;
 
 const _INTRO_LINES = [
   { s: 'Milo',    t: "Ahead! I've lost the tracks! What now?" },
@@ -38,16 +44,46 @@ registerDialogueScene({ id: 'dlg_floosh_intro', name: 'Floosh — Zone Entry',  
 registerDialogueScene({ id: 'dlg_floosh_quest', name: 'Floosh — Quest Offer',  lines: _QUEST_LINES });
 registerDialogueScene({ id: 'dlg_floosh_accept', name: 'Floosh — Accept Quest', lines: _ACCEPT_LINES });
 
-function _startQuestDialogue() {
-  _watchingProximity = false;
+function _spawnFlooshExcl() {
+  if (_flooshExcl) return;
+  _flooshExcl = mkInvestigateStar();
+  const y = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z) + 4.0;
+  _flooshExcl.position.set(_FLOOSH_X, y, _FLOOSH_Z);
+  scene.add(_flooshExcl);
+  _flooshExclT = 0;
+}
+
+function _removeFlooshExcl() {
+  if (!_flooshExcl) return;
+  scene.remove(_flooshExcl);
+  _flooshExcl.userData.sprite?.material.map?.dispose();
+  _flooshExcl.userData.sprite?.material.dispose();
+  _flooshExcl = null;
+}
+
+// onDone: called after the full sequence completes; used by post-combat handler
+// to advance the post-combat chain. Omit for immediate precombat triggers.
+function _startQuestDialogue(onDone = null) {
+  _watchingProximity  = false;
+  _flooshQuestPending = false;
+  _removeFlooshExcl();
   try { localStorage.setItem(_KEY_QUEST, '1'); } catch {}
   showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
-      { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES) },
-      { label: 'Decline',      onPick: null },
+      { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, onDone) },
+      { label: 'Decline',      onPick: onDone },
     ]);
   });
 }
+
+// ── Post-combat deferred quest trigger ────────────────────────────────────────
+// If a hero was already within 15 ft of Floosh when combat started, the ! stays
+// visible through the fight and the quest dialogue fires here instead.
+
+registerPostCombatHandler(5, (ctx, done) => {
+  if (!_flooshQuestPending) { done(); return; }
+  _startQuestDialogue(done);
+});
 
 // ── Footprint texture (canvas-drawn bare-foot silhouette) ─────────────────────
 function _makeFootTex(mirror = false) {
@@ -193,13 +229,32 @@ export function tickRoadToCragmaw(dt) {
     }
   }
 
+  if (_flooshExcl) {
+    _flooshExclT += dt;
+    const spr = _flooshExcl.userData.sprite;
+    if (spr) {
+      const pulse = 0.88 + 0.24 * (0.5 + 0.5 * Math.sin(_flooshExclT * 2.1));
+      spr.scale.set(
+        _flooshExcl.userData.baseScaleX * pulse,
+        _flooshExcl.userData.baseScaleY * pulse,
+        1,
+      );
+      spr.position.y = Math.sin(_flooshExclT * 1.8) * 0.15;
+    }
+  }
+
   if (_watchingProximity) {
     for (const u of units) {
       if (u.team !== 'blue' || u.hp <= 0) continue;
       const dx = u.grp.position.x - _FLOOSH_X;
       const dz = u.grp.position.z - _FLOOSH_Z;
       if (dx * dx + dz * dz <= _PROX_SQ) {
-        _startQuestDialogue();
+        if (isPrecombat()) {
+          _startQuestDialogue();        // immediate: ! disappears + dialogue now
+        } else {
+          _watchingProximity  = false;
+          _flooshQuestPending = true;   // ! stays visible; both deferred to post-combat
+        }
         break;
       }
     }
@@ -216,17 +271,23 @@ window.addEventListener('zone:loaded', e => {
       localStorage.setItem(_KEY_INTRO, '1');
       setTimeout(() => {
         showQuickDialogue(_INTRO_LINES, () => {
-          if (!localStorage.getItem(_KEY_QUEST)) _watchingProximity = true;
+          if (!localStorage.getItem(_KEY_QUEST)) {
+            _watchingProximity = true;
+            _spawnFlooshExcl();
+          }
         });
       }, 1200);
     } else if (!localStorage.getItem(_KEY_QUEST)) {
       // Intro already seen but quest not yet triggered — re-arm proximity watch
       _watchingProximity = true;
+      _spawnFlooshExcl();
     }
   } catch {}
 });
 
 window.addEventListener('zone:loading', () => {
   _hideFootsteps();
-  _watchingProximity = false;
+  _watchingProximity  = false;
+  _flooshQuestPending = false;
+  _removeFlooshExcl();
 });

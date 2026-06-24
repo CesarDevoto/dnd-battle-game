@@ -3,13 +3,13 @@ import { units } from './units.js';
 import { isPrecombat } from './precombat.js';
 import { addLog } from './combat.js';
 import { isDevMode } from './devMode.js';
+import { registerPostCombatHandler } from './postCombat.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-// Each entry: { mesh (group containing light + helper), x, z, t }
 
-const _stars = [];
-const TRIGGER_RADIUS = 2.0;  // wu — hero proximity that consumes the marker
-const PEAK_INTENSITY = 9.0;  // max light intensity at pulse peak
+const _stars   = [];
+const _pending = [];   // stars triggered during combat; fire post-combat
+const TRIGGER_RADIUS = 2.0;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -23,40 +23,62 @@ export function untrackStar(mesh) {
 }
 
 export function clearAllStars() {
-  _stars.length = 0;
+  _stars.length   = 0;
+  _pending.length = 0;
 }
+
+// ── Post-combat deferred trigger ──────────────────────────────────────────────
+// If a hero was already inside a star's radius when combat started, the trigger
+// fires here — same visual/narrative moment, just delayed until after combat.
+
+registerPostCombatHandler(3, (ctx, done) => {
+  if (!_pending.length) { done(); return; }
+  const p = _pending.shift();
+  scene.remove(p.mesh);
+  addLog('✦ The heroes discover something of interest…', 'round');
+  window.dispatchEvent(new CustomEvent('investigate:triggered', {
+    detail: { x: p.x, z: p.z },
+  }));
+  done();
+});
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 
 export function tickStars(dt) {
-  const heroes = isPrecombat()
-    ? units.filter(u => u.team === 'blue' && u.hp > 0)
-    : [];
-
-  const dev = isDevMode();
+  const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
+  const dev    = isDevMode();
 
   for (let i = _stars.length - 1; i >= 0; i--) {
     const s = _stars[i];
     if (!s.mesh.parent) continue;
     s.t += dt;
 
-    const light      = s.mesh.userData.light;
+    const spr        = s.mesh.userData.sprite;
     const helperMesh = s.mesh.userData.helperMesh;
 
-    // Slow breathe: ~3 s cycle, nonlinear so it lingers dim then swells bright
-    const raw   = 0.5 + 0.5 * Math.sin(s.t * 2.1);
-    const pulse = raw * raw;  // squared → eases in, snappier peaks
-    if (light) light.intensity = pulse * PEAK_INTENSITY;
+    if (spr) {
+      const pulse = 0.88 + 0.24 * (0.5 + 0.5 * Math.sin(s.t * 2.1));
+      spr.scale.set(
+        s.mesh.userData.baseScaleX * pulse,
+        s.mesh.userData.baseScaleY * pulse,
+        1,
+      );
+      spr.position.y = Math.sin(s.t * 1.8) * 0.15;
+    }
 
-    // Helper sphere only visible in dev mode
     if (helperMesh) helperMesh.visible = dev;
 
-    // Proximity trigger (only during precombat)
     for (const hero of heroes) {
       const dx = hero.grp.position.x - s.x;
       const dz = hero.grp.position.z - s.z;
       if (dx * dx + dz * dz < TRIGGER_RADIUS * TRIGGER_RADIUS) {
-        _triggerStar(s, i);
+        if (isPrecombat()) {
+          _triggerStar(s, i);    // immediate: remove ! and dispatch event now
+        } else {
+          // In combat: keep ! visible, defer trigger to post-combat handler
+          _pending.push({ mesh: s.mesh, x: s.x, z: s.z });
+          _stars.splice(i, 1);
+        }
         break;
       }
     }

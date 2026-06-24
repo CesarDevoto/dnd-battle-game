@@ -2024,25 +2024,44 @@ export function mkPointLight(intensity = 6, range = 18) {
   return grp;
 }
 
-// A small emissive sphere is shown in dev mode only so the marker can be clicked.
-
 export function mkInvestigateStar() {
   const grp = new THREE.Group();
 
-  // The actual effect: a warm pulsing point light (intensity driven by tickStars)
-  const light = new THREE.PointLight(0xffcc66, 0, 7, 1.5);
-  light.frustumCulled = false;
-  grp.add(light);
+  // Canvas "!" sprite
+  const W = 64, H = 96;
+  const cv  = document.createElement('canvas');
+  cv.width  = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.font         = 'bold 86px Arial Black, Arial, sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle  = '#6b3d00';
+  ctx.lineWidth    = 8;
+  ctx.strokeText('!', W / 2, H / 2);
+  ctx.fillStyle    = '#FFE000';
+  ctx.fillText('!', W / 2, H / 2);
 
-  // Dev-mode helper: small emissive sphere so the designer can see and select the marker
-  const helperMat  = new THREE.MeshBasicMaterial({ color: 0xffcc44 });
-  const helperMesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), helperMat);
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const spr = new THREE.Sprite(mat);
+  const worldH = 1.0;
+  spr.scale.set((W / H) * worldH, worldH, 1);
+  spr.frustumCulled = false;
+  grp.add(spr);
+
+  // Tiny invisible sphere so the designer can click the marker in dev mode
+  const helperMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 6, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffcc44, visible: false }),
+  );
   helperMesh.frustumCulled = false;
   grp.add(helperMesh);
 
   grp.userData.isStar     = true;
-  grp.userData.light      = light;
+  grp.userData.sprite     = spr;
   grp.userData.helperMesh = helperMesh;
+  grp.userData.baseScaleX = spr.scale.x;
+  grp.userData.baseScaleY = spr.scale.y;
 
   return grp;
 }
