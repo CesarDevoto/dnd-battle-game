@@ -35,6 +35,7 @@ let _exitsLive   = false;
 let _postCombat  = false;
 let _transitioning = false;
 let _exitMeshes  = [];
+let _breachMeshes = [];
 let _exitT       = 0;
 const _exitRay   = new THREE.Raycaster();
 const _exitPt    = new THREE.Vector2();
@@ -94,6 +95,8 @@ window.addEventListener('round:start', e => _tickSpawns(e.detail.round));
 function _clearExits() {
   _exitMeshes.forEach(m => scene.remove(m));
   _exitMeshes = [];
+  _breachMeshes.forEach(m => scene.remove(m));
+  _breachMeshes = [];
   _exitsLive   = false;
   _postCombat  = false;
   _transitioning = false;
@@ -185,6 +188,65 @@ function _buildExitMarker(exit) {
     mesh.visible = false;
     scene.add(mesh);
     _exitMeshes.push(mesh);
+  });
+}
+
+// ── Decorative fog breach (no exit trigger) ───────────────────────────────────
+
+function _buildFogBreach(x, z, scale = 0.5) {
+  const gy     = getTerrainHeight(x, z);
+  const BALL_Y = 1.8 * scale;
+
+  const texBright = _makeFogBallTex(true);
+  const texSoft   = _makeFogBallTex(false);
+
+  const sprDefs = [
+    { ox:  0.00, oy:  0.00, oz:  0.00, s:  9.0, os: 1.00, bright: true,  bp: 0.0, rs:  0.11 },
+    { ox:  0.00, oy:  2.40, oz:  0.00, s:  6.6, os: 0.72, bright: true,  bp: 1.1, rs: -0.09 },
+    { ox:  0.00, oy: -1.50, oz:  0.00, s:  7.5, os: 0.60, bright: false, bp: 0.7, rs:  0.07 },
+    { ox:  1.95, oy:  0.45, oz:  0.00, s:  5.7, os: 0.55, bright: false, bp: 2.0, rs: -0.10 },
+    { ox: -1.95, oy:  0.45, oz:  0.00, s:  5.7, os: 0.55, bright: false, bp: 3.3, rs:  0.08 },
+    { ox:  0.00, oy:  0.45, oz:  1.50, s:  5.4, os: 0.50, bright: false, bp: 4.2, rs: -0.06 },
+    { ox:  0.00, oy:  0.45, oz: -1.50, s:  5.4, os: 0.50, bright: false, bp: 5.1, rs:  0.11 },
+    { ox:  0.00, oy:  4.05, oz:  0.00, s:  4.5, os: 0.38, bright: false, bp: 1.8, rs: -0.07 },
+  ];
+
+  sprDefs.forEach(def => {
+    const mat = new THREE.SpriteMaterial({
+      map:         def.bright ? texBright : texSoft,
+      transparent: true,
+      opacity:     0.55 * def.os,
+      depthWrite:  false,
+    });
+    const spr = new THREE.Sprite(mat);
+    const s   = def.s * scale;
+    spr.scale.set(s, s, 1);
+    spr.position.set(x + def.ox * scale, gy + BALL_Y + def.oy * scale, z + def.oz * scale);
+    spr.userData.isFogSprite = true;
+    spr.userData.opacityScale = def.os;
+    spr.userData.bobPhase    = def.bp;
+    spr.userData.baseY       = gy + BALL_Y + def.oy * scale;
+    spr.userData.rotSpeed    = def.rs;
+    scene.add(spr);
+    _breachMeshes.push(spr);
+  });
+
+  [{ size: 11.4, yOff: 0.04, rotSpeed:  0.08, os: 0.40 },
+   { size: 16.2, yOff: 0.10, rotSpeed: -0.05, os: 0.20 }].forEach(def => {
+    const mat = new THREE.MeshBasicMaterial({
+      map:         _makeFogBallTex(false),
+      transparent: true,
+      opacity:     0.55 * def.os,
+      depthWrite:  false,
+      side:        THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size * scale, def.size * scale), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, gy + def.yOff, z);
+    mesh.userData.opacityScale = def.os;
+    mesh.userData.rotSpeed     = def.rotSpeed;
+    scene.add(mesh);
+    _breachMeshes.push(mesh);
   });
 }
 
@@ -295,6 +357,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   zone.exits.forEach(exit => _buildExitMarker(exit));
   if (zone.exits?.length) _exitsLive = true;
 
+  // Build decorative fog breaches (atmospheric; no zone transition)
+  zone.fogBreaches?.forEach(b => _buildFogBreach(b.x, b.z, b.scale ?? 0.5));
+
   // Update zone label in UI
   _updateZoneLabel();
 
@@ -392,22 +457,40 @@ function _triggerNextZone(targetId, arrivalPos = null) {
 
 export function tickZone(dt) {
   _exitT += dt;
-  if (!_exitsLive || !_exitMeshes.length) return;
 
-  // Show exits only outside of combat
-  const show = !combatPhase;
-  _exitMeshes.forEach(m => { if (m.visible !== show) m.visible = show; });
-  if (!show) return;
+  // ── Exit fog ──────────────────────────────────────────────────────────────
+  if (_exitsLive && _exitMeshes.length) {
+    const show = !combatPhase;
+    _exitMeshes.forEach(m => { if (m.visible !== show) m.visible = show; });
+    if (show) {
+      const baseOpacity = 0.50 + Math.sin(_exitT * 1.3) * 0.13;
+      for (const m of _exitMeshes) {
+        m.material.opacity = baseOpacity * (m.userData.opacityScale ?? 1.0);
+        if (m.userData.isFogSprite) {
+          m.material.rotation += dt * (m.userData.rotSpeed ?? 0.10);
+          m.position.y = m.userData.baseY + Math.sin(_exitT * 1.1 + (m.userData.bobPhase ?? 0)) * 0.12;
+        } else {
+          m.rotation.z += dt * (m.userData.rotSpeed ?? 0.08);
+        }
+      }
+    }
+  }
 
-  // Pulse base opacity; sprites bob + spin via material.rotation, planes spin on Z
-  const baseOpacity = 0.50 + Math.sin(_exitT * 1.3) * 0.13;
-  for (const m of _exitMeshes) {
-    m.material.opacity = baseOpacity * (m.userData.opacityScale ?? 1.0);
-    if (m.userData.isFogSprite) {
-      m.material.rotation += dt * (m.userData.rotSpeed ?? 0.10);
-      m.position.y = m.userData.baseY + Math.sin(_exitT * 1.1 + (m.userData.bobPhase ?? 0)) * 0.12;
-    } else {
-      m.rotation.z += dt * (m.userData.rotSpeed ?? 0.08);
+  // ── Decorative breach fog (always on, outside combat) ─────────────────────
+  if (_breachMeshes.length) {
+    const show = !combatPhase;
+    _breachMeshes.forEach(m => { if (m.visible !== show) m.visible = show; });
+    if (show) {
+      const baseOpacity = 0.50 + Math.sin(_exitT * 1.1) * 0.10;
+      for (const m of _breachMeshes) {
+        m.material.opacity = baseOpacity * (m.userData.opacityScale ?? 1.0);
+        if (m.userData.isFogSprite) {
+          m.material.rotation += dt * (m.userData.rotSpeed ?? 0.10);
+          m.position.y = m.userData.baseY + Math.sin(_exitT * 0.9 + (m.userData.bobPhase ?? 0)) * 0.08;
+        } else {
+          m.rotation.z += dt * (m.userData.rotSpeed ?? 0.08);
+        }
+      }
     }
   }
 }

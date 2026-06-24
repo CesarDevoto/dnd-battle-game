@@ -38,11 +38,12 @@ function _minDistToHeroes(wx, wz, heroes) {
 export function tickActivationRadius(props) {
   // Dev mode: bypass distance culling
   if (isDevMode()) {
-    // Props: only clear activation/fade state — prop editor controls visibility directly
+    // Props: force all visible — prop editor controls visibility directly
     for (const p of props) {
       if (!p.mesh) continue;
       p._active = true;
-      p._opacity = 1;
+      if (!p.mesh.visible) p.mesh.visible = true;
+      if (p._opacity !== 1) { _applyOpacity(p.mesh, 1); p._opacity = 1; }
     }
     // Enemies: force all visible and awake
     for (const u of units) {
