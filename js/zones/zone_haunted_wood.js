@@ -11,17 +11,49 @@ export const ZONE = {
     { x: -81, z: 79, type: 'halfling' },
   ],
   enemies: [
-    // First encounter — skeletons and zombie, near SW entry
-    { type: 'skeleton', x: -32, z: 48 },
-    { type: 'skeleton', x: -26, z: 44 },
-    { type: 'zombie',   x: -20, z: 52 },
-    // Mid-zone — ghouls
-    { type: 'ghoul',    x:   2, z: 16 },
-    { type: 'ghoul',    x:  12, z:  8 },
-    { type: 'zombie',   x:  -8, z: 12 },
-    // Deep NE — specter and wight
-    { type: 'specter',  x:  48, z: -42 },
-    { type: 'wight',    x:  58, z: -48 },
+    // Giant rats — N (x≈5, z≈72) and E (x≈68, z≈10)
+    { type: 'giant_rat', x:  3, z: 72, roams: true, patrol: [{x: 3,z:42}, {x: 3,z:72}] },
+    { type: 'giant_rat', x:  5, z: 72, roams: true, patrol: [{x: 5,z:42}, {x: 5,z:72}] },
+    { type: 'giant_rat', x:  7, z: 72, roams: true, patrol: [{x: 7,z:42}, {x: 7,z:72}] },
+    { type: 'giant_rat', x: 66, z: 10, roams: true, patrol: [{x:66,z:-20}, {x:66,z:10}] },
+    { type: 'giant_rat', x: 68, z: 10, roams: true, patrol: [{x:68,z:-20}, {x:68,z:10}] },
+    { type: 'giant_rat', x: 70, z: 10, roams: true, patrol: [{x:70,z:-20}, {x:70,z:10}] },
+    // Twig blights — NE (x≈65, z≈62) and S-center (x≈5, z≈-62)
+    { type: 'twig_blight', x: 63, z: 62, roams: true, patrol: [{x:63,z:32}, {x:63,z:62}] },
+    { type: 'twig_blight', x: 65, z: 62, roams: true, patrol: [{x:65,z:32}, {x:65,z:62}] },
+    { type: 'twig_blight', x: 67, z: 62, roams: true, patrol: [{x:67,z:32}, {x:67,z:62}] },
+    { type: 'twig_blight', x:  3, z: -62, roams: true, patrol: [{x: 3,z:-32}, {x: 3,z:-62}] },
+    { type: 'twig_blight', x:  5, z: -62, roams: true, patrol: [{x: 5,z:-32}, {x: 5,z:-62}] },
+    { type: 'twig_blight', x:  7, z: -62, roams: true, patrol: [{x: 7,z:-32}, {x: 7,z:-62}] },
+    // Skeletons — center (x≈8, z≈18) and SE (x≈62, z≈-58)
+    { type: 'skeleton', x:  6, z: 18, roams: true, patrol: [{x: 6,z:-12}, {x: 6,z:18}] },
+    { type: 'skeleton', x:  8, z: 18, roams: true, patrol: [{x: 8,z:-12}, {x: 8,z:18}] },
+    { type: 'skeleton', x: 10, z: 18, roams: true, patrol: [{x:10,z:-12}, {x:10,z:18}] },
+    { type: 'skeleton', x: 12, z: 18, roams: true, patrol: [{x:12,z:-12}, {x:12,z:18}] },
+    { type: 'skeleton', x: 60, z: -58, roams: true, patrol: [{x:60,z:-28}, {x:60,z:-58}] },
+    { type: 'skeleton', x: 62, z: -58, roams: true, patrol: [{x:62,z:-28}, {x:62,z:-58}] },
+    { type: 'skeleton', x: 64, z: -58, roams: true, patrol: [{x:64,z:-28}, {x:64,z:-58}] },
+    { type: 'skeleton', x: 66, z: -58, roams: true, patrol: [{x:66,z:-28}, {x:66,z:-58}] },
+    // Zombies — W (x≈-65, z≈-10) and deep-W (x≈-40, z≈-65)
+    { type: 'zombie', x: -67, z: -10, roams: true, patrol: [{x:-67,z:-40}, {x:-67,z:-10}] },
+    { type: 'zombie', x: -65, z: -10, roams: true, patrol: [{x:-65,z:-40}, {x:-65,z:-10}] },
+    { type: 'zombie', x: -63, z: -10, roams: true, patrol: [{x:-63,z:-40}, {x:-63,z:-10}] },
+    { type: 'zombie', x: -65, z: -12, roams: true, patrol: [{x:-65,z:-42}, {x:-65,z:-12}] },
+    { type: 'zombie', x: -42, z: -65, roams: true, patrol: [{x:-42,z:-35}, {x:-42,z:-65}] },
+    { type: 'zombie', x: -40, z: -65, roams: true, patrol: [{x:-40,z:-35}, {x:-40,z:-65}] },
+    { type: 'zombie', x: -38, z: -65, roams: true, patrol: [{x:-38,z:-35}, {x:-38,z:-65}] },
+    { type: 'zombie', x: -40, z: -67, roams: true, patrol: [{x:-40,z:-37}, {x:-40,z:-67}] },
+    // Shadows — NW (x≈-65, z≈-50) and S-center (x≈28, z≈-72)
+    { type: 'shadow', x: -65, z: -50, roams: true, patrol: [{x:-65,z:-80}, {x:-65,z:-50}] },
+    { type: 'shadow', x: -63, z: -50, roams: true, patrol: [{x:-63,z:-80}, {x:-63,z:-50}] },
+    { type: 'shadow', x: 26, z: -72, roams: true, patrol: [{x:26,z:-42}, {x:26,z:-72}] },
+    { type: 'shadow', x: 28, z: -72, roams: true, patrol: [{x:28,z:-42}, {x:28,z:-72}] },
+    // Swarms of insects — E/NE (x≈38, z≈38) and SW-mid (x≈-25, z≈-48)
+    { type: 'swarm_of_insects', x: 38, z: 38, scale: 0.966, roams: true, patrol: [{x:8,z:38}, {x:38,z:38}] },
+    { type: 'swarm_of_insects', x: -25, z: -48, scale: 0.974, roams: true, patrol: [{x:-55,z:-48}, {x:-25,z:-48}] },
+    // Giant spiders — NW-deep (x≈-70, z≈-72) and SE-deep (x≈72, z≈-72)
+    { type: 'giant_spider', x: -70, z: -72, roams: true, patrol: [{x:-70,z:-42}, {x:-70,z:-72}] },
+    { type: 'giant_spider', x: 72, z: -72, roams: true, patrol: [{x:72,z:-42}, {x:72,z:-72}] },
   ],
   exits: [
     { x: -82, z: 70, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw', fogPush: 16, fogOffsetZ: 1 },
