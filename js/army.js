@@ -165,32 +165,32 @@ renderer.domElement.addEventListener('click', e => {
   // ── Precombat: hero selection + free movement ─────────────────────────────
   if (isPrecombat()) {
     const pt = groundHit(e.clientX, e.clientY);
-    if (pt) {
-      // Click on a hero → select
-      const hero = units.find(u => {
-        if (u.team !== 'blue' || u.hp <= 0) return false;
-        const dx = u.grp.position.x - pt.x, dz = u.grp.position.z - pt.z;
-        return dx * dx + dz * dz < INTERACTION.pickRadiusSq;
-      });
-      if (hero) {
-        clearMove(); hideMenu();
-        _selectHero(hero);
-        return;
-      }
-      // Click on ground → move selected hero (and group if enabled)
-      const sel = getPCSelected();
-      if (sel) {
-        const dx = pt.x - sel.grp.position.x;
-        const dz = pt.z - sel.grp.position.z;
-        movePCHeroTo(sel, pt.x, pt.z);
-        if (isGroupMove()) {
-          units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0).forEach(o => {
-            movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz);
-          });
-        }
-        return;
-      }
+    if (!pt) return; // clicked void / off-mesh — ignore, keep current selection
+    // Click on a hero → select
+    const hero = units.find(u => {
+      if (u.team !== 'blue' || u.hp <= 0) return false;
+      const dx = u.grp.position.x - pt.x, dz = u.grp.position.z - pt.z;
+      return dx * dx + dz * dz < INTERACTION.pickRadiusSq;
+    });
+    if (hero) {
+      clearMove(); hideMenu();
+      _selectHero(hero);
+      return;
     }
+    // Click on ground → move selected hero (and group if enabled)
+    const sel = getPCSelected();
+    if (sel) {
+      const dx = pt.x - sel.grp.position.x;
+      const dz = pt.z - sel.grp.position.z;
+      movePCHeroTo(sel, pt.x, pt.z);
+      if (isGroupMove()) {
+        units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0).forEach(o => {
+          movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz);
+        });
+      }
+      return;
+    }
+    // Click on valid terrain but no hero selected → deselect
     clearMove();
     deselectPCHero();
     return;

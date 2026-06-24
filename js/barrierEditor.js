@@ -4,17 +4,18 @@ import { getTerrainHeight } from './terrain.js';
 import { barrierSegments, loadBarriersData } from './environments.js';
 import { IS_DEV } from './devConfig.js';
 
-let _drawMode     = false;
-let _startPt      = null;   // {x,z} — first click while drawing
-let _barriers     = [];     // [{x1,z1,x2,z2, line, dot1, dot2}] — visual + data
-let _activeZoneId = null;
+let _drawMode      = false;
+let _startPt       = null;   // {x,z} — first click while drawing
+let _barriers      = [];     // [{x1,z1,x2,z2, line, dot1, dot2}] — visual + data
+let _activeZoneId  = null;
+let _visibleInDev  = false;  // only true while terrain editor is open
 
 // Live preview objects while placing second point
 let _previewLine = null;
 let _startDot    = null;
 
-const COL_BARRIER  = 0xff6600;
-const COL_PREVIEW  = 0xffaa44;
+const COL_BARRIER  = 0xffdd00;
+const COL_PREVIEW  = 0xffee88;
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
@@ -66,6 +67,9 @@ function _addBarrier(x1, z1, x2, z2) {
     entry.line = _lineMesh(x1, z1, x2, z2, COL_BARRIER);
     entry.dot1 = _dotMesh(x1, z1, COL_BARRIER);
     entry.dot2 = _dotMesh(x2, z2, COL_BARRIER);
+    entry.line.visible = _visibleInDev;
+    entry.dot1.visible = _visibleInDev;
+    entry.dot2.visible = _visibleInDev;
   }
   _barriers.push(entry);
   _updateCounter();
@@ -116,10 +120,13 @@ export function handleBarrierClick(pt) {
     if (IS_DEV) _startDot = _dotMesh(_startPt.x, _startPt.z, COL_PREVIEW);
     _updateStatus();
   } else {
+    const x1 = _startPt.x, z1 = _startPt.z;
     const x2 = +pt.x.toFixed(2), z2 = +pt.z.toFixed(2);
     _cancelDraw();
-    _addBarrier(_startPt.x, _startPt.z, x2, z2);
-    // Remain in draw mode so user can chain segments
+    _addBarrier(x1, z1, x2, z2);
+    // Chain: next click continues from this endpoint
+    _startPt = { x: x2, z: z2 };
+    if (IS_DEV) _startDot = _dotMesh(x2, z2, COL_PREVIEW);
     _updateStatus();
   }
 }
@@ -146,6 +153,9 @@ export function loadBarrierVisuals(arr) {
       dot1: _dotMesh(b.x1, b.z1, COL_BARRIER),
       dot2: _dotMesh(b.x2, b.z2, COL_BARRIER),
     };
+    entry.line.visible = _visibleInDev;
+    entry.dot1.visible = _visibleInDev;
+    entry.dot2.visible = _visibleInDev;
     _barriers.push(entry);
   }
   _updateCounter();
@@ -206,6 +216,18 @@ function _groundPt(cx, cy) {
   _rc.setFromCamera(_ndc, camera);
   const hits = _rc.intersectObject(ground);
   return hits.length ? hits[0].point : null;
+}
+
+// ── Visibility (controlled by terrain editor open/close) ──────────────────────
+
+export function setBarrierVisualsVisible(visible) {
+  _visibleInDev = visible;
+  for (const b of _barriers) {
+    if (b.line) b.line.visible = visible;
+    if (b.dot1) b.dot1.visible = visible;
+    if (b.dot2) b.dot2.visible = visible;
+  }
+  if (!visible) _cancelDraw();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

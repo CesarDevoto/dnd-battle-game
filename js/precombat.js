@@ -1,9 +1,10 @@
 import { units, setUnitWalking } from './units.js';
-import { UNIT_TYPES } from './constants.js';
+import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
 import { getActiveZone } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
+import { barrierSegments } from './environments.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -61,9 +62,28 @@ export function exitPrecombat() {
 export function selectPCHero(hero)  { _selected = hero; }
 export function deselectPCHero()    { _selected = null; }
 
+function _crossesAnyBarrier(ax, az, bx, bz) {
+  for (const s of barrierSegments) {
+    const rx = bx - ax, rz = bz - az;
+    const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
+    const denom = rx * sz - rz * sx;
+    if (Math.abs(denom) < 1e-9) continue;
+    const qpx = s.x1 - ax, qpz = s.z1 - az;
+    const t = (qpx * sz - qpz * sx) / denom;
+    const u = (qpx * rz - qpz * rx) / denom;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+  }
+  return false;
+}
+
 export function movePCHeroTo(hero, x, z) {
   if (!hero || !_active) return;
-  hero._pcTarget = { x, z };
+  const zone  = getActiveZone();
+  const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
+  const cx = Math.max(-halfGS, Math.min(halfGS, x));
+  const cz = Math.max(-halfGS, Math.min(halfGS, z));
+  if (_crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz)) return;
+  hero._pcTarget = { x: cx, z: cz };
   setUnitWalking(hero, true);
 }
 
@@ -126,7 +146,7 @@ function _tickPatrol(dt) {
   }
 }
 
-// Move `unit` one frame toward (tx, tz). Returns true when arrived.
+// Move `unit` one frame toward (tx, tz). Returns true when arrived or blocked.
 function _stepToward(unit, tx, tz, speed, dt) {
   const dx = tx - unit.grp.position.x;
   const dz = tz - unit.grp.position.z;
@@ -134,10 +154,16 @@ function _stepToward(unit, tx, tz, speed, dt) {
   if (distSq < 0.022) return true;   // 0.15 wu threshold
   const dist = Math.sqrt(distSq);
   const step = Math.min(speed * dt, dist);
-  unit.grp.position.x += (dx / dist) * step;
-  unit.grp.position.z += (dz / dist) * step;
-  unit.anchor.x        = unit.grp.position.x;
-  unit.anchor.z        = unit.grp.position.z;
+  const nx = unit.grp.position.x + (dx / dist) * step;
+  const nz = unit.grp.position.z + (dz / dist) * step;
+  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz)) return true;
+  const zone2   = getActiveZone();
+  const halfGS2 = ((zone2?.groundSize ?? GROUND_SIZE) / 2) - 2;
+  if (Math.abs(nx) > halfGS2 || Math.abs(nz) > halfGS2) return true;
+  unit.grp.position.x = nx;
+  unit.grp.position.z = nz;
+  unit.anchor.x        = nx;
+  unit.anchor.z        = nz;
   unit.grp.rotation.y  = Math.atan2(dx, dz);
   return false;
 }

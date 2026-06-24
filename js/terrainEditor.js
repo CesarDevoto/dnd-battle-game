@@ -3,7 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove } from './barrierEditor.js';
+import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible } from './barrierEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -367,6 +367,7 @@ export function initTerrainEditor() {
     const panel = document.getElementById('terrain-editor-panel');
     if (panel) panel.style.display = _open ? 'block' : 'none';
     document.getElementById('terrain-editor-btn').classList.toggle('active', _open);
+    setBarrierVisualsVisible(_open);
     if (_open) {
       _setMarkersVisible(_markersVisible);
     } else {

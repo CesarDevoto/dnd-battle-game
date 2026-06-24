@@ -763,31 +763,48 @@ function animatePath(unit, path, onComplete) {
 
 // ── Move range ────────────────────────────────────────────────────────────────
 
+// BFS flood-fill to find all tiles reachable within maxDist WU, respecting
+// props and barriers step-by-step (not just a direct-line check from origin).
+function _bfsReachable(ux, uz, maxDist, excludeUnit) {
+  const S    = WORLD_UNITS_PER_SQUARE;
+  const key  = (x, z) => `${x},${z}`;
+  const dirs = [
+    [0, S], [0, -S], [S, 0], [-S, 0],
+    [S, S], [S, -S], [-S, S], [-S, -S],
+  ];
+  const dist   = new Map([[key(ux, uz), 0]]);
+  const queue  = [{ x: ux, z: uz, d: 0 }];
+  const result = new Set();
+  while (queue.length) {
+    const { x, z, d } = queue.shift();
+    for (const [dx, dz] of dirs) {
+      const nx = x + dx, nz = z + dz;
+      const nd = d + Math.sqrt(dx * dx + dz * dz);
+      if (nd > maxDist + 1e-6) continue;
+      const k = key(nx, nz);
+      if (dist.has(k)) continue;
+      if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
+      if (isOccupied(nx, nz, excludeUnit)) continue;
+      if (hasPropClash(nx, nz)) continue;
+      if (crossesBarrier(x, z, nx, nz)) continue;
+      dist.set(k, nd);
+      result.add(k);
+      queue.push({ x: nx, z: nz, d: nd });
+    }
+  }
+  return result;
+}
+
 function showMoveRange(u, overrideFt) {
   const def      = UNIT_TYPES[u.type] ?? {};
   const remainFt = overrideFt !== undefined ? overrideFt : (def.speed ?? 30) - turnMovedFt;
   if (remainFt <= 0) { hideMoveRange(); return; }
 
-  const speedSq = remainFt / GRID_SQUARE_FEET;
-  const maxDist = speedSq * WORLD_UNITS_PER_SQUARE;
-  const range   = Math.ceil(speedSq);
+  const maxDist = (remainFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   validTiles.clear();
-  for (let dx = -range; dx <= range; dx++) {
-    for (let dz = -range; dz <= range; dz++) {
-      if (dx === 0 && dz === 0) continue;
-      const tx = ux + dx * WORLD_UNITS_PER_SQUARE;
-      const tz = uz + dz * WORLD_UNITS_PER_SQUARE;
-      const wx = tx - ux, wz = tz - uz;
-      if (wx * wx + wz * wz > maxDist * maxDist) continue;
-      if (Math.abs(tx) > _halfGroundSize || Math.abs(tz) > _halfGroundSize) continue;
-      if (isOccupied(tx, tz, u)) continue;
-      if (hasPropClash(tx, tz)) continue;
-      if (crossesBarrier(ux, uz, tx, tz)) continue;
-      validTiles.add(`${tx},${tz}`);
-    }
-  }
+  for (const k of _bfsReachable(ux, uz, maxDist, u)) validTiles.add(k);
 
   if (validTiles.size > 0) {
     moveRangeRing.geometry.dispose();
@@ -2111,6 +2128,12 @@ renderer.domElement.addEventListener('click', e => {
           hideMoveRange();
           hideAttackTargets();
           const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz);
+          if (!path.length) {
+            // Destination blocked by barrier — restore state, do nothing
+            prevMoveState = null;
+            showMoveRange(curU);
+            return;
+          }
           animatePath(curU, path, () => {
             turnMovedFt += movedFt;
             addLog(`${unitLabel(curU)} moves ${movedFt} ft`, 'move');

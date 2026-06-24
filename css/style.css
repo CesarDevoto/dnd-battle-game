@@ -5527,8 +5527,8 @@ td.bst-col-retired { color: #343228 !important; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 300px;
-  overflow: hidden;
+  max-height: 520px;
+  overflow-y: auto;
   transition: max-height 0.3s ease, opacity 0.2s ease;
 }
 #te-body.collapsed { max-height: 0; opacity: 0; padding: 0 8px; }
