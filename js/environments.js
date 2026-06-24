@@ -717,15 +717,15 @@ function buildGraveyardFog() {
   const tex = new THREE.CanvasTexture(cv);
 
   const mat = new THREE.MeshBasicMaterial({
-    color:       0x4868a8,
+    color:       0x6878a0,
     map:         tex,
     transparent: true,
-    opacity:     0.36,
+    opacity:     0.18,
     depthWrite:  false,
     side:        THREE.DoubleSide,
   });
 
-  const COUNT = 260;
+  const COUNT = 320;
   const geo   = new THREE.PlaneGeometry(1, 1);
   const mesh  = new THREE.InstancedMesh(geo, mat, COUNT);
   mesh.frustumCulled = false;
@@ -739,18 +739,18 @@ function buildGraveyardFog() {
 
   const dummy = new THREE.Object3D();
   for (let i = 0; i < COUNT; i++) {
-    px[i] = R(-30, 30);
-    py[i] = R(0.04, 0.78);
-    pz[i] = R(-30, 30);
+    px[i] = R(-42, 42);
+    py[i] = R(0.02, 0.28);
+    pz[i] = R(-42, 42);
     const ang = Math.random() * Math.PI * 2;
-    const spd = R(0.003, 0.009);
+    const spd = R(0.002, 0.006);
     vx[i]  = Math.cos(ang) * spd;
     vz[i]  = Math.sin(ang) * spd;
     ry[i]  = Math.random() * Math.PI * 2;
-    vry[i] = R(-0.0004, 0.0004);
-    tX[i]  = (Math.random() - 0.5) * 0.28;
-    tZ[i]  = (Math.random() - 0.5) * 0.20;
-    sz[i]  = R(7, 17);
+    vry[i] = R(-0.0002, 0.0002);
+    tX[i]  = (Math.random() - 0.5) * 0.08;
+    tZ[i]  = (Math.random() - 0.5) * 0.06;
+    sz[i]  = R(5, 13);
 
     dummy.position.set(px[i], py[i], pz[i]);
     dummy.rotation.set(-Math.PI / 2 + tX[i], ry[i], tZ[i]);
@@ -765,10 +765,10 @@ function buildGraveyardFog() {
       px[i] += vx[i];
       pz[i] += vz[i];
       ry[i] += vry[i];
-      if (px[i] >  32) px[i] -= 64;
-      if (px[i] < -32) px[i] += 64;
-      if (pz[i] >  32) pz[i] -= 64;
-      if (pz[i] < -32) pz[i] += 64;
+      if (px[i] >  44) px[i] -= 88;
+      if (px[i] < -44) px[i] += 88;
+      if (pz[i] >  44) pz[i] -= 88;
+      if (pz[i] < -44) pz[i] += 88;
       dummy.position.set(px[i], py[i], pz[i]);
       dummy.rotation.set(-Math.PI / 2 + tX[i], ry[i], tZ[i]);
       dummy.scale.setScalar(sz[i]);
