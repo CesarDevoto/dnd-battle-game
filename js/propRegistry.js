@@ -14,6 +14,7 @@ export const PROP_MODELS = {
   log:          { label: 'Log',         path: 'assets/environment/log.glb',             defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   dungeonwall:  { label: 'Rock Wall',   path: 'assets/environment/dungeonrockwall.glb', defaultScale: 1.0, blocksLOS: true,  clashR: 1.5  },
+  stonesteps:   { label: 'Stone Steps', path: 'assets/environment/stonesteps.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   foresttree:   { label: 'Forest Tree', path: 'assets/environment/foresttree.glb',      defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
   evergreen:    { label: 'Evergreen',   path: 'assets/environment/evergreentree.glb',   defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
   mangrove:     { label: 'Mangrove',    path: 'assets/environment/mangrove.glb',        defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },

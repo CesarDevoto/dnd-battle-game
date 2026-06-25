@@ -1007,7 +1007,7 @@ export const ENVS = {
   },
   dungeon: {
     sky: 0x050505, fog: 0x080808, density: 0.028, ground: 0x0c0c0c,
-    gridColor: 0x1a1a1a,
+    gridColor: 0x4a4a5a,
     ambColor: 0x0e0e12, ambInt: 2.4,
     moonColor: 0x8890a0, moonInt: 0.9,
     rimColor:  0x334466, rimInt:  0.4,

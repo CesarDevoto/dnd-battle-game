@@ -119,8 +119,8 @@ export const grid = new THREE.LineSegments(
   new THREE.LineBasicMaterial({
     color:       COLORS.gridMain,
     transparent: true,
-    opacity:     0.03,
-    depthTest:   false,
+    opacity:     0.3,
+    depthTest:   true,
     depthWrite:  false,
   })
 );

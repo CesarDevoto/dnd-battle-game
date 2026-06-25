@@ -129,6 +129,9 @@ const ANIM_CLIP_NAMES = {
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
+  zombie: {
+    idle: 'Idle_4', walk: 'Limping_Walk_3_inplace', run: 'Limping_Walk_3_inplace', attack: 'Attack', death: 'Dead',
+  },
   // No legs — idle animation used for all locomotion
   shadow: {
     idle: 'Idle_8', walk: 'Idle_8', run: 'Idle_8', attack: 'Right_Hand_Sword_Slash', death: 'Dead',

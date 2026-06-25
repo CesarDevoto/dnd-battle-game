@@ -1622,7 +1622,7 @@ export function setEnv(name, ambientKey) {
   rebuildGrid();
   grid.material.color.setHex(e.gridColor ?? COLORS.gridMain);
   const darkBiome = name === 'forest' || name === 'swamp' || name === 'graveyard' || name === 'dungeon';
-  grid.material.opacity = darkBiome ? 0.12 : 0.10;
+  grid.material.opacity = name === 'dungeon' ? 0.55 : darkBiome ? 0.12 : 0.10;
   document.getElementById('grid-toggle-btn').classList.toggle('dark-biome', darkBiome);
   const _bgEl = document.getElementById('scene-bg');
   const _bgBiomes = new Set(['forest', 'tundra', 'swamp', 'desert', 'savanna', 'graveyard', 'dungeon']);

@@ -4,6 +4,7 @@ import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
 import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible } from './barrierEditor.js';
+import { isVisionBlockerModeActive, handleVisionBlockerClick, handleVisionBlockerMouseMove, setVisionBlockerVisualsVisible } from './visionBlockerEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -368,6 +369,7 @@ export function initTerrainEditor() {
     if (panel) panel.style.display = _open ? 'block' : 'none';
     document.getElementById('terrain-editor-btn').classList.toggle('active', _open);
     setBarrierVisualsVisible(_open);
+    setVisionBlockerVisualsVisible(_open);
     if (_open) {
       _setMarkersVisible(_markersVisible);
     } else {
@@ -411,10 +413,15 @@ export function initTerrainEditor() {
     if (!_open) return;
     e.stopImmediatePropagation();
 
-    // Barrier draw mode intercepts all terrain clicks
+    // Barrier / vision-blocker draw modes intercept all terrain clicks
     if (isBarrierModeActive()) {
       const pt = _groundPt(e.clientX, e.clientY);
       if (pt) handleBarrierClick(pt);
+      return;
+    }
+    if (isVisionBlockerModeActive()) {
+      const pt = _groundPt(e.clientX, e.clientY);
+      if (pt) handleVisionBlockerClick(pt);
       return;
     }
 

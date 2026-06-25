@@ -51,6 +51,7 @@ export const ZONE = {
   ],
   exits: [
     { x: -82, z: 70, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw', fogPush: 16, fogOffsetZ: 1 },
+    { x: -9, z: -65, targetZone: 'ghouls_mausoleum', arrivalX: 0, arrivalZ: 32, label: "Ghoul's Mausoleum" },
   ],
   fogBreaches: [
     { x: -9.37, z: -68.08, scale: 0.5 },
@@ -78,8 +79,8 @@ export const ZONE = {
     { model: 'deadtree', x: 70, z: -5, y: 0.0862, rotY: 0.3, scale: 11 },
     { model: 'deadtree', x: 48, z: -25, y: 1.2179, rotY: 3.5, scale: 9.5 },
     { model: 'deadtree', x: 68, z: -40, y: 0, rotY: 1.7, scale: 10 },
-    { model: 'deadtree', x: 30, z: -65, y: 0, rotY: 5.2, scale: 9 },
-    { model: 'deadtree', x: 55, z: -70, y: 0, rotY: 0.8, scale: 10.5 },
+    { model: 'deadtree', x: 30, z: -65, y: -0.875, yOff: -0.875, rotY: 5.2, scale: 9 },
+    { model: 'deadtree', x: 55, z: -70, y: -1.125, yOff: -1.125, rotY: 0.8, scale: 10.5 },
     { model: 'deadtree', x: 80, z: -60, y: 0, rotY: 4.1, scale: 9 },
     { model: 'deadtree', x: -30, z: -15, y: -0.875, yOff: -0.875, rotY: 2.5, scale: 10 },
     { model: 'deadtree', x: -55, z: 20, y: -0.3848, yOff: -0.875, rotY: 6, scale: 8.5 },

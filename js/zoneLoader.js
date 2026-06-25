@@ -8,6 +8,8 @@ import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
+import { loadVisionBlockerVisuals } from './visionBlockerEditor.js';
+import { clearVisionBlockers } from './visionBlockers.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
@@ -16,12 +18,13 @@ import { applyHeroSkin } from './heroSkins.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
 import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_road_to_cragmaw.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
+import { ZONE as ZONE_GHOULS_MAUSOLEUM } from './zones/zone_ghouls_mausoleum.js';
 import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const _registry = {};
-const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_CRAGMAW_ENTRANCE, ZONE_HAUNTED_WOOD, ZONE_RIVER_STYX];
+const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_CRAGMAW_ENTRANCE, ZONE_HAUNTED_WOOD, ZONE_GHOULS_MAUSOLEUM, ZONE_RIVER_STYX];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
 // Kick off parallel GLB fetches for every prop in every zone immediately at
@@ -301,6 +304,11 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
+
+  // Load vision blockers (dark overlay + dev visuals)
+  clearVisionBlockers();
+  loadVisionBlockerVisuals(zone.visionBlockers ?? []);
+
   _postCombat = false;
 
   // Place heroes (initial load) or reposition existing ones (zone transition)
