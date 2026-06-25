@@ -104,6 +104,7 @@ function _cancelDraw() {
 }
 
 export function isVisionBlockerModeActive() { return _drawMode; }
+export function getCurrentVisionBlockers() { return _segs.map(({ x1, z1, x2, z2 }) => ({ x1, z1, x2, z2 })); }
 
 function _setDrawMode(on) {
   _drawMode = on;

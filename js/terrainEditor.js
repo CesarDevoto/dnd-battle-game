@@ -3,8 +3,8 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible } from './barrierEditor.js';
-import { isVisionBlockerModeActive, handleVisionBlockerClick, handleVisionBlockerMouseMove, setVisionBlockerVisualsVisible } from './visionBlockerEditor.js';
+import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible, getCurrentBarriers } from './barrierEditor.js';
+import { isVisionBlockerModeActive, handleVisionBlockerClick, handleVisionBlockerMouseMove, setVisionBlockerVisualsVisible, getCurrentVisionBlockers } from './visionBlockerEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -300,7 +300,7 @@ async function _saveToZone() {
   try {
     const res  = await fetch('/__save_zone_terrain', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body:   JSON.stringify({ zoneId: _activeZoneId, terrain, terrainSeed: getTerrainSeed(), biome: activeEnv }),
+      body:   JSON.stringify({ zoneId: _activeZoneId, terrain, terrainSeed: getTerrainSeed(), biome: activeEnv, barriers: getCurrentBarriers(), visionBlockers: getCurrentVisionBlockers() }),
     });
     const data = await res.json();
     if (data.ok) {

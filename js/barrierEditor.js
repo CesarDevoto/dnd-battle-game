@@ -101,6 +101,7 @@ function _cancelDraw() {
 // ── Draw mode ─────────────────────────────────────────────────────────────────
 
 export function isBarrierModeActive() { return _drawMode; }
+export function getCurrentBarriers() { return _barriers.map(({ x1, z1, x2, z2 }) => ({ x1, z1, x2, z2 })); }
 
 function _setDrawMode(on) {
   _drawMode = on;

@@ -222,7 +222,7 @@ function saveZoneTerrainPlugin() {
         req.on('data', c => { body += c; });
         req.on('end', () => {
           try {
-            const { zoneId, terrain, terrainSeed, biome } = JSON.parse(body);
+            const { zoneId, terrain, terrainSeed, biome, barriers, visionBlockers } = JSON.parse(body);
             if (!zoneId) throw new Error('missing zoneId');
 
             const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
@@ -262,6 +262,30 @@ function saveZoneTerrainPlugin() {
                 src = src.replace(/[ \t]*terrainSeed\s*:[^\n]+/, seedBlock);
               } else {
                 src = src.replace(/^(\};)/m, `${seedBlock}\n$1`);
+              }
+            }
+
+            // Write barriers if provided (keeps file in sync when cleared)
+            if (barriers !== undefined) {
+              const r = (n) => Math.round(n * 1e4) / 1e4;
+              const bLines = barriers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`);
+              const bBlock = barriers.length ? `  barriers: [\n${bLines.join('\n')}\n  ],` : `  barriers: [],`;
+              if (/[ \t]*barriers\s*:/.test(src)) {
+                src = src.replace(/[ \t]*barriers\s*:[\s\S]*?\],?/, bBlock);
+              } else {
+                src = src.replace(/^(\};)/m, `${bBlock}\n$1`);
+              }
+            }
+
+            // Write visionBlockers if provided
+            if (visionBlockers !== undefined) {
+              const r = (n) => Math.round(n * 1e4) / 1e4;
+              const vLines = visionBlockers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`);
+              const vBlock = visionBlockers.length ? `  visionBlockers: [\n${vLines.join('\n')}\n  ],` : `  visionBlockers: [],`;
+              if (/[ \t]*visionBlockers\s*:/.test(src)) {
+                src = src.replace(/[ \t]*visionBlockers\s*:[\s\S]*?\],?/, vBlock);
+              } else {
+                src = src.replace(/^(\};)/m, `${vBlock}\n$1`);
               }
             }
 
