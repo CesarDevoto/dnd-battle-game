@@ -102,6 +102,10 @@ function _cancelDraw() {
 
 export function isBarrierModeActive() { return _drawMode; }
 export function getCurrentBarriers() { return _barriers.map(({ x1, z1, x2, z2 }) => ({ x1, z1, x2, z2 })); }
+export function undoLastBarrier() {
+  if (_startPt) { _cancelDraw(); _updateStatus(); }
+  else if (_barriers.length) _removeAt(_barriers.length - 1);
+}
 
 function _setDrawMode(on) {
   _drawMode = on;
@@ -228,7 +232,7 @@ export function setBarrierVisualsVisible(visible) {
     if (b.dot1) b.dot1.visible = visible;
     if (b.dot2) b.dot2.visible = visible;
   }
-  if (!visible) _cancelDraw();
+  if (!visible) _setDrawMode(false); // reset draw mode so it doesn't persist on reopen
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -258,7 +262,7 @@ export function initBarrierEditor() {
     handleBarrierMouseMove(_groundPt(e.clientX, e.clientY));
   });
 
-  // Escape exits draw mode
+  // Escape exits draw mode (Ctrl+Z and [ ] are handled centrally in terrainEditor)
   window.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'Escape' && _drawMode) _setDrawMode(false);

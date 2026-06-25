@@ -421,9 +421,11 @@ function saveZoneVisionBlockersPlugin() {
             let src = fs.readFileSync(filePath, 'utf-8');
 
             const r = (n) => Math.round(n * 1e4) / 1e4;
-            const itemLines = visionBlockers.map(b =>
-              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`
-            );
+            const itemLines = visionBlockers.map(b => {
+              const yPart    = (b.y ?? 0) !== 0    ? `, y: ${r(b.y)}`       : '';
+              const lidPart  = b.lineId != null     ? `, lineId: ${b.lineId}` : '';
+              return `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)}${yPart}${lidPart} },`;
+            });
             const block = visionBlockers.length
               ? `  visionBlockers: [\n${itemLines.join('\n')}\n  ],`
               : `  visionBlockers: [],`;

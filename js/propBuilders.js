@@ -2065,3 +2065,17 @@ export function mkInvestigateStar() {
 
   return grp;
 }
+
+export function mkDarknessPlane() {
+  const geo = new THREE.PlaneGeometry(1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 8;
+  mesh.frustumCulled = false;
+  return mesh;
+}

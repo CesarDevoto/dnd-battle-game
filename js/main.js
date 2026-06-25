@@ -25,8 +25,6 @@ import { initNpcAIEditor } from './npcAIEditor.js';
 import { initSpawnEditor } from './spawnEditor.js';
 import { initTerrainEditor } from './terrainEditor.js';
 import { initBarrierEditor } from './barrierEditor.js';
-import { initVisionBlockerEditor } from './visionBlockerEditor.js';
-import { tickVisionBlockers } from './visionBlockers.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickStars } from './investigateStars.js';
@@ -120,7 +118,6 @@ if (IS_DEV) {
   initSpawnEditor();
   initTerrainEditor();
   initBarrierEditor();
-  initVisionBlockerEditor();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
@@ -292,7 +289,6 @@ let _prevNow = 0;
   tickLoot(dt);
   tickRoadToCragmaw(dt);
   tickActivationRadius(getPlacedProps());
-  tickVisionBlockers();
   renderer.render(scene, camera);
 })();
 

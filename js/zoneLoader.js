@@ -8,8 +8,6 @@ import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
-import { loadVisionBlockerVisuals } from './visionBlockerEditor.js';
-import { clearVisionBlockers } from './visionBlockers.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
@@ -305,9 +303,6 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
 
-  // Load vision blockers (dark overlay + dev visuals)
-  clearVisionBlockers();
-  loadVisionBlockerVisuals(zone.visionBlockers ?? []);
 
   _postCombat = false;
 

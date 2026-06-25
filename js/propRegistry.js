@@ -1,4 +1,4 @@
-import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkInvestigateStar, mkFogPatch, mkPointLight } from './environments.js';
+import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkInvestigateStar, mkFogPatch, mkPointLight, mkDarknessPlane } from './environments.js';
 
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
@@ -13,8 +13,14 @@ export const PROP_MODELS = {
   brokentree:   { label: 'Broken Tree', path: 'assets/environment/brokentree.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 0.7  },
   log:          { label: 'Log',         path: 'assets/environment/log.glb',             defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
-  dungeonwall:  { label: 'Rock Wall',   path: 'assets/environment/dungeonrockwall.glb', defaultScale: 1.0, blocksLOS: true,  clashR: 1.5  },
-  stonesteps:   { label: 'Stone Steps', path: 'assets/environment/stonesteps.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
+  dungeonwall:      { label: 'Rock Wall',       path: 'assets/environment/dungeonrockwall.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
+  stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
+  widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
+  dungeonwallsmall: { label: 'Wall (Small)',    path: 'assets/environment/dungeon small wall.glb',   defaultScale: 8.0, blocksLOS: true,  clashR: 0.8  },
+  dungeonwalllong:  { label: 'Wall (Long)',      path: 'assets/environment/dungeon long wall.glb',        defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
+  dungeonwallxlong: { label: 'Wall (X-Long)',   path: 'assets/environment/dungeon really long wall.glb', defaultScale: 8.0, blocksLOS: true,  clashR: 2.0  },
+  dungeonwallcurve: { label: 'Wall (Curved)',   path: 'assets/environment/dungeon curved wall.glb',  defaultScale: 8.0, blocksLOS: true,  clashR: 1.0  },
+  dungeoncolumn:    { label: 'Dungeon Column',  path: 'assets/environment/dungeon column.glb',       defaultScale: 8.0, blocksLOS: true,  clashR: 0.4  },
   foresttree:   { label: 'Forest Tree', path: 'assets/environment/foresttree.glb',      defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
   evergreen:    { label: 'Evergreen',   path: 'assets/environment/evergreentree.glb',   defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
   mangrove:     { label: 'Mangrove',    path: 'assets/environment/mangrove.glb',        defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
@@ -35,6 +41,7 @@ export const PROP_MODELS = {
   arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.1, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
 
   fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
+  darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.8  },
 
   // ── Special interactive markers ───────────────────────────────────────────────
   investigate_star: { label: 'Investigate Light', builderFn: () => mkInvestigateStar(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },

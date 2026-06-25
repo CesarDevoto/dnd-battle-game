@@ -3,8 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible, getCurrentBarriers } from './barrierEditor.js';
-import { isVisionBlockerModeActive, handleVisionBlockerClick, handleVisionBlockerMouseMove, setVisionBlockerVisualsVisible, getCurrentVisionBlockers } from './visionBlockerEditor.js';
+import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier } from './barrierEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -17,8 +16,9 @@ let _defaultR   = 8.0;
 let _defaultPR  = 0.0;
 
 // ── Undo history ──────────────────────────────────────────────────────────────
-const _history  = [];
-const MAX_UNDO  = 50;
+const _history      = [];
+const MAX_UNDO      = 50;
+const _lineUndoStack = []; // tracks 'barrier' | 'blocker' placements for Ctrl+Z
 
 function _pushHistory() {
   _history.push(JSON.parse(JSON.stringify(getTerrainControlPoints())));
@@ -300,7 +300,7 @@ async function _saveToZone() {
   try {
     const res  = await fetch('/__save_zone_terrain', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body:   JSON.stringify({ zoneId: _activeZoneId, terrain, terrainSeed: getTerrainSeed(), biome: activeEnv, barriers: getCurrentBarriers(), visionBlockers: getCurrentVisionBlockers() }),
+      body:   JSON.stringify({ zoneId: _activeZoneId, terrain, terrainSeed: getTerrainSeed(), biome: activeEnv, barriers: getCurrentBarriers() }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -369,7 +369,6 @@ export function initTerrainEditor() {
     if (panel) panel.style.display = _open ? 'block' : 'none';
     document.getElementById('terrain-editor-btn').classList.toggle('active', _open);
     setBarrierVisualsVisible(_open);
-    setVisionBlockerVisualsVisible(_open);
     if (_open) {
       _setMarkersVisible(_markersVisible);
     } else {
@@ -413,15 +412,14 @@ export function initTerrainEditor() {
     if (!_open) return;
     e.stopImmediatePropagation();
 
-    // Barrier / vision-blocker draw modes intercept all terrain clicks
+    // Barrier draw mode intercepts all terrain clicks
     if (isBarrierModeActive()) {
       const pt = _groundPt(e.clientX, e.clientY);
-      if (pt) handleBarrierClick(pt);
-      return;
-    }
-    if (isVisionBlockerModeActive()) {
-      const pt = _groundPt(e.clientX, e.clientY);
-      if (pt) handleVisionBlockerClick(pt);
+      if (pt) {
+        const before = getCurrentBarriers().length;
+        handleBarrierClick(pt);
+        if (getCurrentBarriers().length > before) _lineUndoStack.push('barrier');
+      }
       return;
     }
 
@@ -444,7 +442,13 @@ export function initTerrainEditor() {
   window.addEventListener('keydown', e => {
     if (!_open) return;
     if (e.target.tagName === 'INPUT') return;
-    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
+    if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault();
+      const last = _lineUndoStack[_lineUndoStack.length - 1];
+      if (last === 'barrier') { _lineUndoStack.pop(); undoLastBarrier(); return; }
+      _undo();
+      return;
+    }
     if (e.shiftKey) {
       switch (e.key) {
         case 'ArrowLeft':  e.preventDefault(); _stampFrom(-STAMP, 0);  return;
@@ -458,8 +462,8 @@ export function initTerrainEditor() {
       case 'ArrowRight': e.preventDefault(); _nudge( NUDGE, 0);    break;
       case 'ArrowUp':    e.preventDefault(); _nudge(0, -NUDGE);    break;
       case 'ArrowDown':  e.preventDefault(); _nudge(0,  NUDGE);    break;
-      case '[':          e.preventDefault(); _adjustH(-HSTEP);     break;
-      case ']':          e.preventDefault(); _adjustH( HSTEP);     break;
+      case '[': e.preventDefault(); _adjustH(-HSTEP); break;
+      case ']': e.preventDefault(); _adjustH( HSTEP); break;
       case '-':                              _adjustR(-RSTEP);      break;
       case '=': case '+':                    _adjustR( RSTEP);      break;
       case ',':                              _adjustPR(-PRSTEP);    break;

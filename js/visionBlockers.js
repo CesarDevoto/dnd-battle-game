@@ -16,9 +16,9 @@ void main() {
 }
 `;
 
-// Fragment is visible if any hero has an unobstructed ray to it.
-// A ray is blocked if it crosses any vision-blocker segment.
-// We render pure black for fragments no hero can see.
+// Half-plane shadow model: each blocker line divides the world in two.
+// Heroes are on one side; everything on the opposite side is black.
+// No ray-casting — no triangular artifacts at segment endpoints.
 const _frag = /* glsl */`
 varying vec2 vXZ;
 uniform vec2 uHero[4];
@@ -26,29 +26,53 @@ uniform int  uHeroN;
 uniform vec4 uSeg[MAX_B_LITERAL];
 uniform int  uSegN;
 
-bool crosses(vec2 a, vec2 b, vec2 c, vec2 d) {
-  vec2 r = b - a, s = d - c;
-  float den = r.x * s.y - r.y * s.x;
-  if (abs(den) < 0.0001) return false;
-  vec2 ac = c - a;
-  float t = (ac.x * s.y - ac.y * s.x) / den;
-  float u = (ac.x * r.y  - ac.y * r.x) / den;
-  return t > 0.0001 && t < 0.9999 && u >= 0.0 && u <= 1.0;
+// Signed cross product — which side of line AB is point P on.
+float side(vec2 p, vec2 a, vec2 b) {
+  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
 }
 
 void main() {
-  if (uHeroN <= 0) { discard; return; }
+  if (uHeroN <= 0 || uSegN <= 0) { discard; return; }
   vec2 p = vXZ;
-  for (int i = 0; i < 4; i++) {
-    if (i >= uHeroN) break;
-    bool blocked = false;
-    for (int j = 0; j < MAX_B_LITERAL; j++) {
-      if (j >= uSegN) break;
-      if (crosses(uHero[i], p, uSeg[j].xy, uSeg[j].zw)) { blocked = true; break; }
+
+  bool inShadow = false;
+  float minDist = 1.0e6;
+
+  for (int j = 0; j < MAX_B_LITERAL; j++) {
+    if (j >= uSegN) break;
+    vec2 a = uSeg[j].xy;
+    vec2 b = uSeg[j].zw;
+    vec2 ab = b - a;
+    float len2 = dot(ab, ab);
+    if (len2 < 0.0001) continue;
+
+    // Lateral check: only cast shadow within the segment's perpendicular band.
+    // t=0 at endpoint A, t=1 at endpoint B; outside means beyond the segment ends.
+    float t = dot(p - a, ab) / len2;
+    if (t < 0.0 || t > 1.0) continue;
+
+    float fs = side(p, a, b);
+    if (abs(fs) < 0.001) continue;
+
+    // Shadow from this segment only if ALL heroes are on the opposite side.
+    bool allHeroesOtherSide = true;
+    for (int i = 0; i < 4; i++) {
+      if (i >= uHeroN) break;
+      float hs = side(uHero[i], a, b);
+      if (abs(hs) < 0.01 || sign(hs) == sign(fs)) { allHeroesOtherSide = false; break; }
     }
-    if (!blocked) { discard; return; }
+
+    if (allHeroesOtherSide) {
+      inShadow = true;
+      float dist = abs(fs) / sqrt(len2); // perpendicular distance to the line
+      minDist = min(minDist, dist);
+    }
   }
-  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+
+  if (!inShadow) { discard; return; }
+
+  float alpha = smoothstep(0.0, 0.4, minDist); // 0.4 WU ≈ 1 ft edge fuzz
+  gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
 }
 `;
 

@@ -347,7 +347,7 @@ const Y_STEP     = 0.125;
 const ROT        = Math.PI / 24;   // 7.5°
 const SCALE_STEP = 0.10;           // 10% per key press
 const SCALE_MIN  = 0.05;
-const SCALE_MAX  = 10.0;
+const SCALE_MAX  = 200.0;
 
 function _nudge(dx, dz) {
   if (_selectedIdx < 0) return;
