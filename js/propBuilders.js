@@ -1912,7 +1912,7 @@ export function mkArrow(s = 1, ry = 0) {
 // Each placement gets its own texture + material so clearProps() disposal
 // on zone reload never leaves stale dead references in the module cache.
 
-export function mkFogPatch() {
+function _mkFogCanvas(color) {
   const S = 128, cv = document.createElement('canvas');
   cv.width = cv.height = S;
   const ctx = cv.getContext('2d');
@@ -1924,31 +1924,30 @@ export function mkFogPatch() {
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, S, S);
   const tex = new THREE.CanvasTexture(cv);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0x4868a8, map: tex,
-    transparent: true, opacity: 0.36,
-    depthWrite: false, side: THREE.DoubleSide,
+  return new THREE.MeshBasicMaterial({
+    color, map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
   });
-  const rnd    = (a, b) => a + Math.random() * (b - a);
-  const COUNT  = 22;
-  const RADIUS = 5.5;
-  const WRAP   = RADIUS + 2;
+}
 
+function _mkFogMesh(mat, count, opacity, renderOrder) {
+  const rnd  = (a, b) => a + Math.random() * (b - a);
+  const RADIUS = 5.5, WRAP = RADIUS + 2;
+  mat.opacity = opacity;
   const geo  = new THREE.PlaneGeometry(1, 1);
-  const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
   mesh.frustumCulled = false;
-  mesh.renderOrder   = 1;
+  mesh.renderOrder   = renderOrder;
 
-  const px  = new Float32Array(COUNT), py = new Float32Array(COUNT), pz  = new Float32Array(COUNT);
-  const vx  = new Float32Array(COUNT), vz = new Float32Array(COUNT);
-  const ry  = new Float32Array(COUNT), vry = new Float32Array(COUNT);
-  const tX  = new Float32Array(COUNT), tZ  = new Float32Array(COUNT);
-  const sz  = new Float32Array(COUNT);
+  const px = new Float32Array(count), py = new Float32Array(count), pz = new Float32Array(count);
+  const vx = new Float32Array(count), vz = new Float32Array(count);
+  const ry = new Float32Array(count), vry = new Float32Array(count);
+  const tX = new Float32Array(count), tZ  = new Float32Array(count);
+  const sz = new Float32Array(count);
   const dummy = new THREE.Object3D();
 
-  for (let i = 0; i < COUNT; i++) {
+  for (let i = 0; i < count; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const rad = Math.sqrt(Math.random()) * RADIUS;  // sqrt for uniform disc distribution
+    const rad = Math.sqrt(Math.random()) * RADIUS;
     px[i]  = Math.cos(ang) * rad;
     py[i]  = rnd(0.04, 0.78);
     pz[i]  = Math.sin(ang) * rad;
@@ -1971,10 +1970,8 @@ export function mkFogPatch() {
   mesh.instanceMatrix.needsUpdate = true;
 
   mesh.userData.update = function() {
-    for (let i = 0; i < COUNT; i++) {
-      px[i] += vx[i];
-      pz[i] += vz[i];
-      ry[i] += vry[i];
+    for (let i = 0; i < count; i++) {
+      px[i] += vx[i]; pz[i] += vz[i]; ry[i] += vry[i];
       if (px[i] >  WRAP) px[i] -= WRAP * 2;
       if (px[i] < -WRAP) px[i] += WRAP * 2;
       if (pz[i] >  WRAP) pz[i] -= WRAP * 2;
@@ -1990,6 +1987,11 @@ export function mkFogPatch() {
 
   return mesh;
 }
+
+export function mkFogPatch() {
+  return _mkFogMesh(_mkFogCanvas(0x4868a8), 22, 0.36, 1);
+}
+
 
 // ── Investigation light ───────────────────────────────────────────────────────
 // Invisible pulsing point light — highlights nearby props/terrain as a POI marker.

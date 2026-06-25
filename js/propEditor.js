@@ -368,6 +368,45 @@ function _moveY(dy) {
   _updateStatus();
 }
 
+async function _duplicateSelected(dx, dz) {
+  if (_selectedIdx < 0) return;
+  const src = _placedProps[_selectedIdx];
+  const def = PROP_MODELS[src.model];
+  if (!def) return;
+
+  let mesh;
+  if (def.builderFn) {
+    mesh = def.builderFn();
+  } else {
+    let original;
+    try { original = await _loadGLB(src.model); }
+    catch (e) { console.error('[propEditor] GLB load failed:', e); return; }
+    mesh = original.clone();
+  }
+
+  _snapshot();
+  const entry = {
+    mesh,
+    model: src.model,
+    x: src.x + dx * src.scaleF,
+    z: src.z + dz * src.scaleF,
+    yOff: src.yOff,
+    rotY: src.rotY,
+    rotX: src.rotX ?? 0,
+    scaleF: src.scaleF,
+  };
+  if (src.params) entry.params = { ...src.params };
+  _applyTransform(entry);
+  if (_propsHidden) mesh.visible = false;
+  scene.add(mesh);
+
+  activeProps.push(mesh);
+  if (def.clashR > 0) propPositions.push({ x: entry.x, z: entry.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
+  if (def.blocksLOS) losBlockerMeshes.push(mesh);
+  _placedProps.push(entry);
+  _selectIdx(_placedProps.length - 1);
+}
+
 function _rotate(delta) {
   if (_selectedIdx < 0) return;
   const entry = _placedProps[_selectedIdx];
@@ -520,7 +559,7 @@ export async function loadZoneProps(propsArray) {
       entry.params = { ...p.params };
       _applyLightParams(entry);
     }
-    _applyTransform(entry, p.y ?? null);
+    _applyTransform(entry, def.path ? (p.y ?? null) : null);
     scene.add(mesh);
     activeProps.push(mesh);
     if (def.clashR > 0) propPositions.push({ x: p.x, z: p.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
@@ -565,7 +604,8 @@ function _buildPanel() {
   listEl.addEventListener('click', e => {
     const btn = e.target.closest('.pe-model-btn');
     if (!btn) return;
-    _selectedModel = btn.dataset.model;
+    // Clicking the active model deselects it — gives an empty cursor for picking existing props
+    _selectedModel = btn.dataset.model === _selectedModel ? null : btn.dataset.model;
     _selectedIdx   = -1;
     _selRing.visible = false;
     _updateModelButtons();
@@ -652,10 +692,10 @@ export function initPropEditor() {
     if (!_open) return;
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
     switch (e.key) {
-      case 'ArrowLeft':  e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);   break;
-      case 'ArrowRight': e.preventDefault(); if (!e.repeat) _snapshot(); _nudge( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);   break;
-      case 'ArrowUp':    e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(0, -(e.ctrlKey ? MICRO_NUDGE : NUDGE));   break;
-      case 'ArrowDown':  e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(0,  (e.ctrlKey ? MICRO_NUDGE : NUDGE));   break;
+      case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateSelected(-1, 0); } else { if (!e.repeat) _snapshot(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0); }  break;
+      case 'ArrowRight': e.preventDefault(); if (e.shiftKey) { _duplicateSelected( 1, 0); } else { if (!e.repeat) _snapshot(); _nudge( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0); }  break;
+      case 'ArrowUp':    e.preventDefault(); if (e.shiftKey) { _duplicateSelected( 0,-1); } else { if (!e.repeat) _snapshot(); _nudge(0, -(e.ctrlKey ? MICRO_NUDGE : NUDGE)); }  break;
+      case 'ArrowDown':  e.preventDefault(); if (e.shiftKey) { _duplicateSelected( 0, 1); } else { if (!e.repeat) _snapshot(); _nudge(0,  (e.ctrlKey ? MICRO_NUDGE : NUDGE)); }  break;
       case 'r': case 'R':              if (!e.repeat) _snapshot(); _rotate(ROT);                      break;
       case ',': case '<':             e.preventDefault(); if (!e.repeat) _snapshot(); _rotateX(-ROT); break;
       case '.': case '>':             e.preventDefault(); if (!e.repeat) _snapshot(); _rotateX( ROT); break;
