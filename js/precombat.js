@@ -102,13 +102,16 @@ function _tickHeroes(dt) {
   for (const hero of units) {
     if (hero.team !== 'blue' || !hero._pcTarget || hero.hp <= 0) continue;
     const { x, z } = hero._pcTarget;
-    if (_stepToward(hero, x, z, WALK_SPEED, dt)) {
-      // Snap to destination
+    const heroResult = _stepToward(hero, x, z, WALK_SPEED, dt);
+    if (heroResult === 'arrived') {
       hero.grp.position.x = x;
       hero.grp.position.z = z;
       hero.anchor.x       = x;
       hero.anchor.z       = z;
       hero._pcTarget      = null;
+      setUnitWalking(hero, false);
+    } else if (heroResult === 'blocked') {
+      hero._pcTarget = null;
       setUnitWalking(hero, false);
     }
   }
@@ -132,7 +135,8 @@ function _tickPatrol(dt) {
     if (enemy._patrolIdx == null) enemy._patrolIdx = 0;
     const wp = path[enemy._patrolIdx];
 
-    if (_stepToward(enemy, wp.x, wp.z, PATROL_SPEED, dt)) {
+    const result = _stepToward(enemy, wp.x, wp.z, PATROL_SPEED, dt);
+    if (result === 'arrived') {
       enemy.grp.position.x = wp.x;
       enemy.grp.position.z = wp.z;
       enemy.anchor.x       = wp.x;
@@ -140,26 +144,32 @@ function _tickPatrol(dt) {
       enemy._patrolIdx     = (enemy._patrolIdx + 1) % path.length;
       enemy._patrolWait    = 12;    // pause at each waypoint
       setUnitWalking(enemy, false);
+    } else if (result === 'blocked') {
+      // Barrier between current position and waypoint — skip to next waypoint
+      // without snapping position (which would teleport the unit through the wall).
+      enemy._patrolIdx = (enemy._patrolIdx + 1) % path.length;
+      setUnitWalking(enemy, false);
     } else {
       setUnitWalking(enemy, true);
     }
   }
 }
 
-// Move `unit` one frame toward (tx, tz). Returns true when arrived or blocked.
+// Move `unit` one frame toward (tx, tz).
+// Returns 'arrived' when close enough, 'blocked' when a barrier/boundary blocks the step, false otherwise.
 function _stepToward(unit, tx, tz, speed, dt) {
   const dx = tx - unit.grp.position.x;
   const dz = tz - unit.grp.position.z;
   const distSq = dx * dx + dz * dz;
-  if (distSq < 0.022) return true;   // 0.15 wu threshold
+  if (distSq < 0.022) return 'arrived';   // 0.15 wu threshold
   const dist = Math.sqrt(distSq);
   const step = Math.min(speed * dt, dist);
   const nx = unit.grp.position.x + (dx / dist) * step;
   const nz = unit.grp.position.z + (dz / dist) * step;
-  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz)) return true;
+  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz)) return 'blocked';
   const zone2   = getActiveZone();
   const halfGS2 = ((zone2?.groundSize ?? GROUND_SIZE) / 2) - 2;
-  if (Math.abs(nx) > halfGS2 || Math.abs(nz) > halfGS2) return true;
+  if (Math.abs(nx) > halfGS2 || Math.abs(nz) > halfGS2) return 'blocked';
   unit.grp.position.x = nx;
   unit.grp.position.z = nz;
   unit.anchor.x        = nx;

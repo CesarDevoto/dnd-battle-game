@@ -3089,6 +3089,13 @@ function _animateRoamNudge(u) {
   const destX     = cx + dx * ratio;
   const destZ     = cz + dz * ratio;
 
+  // Skip nudge if the direct path to the destination crosses a barrier.
+  if (crossesBarrier(cx, cz, destX, destZ)) {
+    if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
+    _roamAggroCheck(u);
+    return;
+  }
+
   u.grp.rotation.y = Math.atan2(dx, dz);
   setUnitWalking(u, true, false);
   u._roamNudging = true;
