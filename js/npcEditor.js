@@ -139,6 +139,32 @@ function _removeUnit(u) {
   if (i >= 0) units.splice(i, 1);
 }
 
+// ── Duplicate selected NPC offset by (dx, dz) ────────────────────────────────
+function _duplicateNpc(dx, dz) {
+  if (!_selectedUnit) return;
+  const src    = _selectedUnit;
+  const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length ? { ...src.animOverrides } : null;
+  _snapshot();
+  const nu = buildUnit(+(src.grp.position.x + dx).toFixed(2), +(src.grp.position.z + dz).toFixed(2), src.team, src.type, ovCopy);
+  nu.grp.scale.setScalar(src.grp.scale.x);
+  nu.grp.rotation.y   = src.grp.rotation.y;
+  nu.hoverY           = src.hoverY ?? 0;
+  nu.grp.position.y   = getTerrainHeight(nu.grp.position.x, nu.grp.position.z) + nu.hoverY;
+  if (src.detectRange      != null) nu.detectRange      = src.detectRange;
+  if (src.socialAggroRange != null) nu.socialAggroRange = src.socialAggroRange;
+  if (src.roams)                    nu.roams            = src.roams;
+  if (src.roamMode)                 nu.roamMode         = src.roamMode;
+  if (src.wanderRadius     != null) nu.wanderRadius     = src.wanderRadius;
+  if (src.patrolPath?.length)       nu.patrolPath       = src.patrolPath.map(p => ({ x: p.x, z: p.z }));
+  if (src.stealthed)                nu.stealthed        = src.stealthed;
+  if (src.attackPref)               nu.attackPref       = src.attackPref;
+  _selectedUnit = nu;
+  _syncRing();
+  if (nu.team !== 'npc') openAIPanel(nu);
+  _showAnimPanel(nu);
+  _updateStatus();
+}
+
 // ── Nudge / Y / scale ────────────────────────────────────────────────────────
 function _nudge(dx, dz) {
   if (!_selectedUnit) return;
@@ -473,14 +499,15 @@ export function initNpcEditor() {
 
   // Keyboard
   const NUDGE = 0.5;
+  const DUP_STEP = 2.0;
   window.addEventListener('keydown', e => {
     if (!_open) return;
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
     switch (e.key) {
-      case 'ArrowLeft':              e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(-NUDGE, 0);     break;
-      case 'ArrowRight':             e.preventDefault(); if (!e.repeat) _snapshot(); _nudge( NUDGE, 0);     break;
-      case 'ArrowUp':                e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(0,     -NUDGE); break;
-      case 'ArrowDown':              e.preventDefault(); if (!e.repeat) _snapshot(); _nudge(0,      NUDGE); break;
+      case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(-DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge(-NUDGE, 0);     } break;
+      case 'ArrowRight': e.preventDefault(); if (e.shiftKey) { _duplicateNpc( DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge( NUDGE, 0);     } break;
+      case 'ArrowUp':    e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,     -DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,     -NUDGE); } break;
+      case 'ArrowDown':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,      DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,      NUDGE); } break;
       case '[': e.preventDefault(); if (!e.repeat) _snapshot(); _adjustY(-0.25); break;
       case ']': e.preventDefault(); if (!e.repeat) _snapshot(); _adjustY( 0.25); break;
       case '-': if (!e.repeat) _snapshot(); _adjustScale(1 / 1.10); break;

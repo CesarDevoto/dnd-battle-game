@@ -36,6 +36,7 @@ export const PROP_MODELS = {
   rubble:       { label: 'Rubble',       builderFn: () => mkRubblePile(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
   dryshrub:     { label: 'Dry Shrub',    builderFn: () => mkDryShrub(1, 0),                   defaultScale: 1.0, blocksLOS: false, clashR: 0.4 },
   fern:         { label: 'Fern',         builderFn: () => mkFern(1, 0),                       defaultScale: 1.0, blocksLOS: false, clashR: 0.4 },
+  coffin:       { label: 'Coffin',       path: 'assets/environment/coffin.glb',               defaultScale: 2.0, blocksLOS: false, clashR: 0.5 },
   gravemound:   { label: 'Grave Mound',  builderFn: () => mkGraveMound(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
   cross:        { label: 'Cross',        builderFn: () => mkCross(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.3 },
   arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.1, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
