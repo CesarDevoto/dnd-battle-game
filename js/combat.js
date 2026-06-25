@@ -1383,6 +1383,12 @@ function handleElfSpellBtnClick(spellKey) {
 function updateCombatStatus() {
   const u = turnOrder[turnIndex];
   if (!combatPhase || !u) return;
+  // Any action taken during a delay interrupt auto-closes the banner.
+  // Attacks already schedule a 2600ms timer in performAttack; don't duplicate.
+  if (_delayCtx && turnAttacked && !_delayAutoCloseTimer) {
+    const _c = _delayCtx;
+    _delayAutoCloseTimer = setTimeout(() => { if (_delayCtx === _c) _endDelayInterrupt(); }, 1500);
+  }
   const speedFt  = UNIT_TYPES[u.type]?.speed ?? 30;
   const remainFt = Math.max(0, speedFt - turnMovedFt);
   const p = u.team;
@@ -2551,14 +2557,13 @@ function _showDelayInterrupt({ hero, trigger }) {
 
   // Remove DASH (no movement) and replace End Turn with Skip
   unbindHotkey('Digit4', false);
-  bindHotkey('Digit5', false, '<span class="hb-end-turn">SKIP<br>DELAY</span>', () => _endDelayInterrupt());
+  bindHotkey('Digit5', false, '<span class="hb-end-turn">SKIP<br>ACTION</span>', () => _endDelayInterrupt());
 
   // Show the delay banner
   const banner = document.getElementById('delay-banner');
   if (banner) {
     banner.querySelector('.db-hero').textContent    = unitLabel(hero);
     banner.querySelector('.db-trigger').textContent = _DELAY_LABELS[trigger];
-    document.getElementById('db-skip-btn').onclick  = () => _endDelayInterrupt();
     banner.style.display = 'flex';
   }
 
@@ -2791,7 +2796,7 @@ function _rebuildHotbar(u) {
       },
       () => {
         const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked;
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_delayCtx;
       },
       'action'
     );
@@ -3003,6 +3008,7 @@ function doEndTurn() {
         }
       }
     });
+    _nudgeRoamers();
   }
   setTimeout(() => activateTurn(turnIndex), 200);
 }
@@ -3034,55 +3040,103 @@ function _roamAggroCheck(u) {
   }
 }
 
-function _runRoamTurn(u) {
-  const THINK_MS = 300;
-  const END_PAUSE = 250;
-  const def    = UNIT_TYPES[u.type] ?? {};
-  const speedFt = def.speed ?? 30;
-  const maxWU   = (speedFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+// 10 ft non-blocking nudge for non-aggro roamers, fired after every combat turn
+const ROAM_NUDGE_WU = (10 / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
 
-  setTimeout(() => {
-    if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+function _nudgeRoamers() {
+  for (const u of units) {
+    if (!combatPhase) break;
+    if (u.team !== 'red') continue;
+    if (u.hp <= 0) continue;
+    if (u.aggro) continue;
+    if (!u.roams) continue;
+    if (u._roamNudging) continue;
+    _animateRoamNudge(u);
+  }
+}
 
-    if (!u.patrolPath?.length) {
-      // No patrol path — stand idle, just check detection
-      _roamAggroCheck(u);
-      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, END_PAUSE);
+function _animateRoamNudge(u) {
+  if (!u.patrolPath?.length) {
+    _roamAggroCheck(u);
+    return;
+  }
+
+  let idx = u._patrolIdx ?? 0;
+  for (let guard = 0; guard < u.patrolPath.length; guard++) {
+    const wp  = u.patrolPath[idx];
+    const ddx = wp.x - u.grp.position.x;
+    const ddz = wp.z - u.grp.position.z;
+    if (ddx * ddx + ddz * ddz > 0.04) break;
+    idx = (idx + 1) % u.patrolPath.length;
+  }
+  u._patrolIdx = idx;
+
+  const wp   = u.patrolPath[idx];
+  const cx   = u.grp.position.x;
+  const cz   = u.grp.position.z;
+  const dx   = wp.x - cx;
+  const dz   = wp.z - cz;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+
+  if (dist < 0.01) {
+    u._patrolIdx = (idx + 1) % u.patrolPath.length;
+    return;
+  }
+
+  const willReach = dist <= ROAM_NUDGE_WU;
+  const ratio     = willReach ? 1 : ROAM_NUDGE_WU / dist;
+  const destX     = cx + dx * ratio;
+  const destZ     = cz + dz * ratio;
+
+  u.grp.rotation.y = Math.atan2(dx, dz);
+  setUnitWalking(u, true, false);
+  u._roamNudging = true;
+
+  const startX = cx, startZ = cz;
+  const startY = getTerrainHeight(startX, startZ);
+  let startTs  = null;
+
+  function frame(ts) {
+    if (startTs === null) startTs = ts;
+    if (!combatPhase || !units.includes(u) || u.hp <= 0) {
+      u._roamNudging = false;
+      setUnitWalking(u, false);
       return;
     }
+    const elapsed = (ts - startTs) / 1000;
+    const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33) / (dist * ratio)) : 1;
+    const endY    = getTerrainHeight(destX, destZ);
 
-    // Advance past any waypoint the unit is already standing on
-    let idx = u._patrolIdx ?? 0;
-    for (let guard = 0; guard < u.patrolPath.length; guard++) {
-      const wp  = u.patrolPath[idx];
-      const ddx = wp.x - u.grp.position.x;
-      const ddz = wp.z - u.grp.position.z;
-      if (ddx * ddx + ddz * ddz > 0.04) break;  // not on this waypoint yet
-      idx = (idx + 1) % u.patrolPath.length;
+    u.grp.position.x = startX + dx * ratio * t;
+    u.grp.position.z = startZ + dz * ratio * t;
+    u.grp.position.y = startY + (endY - startY) * t;
+    u.anchor.x = u.grp.position.x;
+    u.anchor.z = u.grp.position.z;
+    u.anchor.y = u.grp.position.y + (u.anchorY ?? 0);
+
+    if (t >= 1) {
+      u.grp.position.set(destX, endY, destZ);
+      u.anchor.x = destX; u.anchor.z = destZ;
+      u.anchor.y = endY + (u.anchorY ?? 0);
+      if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
+      u._roamNudging = false;
+      setUnitWalking(u, false);
+      if (!u.aggro) _roamAggroCheck(u);
+      return;
     }
-    u._patrolIdx = idx;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
-    const wp   = u.patrolPath[idx];
-    const cx   = u.grp.position.x;
-    const cz   = u.grp.position.z;
-    const dx   = wp.x - cx;
-    const dz   = wp.z - cz;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-
-    // Clamp move to max speed; record whether we'll fully reach the waypoint
-    const willReach = dist <= maxWU;
-    const ratio     = willReach ? 1 : maxWU / dist;
-    const destX     = cx + dx * ratio;
-    const destZ     = cz + dz * ratio;
-
-    animatePath(u, [{ x: destX, z: destZ }], () => {
-      if (willReach) {
-        u._patrolIdx = (idx + 1) % u.patrolPath.length;
-      }
-      _roamAggroCheck(u);
-      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, END_PAUSE);
-    });
-  }, THINK_MS);
+function _runRoamTurn(u) {
+  // Roaming nudge happens non-blocking via doEndTurn for every unit's turn;
+  // on the roamer's own turn just check aggro and pass quickly.
+  setTimeout(() => {
+    if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+    _roamAggroCheck(u);
+    setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 150);
+  }, 200);
 }
 
 // ── Enemy AI (helpers in js/combatAI.js) ────────────────────────────────────
