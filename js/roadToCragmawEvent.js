@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene } from './scene.js';
+import { scene, camera, renderer } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
@@ -9,8 +9,9 @@ import { registerPostCombatHandler } from './postCombat.js';
 
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
-const _KEY_INTRO = 'dnd-floosh-intro-seen';
-const _KEY_QUEST = 'dnd-floosh-quest-seen';
+const _KEY_INTRO      = 'dnd-floosh-intro-seen';
+const _KEY_QUEST      = 'dnd-floosh-quest-seen';
+const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 
 // Grassling (Floosh) world position in road_to_cragmaw
 const _FLOOSH_X  = 6.71;
@@ -21,6 +22,8 @@ let _watchingProximity  = false;
 let _flooshQuestPending = false;  // true if proximity triggered during combat
 let _flooshExcl         = null;   // "!" sprite above Floosh
 let _flooshExclT        = 0;
+let _flooshQMark        = null;   // grey "?" sprite — quest active but not yet resolved
+let _flooshQMarkT       = 0;
 
 const _INTRO_LINES = [
   { s: 'Milo',    t: "Ahead! I've lost the tracks! What now?" },
@@ -61,6 +64,64 @@ function _removeFlooshExcl() {
   _flooshExcl = null;
 }
 
+// ── Grey "?" marker — quest active, waiting for ghoul kill ────────────────────
+
+function _mkFlooshQMark() {
+  const W = 64, H = 96;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.font = 'bold 86px Arial Black, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 8;
+  ctx.strokeText('?', W / 2, H / 2);
+  ctx.fillStyle = '#aaaaaa';
+  ctx.fillText('?', W / 2, H / 2);
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const spr = new THREE.Sprite(mat);
+  const worldH = 1.0;
+  spr.scale.set((W / H) * worldH, worldH, 1);
+  spr.frustumCulled = false;
+  const grp = new THREE.Group();
+  grp.add(spr);
+  grp.userData.sprite     = spr;
+  grp.userData.baseScaleX = spr.scale.x;
+  grp.userData.baseScaleY = spr.scale.y;
+  return grp;
+}
+
+function _spawnFlooshQMark() {
+  if (_flooshQMark) return;
+  _flooshQMark  = _mkFlooshQMark();
+  _flooshQMarkT = 0;
+  const y = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z) + 2.5;
+  _flooshQMark.position.set(_FLOOSH_X, y, _FLOOSH_Z);
+  scene.add(_flooshQMark);
+}
+
+function _removeFlooshQMark() {
+  if (!_flooshQMark) return;
+  scene.remove(_flooshQMark);
+  _flooshQMark.userData.sprite?.material.map?.dispose();
+  _flooshQMark.userData.sprite?.material.dispose();
+  _flooshQMark = null;
+}
+
+export function setFlooshQuestDone() {
+  try { localStorage.setItem(_KEY_QUEST_DONE, '1'); } catch {}
+  _removeFlooshQMark();
+}
+
+function _showQuestReminderDialogue() {
+  showQuickDialogue(
+    [{ s: 'Floosh', t: "Did you find the undead source haunting our forest?" }],
+    () => showChoiceUI([{ label: 'Close', onPick: () => {} }]),
+  );
+}
+
 // onDone: called after the full sequence completes; used by post-combat handler
 // to advance the post-combat chain. Omit for immediate precombat triggers.
 function _startQuestDialogue(onDone = null) {
@@ -70,8 +131,11 @@ function _startQuestDialogue(onDone = null) {
   try { localStorage.setItem(_KEY_QUEST, '1'); } catch {}
   showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
-      { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, onDone) },
-      { label: 'Decline',      onPick: onDone },
+      { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
+          _spawnFlooshQMark();
+          onDone?.();
+        }) },
+      { label: 'Decline', onPick: onDone },
     ]);
   });
 }
@@ -243,6 +307,20 @@ export function tickRoadToCragmaw(dt) {
     }
   }
 
+  if (_flooshQMark) {
+    _flooshQMarkT += dt;
+    const spr = _flooshQMark.userData.sprite;
+    if (spr) {
+      const pulse = 0.80 + 0.16 * (0.5 + 0.5 * Math.sin(_flooshQMarkT * 1.6));
+      spr.scale.set(
+        _flooshQMark.userData.baseScaleX * pulse,
+        _flooshQMark.userData.baseScaleY * pulse,
+        1,
+      );
+      spr.position.y = Math.sin(_flooshQMarkT * 1.4) * 0.10;
+    }
+  }
+
   if (_watchingProximity) {
     for (const u of units) {
       if (u.team !== 'blue' || u.hp <= 0) continue;
@@ -281,6 +359,9 @@ window.addEventListener('zone:loaded', e => {
       // Intro already seen but quest not yet triggered — re-arm proximity watch
       _watchingProximity = true;
       _spawnFlooshExcl();
+    } else if (!localStorage.getItem(_KEY_QUEST_DONE)) {
+      // Quest offered, not yet resolved (ghoul still alive) — grey ? over Floosh
+      _spawnFlooshQMark();
     }
   } catch {}
 });
@@ -290,4 +371,19 @@ window.addEventListener('zone:loading', () => {
   _watchingProximity  = false;
   _flooshQuestPending = false;
   _removeFlooshExcl();
+  _removeFlooshQMark();
+});
+
+// ── Floosh click — show quest reminder when ? is active ───────────────────────
+const _qRc  = new THREE.Raycaster();
+const _qNdc = new THREE.Vector2();
+
+renderer.domElement.addEventListener('click', e => {
+  if (!_flooshQMark || !isPrecombat()) return;
+  _qNdc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  _qRc.setFromCamera(_qNdc, camera);
+  const hits = _qRc.intersectObject(_flooshQMark.userData.sprite);
+  if (!hits.length) return;
+  e.stopImmediatePropagation();
+  _showQuestReminderDialogue();
 });

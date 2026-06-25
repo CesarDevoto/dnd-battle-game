@@ -279,7 +279,7 @@ export const UNIT_TYPES = {
   stirge: {
     name: 'Stirge', team: 'red',
     scale: [0.5, 0.5, 0.5], anchorY: 0.8, hoverY: 2.5,
-    hp: 2, ac: 14, speed: 10, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 2, ac: 14, speed: 40, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 4, dex: 16, con: 11, int: 2, wis: 8, cha: 6 },
     attacks: [
       { name: 'Blood Drain', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
