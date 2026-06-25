@@ -348,8 +348,8 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
         idleAction = mixer.clipAction(idleClip);
         idleAction.reset().setEffectiveWeight(1).play();
       }
-      if (walkClip) walkAction = mixer.clipAction(walkClip);
-      if (runClip)  runAction  = mixer.clipAction(runClip);
+      if (walkClip) { walkAction = mixer.clipAction(walkClip); walkAction.setLoop(THREE.LoopRepeat, Infinity); }
+      if (runClip)  { runAction  = mixer.clipAction(runClip);  runAction.setLoop(THREE.LoopRepeat, Infinity);  }
 
       // NPCs never enter combat — skip attack/death actions entirely.
       if (team !== 'npc') {
@@ -489,15 +489,28 @@ export function setUnitWalking(unit, walking, run = false) {
     return;
   }
   if (!unit.mixer) return;
-  if (unit.isWalking === walking && (unit._runMode ?? false) === run) return;
-  unit.isWalking = walking;
-  unit._runMode  = run;
 
-  unit.mixer.stopAllAction();
+  // Resolve action first — if null, bail without touching isWalking so the
+  // guard doesn't lock out future calls once the clip becomes available.
   const action = walking
     ? (run && unit.runAction ? unit.runAction : unit.walkAction)
     : unit.idleAction;
   if (!action) return;
+
+  if (unit.isWalking === walking && (unit._runMode ?? false) === run) {
+    // Same logical state — but restart the action if Three.js stopped it
+    // (e.g. LoopOnce clip that slipped through, or external stopAllAction).
+    if (!action.isRunning()) {
+      action.reset().setEffectiveWeight(1);
+      if (walking) action.time = unit._animPhaseOffset ?? 0;
+      action.play();
+    }
+    return;
+  }
+
+  unit.isWalking = walking;
+  unit._runMode  = run;
+  unit.mixer.stopAllAction();
   action.reset().setEffectiveWeight(1);
   if (walking) action.time = unit._animPhaseOffset ?? 0;
   action.play();
@@ -595,7 +608,9 @@ export function applyUnitAnimOverride(unit, role, clipIdx) {
   let newAction = null;
   if (clip) {
     newAction = unit.mixer.clipAction(clip);
-    if (['attack', 'rangedAttack', 'spellCast', 'death'].includes(role)) {
+    if (['idle', 'walk', 'run'].includes(role)) {
+      newAction.setLoop(THREE.LoopRepeat, Infinity);
+    } else if (['attack', 'rangedAttack', 'spellCast', 'death'].includes(role)) {
       newAction.setLoop(THREE.LoopOnce, 1);
       newAction.clampWhenFinished = role === 'death';
     }

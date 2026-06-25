@@ -5002,7 +5002,7 @@ td.bst-col-retired { color: #343228 !important; }
   width: 380px;
   max-height: 82vh;
   background: linear-gradient(180deg, rgba(14,10,4,0.97) 0%, rgba(6,4,2,0.99) 100%);
-  border: 1px solid rgba(212,175,55,0.45);
+  border: 0.5px solid rgba(212,175,55,0.45);
   border-radius: 5px;
   box-shadow: 0 0 30px rgba(0,0,0,0.80), 0 0 60px rgba(180,130,20,0.10);
   overflow: hidden;
