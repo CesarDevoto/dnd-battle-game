@@ -2908,6 +2908,7 @@ export function activateTurn(index) {
           runAITurn(u);
         }
       } else {
+        endTurnBtn.disabled = false;
         showRangeRings(u);
         heroMode = 'move';
         showMoveRange(u);
