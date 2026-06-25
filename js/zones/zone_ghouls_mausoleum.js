@@ -2,7 +2,7 @@ export const ZONE = {
   id:        'ghouls_mausoleum',
   name:      "Ghoul's Mausoleum",
   biome: 'dungeon',
-  ambient:   'dungeon',
+  ambient:   'ghouls_mausoleum',
   heroEntry: [
     { x: -1, z: 33, type: 'dwarf'    },
     { x:  1, z: 33, type: 'human'    },
@@ -10,8 +10,11 @@ export const ZONE = {
     { x:  1, z: 35, type: 'halfling' },
   ],
   enemies: [
-    { type: 'zombie', x: 6.53, z: 27.27, scale: 1.21, detectRange: 11, stealthed: true, animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
-    { type: 'skeleton', x: -6.52, z: 27.64, scale: 1.21, detectRange: 12, stealthed: true, animOverrides: {idle:1,walk:4,run:4,attack:2,death:0} },
+    { type: 'zombie', x: 6.53, z: 18.77, scale: 1.21, detectRange: 11, stealthed: true, animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
+    { type: 'skeleton', x: -6.02, z: 11.64, scale: 1.21, detectRange: 12, stealthed: true, animOverrides: {idle:1,walk:4,run:4,attack:2,death:0} },
+    { type: 'zombie', x: 6.53, z: 1.27, scale: 1.21, detectRange: 11, roams: true, patrol: [{x:-2.14,z:3.17}, {x:-2.2,z:27.27}, {x:7.87,z:-2.06}], stealthed: true, animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
+    { type: 'skeleton', x: 11.26, z: -1.64, roams: true, patrol: [{x:3.64,z:1.39}, {x:-3,z:7.24}, {x:2.92,z:13.87}, {x:-2.52,z:24.4}], animOverrides: {idle:1,walk:4,run:4,attack:2,death:0} },
+    { type: 'skeleton', x: 11.26, z: 1.36, scale: 1.331, detectRange: 12, roams: true, patrol: [{x:-0.41,z:-2.22}, {x:3.1,z:4.96}, {x:3.22,z:10.47}, {x:-2.67,z:16.71}, {x:2.08,z:26.08}], animOverrides: {idle:1,walk:4,run:4,attack:2,death:0} },
   ],
   exits: [
     { x: 0, z: 39, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },
