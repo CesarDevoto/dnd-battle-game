@@ -14,6 +14,7 @@ let _selectedIdx  = -1;
 let _activeZoneId = null;
 let _spawns       = [];   // { type, x, z, round, every, patrol[], _mesh, _wpMeshes[] }
 let _addingWP     = false;
+let _movingSpawn  = false;
 
 // ── Raycasting ────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ function _clearAll() {
 
 function _select(idx) {
   _exitAddWPMode();
+  _exitMoveMode();
   if (_selectedIdx >= 0 && _selectedIdx < _spawns.length) {
     _clearWPMeshes(_spawns[_selectedIdx]);
   }
@@ -203,6 +205,7 @@ function _syncAddWPBtn() {
 }
 
 function _enterAddWPMode() {
+  _exitMoveMode();
   _addingWP = true;
   _syncAddWPBtn();
 }
@@ -210,6 +213,24 @@ function _enterAddWPMode() {
 function _exitAddWPMode() {
   _addingWP = false;
   _syncAddWPBtn();
+}
+
+function _syncMoveBtn() {
+  const btn = document.getElementById('se-move-spawn-btn');
+  if (!btn) return;
+  btn.textContent = _movingSpawn ? '✋ Done moving' : '✥ Move Spawn';
+  btn.classList.toggle('active', _movingSpawn);
+}
+
+function _enterMoveMode() {
+  _exitAddWPMode();
+  _movingSpawn = true;
+  _syncMoveBtn();
+}
+
+function _exitMoveMode() {
+  _movingSpawn = false;
+  _syncMoveBtn();
 }
 
 // ── Load spawns from active zone ──────────────────────────────────────────────
@@ -402,6 +423,12 @@ export function initSpawnEditor() {
     if (row) _select(parseInt(row.dataset.idx, 10));
   });
 
+  // Move spawn toggle
+  document.getElementById('se-move-spawn-btn')?.addEventListener('click', () => {
+    if (_movingSpawn) _exitMoveMode();
+    else              _enterMoveMode();
+  });
+
   // Add-waypoint toggle
   document.getElementById('se-add-wp-btn')?.addEventListener('click', () => {
     if (_addingWP) _exitAddWPMode();
@@ -422,6 +449,32 @@ export function initSpawnEditor() {
   // Canvas click — place spawn OR add waypoint
   renderer.domElement.addEventListener('click', e => {
     if (!isDevMode() || combatPhase || !_open) return;
+
+    // Move spawn mode — relocate selected spawn, optionally shift patrol pts by same delta
+    if (_movingSpawn) {
+      const s = _selectedIdx >= 0 ? _spawns[_selectedIdx] : null;
+      if (!s) return;
+      const pt = _groundPt(e.clientX, e.clientY);
+      if (!pt) return;
+      e.stopImmediatePropagation();
+      const nx = +pt.x.toFixed(2);
+      const nz = +pt.z.toFixed(2);
+      const dx = nx - s.x;
+      const dz = nz - s.z;
+      s.x = nx;
+      s.z = nz;
+      if (s._mesh) s._mesh.position.set(s.x, getTerrainHeight(s.x, s.z) + 0.18, s.z);
+      const shiftCb = document.getElementById('se-shift-patrol');
+      if (shiftCb?.checked && s.patrol?.length) {
+        s.patrol.forEach(wp => { wp.x = +(wp.x + dx).toFixed(2); wp.z = +(wp.z + dz).toFixed(2); });
+        _rebuildWPMeshes(s);
+        _refreshWPList(s);
+      }
+      _exitMoveMode();
+      _rebuildList();
+      _updateStatus();
+      return;
+    }
 
     // Waypoint placement mode takes priority
     if (_addingWP) {

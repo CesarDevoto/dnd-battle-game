@@ -6483,6 +6483,38 @@ td.bst-col-retired { color: #343228 !important; }
   padding: 0 2px;
 }
 .se-wp-del:hover { color: #ff4422; }
+#se-move-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#se-move-spawn-btn {
+  flex: 1;
+  font-size: 0.62rem;
+  font-family: var(--font-fantasy);
+  background: rgba(60,30,8,0.6);
+  border: 1px solid #7a4a1a;
+  color: #c8a060;
+  padding: 4px 0;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+#se-move-spawn-btn:hover { background: rgba(100,50,10,0.7); border-color: #c87030; }
+#se-move-spawn-btn.active {
+  background: rgba(10,40,70,0.85);
+  border-color: #44aaff;
+  color: #88ccff;
+}
+.se-shift-lbl {
+  font-size: 0.58rem;
+  color: #a07040;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.se-shift-lbl input { cursor: pointer; }
 #se-add-wp-btn {
   width: 100%;
   font-size: 0.62rem;

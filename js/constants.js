@@ -651,7 +651,7 @@ export const UNIT_TYPES = {
 
   shadow: {
     name: 'Shadow', team: 'red',
-    scale: [0.9, 0.9, 0.9], anchorY: 1.8,
+    scale: [1.26, 1.26, 1.26], anchorY: 2.52, hoverY: -1,
     hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
     attacks: [

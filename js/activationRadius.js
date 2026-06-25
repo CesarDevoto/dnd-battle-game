@@ -48,8 +48,9 @@ export function tickActivationRadius(props) {
     // Enemies: force all visible and awake
     for (const u of units) {
       if (u.team !== 'red' || u.hp <= 0) continue;
+      const baseOp = u.grp.userData.baseOpacity ?? 1;
       if (!u.grp.visible) u.grp.visible = true;
-      if (u._opacity !== 1) { _applyOpacity(u.grp, 1); u._opacity = 1; }
+      if (u._opacity !== baseOp) { _applyOpacity(u.grp, baseOp); u._opacity = baseOp; }
       u.dormant = false;
     }
     return;
@@ -110,12 +111,13 @@ export function tickActivationRadius(props) {
       u.dormant = true;
     }
 
-    const target = u.dormant ? 0 : 1;
+    const baseOp = u.grp.userData.baseOpacity ?? 1;
+    const target = u.dormant ? 0 : baseOp;
 
     // First frame: snap immediately
     if (u._opacity === undefined) {
       u._opacity = target;
-      if (target < 1) u.grp.visible = false;
+      if (target < 0.01) u.grp.visible = false;
       continue;
     }
 

@@ -50,6 +50,7 @@ const MODEL_PATHS = {
   ghoul:          'assets/models/ghoul.glb',
   zombie:         'assets/models/zombie.glb',
   skeleton:       'assets/models/skeleton.glb',
+  shadow:         'assets/models/shadow.glb',
   ettin:          'assets/models/ettin.glb',
   hill_giant:     'assets/models/hillgiant.glb',
   // Demon monsters
@@ -122,9 +123,15 @@ const ANIM_CLIP_NAMES = {
   kobold: {
     walk: 'Walking', rangedAttack: 'Archery_Shot_1',
   },
-  // No dedicated idle clip — use Walking for idle so the fallback doesn't assign Dead.
   twig_blight: {
-    idle: 'Walking', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+    idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+  },
+  skeleton: {
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+  },
+  // No legs — idle animation used for all locomotion
+  shadow: {
+    idle: 'Idle_8', walk: 'Idle_8', run: 'Idle_8', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
 };
 
@@ -288,6 +295,19 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       node.material = Array.isArray(node.material)
         ? node.material.map(tint) : tint(node.material);
     });
+
+    if (type === 'shadow') {
+      model.traverse(node => {
+        if (!node.isMesh && !node.isSkinnedMesh) return;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        mats.forEach(mat => {
+          mat.transparent = true;
+          mat.opacity     = 0.5;
+          mat.needsUpdate = true;
+        });
+      });
+      grp.userData.baseOpacity = 0.5;
+    }
 
     model.scale.set(...def.scale);
     model.position.y = def.yOffset ?? 0;
