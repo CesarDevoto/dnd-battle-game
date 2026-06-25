@@ -42,7 +42,7 @@ export function tickActivationRadius(props) {
     for (const p of props) {
       if (!p.mesh) continue;
       p._active = true;
-      if (!p.mesh.visible) p.mesh.visible = true;
+      if (!p.mesh.visible && !p.mesh.userData.editorHidden) p.mesh.visible = true;
       if (p._opacity !== 1) { _applyOpacity(p.mesh, 1); p._opacity = 1; }
     }
     // Enemies: force all visible and awake
@@ -89,7 +89,7 @@ export function tickActivationRadius(props) {
     if (next < 0.01) {
       p.mesh.visible = false;
     } else {
-      if (!p.mesh.visible) p.mesh.visible = true;
+      if (!p.mesh.visible && !p.mesh.userData.editorHidden) p.mesh.visible = true;
       _applyOpacity(p.mesh, next);
     }
     // Snap to fully opaque to clear transparent flag

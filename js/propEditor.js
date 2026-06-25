@@ -560,6 +560,7 @@ export async function loadZoneProps(propsArray) {
       _applyLightParams(entry);
     }
     _applyTransform(entry, def.path ? (p.y ?? null) : null);
+    if (_propsHidden) mesh.visible = false;
     scene.add(mesh);
     activeProps.push(mesh);
     if (def.clashR > 0) propPositions.push({ x: p.x, z: p.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
@@ -631,7 +632,13 @@ function _openExportModal() {
 
 function _togglePropsHidden() {
   _propsHidden = !_propsHidden;
-  activeProps.forEach(m => { m.visible = !_propsHidden; });
+  let count = 0;
+  activeProps.forEach(m => {
+    m.userData.editorHidden = _propsHidden;
+    m.visible = !_propsHidden;
+    m.traverse(child => { child.visible = !_propsHidden; });
+    count++;
+  });
   const btn = document.getElementById('pe-hide-props-btn');
   if (btn) btn.classList.toggle('spell-active', _propsHidden);
   _selRing.visible = _propsHidden ? false : _selectedIdx >= 0;

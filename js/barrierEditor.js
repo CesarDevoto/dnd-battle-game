@@ -10,6 +10,9 @@ let _barriers      = [];     // [{x1,z1,x2,z2, line, dot1, dot2}] — visual + d
 let _activeZoneId  = null;
 let _visibleInDev  = false;  // only true while terrain editor is open
 
+// Shift+click drag state: { idx, which: 'dot1'|'dot2' } or null
+let _dragDot = null;
+
 // Live preview objects while placing second point
 let _previewLine = null;
 let _startDot    = null;
@@ -34,9 +37,9 @@ function _buildLineGeo(x1, z1, x2, z2) {
 function _lineMesh(x1, z1, x2, z2, color, opacity = 1) {
   const line = new THREE.Line(
     _buildLineGeo(x1, z1, x2, z2),
-    new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: false }),
+    new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: false, depthTest: false }),
   );
-  line.renderOrder = 6;
+  line.renderOrder = 20;
   scene.add(line);
   return line;
 }
@@ -44,10 +47,10 @@ function _lineMesh(x1, z1, x2, z2, color, opacity = 1) {
 function _dotMesh(x, z, color) {
   const m = new THREE.Mesh(
     new THREE.SphereGeometry(0.22, 8, 6),
-    new THREE.MeshBasicMaterial({ color, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color, depthWrite: false, depthTest: false }),
   );
   m.position.set(x, getTerrainHeight(x, z) + 0.38, z);
-  m.renderOrder = 6;
+  m.renderOrder = 20;
   scene.add(m);
   return m;
 }
@@ -88,6 +91,7 @@ function _removeAt(idx) {
 
 function _clearAll() {
   for (let i = _barriers.length - 1; i >= 0; i--) _removeAt(i);
+  _dragDot = null;
   _cancelDraw();
   _updateStatus();
 }
@@ -96,6 +100,20 @@ function _cancelDraw() {
   if (_startDot)    { _disposeObj(_startDot);    _startDot    = null; }
   if (_previewLine) { _disposeObj(_previewLine); _previewLine = null; }
   _startPt = null;
+}
+
+function _rebuildBarrierVisuals(idx) {
+  const b = _barriers[idx];
+  if (!b) return;
+  if (b.line) { _disposeObj(b.line); b.line = null; }
+  if (b.dot1) { _disposeObj(b.dot1); b.dot1 = null; }
+  if (b.dot2) { _disposeObj(b.dot2); b.dot2 = null; }
+  b.line = _lineMesh(b.x1, b.z1, b.x2, b.z2, COL_BARRIER);
+  b.dot1 = _dotMesh(b.x1, b.z1, COL_BARRIER);
+  b.dot2 = _dotMesh(b.x2, b.z2, COL_BARRIER);
+  b.line.visible = _visibleInDev;
+  b.dot1.visible = _visibleInDev;
+  b.dot2.visible = _visibleInDev;
 }
 
 // ── Draw mode ─────────────────────────────────────────────────────────────────
@@ -143,11 +161,72 @@ export function handleBarrierMouseMove(pt) {
   _previewLine = _lineMesh(_startPt.x, _startPt.z, pt.x, pt.z, COL_PREVIEW, 0.5);
 }
 
+// ── Shift+click drag ──────────────────────────────────────────────────────────
+
+export function isDraggingBarrierDot() { return _dragDot !== null; }
+
+// Raycasts against all visible barrier dots. Enters drag mode if hit. Returns true if hit.
+export function pickBarrierDotAt(cx, cy) {
+  if (!_visibleInDev || !IS_DEV) return false;
+  const ndc = new THREE.Vector2((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  const rc  = new THREE.Raycaster();
+  rc.setFromCamera(ndc, camera);
+  const candidates = [];
+  _barriers.forEach((b, i) => {
+    if (b.dot1) candidates.push({ mesh: b.dot1, idx: i, which: 'dot1' });
+    if (b.dot2) candidates.push({ mesh: b.dot2, idx: i, which: 'dot2' });
+  });
+  const hits = rc.intersectObjects(candidates.map(c => c.mesh), false);
+  if (!hits.length) return false;
+  const found = candidates.find(c => c.mesh === hits[0].object);
+  if (!found) return false;
+  _dragDot = { idx: found.idx, which: found.which };
+  _updateStatus();
+  return true;
+}
+
+function _handleDotDrag(pt) {
+  if (!_dragDot || !pt) return;
+  const b = _barriers[_dragDot.idx];
+  if (!b) return;
+  const x = +pt.x.toFixed(2), z = +pt.z.toFixed(2);
+  const dot = _dragDot.which === 'dot1' ? b.dot1 : b.dot2;
+  if (dot) dot.position.set(x, getTerrainHeight(x, z) + 0.38, z);
+  const x1 = _dragDot.which === 'dot1' ? x : b.x1;
+  const z1 = _dragDot.which === 'dot1' ? z : b.z1;
+  const x2 = _dragDot.which === 'dot2' ? x : b.x2;
+  const z2 = _dragDot.which === 'dot2' ? z : b.z2;
+  if (b.line) { _disposeObj(b.line); b.line = _lineMesh(x1, z1, x2, z2, COL_BARRIER); b.line.visible = _visibleInDev; }
+}
+
+export function finalizeBarrierDotDrag(pt) {
+  if (!_dragDot) return;
+  if (!pt) { cancelBarrierDotDrag(); return; }
+  const b  = _barriers[_dragDot.idx];
+  const bs = barrierSegments[_dragDot.idx];
+  if (!b || !bs) { _dragDot = null; _updateStatus(); return; }
+  const x = +pt.x.toFixed(2), z = +pt.z.toFixed(2);
+  if (_dragDot.which === 'dot1') { b.x1 = bs.x1 = x; b.z1 = bs.z1 = z; }
+  else                            { b.x2 = bs.x2 = x; b.z2 = bs.z2 = z; }
+  _dragDot = null;
+  _rebuildBarrierVisuals(_barriers.indexOf(b));
+  _updateStatus();
+}
+
+export function cancelBarrierDotDrag() {
+  if (!_dragDot) return;
+  const idx = _dragDot.idx;
+  _dragDot = null;
+  _rebuildBarrierVisuals(idx);
+  _updateStatus();
+}
+
 // ── Load barriers from zone (called by zoneLoader) ────────────────────────────
 
 export function loadBarrierVisuals(arr) {
   // Clear existing visuals + collision data, then restore from zone array
   for (let i = _barriers.length - 1; i >= 0; i--) _removeAt(i);
+  _dragDot = null;
   _cancelDraw();
   _setDrawMode(false);
   loadBarriersData(arr);
@@ -194,9 +273,10 @@ async function _saveBarriers() {
 function _updateStatus() {
   const el = document.getElementById('te-barrier-status');
   if (!el) return;
-  if (!_drawMode)        el.textContent = 'Click DRAW to place barriers';
-  else if (!_startPt)   el.textContent = 'Click terrain — start point…';
-  else                  el.textContent = 'Click terrain — end point…';
+  if (_dragDot)        el.textContent = 'Moving dot — click to place · Esc to cancel';
+  else if (!_drawMode) el.textContent = 'Click DRAW · Shift+click dot to move';
+  else if (!_startPt)  el.textContent = 'Click terrain — start point…';
+  else                 el.textContent = 'Click terrain — end point…';
 }
 
 function _updateCounter() {
@@ -227,6 +307,7 @@ function _groundPt(cx, cy) {
 
 export function setBarrierVisualsVisible(visible) {
   _visibleInDev = visible;
+  if (!visible && _dragDot) cancelBarrierDotDrag();
   for (const b of _barriers) {
     if (b.line) b.line.visible = visible;
     if (b.dot1) b.dot1.visible = visible;
@@ -256,16 +337,20 @@ export function initBarrierEditor() {
   document.getElementById('te-barrier-save-btn')
     ?.addEventListener('click', _saveBarriers);
 
-  // Preview line while drawing
+  // Preview/drag update on mousemove
   renderer.domElement.addEventListener('mousemove', e => {
+    const pt = _groundPt(e.clientX, e.clientY);
+    if (_dragDot) { _handleDotDrag(pt); return; }
     if (!_drawMode || !_startPt) return;
-    handleBarrierMouseMove(_groundPt(e.clientX, e.clientY));
+    handleBarrierMouseMove(pt);
   });
 
-  // Escape exits draw mode (Ctrl+Z and [ ] are handled centrally in terrainEditor)
   window.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'Escape' && _drawMode) _setDrawMode(false);
+    if (e.key === 'Escape') {
+      if (_dragDot) { cancelBarrierDotDrag(); return; }
+      if (_drawMode) _setDrawMode(false);
+    }
   });
 
   _updateStatus();

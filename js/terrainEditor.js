@@ -3,7 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, handleBarrierMouseMove, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier } from './barrierEditor.js';
+import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag } from './barrierEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -18,7 +18,7 @@ let _defaultPR  = 0.0;
 // ── Undo history ──────────────────────────────────────────────────────────────
 const _history      = [];
 const MAX_UNDO      = 50;
-const _lineUndoStack = []; // tracks 'barrier' | 'blocker' placements for Ctrl+Z
+const _lineUndoStack = []; // tracks 'barrier' placements for Ctrl+Z
 
 function _pushHistory() {
   _history.push(JSON.parse(JSON.stringify(getTerrainControlPoints())));
@@ -412,6 +412,12 @@ export function initTerrainEditor() {
     if (!_open) return;
     e.stopImmediatePropagation();
 
+    // Finalize barrier dot drag on any click
+    if (isDraggingBarrierDot()) {
+      finalizeBarrierDotDrag(_groundPt(e.clientX, e.clientY));
+      return;
+    }
+
     // Barrier draw mode intercepts all terrain clicks
     if (isBarrierModeActive()) {
       const pt = _groundPt(e.clientX, e.clientY);
@@ -423,12 +429,14 @@ export function initTerrainEditor() {
       return;
     }
 
+    // Shift+click: start dragging a barrier dot if one is under cursor
+    if (e.shiftKey && pickBarrierDotAt(e.clientX, e.clientY)) return;
+
     const idx = _pickMarker(e.clientX, e.clientY);
     if (idx >= 0) {
       _selectedIdx = idx;
       _syncSelRing();
       _updateStatus();
-      const cp = getTerrainControlPoints()[idx];
       return;
     }
     _selectedIdx = -1;
@@ -469,7 +477,9 @@ export function initTerrainEditor() {
       case ',':                              _adjustPR(-PRSTEP);    break;
       case '.':                              _adjustPR( PRSTEP);    break;
       case 'Delete': case 'Backspace':       _removeSelected();    break;
-      case 'Escape': _selectedIdx = -1; _selRing.visible = false; _updateStatus(); break;
+      case 'Escape':
+        if (isDraggingBarrierDot()) { cancelBarrierDotDrag(); break; }
+        _selectedIdx = -1; _selRing.visible = false; _updateStatus(); break;
     }
   });
 }

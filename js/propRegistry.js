@@ -22,7 +22,6 @@ export const PROP_MODELS = {
   dungeonwallcurve: { label: 'Wall (Curved)',   path: 'assets/environment/dungeon curved wall.glb',  defaultScale: 8.0, blocksLOS: true,  clashR: 1.0  },
   dungeoncolumn:    { label: 'Dungeon Column',  path: 'assets/environment/dungeon column.glb',       defaultScale: 8.0, blocksLOS: true,  clashR: 0.4  },
   foresttree:   { label: 'Forest Tree', path: 'assets/environment/foresttree.glb',      defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
-  evergreen:    { label: 'Evergreen',   path: 'assets/environment/evergreentree.glb',   defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
   mangrove:     { label: 'Mangrove',    path: 'assets/environment/mangrove.glb',        defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
   savannahtree: { label: 'Savannah Tr', path: 'assets/environment/savannahtree.glb',    defaultScale: 1.0, blocksLOS: true,  clashR: 0.9  },
   saddlebag:    { label: 'Saddlebags',  path: 'assets/environment/saddlebag.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
