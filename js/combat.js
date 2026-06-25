@@ -3192,9 +3192,20 @@ function runAITurn(u) {
       const dx = tx - cx, dz = tz - cz;
       const dist  = Math.sqrt(dx * dx + dz * dz);
       const ratio = Math.min(maxWU / dist, 1);
+      const destX = cx + dx * ratio, destZ = cz + dz * ratio;
+      // If the direct path crosses a barrier, fall back to BFS pathfinding.
+      let stealthPath;
+      if (crossesBarrier(cx, cz, destX, destZ)) {
+        const S   = WORLD_UNITS_PER_SQUARE;
+        const tnx = cx + Math.round((destX - cx) / S) * S;
+        const tnz = cz + Math.round((destZ - cz) / S) * S;
+        stealthPath = findPath(cx, cz, tnx, tnz);
+      } else {
+        stealthPath = [{ x: destX, z: destZ }];
+      }
       setTimeout(() => {
         if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
-        animatePath(u, [{ x: cx + dx * ratio, z: cz + dz * ratio }], () => {
+        animatePath(u, stealthPath, () => {
           setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
         });
       }, 300);
