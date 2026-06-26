@@ -39,6 +39,7 @@ const MODEL_PATHS = {
   warg:         'assets/models/warg.glb',
   ice_mephit:   'assets/models/icemephit.glb',
   stirge:       'assets/models/stirge.glb',
+  giant_spider: 'assets/models/spider.glb',
   // Dedicated models
   gnoll:          'assets/models/gnoll.glb',
   gnoll_pack_lord:'assets/models/gnoll.glb',
@@ -102,6 +103,9 @@ const ANIM_CLIP_NAMES = {
     walk: 'Walking', rangedAttack: 'Archery_Shot_1', spellCast: 'mage_soell_cast_7',
   },
   // Non-humanoid rig — no Hips/Pelvis bone; pin clips by name directly
+  giant_spider: {
+    idle: 'Idle', walk: 'Walk', run: 'Walk', attack: 'Attack', death: 'Death',
+  },
   snake: {
     idle: 'Idle', walk: 'Side winding', attack: 'Bite', death: 'Death',
   },
