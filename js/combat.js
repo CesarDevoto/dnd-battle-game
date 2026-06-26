@@ -1922,7 +1922,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
 
       if (willDie) setTimeout(() => removeDefeatedUnit(hero), 400);
       setTimeout(() => checkDone(), willDie ? 450 : 50);
-    }, idx * 500);
+    }, idx * 250);
   });
 }
 
