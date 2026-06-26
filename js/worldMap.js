@@ -154,10 +154,23 @@ function _renderLands(body) {
   });
 }
 
+const _SUBMAP_SRCS = {
+  I:   'assets/Pictures%20Cutscenes%20Icons/map1.jpg',
+  II:  null,
+  III: null,
+};
+
 function _renderSubmap(body, tab) {
-  body.innerHTML = `<div id="world-map-submap">
-    <span>Map ${tab} — coming soon</span>
-  </div>`;
+  const src = _SUBMAP_SRCS[tab];
+  if (src) {
+    body.innerHTML = `<div id="world-map-inner">
+      <img id="world-map-img" src="${src}" draggable="false">
+    </div>`;
+  } else {
+    body.innerHTML = `<div id="world-map-submap">
+      <span>Map ${tab} — coming soon</span>
+    </div>`;
+  }
 }
 
 function _travelTo(id) {
