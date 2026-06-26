@@ -5,7 +5,7 @@ import { activeProps, propPositions, losBlockerMeshes, activeEnv } from './envir
 import { getTerrainHeight } from './terrain.js';
 import { PROP_MODELS } from './propRegistry.js';
 import { trackStar, untrackStar, clearAllStars } from './investigateStars.js';
-import { trackWaystone, clearAllWaystones } from './waystoneTracker.js';
+
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -512,7 +512,7 @@ export function getPlacedProps() { return _placedProps; }
 
 export function clearEditorProps() {
   clearAllStars();
-  clearAllWaystones();
+
   _placedProps.forEach(p => scene.remove(p.mesh));
   _placedProps = [];
   _selectedIdx = -1;
@@ -569,7 +569,6 @@ export async function loadZoneProps(propsArray) {
     if (def.blocksLOS) losBlockerMeshes.push(mesh);
     _placedProps.push(entry);
     if (p.model === 'investigate_star') trackStar(entry.mesh, p.x, p.z);
-    if (p.model === 'waystone' && p.waystoneId) trackWaystone(entry.mesh, p.x, p.z, p.waystoneId);
   }
 }
 

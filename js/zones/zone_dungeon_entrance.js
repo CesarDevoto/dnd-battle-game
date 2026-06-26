@@ -141,8 +141,7 @@ export const ZONE = {
     { model: 'arrow', x: 17.97, z: 19.36, y: 1.8135, yOff: 0.54, rotY: 6.152, rotX: 2.0944, scale: 0.683 },
     { model: 'saddlebag', x: 15.25, z: 11.21, y: 0.4133, rotY: 6.152, rotX: -1.0472, scale: 0.386 },
     { model: 'saddlebag', x: 17.26, z: 18.94, y: 1.4402, rotY: 3.142, rotX: 5.1051, scale: 0.386 },
-    { model: 'waystone', x: 3, z: 38, waystoneId: 'goblin_ambush' },
-    { model: 'investigate_star', x: 15.2, z: 10.79, y: 2.4, yOff: 0, rotY: 0, scale: 1 },
+{ model: 'investigate_star', x: 15.2, z: 10.79, y: 2.4, yOff: 0, rotY: 0, scale: 1 },
   ],
   barriers: [
     { x1: 7.4, z1: 10.92, x2: 9.01, z2: 9.36 },

@@ -29,7 +29,7 @@ import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickStars } from './investigateStars.js';
 import { initWorldMap } from './worldMap.js';
-import { tickWaystones } from './waystoneTracker.js';
+
 import { prewarmEffectShaders, initFireboltLight } from './firebolt.js';
 import { initHealingWordLight } from './healingWord.js';
 import { initMagicMissileLights } from './magicmissile.js';
@@ -323,7 +323,6 @@ let _prevNow = 0;
   tickZone(dt);
   tickPrecombat(dt);
   tickStars(dt);
-  tickWaystones(dt);
   tickDagna(dt);
   tickAmbush(dt);
   tickLoot(dt);
