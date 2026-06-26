@@ -69,6 +69,8 @@ const MODEL_PATHS = {
   swarm_of_insects:  'assets/models/swarm.glb',
   lizardfolk_shaman: 'assets/models/orc.glb',
   green_hag:         'assets/models/goblin.glb',
+  // Named bosses
+  morvath:           'assets/models/morvath.glb',
 };
 
 // All GLB-loaded types are eligible for animation — derived from MODEL_PATHS so it stays in sync automatically.
@@ -128,6 +130,10 @@ const ANIM_CLIP_NAMES = {
   },
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+  },
+  // Slow_Orc_Walk used for patrol/normal movement; Running for combat charge; Walking unused
+  ghoul: {
+    idle: 'Idle_8', walk: 'Slow_Orc_Walk', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
   zombie: {
     idle: 'Idle_4', walk: 'Limping_Walk_3_inplace', run: 'Limping_Walk_3_inplace', attack: 'Attack', death: 'Dead',
@@ -432,6 +438,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
+              spellSlots: def.spellSlots,
               _animPhaseOffset: _phaseOff,
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {},

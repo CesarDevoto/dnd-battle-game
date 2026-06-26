@@ -616,7 +616,7 @@ export const UNIT_TYPES = {
 
   ghoul: {
     name: 'Ghoul', team: 'red',
-    scale: [1.0, 1.0, 1.0], anchorY: 2.0,
+    scale: [1.5, 1.5, 1.5], anchorY: 3.0,
     hp: 22, ac: 12, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 13, dex: 15, con: 10, int: 7, wis: 10, cha: 6 },
     attacks: [
@@ -779,6 +779,24 @@ export const UNIT_TYPES = {
     ],
   },
 
+  // ── Named bosses ──────────────────────────────────────────────────────────
+
+  morvath: {
+    name: 'Morvath',
+    team: 'red',
+    aiStyle: 'spellcaster',
+    scale: [1.0, 1.0, 1.0], anchorY: 2.0,
+    hp: 28, ac: 12, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    abilities: { str: 10, dex: 13, con: 11, int: 11, wis: 13, cha: 14 },
+    spellSlots: 4,
+    attacks: [
+      { name: 'Claws',           type: 'melee',    range: 5,  dice: 1, sides: 4,  dmgBonus: 2, statMod: 'dex' },
+      { name: 'Inflict Wounds',  type: 'melee',    range: 5,  dice: 1, sides: 10, hitBonus: 3, spellSlotCost: 1 },
+      { name: 'Grave Curse',     type: 'aoe_save', range: 30, dice: 1, sides: 6,  dmgBonus: 2,
+        saveType: 'con', saveDC: 12, aoeRadius: 15, spellSlotCost: 1 },
+    ],
+  },
+
   // ── Blue army ─────────────────────────────────────────────────────────────
 
   elf: {
@@ -936,6 +954,8 @@ export const ENEMY_CR = {
   shambling_mound:  5,
   revenant:         5,
   hill_giant:       5,
+  // ── Named bosses ────────────────────────────────────────────────
+  morvath:          1,
 };
 
 // ════════════════════════════════════════════════════════════════════════════

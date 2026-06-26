@@ -45,6 +45,7 @@
       <button id="bestiary-btn">BESTIARY</button>
       <button id="xp-table-btn">XP TABLE</button>
       <button id="smart-hit-btn">SMART HIT %</button>
+      <button id="smart-save-btn">SMART SAVE %</button>
       <button id="audio-mixer-btn">AUDIO</button>
       <button id="quest-log-btn">QUESTS</button>
       <button id="grid-toggle-btn">Grid Off</button>
@@ -276,6 +277,109 @@
             A Level 5 Barbarian (tier 2) fighting a goblin (tier 1) outclasses it by 1 tier — <strong>+3% to hit</strong>.
             A Level 20 Barbarian (tier 5) gets a <strong>+12%</strong> bonus against that same goblin; a goblin attacking a Level 20 Barbarian is crushed to the <strong>15% floor</strong>.
             The clamp ensures no one is completely helpless (15%) and no one is infallible (85%) — even the most one-sided fights have meaningful dice.
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Smart Save % overlay -->
+    <div id="smart-save-overlay">
+      <div id="smart-save-modal">
+        <div id="smart-save-header">
+          <div id="smart-save-title">SMART SAVE % SYSTEM</div>
+          <div id="smart-save-subtitle">Saving Throw Chances Converted to Percentages · No Level Scaling</div>
+          <button id="smart-save-close">✕</button>
+        </div>
+        <div id="smart-save-body">
+
+          <div class="sxp-section-hdr">THE FORMULA</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">Save Chance %</span><span class="sxp-val">((Hero Save Mod + 20 − Spell DC) ÷ 20) × 100</span></div>
+            <div class="sxp-formula-row sxp-formula-indent"><span class="sxp-label">Save Mod</span><span class="sxp-val">Ability modifier for the save type (CON, DEX, WIS…) — <em>no</em> proficiency added for heroes</span></div>
+            <div class="sxp-formula-row sxp-formula-indent"><span class="sxp-label">Spell DC</span><span class="sxp-val">The difficulty class set by the caster's spell (e.g. Grave Curse DC 12)</span></div>
+            <div class="sxp-formula-row sxp-formula-cutoff"><span class="sxp-label">Final Save %</span><span class="sxp-val">Clamped <strong>15 – 85%</strong> — no save is certain success or guaranteed failure</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">Resolution</span><span class="sxp-val">Roll 1d100 — need to roll <strong>high</strong> · need ≥ (100 − Save%) to succeed</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">On Save</span><span class="sxp-val"><strong>Half damage</strong> — the hero partially resists the effect</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">On Fail</span><span class="sxp-val"><strong>Full damage</strong> — the hero takes the complete effect</span></div>
+          </div>
+
+          <div class="sxp-section-hdr">SAMPLE MATCHUPS — CON SAVES vs GRAVE CURSE (DC 12)</div>
+          <div class="sxp-table-wrap">
+            <table class="sxp-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Save Mod</th>
+                  <th>vs DC</th>
+                  <th>Save %</th>
+                  <th>Need ≥</th>
+                  <th>On Pass</th>
+                  <th>On Fail</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="ssp-scenario">Frail hero (CON 8, mod −1) vs DC 12</td>
+                  <td>−1</td><td>12</td>
+                  <td class="ssp-save-low">35%</td>
+                  <td class="ssp-roll">65</td>
+                  <td class="ssp-half">½ dmg</td>
+                  <td class="ssp-full">full dmg</td>
+                </tr>
+                <tr>
+                  <td class="ssp-scenario">Average hero (CON 10, mod +0) vs DC 12</td>
+                  <td>+0</td><td>12</td>
+                  <td class="ssp-save-low">40%</td>
+                  <td class="ssp-roll">60</td>
+                  <td class="ssp-half">½ dmg</td>
+                  <td class="ssp-full">full dmg</td>
+                </tr>
+                <tr>
+                  <td class="ssp-scenario">Tough hero (CON 14, mod +2) vs DC 12</td>
+                  <td>+2</td><td>12</td>
+                  <td class="ssp-save-ok">50%</td>
+                  <td class="ssp-roll">50</td>
+                  <td class="ssp-half">½ dmg</td>
+                  <td class="ssp-full">full dmg</td>
+                </tr>
+                <tr>
+                  <td class="ssp-scenario">Hardy hero (CON 16, mod +3) vs DC 12</td>
+                  <td>+3</td><td>12</td>
+                  <td class="ssp-save-ok">55%</td>
+                  <td class="ssp-roll">45</td>
+                  <td class="ssp-half">½ dmg</td>
+                  <td class="ssp-full">full dmg</td>
+                </tr>
+                <tr>
+                  <td class="ssp-scenario">Average hero (CON 10, mod +0) vs hard DC 16</td>
+                  <td>+0</td><td>16</td>
+                  <td class="ssp-save-floor">20% ⌊</td>
+                  <td class="ssp-roll">80</td>
+                  <td class="ssp-half">½ dmg</td>
+                  <td class="ssp-full">full dmg</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sxp-section-hdr">HOW D&amp;D SAVING THROWS BECOME PERCENTAGES</div>
+          <div class="sxp-explainer">
+            In standard D&amp;D 5e, saving throws work the same way as attack rolls in reverse: roll a d20, add your ability modifier,
+            and beat the caster's DC. A <strong>CON +0 vs DC 12</strong> means you need to roll <strong>12 or higher</strong>
+            — that's 9 winning faces out of 20, or <strong>45%</strong>.
+            The Smart Save % formula captures this exactly: <em>(SaveMod + 20 − DC) ÷ 20 × 100</em>.
+            The "20" is the d20; the numerator counts winning faces.
+            Every <strong>+1 to your save modifier</strong>, or <strong>−1 to the DC</strong>, improves your chance by exactly <strong>5%</strong>.
+          </div>
+
+          <div class="sxp-section-hdr">WHY NO LEVEL SCALING?</div>
+          <div class="sxp-explainer">
+            The Smart Hit % system adds a level-tier adjustment to account for the gap between a Level 1 and Level 20 fighter.
+            Saving throws <strong>don't use that adjustment</strong> — saves are a direct contest between your ability modifier and a fixed DC.
+            A Level 1 barbarian with CON +3 and a Level 20 barbarian with CON +3 have the exact same chance to resist Grave Curse.
+            What changes over levels is your <strong>modifier itself</strong> — ability score improvements let your CON grow from +2 to +5,
+            naturally raising your save % from 50% to 65% against that same DC 12.
           </div>
 
         </div>

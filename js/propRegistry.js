@@ -25,6 +25,7 @@ export const PROP_MODELS = {
   mangrove:     { label: 'Mangrove',    path: 'assets/environment/mangrove.glb',        defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
   savannahtree: { label: 'Savannah Tr', path: 'assets/environment/savannahtree.glb',    defaultScale: 1.0, blocksLOS: true,  clashR: 0.9  },
   saddlebag:    { label: 'Saddlebags',  path: 'assets/environment/saddlebag.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
+  rockpile:     { label: 'Rock Pile',   path: 'assets/environment/rockpile.glb',         defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },

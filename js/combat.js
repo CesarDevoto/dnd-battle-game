@@ -11,10 +11,12 @@ import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighl
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
+import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
-import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee } from './combatAI.js';
+import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
+         aiGetSpellcasterAttack, aiPickSpellcasterDest } from './combatAI.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
 import { rollLoot, spawnLootOrb } from './loot.js';
@@ -1633,6 +1635,17 @@ function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
   return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, hitChance, threshold, isHit: kept >= threshold || isCrit, isCrit };
 }
 
+// Save throw — mirrors rollToHit for DC checks.
+// saveChance = ((saveMod + 20 - dc) / 20) × 100, clamped [15–85].
+// Roll d100 high to succeed: need ≥ (100 - saveChance).
+function rollSave(saveMod, dc) {
+  const rawPct     = ((saveMod + 20 - dc) / 20) * 100;
+  const saveChance = Math.round(Math.max(15, Math.min(85, rawPct)));
+  const threshold  = 100 - saveChance;
+  const kept       = Math.floor(Math.random() * 100) + 1;
+  return { kept, saveChance, threshold, isSave: kept >= threshold };
+}
+
 function faceTarget(unit, target) {
   const dx = target.grp.position.x - unit.grp.position.x;
   const dz = target.grp.position.z - unit.grp.position.z;
@@ -1650,6 +1663,13 @@ function performAttack(attacker, target, atk, onSettled = null) {
   }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
+  if (atk.spellSlotCost && attacker.spellSlots !== undefined) {
+    attacker.spellSlots = Math.max(0, attacker.spellSlots - atk.spellSlotCost);
+  }
+  if (atk.type === 'aoe_save') {
+    playUnitAttackAnim(attacker, 'spell', () => _executeAoeSave(attacker, target, atk, onSettled));
+    return;
+  }
   if (atk.type === 'ranged') {
     _consumeAtkQty(attacker, atk);
     if (attacker.type === 'elf' && atk.name === 'Fire Bolt') {
@@ -1696,6 +1716,11 @@ function atkBreakdown(r) {
   const adv    = r.mode === 'advantage' ? 'ADV ' : r.mode === 'disadvantage' ? 'DIS ' : '';
   const dieStr = r.mode !== 'normal' ? `[${r.dice.join('/')} → ${r.kept}]` : String(r.kept);
   return `${adv}d100 rolled ${dieStr}, needed ≥ ${r.threshold}`;
+}
+
+function saveBreakdown(r, saveType) {
+  const label = (saveType ?? 'con').toUpperCase();
+  return `${label} save · d100: ${r.kept}, needed ≥ ${r.threshold} (${r.saveChance}% to save)`;
 }
 
 function _executeAttack(attacker, target, atk, onSettled = null) {
@@ -1813,6 +1838,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     playSound(atk.type === 'ranged' ? 'arrow_hit' : 'sword_hit');
     showFloatingDamage(target, `-${dmg}`, '#ff4422');
     addLog(`  ${dmg} damage (${dmgBreakdown(dmgResult)})`, 'dmg');
+    if (atk.name === 'Inflict Wounds') playInflictWoundsEffect(target);
   }, dmgSettleDelay + RESULT_PAUSE);
 
   if (doSneak) {
@@ -1841,6 +1867,63 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     ? hpUpdateDelay + RESULT_PAUSE + 550
     : hpUpdateDelay + RESULT_PAUSE + 50;
   setTimeout(() => _logAtkQtyMsg(attacker, atk), _qtyDelay);
+}
+
+// AOE save attack: no to-hit roll. Find all heroes within aoeRadius ft of primaryTarget,
+// each rolls the specified save type vs saveDC. Fail = full damage, pass = half damage.
+function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
+  const dc        = atk.saveDC   ?? 12;
+  const saveType  = atk.saveType ?? 'con';
+  const dmgBonus  = atk.dmgBonus ?? 0;
+  const radiusWU  = (atk.aoeRadius / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const aLabel    = unitLabel(attacker);
+
+  const px = primaryTarget.grp.position.x;
+  const pz = primaryTarget.grp.position.z;
+  const targets = units.filter(u => {
+    if (u.team !== 'blue' || u.hp <= 0) return false;
+    const dx = u.grp.position.x - px;
+    const dz = u.grp.position.z - pz;
+    return Math.sqrt(dx * dx + dz * dz) <= radiusWU;
+  });
+
+  const dmgRoll = rollDnDDamage(atk, dmgBonus, false);
+  const rawDmg  = Math.max(1, dmgRoll.total);
+  addLog(`${aLabel} casts ${atk.name}! (${atk.aoeRadius} ft · CON DC ${dc}) — ${rawDmg} necrotic (${dmgBreakdown(dmgRoll)})`, 'spell');
+
+  if (targets.length === 0) { onSettled?.(); return; }
+
+  let resolved = 0;
+  const checkDone = () => { if (++resolved >= targets.length) onSettled?.(); };
+
+  targets.forEach((hero, idx) => {
+    setTimeout(() => {
+      const heroAb     = UNIT_TYPES[hero.type]?.abilities ?? {};
+      const saveMod    = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
+      const saveResult = rollSave(saveMod, dc);
+      const finalDmg   = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+      const tLabel     = unitLabel(hero);
+      const outcome    = saveResult.isSave ? '½ dmg' : 'full dmg';
+      const saveWord   = saveResult.isSave ? 'SAVES' : 'FAILS';
+
+      showRoll(`${tLabel} · CON Save`, saveResult, { autoDismiss: false });
+
+      const willDie = hero.hp <= finalDmg;
+      hero.aggro = true;
+      hero.hp = Math.max(0, hero.hp - finalDmg);
+      hero.barShowUntil = Date.now() + 5000;
+      buildTurnList();
+      if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
+
+      addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}) — ${finalDmg} dmg [${outcome}]`,
+             saveResult.isSave ? 'hit' : 'dmg');
+      showFloatingDamage(hero, `-${finalDmg}`, '#9922cc');
+      playGraveCurseEffect(hero);
+
+      if (willDie) setTimeout(() => removeDefeatedUnit(hero), 400);
+      setTimeout(() => checkDone(), willDie ? 450 : 50);
+    }, idx * 500);
+  });
 }
 
 // ── Target selection overlay ──────────────────────────────────────────────────
@@ -3321,6 +3404,86 @@ function runAITurn(u) {
       });
     }
 
+    // ── Spellcaster AI (e.g. Morvath) ────────────────────────────────────────
+    // Spell-first, range-keeping, kiting behavior. Activated by aiStyle:'spellcaster'.
+    function doSpellcastAttack(cb) {
+      if (!units.includes(target)) { cb(); return; }
+      const atk = aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      if (!atk) { cb(); return; }
+      showAttackTargets(u);
+      setTimeout(() => {
+        hideAttackTargets();
+        turnAttacked = true;
+        hideUndoBtn();
+        updateCombatStatus();
+        const hpBefore = target.hp;
+        performAttack(u, target, atk, () => {
+          _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, cb);
+        });
+      }, PRE_ATK_MS);
+    }
+
+    function runSpellcasterPaths() {
+      if (!combatPhase || !units.includes(u)) return;
+      const slots = u.spellSlots ?? 0;
+      const _def  = UNIT_TYPES[u.type] ?? {};
+      const atks  = _def.attacks ?? [];
+      const meleeA   = atks.find(a => a.type === 'melee');
+      const aoeSaveA = atks.find(a => a.type === 'aoe_save');
+      const meleeTrigger = meleeA   ? atkTriggerWU(meleeA)       : 0;
+      const spellRangeWU = aoeSaveA ? atkRangeWU(aoeSaveA.range)  : 0;
+      const _dx  = target.grp.position.x - u.grp.position.x;
+      const _dz  = target.grp.position.z - u.grp.position.z;
+      const dist = Math.sqrt(_dx * _dx + _dz * _dz);
+      const inMelee      = meleeTrigger > 0 && dist <= meleeTrigger;
+      const inSpellRange = spellRangeWU  > 0 && dist <= spellRangeWU;
+
+      // No spell slots — fall back to close-and-claw
+      if (slots === 0) {
+        if (inMelee) { doSpellcastAttack(endAITurn); return; }
+        showMoveRange(u);
+        const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+        hideMoveRange();
+        if (!dest) { endAITurn(); return; }
+        moveToAndThen(dest, () => setTimeout(() => doSpellcastAttack(endAITurn), PRE_ATK_MS));
+        return;
+      }
+
+      // Has slots — spell-first logic
+      if (inMelee) {
+        // Hero is too close. Try to back away to ideal spell range before casting.
+        showMoveRange(u);
+        const escapeDest = aiPickSpellcasterDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+        hideMoveRange();
+        if (escapeDest) {
+          const eDx = target.grp.position.x - escapeDest.x;
+          const eDz = target.grp.position.z - escapeDest.z;
+          const eDist = Math.sqrt(eDx * eDx + eDz * eDz);
+          if (eDist > meleeTrigger) {
+            // Can escape melee — move away then cast
+            moveToAndThen(escapeDest, () => setTimeout(() => doSpellcastAttack(endAITurn), PRE_ATK_MS));
+            return;
+          }
+        }
+        // Cornered — cast from current position
+        doSpellcastAttack(endAITurn);
+        return;
+      }
+
+      if (inSpellRange) {
+        // Already at ideal range — cast immediately
+        doSpellcastAttack(endAITurn);
+        return;
+      }
+
+      // Out of spell range — move toward ideal position, then cast if now in range
+      showMoveRange(u);
+      const dest = aiPickSpellcasterDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+      hideMoveRange();
+      if (!dest) { endAITurn(); return; }
+      moveToAndThen(dest, () => setTimeout(() => doSpellcastAttack(endAITurn), PRE_ATK_MS));
+    }
+
     // ── Check delayed triggers before enemy acts ──────────────────────────────
     // Catches enemies that never move (Path 1/2) — fire LOS/melee triggers now
     function runPaths() {
@@ -3397,7 +3560,11 @@ function runAITurn(u) {
       moveToAndThen(dest, () => setTimeout(() => doAttack(endAITurn), PRE_ATK_MS));
     }
 
-    runPaths();
+    if (UNIT_TYPES[u.type]?.aiStyle === 'spellcaster') {
+      runSpellcasterPaths();
+    } else {
+      runPaths();
+    }
   }, THINK_MS);
 }
 

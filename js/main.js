@@ -100,6 +100,19 @@ initSpellbook();
     document.addEventListener('keydown', e => { if (e.key === 'Escape') shpOverlay.classList.remove('show'); });
   }
 }
+
+// Smart Save % overlay
+{
+  const sspBtn     = document.getElementById('smart-save-btn');
+  const sspOverlay = document.getElementById('smart-save-overlay');
+  const sspClose   = document.getElementById('smart-save-close');
+  if (sspBtn && sspOverlay) {
+    sspBtn.addEventListener('click', () => sspOverlay.classList.toggle('show'));
+    sspClose.addEventListener('click', () => sspOverlay.classList.remove('show'));
+    sspOverlay.addEventListener('click', e => { if (e.target === sspOverlay) sspOverlay.classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') sspOverlay.classList.remove('show'); });
+  }
+}
 initHotbar();
 initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen });
