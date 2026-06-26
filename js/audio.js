@@ -45,9 +45,9 @@ const SOUNDS = {
   snake_aggro:        { src: 'assets/Audio/combat/snake aggro.mp3',         category: 'combat' },
   snake_attack:       { src: 'assets/Audio/combat/snake attacking.mp3',     category: 'combat' },
   snake_moving:       { src: 'assets/Audio/combat/snake moving.mp3',        category: 'combat' },
-  stirge_aggro:       { src: 'assets/Audio/combat/stirge aggro.mp3',        category: 'combat' },
-  stirge_attack:      { src: 'assets/Audio/combat/stirge attack.mp3',       category: 'combat' },
-  stirge_moving:      { src: 'assets/Audio/combat/stirge moving.mp3',       category: 'combat' },
+  stirge_aggro:       { src: 'assets/Audio/combat/stirge aggro.mp3',        category: 'combat', volume: 0.6 },
+  stirge_attack:      { src: 'assets/Audio/combat/stirge attack.mp3',       category: 'combat', volume: 0.6 },
+  stirge_moving:      { src: 'assets/Audio/combat/stirge moving.mp3',       category: 'combat', volume: 0.6 },
   ghoul_aggro:        { src: 'assets/Audio/combat/ghoul aggro.mp3',         category: 'combat' },
   ghoul_attack:       { src: 'assets/Audio/combat/ghoul attack.mp3',        category: 'combat' },
   ghoul_moving:       { src: 'assets/Audio/combat/ghoul moving.mp3',        category: 'combat' },
@@ -146,10 +146,18 @@ export function playSound(key) {
   if (!buf) return;
   const ctx = _getCtx();
   if (ctx.state === 'suspended') ctx.resume();
-  const cat = SOUNDS[key]?.category ?? 'combat';
+  const def = SOUNDS[key] ?? {};
+  const cat = def.category ?? 'combat';
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  src.connect(_catGains[cat] ?? _masterGain);
+  if (def.volume !== undefined) {
+    const g = ctx.createGain();
+    g.gain.value = def.volume;
+    g.connect(_catGains[cat] ?? _masterGain);
+    src.connect(g);
+  } else {
+    src.connect(_catGains[cat] ?? _masterGain);
+  }
   src.start();
 }
 

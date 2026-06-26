@@ -4,7 +4,7 @@ import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
 import { initEngagementLines, updateEngagementLines } from './engagementLines.js';
 import { updateHUD, trackSheet } from './ui.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExit } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -115,7 +115,7 @@ initSpellbook();
 }
 initHotbar();
 initZoneUI();
-initDagna({ removeUnits, loadZone, setPrecombatFrozen });
+initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExit });
 initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initGroupMove();
@@ -194,7 +194,8 @@ if (IS_DEV) {
 }
 
 bindPermanentHotkey('KeyT',     'TOP<br>VIEW',      toggleTopView,  isTopViewActive);
-bindPermanentHotkey('Tab',      'TOGGLE<br>HEROES', cycleHero,      null);
+bindPermanentHotkey('Digit1',   'TOGGLE<br>HEROES', cycleHero,      null);
+bindPermanentHotkey('Tab',      'NEXT<br>TARGET',   () => {},       null);
 bindPermanentHotkey('Backquote','HEALTH<br>BARS',   toggleAllBars,  getAllBarsVisible);
 
 // ── A / D — rotate active hero's facing direction ─────────────────────────────

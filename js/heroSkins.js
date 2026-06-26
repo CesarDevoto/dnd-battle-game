@@ -32,6 +32,7 @@ export function applyHeroSkin(skinName) {
 
       if (!skinDef) {
         node.material = node.userData._origMats;
+        node.renderOrder = 0;
         return;
       }
 
@@ -39,6 +40,7 @@ export function applyHeroSkin(skinName) {
       node.material = Array.isArray(node.userData._origMats)
         ? node.userData._origMats.map(makeMat)
         : makeMat();
+      node.renderOrder = 2;
     });
   });
 }

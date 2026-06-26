@@ -9,11 +9,19 @@ import { registerPostCombatHandler } from './postCombat.js';
 let _removeUnitsFn      = null;
 let _loadZoneFn         = null;
 let _freezePrecombatFn  = null;
+let _endCombatFn        = null;
 
-export function initDagna({ removeUnits, loadZone, setPrecombatFrozen }) {
+// Track the most recent non-styx zone so the outro can teleport heroes back.
+let _origZoneId = null;
+window.addEventListener('zone:loaded', e => {
+  if (e.detail?.id && e.detail.id !== 'river_styx') _origZoneId = e.detail.id;
+});
+
+export function initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat }) {
   _removeUnitsFn     = removeUnits;
   _loadZoneFn        = loadZone;
   _freezePrecombatFn = setPrecombatFrozen;
+  _endCombatFn       = endCombat;
   _initPortalGeometry();  // pre-build once so GPU buffers upload on frame 1
   _buildDlgPanel();
 }
@@ -244,7 +252,9 @@ function _removePortal() {
 function _spawnDagna(at, facing, onReady) {
   _loader.load('/assets/models/dagna.glb', gltf => {
     _dagnaGrp = gltf.scene;
+    _dagnaGrp.scale.setScalar(1.15);
     _dagnaGrp.position.copy(at);
+    _dagnaGrp.position.y += 0.12;
     _dagnaGrp.rotation.y = facing;
     // renderOrder 3 > portal's 2 so Dagna always draws on top of the portal disk
     _dagnaGrp.traverse(n => { if (n.isMesh || n.isSkinnedMesh) n.renderOrder = 3; });
@@ -329,7 +339,7 @@ const _LINES_A = [
   { s: 'Dagna',   t: "Indeed, and may he wash us in his precious light this and all days." },
   { s: 'Leugren', t: "Why has our Father sent ye Dagna?" },
   { s: 'Dagna',   t: "Thy devotion to our blessed Lord hath not gone unnoticed, brave Leugren. Nor the harmony of thy fellowship, forged in this bloody conflict that hath sown death among thee." },
-  { s: 'Dagna',   t: "Though death among thee is a heavy misfortune, it is tempered by the great fortune that our Lord Father's eye hath fallen upon thee. He would set a task before thy fellowship — a grim test. Fulfill it, and he shall restore life among thee." },
+  { s: 'Dagna',   t: "Though death is great misfortune, it is tempered by the great fortune that our Lord Father's eye hath fallen upon thee. He would set a task before thy fellowship — a grim test. Fulfill it, and he shall restore life among thee." },
   { s: 'Leugren', t: "What... trial does our Father ask of us?" },
   { s: 'Dagna',   t: "A trial that if passed shall boon thy fellowship with life's renewal… yet a trial most dire indeed... But take courage in this truth: even the smallest pebble can loose an avalanche mighty enough to entomb kingdoms." },
   { s: 'Dagna',   t: "Come...", goStyx: true },
@@ -340,7 +350,7 @@ const _LINES_B = [
   { s: 'Leugren', t: "Demons!!!" },
   { s: 'Dagna',   t: "And devils shall join them in their dance of death... Are you ready?" },
   { s: 'Leugren', t: "I don't know what we can possibly do here but... yes... we are ready..." },
-  { s: 'Dagna',   t: "Your fellowship is to do the Lord's favor and slay six abyssal or infernal foes in our Father's name.  Only then shall ye be restored to life." },
+  { s: 'Dagna',   t: "Your fellowship is to do the Lord's favor and slay six abyssal or infernal foes in our Father's name. Only then shall thy fellowship be fully restored to life." },
   { s: 'Leugren', t: "It shall be done!" },
   { s: 'Dagna',   t: "Stand with honor brother." },
 ];
@@ -698,16 +708,56 @@ function _startIntroB() {
 
 // ── Outro: fires on next hero turn after 6 kills ──────────────────────────────
 function _startOutro() {
-  const lp = _getLeugrenPos();
-  const pp = _portalSpot(lp);
-  _openPortalAndWalk(pp, lp, () => {
-    _showLines(_LINES_OUT, () => {
-      _removeDagna();
-      _removePortal();
-      _hideKills();
-      // Narrative "lives restored" — restore hero HP
+  _inStyxZone = false;
+  _hideKills();
+
+  // End combat immediately — skips loot/post-combat chain
+  _endCombatFn?.();
+
+  // Blinding white flash covers the zone transition
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;z-index:9999;pointer-events:none;transition:opacity 0.08s ease-in';
+  document.body.appendChild(flash);
+
+  requestAnimationFrame(() => {
+    flash.style.opacity = '1';
+
+    // Load origin zone while screen is white; restore HP
+    setTimeout(() => {
+      if (_loadZoneFn) _loadZoneFn(_origZoneId ?? 'ghoul_mausoleum', false);
       units.filter(u => u.team === 'blue').forEach(u => { u.hp = u.maxHp; });
-    });
+
+      // Fade out over 1.4 s — zone has settled by the time it clears
+      flash.style.transition = 'opacity 1.4s ease-out';
+      flash.style.opacity = '0';
+
+      setTimeout(() => {
+        flash.remove();
+        _positionHeroesFormation();
+        const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
+        if (leugren) setFollowUnit(leugren);
+      }, 1400);
+    }, 200);
+  });
+}
+
+// Place heroes in Leugren+Gobo front / Human+Elf back around the pre-styx anchor position.
+function _positionHeroesFormation() {
+  const ax = _leugrenLastPos.x;
+  const az = _leugrenLastPos.z;
+  const FORM = [
+    { type: 'dwarf',    ox: -1, oz:  0 },
+    { type: 'halfling', ox:  1, oz:  0 },
+    { type: 'human',    ox: -1, oz:  2 },
+    { type: 'elf',      ox:  1, oz:  2 },
+  ];
+  FORM.forEach(({ type, ox, oz }) => {
+    const u = units.find(u => u.team === 'blue' && u.type === type);
+    if (!u) return;
+    const x = ax + ox, z = az + oz;
+    const y = getTerrainHeight(x, z);
+    u.grp.position.set(x, y, z);
+    if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
   });
 }
 

@@ -43,11 +43,10 @@ export const ZONE = {
     { type: 'shadow', x: -63, z: -53, yOff: -0.25, roams: true, patrol: [{x:-63,z:-80}, {x:-63,z:-53}] },
     { type: 'shadow', x: 26, z: -72, yOff: -1, roams: true, patrol: [{x:26,z:-42}, {x:26,z:-72}] },
     { type: 'shadow', x: 28, z: -75, yOff: -1, roams: true, patrol: [{x:28,z:-42}, {x:28,z:-75}] },
-    { type: 'swarm_of_insects', x: 43.5, z: 38, yOff: 2, scale: 0.999, roams: true, patrol: [{x:8,z:38}, {x:38,z:38}] },
-    { type: 'swarm_of_insects', x: -38, z: -39, yOff: 2, scale: 1.031, roams: true, patrol: [{x:-55,z:-48}, {x:-25,z:-48}] },
+    { type: 'swarm_of_insects', x: 43.5, z: 38, yOff: 2, scale: 0.941, roams: true, patrol: [{x:8,z:38}, {x:38,z:38}] },
+    { type: 'swarm_of_insects', x: -38, z: -39, yOff: 2, scale: 0.94, roams: true, patrol: [{x:-55,z:-48}, {x:-25,z:-48}] },
     { type: 'giant_spider', x: -70, z: -72, scale: 1.2, roams: true, patrol: [{x:-70,z:-42}, {x:-70,z:-72}] },
     { type: 'giant_spider', x: 72, z: -72, scale: 1.2, roams: true, patrol: [{x:72,z:-42}, {x:72,z:-72}] },
-    { type: 'shadow', x: -78.98, z: 73.04, yOff: -0.5, scale: 1.772, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
   ],
   exits: [
     { x: -82, z: 70, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw', fogPush: 16, fogOffsetZ: 1 },

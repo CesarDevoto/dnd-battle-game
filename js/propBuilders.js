@@ -1927,6 +1927,7 @@ function _mkFogCanvas(color) {
   const tex = new THREE.CanvasTexture(cv);
   return new THREE.MeshBasicMaterial({
     color, map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, fog: false,
   });
 }
 
@@ -2000,8 +2001,10 @@ export function mkFogPatch() {
 // The glowing orb is dev-only; hidden in play mode via setPointLightOrbsVisible().
 
 const _pointLightOrbs = new Set();
+let _pointLightOrbsVisible = true;
 
 export function setPointLightOrbsVisible(visible) {
+  _pointLightOrbsVisible = visible;
   for (const orb of _pointLightOrbs) orb.visible = visible;
 }
 
@@ -2013,6 +2016,7 @@ export function mkPointLight(intensity = 6, range = 18) {
     new THREE.MeshStandardMaterial({ color: 0xffeeaa, emissive: 0xffcc44, emissiveIntensity: 3.0 }),
   );
   orb.frustumCulled = false;
+  orb.visible = _pointLightOrbsVisible;
   grp.add(orb);
   _pointLightOrbs.add(orb);
 

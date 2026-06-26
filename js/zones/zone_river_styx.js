@@ -73,7 +73,7 @@ export const ZONE = {
     { model: 'dungeonwall', x: 11.87, z: 27.79, y: -0.4719, yOff: -1.875, rotY: 0, scale: 2.594 },
     { model: 'dungeonwall', x: -25.97, z: -3.97, y: 0, rotY: 0, scale: 3.138 },
     { model: 'dungeonwall', x: 40.74, z: 14.54, y: -1.375, yOff: -1.375, rotY: 0, scale: 2.594 },
-    { model: 'point_light', x: -0.55, z: 8.81, y: 1.8, yOff: 2, rotY: 0, scale: 1 },
+    { model: 'point_light_bright', x: -0.55, z: 8.81, y: 1.8, yOff: 2, rotY: 0, scale: 1 },
   ],
   spawns: [
     { type: 'mane', x: -0.96, z: -10.73, round: 2, every: 2, roams: true, roamMode: 'patrol', patrol: [{x:-1.57,z:39.22}, {x:21.43,z:34.3}] },

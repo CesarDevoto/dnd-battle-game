@@ -1497,6 +1497,14 @@ function _teardownCombat() {
   document.getElementById('turn-panel').style.display = 'none';
 }
 
+// Called by dagnaEvent for the styx outro — ends combat without the normal loot/post-combat chain.
+export function forceCombatExit() {
+  if (!combatPhase) return;
+  _teardownCombat();
+  stopCombatMusic();
+  window.dispatchEvent(new CustomEvent('combat:ended'));
+}
+
 // All aggro'd threats defeated — return to free-roam without a terminal banner.
 function exitCombat() {
   _teardownCombat();
@@ -2109,6 +2117,14 @@ document.addEventListener('keydown', e => {
 
   const u = turnOrder[turnIndex];
   if (!u || u.team !== 'blue') return;
+
+  if (e.key === 'Tab') {
+    const enemies = turnOrder.filter(unit => unit.team === 'red' && unit.hp > 0);
+    if (!enemies.length) return;
+    const curIdx = selectedTarget ? enemies.findIndex(en => en === selectedTarget) : -1;
+    showTargetMarker(enemies[(curIdx + 1) % enemies.length]);
+    return;
+  }
 
   if (e.key === 'w' || e.key === 'W') {
     // Halfling and human have W bound via hotbar for Sneak Attack / Rage
@@ -3226,7 +3242,7 @@ function _runRoamTurn(u) {
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
     _roamAggroCheck(u);
-    setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 150);
+    setTimeout(() => { doEndTurn(); }, 150);
   }, 200);
 }
 
@@ -3239,7 +3255,7 @@ function runAITurn(u) {
   if (sleepingUnits.has(u)) {
     const state = sleepingUnits.get(u);
     addLog(`${unitLabel(u)} is asleep (${state.roundsLeft} rounds left) — skips turn`, 'spell');
-    setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 350);
+    setTimeout(() => { doEndTurn(); }, 350);
     return;
   }
 
@@ -3265,7 +3281,7 @@ function runAITurn(u) {
       }, { h: null, d: Infinity }).h;
 
       if (!nearest) {
-        setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
+        setTimeout(() => { doEndTurn(); }, 250);
         return;
       }
       const speedFt = UNIT_TYPES[u.type]?.speed ?? 30;
@@ -3289,7 +3305,7 @@ function runAITurn(u) {
       setTimeout(() => {
         if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
         animatePath(u, stealthPath, () => {
-          setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
+          setTimeout(() => { doEndTurn(); }, 250);
         });
       }, 300);
       return;
@@ -3315,7 +3331,7 @@ function runAITurn(u) {
       buildTurnList();
       // Fall through — enemy acts this turn
     } else {
-      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 150);
+      setTimeout(() => { doEndTurn(); }, 150);
       return;
     }
   }
@@ -3327,19 +3343,24 @@ function runAITurn(u) {
   }
 
   // Dungeon environment: all enemies wait until they have LOS to a hero.
+  // Exception: units already explicitly aggro (e.g. mid-combat spawns) advance immediately.
   if (activeEnv === 'dungeon' && !_dungeonAwareEnemies.has(u)) {
-    const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
-    const spotted = heroes.some(h =>
-      hasLineOfSight(u.grp.position.x, u.grp.position.z, h.grp.position.x, h.grp.position.z)
-    );
-    if (spotted) {
+    if (u.aggro === true) {
       _dungeonAwareEnemies.add(u);
-      u.aggro = true;
-      addLog(`⚠ ${unitLabel(u)} spots the heroes!`, 'move');
-      buildTurnList();
     } else {
-      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, 250);
-      return;
+      const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+      const spotted = heroes.some(h =>
+        hasLineOfSight(u.grp.position.x, u.grp.position.z, h.grp.position.x, h.grp.position.z)
+      );
+      if (spotted) {
+        _dungeonAwareEnemies.add(u);
+        u.aggro = true;
+        addLog(`⚠ ${unitLabel(u)} spots the heroes!`, 'move');
+        buildTurnList();
+      } else {
+        setTimeout(() => { doEndTurn(); }, 250);
+        return;
+      }
     }
   }
 
@@ -3357,13 +3378,12 @@ function runAITurn(u) {
 
     const target = aiPickTarget(u, units, hasLineOfSight);
     if (!target) {
-      endTurnBtn.disabled = false;
       setTimeout(doEndTurn, END_PAUSE);
       return;
     }
 
     function endAITurn() {
-      setTimeout(() => { endTurnBtn.disabled = false; doEndTurn(); }, END_PAUSE);
+      setTimeout(() => { doEndTurn(); }, END_PAUSE);
     }
 
     function doAttack(cb) {

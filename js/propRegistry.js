@@ -46,7 +46,8 @@ export const PROP_MODELS = {
 
   // ── Special interactive markers ───────────────────────────────────────────────
   investigate_star: { label: 'Investigate Light', builderFn: () => mkInvestigateStar(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },
-  point_light:      { label: 'Point Light',        builderFn: () => mkPointLight(),      defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
+  point_light:      { label: 'Point Light',        builderFn: () => mkPointLight(),       defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
+  point_light_bright: { label: 'Bright Point Light', builderFn: () => mkPointLight(22, 50), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
 
   // ── Terrain surface assets ────────────────────────────────────────────────────
   road:         { label: 'Road Segment', builderFn: () => mkRoadSegment(1, 0),               defaultScale: 3.0, blocksLOS: false, clashR: 0.0, conformTerrain: true },
