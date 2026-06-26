@@ -7463,7 +7463,7 @@ td.bst-col-retired { color: #343228 !important; }
 .map-pin:hover .map-pin-tooltip { display: block; }
 
 /* Roman numeral land markers */
-.map-land-marker {
+#world-map-pins .map-land-marker {
   position: absolute;
   transform: translate(-50%, -50%);
   pointer-events: all;
@@ -7473,21 +7473,21 @@ td.bst-col-retired { color: #343228 !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #000;
+  border: 1px solid #000 !important;
   border-radius: 50%;
-  background: #a8d8ea;
-  color: #000;
+  background: #a8d8ea !important;
+  color: #000 !important;
   font-size: 0.72rem;
   font-weight: bold;
   font-family: var(--font-fantasy, serif);
-  text-shadow: none;
+  text-shadow: none !important;
   box-shadow: 0 0 4px rgba(0,0,0,0.5);
   transition: background 0.15s, box-shadow 0.15s;
 }
-.map-land-marker:hover {
-  background: #c8eaf8;
+#world-map-pins .map-land-marker:hover {
+  background: #c8eaf8 !important;
   box-shadow: 0 0 8px rgba(0,0,0,0.6);
-  color: #000;
+  color: #000 !important;
 }
 
 /* Sub-map placeholder */
