@@ -2073,6 +2073,48 @@ export function mkInvestigateStar() {
   return grp;
 }
 
+export function mkWaystoneDisc() {
+  const grp = new THREE.Group();
+
+  // Solid glowing disc — roughly twice the diameter of a target ring
+  const discGeo = new THREE.CircleGeometry(1.8, 48);
+  discGeo.rotateX(-Math.PI / 2);
+  const discMat = new THREE.MeshStandardMaterial({
+    color:             0x00ccff,
+    emissive:          0x00aaff,
+    emissiveIntensity: 0.6,
+    transparent:       true,
+    opacity:           0.45,
+    depthWrite:        false,
+    blending:          THREE.AdditiveBlending,
+    side:              THREE.DoubleSide,
+  });
+  const disc = new THREE.Mesh(discGeo, discMat);
+  disc.renderOrder   = 2;
+  disc.frustumCulled = false;
+  grp.add(disc);
+
+  // Crisp outer ring for edge definition
+  const ringGeo = new THREE.RingGeometry(1.65, 1.95, 48);
+  ringGeo.rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color:       0x44eeff,
+    transparent: true,
+    opacity:     0.85,
+    depthWrite:  false,
+    blending:    THREE.AdditiveBlending,
+    side:        THREE.DoubleSide,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.renderOrder   = 3;
+  ring.frustumCulled = false;
+  grp.add(ring);
+
+  grp.userData.disc  = disc;
+  grp.frustumCulled  = false;
+  return grp;
+}
+
 export function mkDarknessPlane() {
   const geo = new THREE.PlaneGeometry(1, 1);
   geo.rotateX(-Math.PI / 2);

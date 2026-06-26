@@ -28,6 +28,8 @@ import { initBarrierEditor } from './barrierEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickStars } from './investigateStars.js';
+import { initWorldMap } from './worldMap.js';
+import { tickWaystones } from './waystoneTracker.js';
 import { prewarmEffectShaders, initFireboltLight } from './firebolt.js';
 import { initHealingWordLight } from './healingWord.js';
 import { initMagicMissileLights } from './magicmissile.js';
@@ -120,6 +122,7 @@ initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initGroupMove();
 initQuests();
+initWorldMap();
 
 initDevMode();
 initCutsceneUI();
@@ -232,14 +235,36 @@ let _prevNow = 0;
   t += ANIM.timeStep;
 
   units.forEach((u, i) => {
-    const terrainY = getTerrainHeight(u.grp.position.x, u.grp.position.z);
+    const terrainY   = getTerrainHeight(u.grp.position.x, u.grp.position.z);
+    const baseHoverY = u.hoverY ?? 0;
+
+    // Hovering units descend diagonally as they close to melee range.
+    // Lerp effective hover from full height (12+ WU away) down to 0 (≤5 WU away).
+    let effectiveHoverY = baseHoverY;
+    if (baseHoverY > 0) {
+      const foeTeam = u.team === 'red' ? 'blue' : 'red';
+      let minDist = Infinity;
+      for (const other of units) {
+        if (other.team !== foeTeam || other.hp <= 0) continue;
+        const dx = other.grp.position.x - u.grp.position.x;
+        const dz = other.grp.position.z - u.grp.position.z;
+        const d  = dx * dx + dz * dz;
+        if (d < minDist) minDist = d;
+      }
+      minDist = Math.sqrt(minDist);
+      const DESCENT_START = 12; // WU — begin descent (~30 ft)
+      const LANDED        = 5;  // WU — fully at ground level (melee trigger)
+      const frac = Math.max(0, Math.min(1, (minDist - LANDED) / (DESCENT_START - LANDED)));
+      effectiveHoverY = baseHoverY * frac;
+    }
+
     if (u.mixer) {
-      u.grp.position.y = terrainY + (u.hoverY ?? 0);
-      u.anchor.y = terrainY + u.anchorY + (u.hoverY ?? 0);
+      u.grp.position.y = terrainY + effectiveHoverY;
+      u.anchor.y = terrainY + u.anchorY + effectiveHoverY;
     } else {
       const bob = Math.sin(t * ANIM.bobFreq + i * ANIM.bobPhaseOffset) * ANIM.bobAmplitude;
-      u.grp.position.y = terrainY + u.hoverY + bob;
-      u.anchor.y = terrainY + u.anchorY + u.hoverY + bob;
+      u.grp.position.y = terrainY + effectiveHoverY + bob;
+      u.anchor.y = terrainY + u.anchorY + effectiveHoverY + bob;
     }
   });
 
@@ -298,6 +323,7 @@ let _prevNow = 0;
   tickZone(dt);
   tickPrecombat(dt);
   tickStars(dt);
+  tickWaystones(dt);
   tickDagna(dt);
   tickAmbush(dt);
   tickLoot(dt);
