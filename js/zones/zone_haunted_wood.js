@@ -49,7 +49,7 @@ export const ZONE = {
     { type: 'giant_spider', x: 72, z: -72, scale: 1.2, roams: true, patrol: [{x:72,z:-42}, {x:72,z:-72}] },
   ],
   exits: [
-    { x: -82, z: 70, targetZone: 'road_to_cragmaw', arrivalX: 80, arrivalZ: -80, label: 'Road to Cragmaw', fogPush: 16, fogOffsetZ: 1 },
+    { x: -82, z: 70, targetZone: 'bleakmire_woods', arrivalX: 80, arrivalZ: -80, label: 'Bleakmire Woods', fogPush: 16, fogOffsetZ: 1 },
     { x: -9, z: -65, targetZone: 'ghouls_mausoleum', arrivalX: 0, arrivalZ: 32, label: "Ghoul's Mausoleum" },
   ],
   fogBreaches: [

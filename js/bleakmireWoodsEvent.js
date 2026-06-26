@@ -14,7 +14,7 @@ const _KEY_INTRO      = 'dnd-floosh-intro-seen';
 const _KEY_QUEST      = 'dnd-floosh-quest-seen';
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 
-// Grassling (Floosh) world position in road_to_cragmaw
+// Grassling (Floosh) world position in bleakmire_woods
 const _FLOOSH_X  = 6.71;
 const _FLOOSH_Z  = 71.66;
 const _PROX_SQ   = 36;    // 15 ft = 6 WU  →  6² = 36
@@ -284,7 +284,7 @@ function _hideFootsteps() {
 }
 
 // ── Tick: footprint fade-in + pulse color, proximity watch ───────────────────
-export function tickRoadToCragmaw(dt) {
+export function tickBleakmireWoods(dt) {
   if (_meshes.length) {
     _t += dt * 1.4;
     _COLOR_TMP.lerpColors(_COLOR_A, _COLOR_B, Math.sin(_t) * 0.5 + 0.5);
@@ -343,7 +343,7 @@ export function tickRoadToCragmaw(dt) {
 
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
 window.addEventListener('zone:loaded', e => {
-  if (e.detail?.id !== 'road_to_cragmaw') return;
+  if (e.detail?.id !== 'bleakmire_woods') return;
   _showFootsteps();
 
   try {

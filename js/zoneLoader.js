@@ -14,7 +14,7 @@ import { isDevMode } from './devMode.js';
 import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
-import { ZONE as ZONE_CRAGMAW_ENTRANCE } from './zones/zone_road_to_cragmaw.js';
+import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
 import { ZONE as ZONE_GHOULS_MAUSOLEUM } from './zones/zone_ghouls_mausoleum.js';
 import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
@@ -22,7 +22,7 @@ import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const _registry = {};
-const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_CRAGMAW_ENTRANCE, ZONE_HAUNTED_WOOD, ZONE_GHOULS_MAUSOLEUM, ZONE_RIVER_STYX];
+const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_GHOULS_MAUSOLEUM, ZONE_RIVER_STYX];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
 // Kick off parallel GLB fetches for every prop in every zone immediately at

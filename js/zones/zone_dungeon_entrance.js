@@ -22,7 +22,7 @@ export const ZONE = {
     { type: 'stirge', x: -34.68, z: -21.04, yOff: 4.25 },
   ],
   exits: [
-    { x: -44.43, z: -16.52, targetZone: 'road_to_cragmaw', arrivalX: 3, arrivalZ: 85, label: 'Back to the Road' },
+    { x: -44.43, z: -16.52, targetZone: 'bleakmire_woods', arrivalX: 3, arrivalZ: 85, label: 'Bleakmire Woods' },
     { x: -4, z: 44, targetZone: 'dungeon_hall', label: 'Stairs Down' },
   ],
   terrain: [

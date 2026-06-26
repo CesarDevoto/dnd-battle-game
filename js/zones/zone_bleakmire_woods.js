@@ -1,6 +1,6 @@
 export const ZONE = {
-  id: 'road_to_cragmaw',
-  name: 'Road to Cragmaw',
+  id: 'bleakmire_woods',
+  name: 'Bleakmire Woods',
   groundSize: 216,
   biome: 'forest',
   heroEntry: [
