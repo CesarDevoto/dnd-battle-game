@@ -2074,44 +2074,34 @@ export function mkInvestigateStar() {
 }
 
 export function mkWaystoneDisc() {
-  // Physical waystone — light blue coin, dark grey border + centre dot.
-  // 5 ft diameter = 1 WU radius (1 WU = 2.5 ft).
+  // Physical waystone — 3D coin, light blue faces, dark grey rim + centre dot.
+  // 5 ft diameter = 1 WU radius. Coin thickness ≈ 5 inches = 0.17 WU.
   const grp = new THREE.Group();
-  const Y   = 0.022; // just above ground
+  const R = 1.0, H = 0.17;
 
-  const solidMat = new THREE.MeshStandardMaterial({
-    color:    0xa8d8ea,
-    roughness: 0.6,
-    metalness: 0.1,
-    depthWrite: true,
-  });
-  const darkMat = new THREE.MeshStandardMaterial({
-    color:    0x333a3f,
-    roughness: 0.7,
-    metalness: 0.15,
-    depthWrite: true,
-  });
+  const blueMat = new THREE.MeshStandardMaterial({ color: 0xa8d8ea, roughness: 0.5, metalness: 0.15 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x333a3f, roughness: 0.6, metalness: 0.25 });
 
-  // Light blue fill
-  const fillGeo = new THREE.CircleGeometry(1.0, 64);
-  fillGeo.rotateX(-Math.PI / 2);
-  const fill = new THREE.Mesh(fillGeo, solidMat);
-  fill.position.y = Y;
-  fill.receiveShadow = true;
-  grp.add(fill);
+  // Coin body: side = dark grey rim, top/bottom caps = light blue
+  const coinGeo = new THREE.CylinderGeometry(R, R, H, 64);
+  const coin = new THREE.Mesh(coinGeo, [darkMat, blueMat, blueMat]);
+  coin.position.y = H / 2;
+  coin.castShadow    = true;
+  coin.receiveShadow = true;
+  grp.add(coin);
 
-  // Dark grey border ring
-  const borderGeo = new THREE.RingGeometry(0.86, 1.0, 64);
+  // Engraved border ring on top face
+  const borderGeo = new THREE.RingGeometry(R * 0.84, R, 64);
   borderGeo.rotateX(-Math.PI / 2);
   const border = new THREE.Mesh(borderGeo, darkMat);
-  border.position.y = Y + 0.001;
+  border.position.y = H + 0.002;
   grp.add(border);
 
-  // Dark grey centre dot
-  const dotGeo = new THREE.CircleGeometry(0.18, 32);
-  dotGeo.rotateX(-Math.PI / 2);
+  // Raised centre dot on top
+  const dotGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32);
   const dot = new THREE.Mesh(dotGeo, darkMat);
-  dot.position.y = Y + 0.002;
+  dot.position.y = H + 0.025;
+  dot.castShadow = true;
   grp.add(dot);
 
   return grp;
