@@ -17,7 +17,7 @@ export const ZONE = {
     { type: 'skeleton', x: 11.26, z: 1.36, scale: 1.331, detectRange: 12, roams: true, patrol: [{x:-0.41,z:-2.22}, {x:3.1,z:4.96}, {x:3.22,z:10.47}, {x:-2.67,z:16.71}, {x:2.08,z:26.08}], animOverrides: {idle:1,walk:4,run:4,attack:2,death:0} },
     { type: 'ghoul', x: 35.91, z: -23.23 },
     { type: 'morvath', x: 35.99, z: -31.64, animOverrides: {idle:1,walk:4,run:3,attack:2,rangedAttack:5,spellCast:5,death:0} },
-    { type: 'shadow', x: 19.28, z: 9.76, yOff: -1, scale: 1.464, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
+    { type: 'shadow', x: 19.28, z: 11.76, yOff: -1, scale: 1.771, detectRange: 11, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
   ],
   exits: [
     { x: 0, z: 39, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },

@@ -114,7 +114,7 @@ function buildTable() {
           <td class="bst-num">${newHpOf(def)}</td>
           <td class="bst-num">${def.ac}</td>
           <td class="bst-num">${def.speed ?? 30} ft</td>
-          <td class="bst-num">${def.xpReward ?? 0}</td>
+          <td class="bst-num">${Math.ceil((def.xpReward ?? 0) * 1.5)}</td>
           ${abCells(def)}
           <td class="bst-atks-cell">${atksHTML}</td>
         </tr>`;

@@ -1537,7 +1537,7 @@ function removeDefeatedUnit(u) {
   addLog(`✦ ${unitLabel(u)} is defeated!`, 'defeat');
   playSound('death');
   if (u.team === 'red') {
-    const reward = UNIT_TYPES[u.type]?.xpReward ?? 0;
+    const reward = Math.round((UNIT_TYPES[u.type]?.xpReward ?? 0) * 1.5);
     if (reward > 0) awardXP(reward, addLog);
     onEnemyKilled(u);
     const cr   = ENEMY_CR[u.type] ?? 0;
