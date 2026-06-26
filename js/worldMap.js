@@ -183,6 +183,7 @@ function _renderSubmap(body, tab) {
     body.innerHTML = `<div id="world-map-inner">
       <img id="world-map-img" src="${src}" draggable="false">
     </div>`;
+    if (IS_DEV) _attachCoordPicker(body);
   } else {
     body.innerHTML = `<div id="world-map-submap">
       <span>Map ${tab} — coming soon</span>
