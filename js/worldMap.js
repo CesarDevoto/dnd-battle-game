@@ -19,7 +19,7 @@ export const WAYPOINTS = {
 // ── Roman-numeral location markers on the Lands map ──────────────────────────
 // Clicking one switches to that sub-map tab.
 const LAND_MARKERS = [
-  { id: 'I', mapX: 0.36, mapY: 0.43 },
+  { id: 'I', mapX: 0.320, mapY: 0.693 },
 ];
 
 // ── Persistence ───────────────────────────────────────────────────────────────
