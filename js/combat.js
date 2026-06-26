@@ -1644,11 +1644,11 @@ function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
 }
 
 // Save throw — mirrors rollToHit for DC checks.
-// saveChance = ((saveMod + 20 - dc) / 20) × 100, clamped [15–85].
+// saveChance = ((saveMod + 20 - dc) / 20) × 100, clamped [5–95].
 // Roll d100 high to succeed: need ≥ (100 - saveChance).
 function rollSave(saveMod, dc) {
   const rawPct     = ((saveMod + 20 - dc) / 20) * 100;
-  const saveChance = Math.round(Math.max(15, Math.min(85, rawPct)));
+  const saveChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold  = 100 - saveChance;
   const kept       = Math.floor(Math.random() * 100) + 1;
   return { kept, saveChance, threshold, isSave: kept >= threshold };
