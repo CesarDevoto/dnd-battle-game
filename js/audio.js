@@ -22,7 +22,7 @@ const SOUNDS = {
   desert:        { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   graveyard:     { src: 'assets/Audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   haunted_wood:       { src: 'assets/Audio/ambient/haunted forest ambience.mp3', category: 'ambient', loop: true },
-  ghouls_mausoleum:   { src: 'assets/audio/ambient/mausoleumambience.mp3',        category: 'ambient', loop: true },
+  ghouls_mausoleum:   { src: 'assets/Audio/ambient/mausoleumambience.mp3',        category: 'ambient', loop: true },
   // Unit-specific — aggro & attack vocalizations
   mane_dretch_aggro:  { src: 'assets/Audio/combat/mane dretch aggro.mp3',  category: 'combat' },
   mane_dretch_attack: { src: 'assets/Audio/combat/mane dretch attack.mp3', category: 'combat' },

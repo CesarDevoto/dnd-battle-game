@@ -520,7 +520,7 @@ const _BUST_SRC = {
   Milo:    '/assets/Pictures%20Cutscenes%20Icons/milobust.jpg',
   Gobo:    '/assets/Pictures%20Cutscenes%20Icons/Gobobust.jpg',
   Rasec:   '/assets/Pictures%20Cutscenes%20Icons/Rasecbust.jpg',
-  Floosh:  '/assets/pictures%20cutscenes%20icons/grassling.jpg',
+  Floosh:  '/assets/Pictures%20Cutscenes%20Icons/grassling.jpg',
 };
 
 function _renderLine() {

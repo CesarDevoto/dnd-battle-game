@@ -7,10 +7,10 @@ import { blessedUnits, concentrating, concentratingSpell, getBlessRoundsLeft } f
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
 const AVATAR_SRC = {
-  elf:      'assets/pictures cutscenes icons/rasecavatar.jpg',
-  dwarf:    'assets/pictures cutscenes icons/leugrenavatar.jpg',
-  human:    'assets/pictures cutscenes icons/goboavatar.jpg',
-  halfling: 'assets/pictures cutscenes icons/mioavatar.jpg',
+  elf:      'assets/Pictures Cutscenes Icons/rasecavatar.jpg',
+  dwarf:    'assets/Pictures Cutscenes Icons/leugrenavatar.jpg',
+  human:    'assets/Pictures Cutscenes Icons/goboavatar.jpg',
+  halfling: 'assets/Pictures Cutscenes Icons/mioavatar.jpg',
 };
 
 // ── Card registry ─────────────────────────────────────────────────────────────
