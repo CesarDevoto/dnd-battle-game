@@ -177,11 +177,25 @@ const _SUBMAP_SRCS = {
   III: null,
 };
 
+// ── Waystone pins on sub-maps ─────────────────────────────────────────────────
+// mapX/mapY: fraction [0,1] of that sub-map image. label added later.
+const SUBMAP_WAYPOINTS = {
+  I:   [ { mapX: 0.839, mapY: 0.912 } ],
+  II:  [],
+  III: [],
+};
+
 function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
+    const pins = (SUBMAP_WAYPOINTS[tab] ?? []).map(p =>
+      `<div class="submap-waystone" style="left:${p.mapX*100}%;top:${p.mapY*100}%">
+         <div class="submap-waystone-dot"></div>
+       </div>`
+    ).join('');
     body.innerHTML = `<div id="world-map-inner">
       <img id="world-map-img" src="${src}" draggable="false">
+      <div id="world-map-pins">${pins}</div>
     </div>`;
     if (IS_DEV) _attachCoordPicker(body);
   } else {

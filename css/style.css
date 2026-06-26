@@ -7523,3 +7523,25 @@ td.bst-col-retired { color: #343228 !important; }
 }
 .waystone-toast.ws-toast-in  { opacity: 1; transform: translateX(-50%) translateY(0); }
 .waystone-toast.ws-toast-out { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+
+/* ── Sub-map waystone pins ───────────────────────────────────────────────────── */
+#world-map-pins .submap-waystone {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  background: #a8d8ea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+#world-map-pins .submap-waystone-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #000;
+}
