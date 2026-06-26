@@ -7555,7 +7555,7 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #world-map-pins .submap-waystone-wrap .submap-waystone-label {
   color: #a8d8ea !important;
-  font-size: 0.68rem;
+  font-size: 0.80rem;
   font-weight: 700;
   font-family: var(--font-fantasy, serif);
   letter-spacing: 0.5px;
