@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { units } from './units.js';
 
 // ── Prop builder helpers ──────────────────────────────────────────────────────
 // sh() enables shadow casting on a mesh and returns it
@@ -2074,41 +2075,40 @@ export function mkInvestigateStar() {
 }
 
 export function mkWaystoneDisc() {
-  // Physical waystone — 3D coin with pulsing glow and rising vapors.
   const grp = new THREE.Group();
   const R = 1.0, H = 0.17;
+  const DETECT_R = 2.0; // WU — ~5ft from coin edge
 
-  const blueMat = new THREE.MeshStandardMaterial({ color: 0xa8d8ea, roughness: 0.5, metalness: 0.15 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x333a3f, roughness: 0.6, metalness: 0.25 });
+  // Dormant: grey-blue. Active: light blue. Shared material — color swapped on activation.
+  const blueMat = new THREE.MeshStandardMaterial({ color: 0x6e8892, roughness: 0.55, metalness: 0.15 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x333a3f, roughness: 0.6,  metalness: 0.25 });
 
-  // Coin body: dark grey rim, light blue caps
+  // Coin body
   const coin = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 64), [darkMat, blueMat, blueMat]);
   coin.position.y = H / 2;
   coin.castShadow = coin.receiveShadow = true;
   grp.add(coin);
 
-  // Border ring on top
   const borderGeo = new THREE.RingGeometry(R * 0.84, R, 64);
   borderGeo.rotateX(-Math.PI / 2);
   const border = new THREE.Mesh(borderGeo, darkMat);
   border.position.y = H + 0.002;
   grp.add(border);
 
-  // Raised centre dot
   const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), darkMat);
   dot.position.y = H + 0.025;
   grp.add(dot);
 
-  // Pulsing point light above coin
-  const glow = new THREE.PointLight(0x88ddff, 1.8, 6, 1.6);
+  // Glow light — starts off
+  const glow = new THREE.PointLight(0x88ddff, 0, 6, 1.6);
   glow.position.y = H + 0.6;
   grp.add(glow);
 
-  // Pulsing outer halo ring (additive, fades in/out)
+  // Halo ring — starts invisible
   const haloGeo = new THREE.RingGeometry(R * 0.95, R * 1.35, 64);
   haloGeo.rotateX(-Math.PI / 2);
   const haloMat = new THREE.MeshBasicMaterial({
-    color: 0x88ddff, transparent: true, opacity: 0.0,
+    color: 0x88ddff, transparent: true, opacity: 0,
     depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
@@ -2116,64 +2116,68 @@ export function mkWaystoneDisc() {
   halo.renderOrder = 2;
   grp.add(halo);
 
-  // ── Vapor wisps ──────────────────────────────────────────────────────────────
+  // Vapor wisps — start hidden, confined directly above coin
   const WISP_COUNT = 12;
-  const wispMat = new THREE.MeshBasicMaterial({
-    color: 0xaaeeff, transparent: true, opacity: 0,
-    depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  });
-
   const wisps = [];
   for (let i = 0; i < WISP_COUNT; i++) {
     const size = 0.08 + Math.random() * 0.13;
-    const wGeo = new THREE.PlaneGeometry(size, size * 1.6);
-    const mat  = wispMat.clone();
-    const mesh = new THREE.Mesh(wGeo, mat);
-    mesh.renderOrder = 3;
-    grp.add(mesh);
-
-    const angle  = Math.random() * Math.PI * 2;
-    const radius = Math.random() * R * 0.75;
-    wisps.push({
-      mesh,
-      ox: Math.cos(angle) * radius,
-      oz: Math.sin(angle) * radius,
-      drift: (Math.random() - 0.5) * 0.004,
-      speed: 0.28 + Math.random() * 0.22,
-      life:  Math.random(),
-      dur:   1.4 + Math.random() * 1.2,
+    const mat  = new THREE.MeshBasicMaterial({
+      color: 0xaaeeff, transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 1.6), mat);
+    mesh.renderOrder = 3;
+    mesh.visible = false;
+    grp.add(mesh);
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * R * 0.7;
+    wisps.push({ mesh, ox: Math.cos(a) * r, oz: Math.sin(a) * r,
+                 life: Math.random(), dur: 1.4 + Math.random() * 1.2 });
   }
 
-  // ── Per-frame update ──────────────────────────────────────────────────────────
+  let _activated = false;
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
 
   grp.userData.update = () => {
     _t += _dt;
 
-    // Pulse glow light + halo
-    const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
-    glow.intensity    = 1.0 + pulse * 1.4;
-    haloMat.opacity   = 0.08 + pulse * 0.22;
+    // Proximity check — one-shot activation
+    if (!_activated) {
+      const px = grp.position.x, pz = grp.position.z;
+      for (const u of units) {
+        if (u.team !== 'blue' || u.hp <= 0) continue;
+        const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
+        if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
+          _activated = true;
+          blueMat.color.set(0xa8d8ea);     // flip to light blue
+          wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
+          break;
+        }
+      }
+      if (!_activated) return;             // still dormant — nothing else to do
+    }
 
-    // Advance wisps
+    // Pulse glow + halo
+    const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
+    glow.intensity  = 1.0 + pulse * 1.4;
+    haloMat.opacity = 0.08 + pulse * 0.22;
+
+    // Vapors: rise straight up, fixed x/z above coin surface
     for (const w of wisps) {
       w.life += _dt / w.dur;
       if (w.life >= 1.0) {
-        w.life  = 0;
-        w.drift = (Math.random() - 0.5) * 0.004;
+        w.life = 0;
         const a = Math.random() * Math.PI * 2;
-        const r = Math.random() * R * 0.75;
+        const r = Math.random() * R * 0.7;
         w.ox = Math.cos(a) * r;
         w.oz = Math.sin(a) * r;
         w.dur = 1.4 + Math.random() * 1.2;
       }
-      const t = w.life;
-      // fade in quickly, hold, fade out
+      const t  = w.life;
       const op = t < 0.15 ? t / 0.15 : t > 0.72 ? (1 - t) / 0.28 : 1.0;
       w.mesh.material.opacity = op * 0.55;
-      w.mesh.position.set(w.ox + w.drift * _t * 60, H + 0.05 + t * 2.2, w.oz);
+      w.mesh.position.set(w.ox, H + 0.05 + t * 2.2, w.oz);
       w.mesh.lookAt(w.mesh.position.x, w.mesh.position.y + 10, w.mesh.position.z);
     }
   };
