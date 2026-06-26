@@ -2351,6 +2351,16 @@ body {
   background: rgba(40,30,8,0.85);
   box-shadow: 0 0 8px rgba(220,180,50,0.30);
 }
+#map-btn {
+  color: #e07020;
+  background: rgba(40,8,4,0.72);
+  border-color: rgba(200,80,20,0.55);
+}
+#map-btn:hover {
+  color: #ff9940;
+  border-color: rgba(220,100,30,0.85);
+  background: rgba(60,12,4,0.85);
+}
 
 /* ── Quest log panel ─────────────────────────────────────────────────── */
 #quest-log {
