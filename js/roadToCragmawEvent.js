@@ -3,6 +3,7 @@ import { scene, camera, renderer } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
+import { addQuest } from './quests.js';
 import { mkInvestigateStar } from './propBuilders.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
@@ -132,6 +133,7 @@ function _startQuestDialogue(onDone = null) {
   showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
       { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
+          addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
           _spawnFlooshQMark();
           onDone?.();
         }) },

@@ -1746,11 +1746,13 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
 
   // Long-range shot: beyond normal range but within longRange → disadvantage
   let atkMode = 'normal';
+  let atkDisadvReason = '';
   if (atk.type === 'ranged' && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
-    if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) atkMode = 'disadvantage';
+    if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { atkMode = 'disadvantage'; atkDisadvReason = 'long range'; }
   }
+  if (target.dodging) { atkMode = 'disadvantage'; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
 
   const _acBonus  = (target.defStanceActive ? 4 : 0) + (target.mageArmored ? 3 : 0);
   const targetAC  = (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC) + _acBonus;
@@ -1758,8 +1760,8 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   let rollLabel = `${aLabel}  →  ${tLabel}  ·  ${atk.name}`;
-  if (atkMode === 'disadvantage') rollLabel += '  (long range)';
-  if (blessBonus > 0)             rollLabel += `  ✦+${blessBonus}`;
+  if (atkDisadvReason) rollLabel += `  (${atkDisadvReason})`;
+  if (blessBonus > 0)  rollLabel += `  ✦+${blessBonus}`;
 
   const D            = 0;
   const FAST_ROLL_MS = 0;
@@ -2119,9 +2121,10 @@ document.addEventListener('keydown', e => {
   if (!u || u.team !== 'blue') return;
 
   if (e.key === 'Tab') {
-    const enemies = turnOrder.filter(unit => unit.team === 'red' && unit.hp > 0);
+    const enemies = turnOrder.filter(unit => unit.team === 'red' && unit.hp > 0 && unit.aggro !== false);
     if (!enemies.length) return;
     const curIdx = selectedTarget ? enemies.findIndex(en => en === selectedTarget) : -1;
+    _ringHoverActive = false;
     showTargetMarker(enemies[(curIdx + 1) % enemies.length]);
     return;
   }
@@ -2412,6 +2415,7 @@ export function rollInitiative() {
     // Level 2 ability state reset each battle
     if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
     if (u.type === 'halfling') { u.hideCooldown = 0; }
+    u.dodging = false;
     // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
     const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
@@ -2900,6 +2904,26 @@ function _rebuildHotbar(u) {
       'action'
     );
   }
+  {
+    const dodging = !!u.dodging;
+    const btn = bindHotkey('KeyY', false,
+      '<span class="hb-dodge">DODGE</span>',
+      () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.team !== 'blue' || isAnimating || turnAttacked) return;
+        turnAttacked = true;
+        curU.dodging = true;
+        addLog(`${unitLabel(curU)} takes the Dodge action — enemies have disadvantage to hit.`, 'move');
+        _rebuildHotbar();
+      },
+      () => {
+        const curU = turnOrder[turnIndex];
+        return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
+      },
+      'action'
+    );
+    if (btn && dodging) btn.classList.add('spell-active');
+  }
   bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
     if (isAnimating || endTurnBtn.disabled) return;
     doEndTurn();
@@ -2957,6 +2981,7 @@ export function activateTurn(index) {
     turnMovedFt     = 0;
     turnAttacked    = false;
     sneakAttackUsed = false;
+    u.dodging       = false;
     // If this hero's delayed action never fired, it expires at turn start
     if (u.team === 'blue' && _delayed.has(u)) {
       addLog(`${unitLabel(u)}'s delayed action expires (trigger never fired).`, 'move');

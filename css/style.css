@@ -4454,6 +4454,10 @@ td.bst-col-retired { color: #343228 !important; }
   font-size: 0.48rem;
   letter-spacing: 0.5px;
 }
+.hb-dodge {
+  font-size: 0.48rem;
+  letter-spacing: 0.5px;
+}
 .hb-sneak {
   color: #22cc44;
   text-shadow: 0 0 7px rgba(34, 204, 68, 0.55);
