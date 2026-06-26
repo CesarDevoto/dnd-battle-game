@@ -1,4 +1,5 @@
 import { loadZone, getActiveZone } from './zoneLoader.js';
+import { IS_DEV } from './devConfig.js';
 
 const _STORAGE_KEY = 'dnd-discovered-waystones';
 const _discovered  = new Set();
@@ -16,12 +17,9 @@ export const WAYPOINTS = {
 };
 
 // ── Roman-numeral location markers on the Lands map ──────────────────────────
-// Clicking one switches to that sub-map tab.  Positions are placeholders —
-// adjust mapX/mapY to match geography once you've eyeballed the image.
+// Clicking one switches to that sub-map tab.
 const LAND_MARKERS = [
-  { id: 'I',   mapX: 0.36, mapY: 0.43 },
-  { id: 'II',  mapX: 0.41, mapY: 0.60 },
-  { id: 'III', mapX: 0.46, mapY: 0.72 },
+  { id: 'I', mapX: 0.36, mapY: 0.43 },
 ];
 
 // ── Persistence ───────────────────────────────────────────────────────────────
@@ -151,6 +149,31 @@ function _renderLands(body) {
   });
   body.querySelectorAll('.map-land-marker').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); _setTab(el.dataset.marker); });
+  });
+
+  if (IS_DEV) _attachCoordPicker(body);
+}
+
+function _attachCoordPicker(body) {
+  const inner = body.querySelector('#world-map-inner');
+  const img   = body.querySelector('#world-map-img');
+  if (!inner || !img) return;
+
+  let label = body.querySelector('#wm-coord-label');
+  if (!label) {
+    label = document.createElement('div');
+    label.id = 'wm-coord-label';
+    label.style.cssText = 'position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#0ff;font-size:0.72rem;padding:3px 10px;border-radius:3px;pointer-events:none;z-index:10;display:none;white-space:nowrap;';
+    inner.appendChild(label);
+  }
+
+  inner.addEventListener('click', e => {
+    if (e.target.closest('.map-pin') || e.target.closest('.map-land-marker')) return;
+    const rect = img.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width).toFixed(3);
+    const y = ((e.clientY - rect.top)  / rect.height).toFixed(3);
+    label.textContent = `mapX: ${x}  mapY: ${y}`;
+    label.style.display = 'block';
   });
 }
 
