@@ -50,7 +50,7 @@ export const ZONE = {
   ],
   exits: [
     { x: -82, z: 70, targetZone: 'bleakmire_woods', arrivalX: 80, arrivalZ: -80, label: 'Bleakmire Woods', fogPush: 16, fogOffsetZ: 1 },
-    { x: -9, z: -65, targetZone: 'ghouls_mausoleum', arrivalX: 0, arrivalZ: 32, label: "Ghoul's Mausoleum" },
+    { x: -9, z: -65, targetZone: 'mausoleum', arrivalX: 0, arrivalZ: 32, label: 'Mausoleum' },
   ],
   fogBreaches: [
     { x: -9.37, z: -68.08, scale: 0.5 },

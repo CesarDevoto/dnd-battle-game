@@ -724,7 +724,7 @@ function _startOutro() {
 
     // Load origin zone while screen is white; restore HP
     setTimeout(() => {
-      if (_loadZoneFn) _loadZoneFn(_origZoneId ?? 'ghoul_mausoleum', false);
+      if (_loadZoneFn) _loadZoneFn(_origZoneId ?? 'mausoleum', false);
       units.filter(u => u.team === 'blue').forEach(u => { u.hp = u.maxHp; });
 
       // Fade out over 1.4 s — zone has settled by the time it clears

@@ -1,8 +1,8 @@
 export const ZONE = {
-  id:        'ghouls_mausoleum',
-  name:      "Ghoul's Mausoleum",
+  id:        'mausoleum',
+  name:      'Mausoleum',
   biome: 'dungeon',
-  ambient:   'ghouls_mausoleum',
+  ambient:   'mausoleum',
   heroEntry: [
     { x: -1, z: 33, type: 'dwarf'    },
     { x:  1, z: 33, type: 'human'    },
