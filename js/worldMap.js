@@ -189,7 +189,7 @@ function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
     const pins = (SUBMAP_WAYPOINTS[tab] ?? []).map(p =>
-      `<div class="submap-waystone-wrap" style="left:${p.mapX*100}%;top:${p.mapY*100}%">
+      `<div class="submap-waystone-wrap" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%">
          <div class="submap-waystone"><div class="submap-waystone-dot"></div></div>
          ${p.label ? `<span class="submap-waystone-label">${p.label}</span>` : ''}
        </div>`

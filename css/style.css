@@ -7553,13 +7553,14 @@ td.bst-col-retired { color: #343228 !important; }
   border-radius: 50%;
   background: #000;
 }
-#world-map-pins .submap-waystone-label {
-  color: #a8d8ea;
+#world-map-pins .submap-waystone-wrap .submap-waystone-label {
+  color: #a8d8ea !important;
   font-size: 0.68rem;
   font-weight: 700;
   font-family: var(--font-fantasy, serif);
   letter-spacing: 0.5px;
   white-space: nowrap;
-  -webkit-text-stroke: 0.6px #000;
+  -webkit-text-stroke: 1px #000;
+  paint-order: stroke fill;
   text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
