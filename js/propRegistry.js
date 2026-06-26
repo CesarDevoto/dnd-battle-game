@@ -1,4 +1,4 @@
-import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkInvestigateStar, mkFogPatch, mkPointLight, mkDarknessPlane } from './environments.js';
+import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkInvestigateStar, mkFogPatch, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
 
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
@@ -45,7 +45,8 @@ export const PROP_MODELS = {
   darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.8  },
 
   // ── Special interactive markers ───────────────────────────────────────────────
-investigate_star: { label: 'Investigate Light', builderFn: () => mkInvestigateStar(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },
+  waystone:         { label: 'Waystone',          builderFn: () => mkWaystoneDisc(),    defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },
+  investigate_star: { label: 'Investigate Light', builderFn: () => mkInvestigateStar(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },
   point_light:      { label: 'Point Light',        builderFn: () => mkPointLight(),       defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
   point_light_bright: { label: 'Bright Point Light', builderFn: () => mkPointLight(22, 50), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
 

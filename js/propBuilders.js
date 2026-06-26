@@ -2074,44 +2074,46 @@ export function mkInvestigateStar() {
 }
 
 export function mkWaystoneDisc() {
+  // Physical waystone — light blue coin, dark grey border + centre dot.
+  // 5 ft diameter = 1 WU radius (1 WU = 2.5 ft).
   const grp = new THREE.Group();
+  const Y   = 0.022; // just above ground
 
-  // Solid glowing disc — roughly twice the diameter of a target ring
-  const discGeo = new THREE.CircleGeometry(1.8, 48);
-  discGeo.rotateX(-Math.PI / 2);
-  const discMat = new THREE.MeshStandardMaterial({
-    color:             0x00ccff,
-    emissive:          0x00aaff,
-    emissiveIntensity: 0.6,
-    transparent:       true,
-    opacity:           0.45,
-    depthWrite:        false,
-    blending:          THREE.AdditiveBlending,
-    side:              THREE.DoubleSide,
+  const solidMat = new THREE.MeshStandardMaterial({
+    color:    0xa8d8ea,
+    roughness: 0.6,
+    metalness: 0.1,
+    depthWrite: true,
   });
-  const disc = new THREE.Mesh(discGeo, discMat);
-  disc.renderOrder   = 2;
-  disc.frustumCulled = false;
-  grp.add(disc);
-
-  // Crisp outer ring for edge definition
-  const ringGeo = new THREE.RingGeometry(1.65, 1.95, 48);
-  ringGeo.rotateX(-Math.PI / 2);
-  const ringMat = new THREE.MeshBasicMaterial({
-    color:       0x44eeff,
-    transparent: true,
-    opacity:     0.85,
-    depthWrite:  false,
-    blending:    THREE.AdditiveBlending,
-    side:        THREE.DoubleSide,
+  const darkMat = new THREE.MeshStandardMaterial({
+    color:    0x333a3f,
+    roughness: 0.7,
+    metalness: 0.15,
+    depthWrite: true,
   });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.renderOrder   = 3;
-  ring.frustumCulled = false;
-  grp.add(ring);
 
-  grp.userData.disc  = disc;
-  grp.frustumCulled  = false;
+  // Light blue fill
+  const fillGeo = new THREE.CircleGeometry(1.0, 64);
+  fillGeo.rotateX(-Math.PI / 2);
+  const fill = new THREE.Mesh(fillGeo, solidMat);
+  fill.position.y = Y;
+  fill.receiveShadow = true;
+  grp.add(fill);
+
+  // Dark grey border ring
+  const borderGeo = new THREE.RingGeometry(0.86, 1.0, 64);
+  borderGeo.rotateX(-Math.PI / 2);
+  const border = new THREE.Mesh(borderGeo, darkMat);
+  border.position.y = Y + 0.001;
+  grp.add(border);
+
+  // Dark grey centre dot
+  const dotGeo = new THREE.CircleGeometry(0.18, 32);
+  dotGeo.rotateX(-Math.PI / 2);
+  const dot = new THREE.Mesh(dotGeo, darkMat);
+  dot.position.y = Y + 0.002;
+  grp.add(dot);
+
   return grp;
 }
 
