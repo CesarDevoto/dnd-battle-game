@@ -8,12 +8,6 @@ const _discovered  = new Set();
 // mapX/mapY: position as fraction [0,1] of basemap image width/height.
 // arrivalX/arrivalZ: hero spawn coords in the target zone when teleporting.
 export const WAYPOINTS = {
-  goblin_ambush: {
-    name:     'Goblin Ambush',
-    zoneId:   'dungeon_entrance',
-    mapX:     0.38, mapY: 0.55,
-    arrivalX: 3,    arrivalZ: 38,
-  },
 };
 
 // ── Roman-numeral location markers on the Lands map ──────────────────────────
