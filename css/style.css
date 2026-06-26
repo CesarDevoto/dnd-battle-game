@@ -7473,21 +7473,21 @@ td.bst-col-retired { color: #343228 !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(180,60,20,0.8);
+  border: 1px solid #000;
   border-radius: 50%;
-  background: rgba(0,0,0,0.55);
-  color: #cc4418;
+  background: #a8d8ea;
+  color: #000;
   font-size: 0.72rem;
   font-weight: bold;
   font-family: var(--font-fantasy, serif);
-  text-shadow: 0 0 6px rgba(200,56,26,0.7);
-  box-shadow: 0 0 6px rgba(180,60,20,0.4);
+  text-shadow: none;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
   transition: background 0.15s, box-shadow 0.15s;
 }
 .map-land-marker:hover {
-  background: rgba(180,60,20,0.25);
-  box-shadow: 0 0 12px rgba(180,60,20,0.7);
-  color: #ff6633;
+  background: #c8eaf8;
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+  color: #000;
 }
 
 /* Sub-map placeholder */
