@@ -3277,7 +3277,7 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
-  z-index: 80;
+  z-index: 1000;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(5px);
@@ -5449,10 +5449,10 @@ td.bst-col-retired { color: #343228 !important; }
 /* ── Audio mixer button + panel ──────────────────────────────────────── */
 #audio-mixer-panel {
   display: none;
-  position: absolute;
+  position: fixed;
   top: 46px;
   right: 14px;
-  z-index: 50;
+  z-index: 1000;
   background: var(--panel-bg);
   border: 1px solid var(--border-outer);
   border-radius: 6px;
@@ -6714,7 +6714,7 @@ td.bst-col-retired { color: #343228 !important; }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
-  z-index: 80;
+  z-index: 1000;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(5px);
@@ -6878,7 +6878,7 @@ td.bst-col-retired { color: #343228 !important; }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
-  z-index: 80;
+  z-index: 1000;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(5px);
