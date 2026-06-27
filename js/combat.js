@@ -2818,11 +2818,14 @@ function _rebuildHotbar(u) {
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
                        hasLineOfSight(ux, uz, ttx, ttz));
       if (!inRange) return false;
+      // Button active when sneak condition is met: a conscious ally is adjacent to the TARGET (≤ 2 WU = 5 ft)
+      const _ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE;
       const hasAlly = units.some(ally => {
-        if (ally === curU || ally.team !== curU.team || ally.hp <= 0) return false;
+        if (ally.grp === curU.grp || ally.team !== 'blue' || ally.hp <= 0) return false;
         if (sleepingUnits.has(ally) || ally.stunned) return false;
-        const ax = ally.grp.position.x - ux, az = ally.grp.position.z - uz;
-        return ax * ax + az * az <= 9;
+        const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
+        const ax = ally.grp.position.x - ttx, az = ally.grp.position.z - ttz;
+        return ax * ax + az * az <= _ADJ_SQ;
       });
       return hasAlly;
     }, 'action');
