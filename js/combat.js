@@ -606,23 +606,17 @@ function hasLineOfSight(ax, az, tx, tz) {
 }
 
 // Sneak Attack fires when attacker has advantage on the roll, OR a conscious ally
-// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 2 WU = 1 square = 5 ft)
+// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 3 WU covers orthogonal + diagonal)
 function hasSneakAttackCondition(attacker, target, atkResult) {
-  if (atkResult.mode === 'advantage') {
-    console.log('[Sneak] via ADVANTAGE — atkResult.mode =', atkResult.mode);
-    return true;
-  }
-  const ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE; // 4 = 2 WU = 5 ft
-  console.log(`[Sneak] checking allies near target(${target.type}) at (${target.grp.position.x.toFixed(1)},${target.grp.position.z.toFixed(1)}). attacker grp defined: ${!!attacker.grp}`);
+  if (atkResult.mode === 'advantage') return true;
+  const ADJ_SQ = 9; // 3 WU radius: covers orthogonal (2 WU) and diagonal (~2.83 WU) neighbors
   for (const ally of units) {
-    if (ally.grp === attacker.grp) { console.log(`  skip ${ally.type} — is attacker`); continue; }
-    if (ally.team !== 'blue')      { continue; }
-    if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) { continue; }
+    if (ally.grp === attacker.grp) continue;
+    if (ally.team !== 'blue') continue;
+    if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) continue;
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    const dSq = dx * dx + dz * dz;
-    console.log(`  ${ally.type} dist²=${dSq.toFixed(2)} vs ADJ_SQ=${ADJ_SQ} → ${dSq <= ADJ_SQ ? 'QUALIFIES' : 'too far'}`);
-    if (dSq <= ADJ_SQ) return true;
+    if (dx * dx + dz * dz <= ADJ_SQ) return true;
   }
   return false;
 }
@@ -2818,14 +2812,13 @@ function _rebuildHotbar(u) {
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
                        hasLineOfSight(ux, uz, ttx, ttz));
       if (!inRange) return false;
-      // Button active when sneak condition is met: a conscious ally is adjacent to the TARGET (≤ 2 WU = 5 ft)
-      const _ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE;
+      // Button active when a conscious ally is adjacent to the TARGET (3 WU covers diagonal too)
       const hasAlly = units.some(ally => {
         if (ally.grp === curU.grp || ally.team !== 'blue' || ally.hp <= 0) return false;
         if (sleepingUnits.has(ally) || ally.stunned) return false;
         const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
         const ax = ally.grp.position.x - ttx, az = ally.grp.position.z - ttz;
-        return ax * ax + az * az <= _ADJ_SQ;
+        return ax * ax + az * az <= 9;
       });
       return hasAlly;
     }, 'action');
