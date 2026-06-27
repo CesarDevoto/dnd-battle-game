@@ -7579,3 +7579,26 @@ td.bst-col-retired { color: #343228 !important; }
   paint-order: stroke fill;
   text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
+
+#world-map-pins .submap-waystone-wrap.ws-teleport {
+  cursor: pointer;
+}
+#world-map-pins .submap-waystone-wrap.ws-teleport:hover .submap-waystone {
+  box-shadow: 0 0 10px 3px rgba(168,216,234,0.8);
+}
+#world-map-pins .ws-teleport-hint {
+  display: block;
+  color: #fff !important;
+  font-size: 0.62rem;
+  font-family: var(--font-fantasy, serif);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  text-align: center;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-shadow: 0 0 6px rgba(168,216,234,0.9), -1px -1px 0 #000, 1px 1px 0 #000;
+}
+#world-map-pins .submap-waystone-wrap.ws-teleport:hover .ws-teleport-hint {
+  opacity: 1;
+}

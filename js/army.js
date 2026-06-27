@@ -8,6 +8,8 @@ import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PE
 import { hideSheet } from './ui.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
 import { renderHeroPortrait } from './heroPortraits.js';
+import { openWorldMap } from './worldMap.js';
+import { activeProps } from './environments.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -162,6 +164,20 @@ renderer.domElement.addEventListener('mousemove', e => {
 // ── Click: select / reposition ────────────────────────────────────────────────
 
 renderer.domElement.addEventListener('click', e => {
+  // ── Waystone click: open associated map ───────────────────────────────────
+  if (isPrecombat()) {
+    mouse2D.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+    mouse2D.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse2D, camera);
+    const waystones = activeProps.filter(m => m.userData?.isWaystone);
+    const wsHit = raycaster.intersectObjects(waystones, true);
+    if (wsHit.length) {
+      let grp = wsHit[0].object;
+      while (grp.parent && !grp.userData?.isWaystone) grp = grp.parent;
+      if (grp.userData?.isWaystone) { openWorldMap(grp.userData.mapTab ?? 'I'); return; }
+    }
+  }
+
   // ── Precombat: hero selection + free movement ─────────────────────────────
   if (isPrecombat()) {
     const pt = groundHit(e.clientX, e.clientY);

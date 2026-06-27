@@ -1,4 +1,5 @@
 import { loadZone, getActiveZone } from './zoneLoader.js';
+import { units } from './units.js';
 import { IS_DEV } from './devConfig.js';
 
 // ── Waystone activation persistence ──────────────────────────────────────────
@@ -65,9 +66,9 @@ export function initWorldMap() {
   document.getElementById('map-btn')?.addEventListener('click', openWorldMap);
 }
 
-export function openWorldMap() {
-  _activeTab = 'Lands';
-  _overlay.querySelectorAll('.wm-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'Lands'));
+export function openWorldMap(tab = 'Lands') {
+  _activeTab = tab;
+  _overlay.querySelectorAll('.wm-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   _overlay.style.display = 'flex';
   _render();
 }
@@ -162,28 +163,74 @@ const _SUBMAP_SRCS = {
 // mapX/mapY: fraction [0,1] of that sub-map image. label added later.
 const SUBMAP_WAYPOINTS = {
   I:   [
-    { id: 'ambush',         mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin' },
-    { id: 'bleakmire_woods', mapX: 0.697, mapY: 0.669, label: 'Bleakmire Wood' },
+    { id: 'ambush',          mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin', zoneId: 'dungeon_entrance',  arrivalX: 20.06, arrivalZ: 22.43 },
+    { id: 'bleakmire_woods', mapX: 0.697, mapY: 0.669, label: 'Bleakmire Wood',    zoneId: 'bleakmire_woods',  arrivalX: -14.12, arrivalZ: 68.14 },
   ],
   II:  [],
   III: [],
 };
 
+// WU radius (~10ft) within which heroes can use a waystone to teleport
+const TELEPORT_RANGE = 4.0;
+
+function _nearActiveWaystone() {
+  const allPins = Object.values(SUBMAP_WAYPOINTS).flat();
+  for (const p of allPins) {
+    if (!isWaystoneActivated(p.id)) continue;
+    if (getActiveZone()?.id !== p.zoneId) continue;
+    for (const u of units) {
+      if (u.team !== 'blue' || u.hp <= 0) continue;
+      const dx = u.grp.position.x - p.arrivalX, dz = u.grp.position.z - p.arrivalZ;
+      if (dx * dx + dz * dz <= TELEPORT_RANGE * TELEPORT_RANGE) return p;
+    }
+  }
+  return null;
+}
+
+function _teleportTo(pin) {
+  closeWorldMap();
+  const activeZone = getActiveZone();
+  if (activeZone?.id === pin.zoneId) {
+    // Same zone — just move heroes to arrival coords
+    for (const u of units) {
+      if (u.team !== 'blue' || u.hp <= 0) continue;
+      u.grp.position.set(pin.arrivalX, u.grp.position.y, pin.arrivalZ);
+    }
+  } else {
+    // Different zone — load it with heroes spawning near waystone
+    loadZone(pin.zoneId, { spawnX: pin.arrivalX, spawnZ: pin.arrivalZ });
+  }
+}
+
 function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
-    const pins = (SUBMAP_WAYPOINTS[tab] ?? [])
-      .filter(p => isWaystoneActivated(p.id))
-      .map(p =>
-        `<div class="submap-waystone-wrap" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%">
+    const activePins  = (SUBMAP_WAYPOINTS[tab] ?? []).filter(p => isWaystoneActivated(p.id));
+    const sourcePin   = _nearActiveWaystone();
+    const canTeleport = sourcePin && activePins.length >= 2;
+
+    const pins = activePins.map(p => {
+      const isSource   = sourcePin?.id === p.id;
+      const clickable  = canTeleport && !isSource;
+      return `<div class="submap-waystone-wrap${clickable ? ' ws-teleport' : ''}" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%" data-wsid="${p.id}">
            <div class="submap-waystone"><div class="submap-waystone-dot"></div></div>
            ${p.label ? `<span class="submap-waystone-label">${p.label}</span>` : ''}
-         </div>`
-      ).join('');
+           ${clickable ? `<span class="ws-teleport-hint">Teleport</span>` : ''}
+         </div>`;
+    }).join('');
+
     body.innerHTML = `<div id="world-map-inner">
       <img id="world-map-img" src="${src}" draggable="false">
       <div id="world-map-pins">${pins}</div>
     </div>`;
+
+    body.querySelectorAll('.ws-teleport').forEach(el => {
+      el.addEventListener('click', () => {
+        const pin = activePins.find(p => p.id === el.dataset.wsid);
+        if (pin) _teleportTo(pin);
+      });
+    });
+
     if (IS_DEV) _attachCoordPicker(body);
   } else {
     body.innerHTML = `<div id="world-map-submap">

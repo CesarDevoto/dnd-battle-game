@@ -185,7 +185,7 @@ export const ZONE = {
     { model: 'rubble', x: -53.59, z: -55.2, y: 1.0779, rotY: 0, scale: 1 },
     { model: 'rubble', x: -86.09, z: -20.41, y: -0.2, rotY: 0, scale: 1 },
     { model: 'rock', x: -64.3, z: -88.47, y: 0.4768, rotY: 0, scale: 1 },
-    { model: 'waystone', x: -14.12, z: 68.14, y: 0, yOff: 0.2, rotY: 0, scale: 1, waystoneId: 'bleakmire_woods' },
+    { model: 'waystone', x: -14.12, z: 68.14, y: 0, yOff: 0.2, rotY: 0, scale: 1, waystoneId: 'bleakmire_woods', mapTab: 'I' },
   ],
   barriers: [
     { x1: 6.07, z1: 92.64, x2: 5.94, z2: 96.92 },
