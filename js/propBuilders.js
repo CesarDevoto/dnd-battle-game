@@ -2122,16 +2122,28 @@ export function mkWaystoneDisc() {
   halo.visible = false;
   grp.add(halo);
 
+  // Circular soft-blob texture for wisps
+  const _wispCanvas = document.createElement('canvas');
+  _wispCanvas.width = _wispCanvas.height = 64;
+  const _wispCtx = _wispCanvas.getContext('2d');
+  const _wispGrad = _wispCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  _wispGrad.addColorStop(0,   'rgba(255,255,255,1)');
+  _wispGrad.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+  _wispGrad.addColorStop(1,   'rgba(255,255,255,0)');
+  _wispCtx.fillStyle = _wispGrad;
+  _wispCtx.fillRect(0, 0, 64, 64);
+  const _wispTex = new THREE.CanvasTexture(_wispCanvas);
+
   // Vapor wisps — start hidden, confined directly above coin
   const WISP_COUNT = 12;
   const wisps = [];
   for (let i = 0; i < WISP_COUNT; i++) {
-    const size = 0.08 + Math.random() * 0.13;
+    const size = 0.10 + Math.random() * 0.14;
     const mat  = new THREE.MeshBasicMaterial({
-      color: 0xaaeeff, transparent: true, opacity: 0,
+      color: 0xaaeeff, map: _wispTex, transparent: true, opacity: 0,
       depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 1.6), mat);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
     mesh.renderOrder = 3;
     mesh.visible = false;
     grp.add(mesh);
