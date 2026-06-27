@@ -205,11 +205,12 @@ export function startWaystoneAudio(playActivation) {
     _startPulse();
   }
 
-  // Returns distance-setter called each frame from propBuilders
+  // Returns distance-setter called each frame from propBuilders.
+  // sqrt curve: rises quickly from FAR but flattens near the stone so close-up isn't overwhelming.
   return (dist) => {
     if (!_pulseStarted) return;
     const t = Math.max(0, Math.min(1, 1 - (dist - NEAR) / (FAR - NEAR)));
-    gainNode.gain.setTargetAtTime(t * t, ctx.currentTime, 0.15);
+    gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.45, ctx.currentTime, 0.15);
   };
 }
 
