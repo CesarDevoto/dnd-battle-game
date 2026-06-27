@@ -606,15 +606,16 @@ function hasLineOfSight(ax, az, tx, tz) {
 }
 
 // Sneak Attack fires when attacker has advantage on the roll, OR a conscious ally
-// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 3 WU ≈ 1 grid square)
+// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 2 WU = 1 square = 5 ft)
 function hasSneakAttackCondition(attacker, target, atkResult) {
   if (atkResult.mode === 'advantage') return true;
+  const ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE; // 4 = 2 WU = 5 ft
   return units.some(ally => {
     if (ally === attacker || ally.team !== attacker.team) return false;
     if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) return false;
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    return dx * dx + dz * dz <= 9;
+    return dx * dx + dz * dz <= ADJ_SQ;
   });
 }
 

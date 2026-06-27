@@ -178,7 +178,8 @@ function _buildExitMarker(exit) {
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     helper.position.set(wx, gy + BALL_Y + 1.5, wz);
-    helper.userData.exit = exit;
+    helper.userData.exit         = exit;
+    helper.userData.opacityScale = 0;   // keep invisible — tick loop must not overwrite opacity
     helper.visible = false;
     scene.add(helper);
     _exitMeshes.push(helper);
