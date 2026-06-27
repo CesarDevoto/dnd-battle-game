@@ -16,13 +16,13 @@ export const ZONE = {
     { type: 'goblin', x: 27.39, z: -0.94, stealthed: true, attackPref: 'ranged', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 24.4, z: -7.28, attackPref: 'melee', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 12.44, z: -8.93, attackPref: 'melee', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
-    { type: 'stirge', x: -33.2, z: -18.68, yOff: 3.75 },
-    { type: 'stirge', x: -32.84, z: -20.82, yOff: 4 },
-    { type: 'stirge', x: -33.28, z: -22.43, yOff: 3.75 },
-    { type: 'stirge', x: -34.68, z: -21.04, yOff: 4.25 },
+    { type: 'stirge', x: -25.68, z: -25.04, yOff: 4.25, detectRange: 11 },
+    { type: 'stirge', x: -23.68, z: -25.04, yOff: 4.25, detectRange: 11 },
+    { type: 'stirge', x: -23.68, z: -27.04, yOff: 4.25, detectRange: 11 },
+    { type: 'stirge', x: -25.68, z: -27.04, yOff: 4.25, detectRange: 11 },
   ],
   exits: [
-    { x: -44.43, z: -16.52, targetZone: 'bleakmire_woods', arrivalX: 3, arrivalZ: 85, label: 'Bleakmire Woods' },
+    { x: -44.43, z: -16.52, targetZone: 'bleakmire_woods', arrivalX: 3, arrivalZ: 85, label: 'Bleakmire Woods', fogOffsetX: 10, clickScale: 2 },
     { x: -4, z: 44, targetZone: 'dungeon_hall', label: 'Stairs Down' },
   ],
   terrain: [

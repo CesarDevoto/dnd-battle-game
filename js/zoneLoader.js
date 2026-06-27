@@ -170,6 +170,20 @@ function _buildExitMarker(exit) {
     _exitMeshes.push(spr);
   });
 
+  // Optional invisible click-helper sphere — larger hit target without changing visuals
+  if (exit.clickScale) {
+    const r      = 4.5 * exit.clickScale;
+    const helper = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 8, 6),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    );
+    helper.position.set(wx, gy + BALL_Y + 1.5, wz);
+    helper.userData.exit = exit;
+    helper.visible = false;
+    scene.add(helper);
+    _exitMeshes.push(helper);
+  }
+
   // Flat ground fog at the base — spills out onto the floor
   [{ size: 11.4, yOff: 0.04, rotSpeed:  0.08, os: 0.40 },
    { size: 16.2, yOff: 0.10, rotSpeed: -0.05, os: 0.20 }].forEach(def => {
@@ -537,8 +551,8 @@ export function initZoneUI() {
     // that world position, not the raw exit disc coordinates.
     const _eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
     const _push  = exit.fogPush ?? 7.0;
-    const _fogX  = exit.x + (exit.x / _eDist) * _push;
-    const _fogZ  = exit.z + (exit.z / _eDist) * _push;
+    const _fogX  = exit.x + (exit.x / _eDist) * _push + (exit.fogOffsetX ?? 0);
+    const _fogZ  = exit.z + (exit.z / _eDist) * _push + (exit.fogOffsetZ ?? 0);
     const _r     = WORLD_UNITS_PER_SQUARE;
     const nearEnough = units.some(u => {
       if (u.team !== 'blue' || u.hp <= 0) return false;
