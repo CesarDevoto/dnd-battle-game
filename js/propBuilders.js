@@ -2165,7 +2165,7 @@ export function mkWaystoneDisc() {
       }
       if (!_activated) {
         const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;
-        dormantLight.intensity = 0.6 + dormantPulse * 2.2;
+        dormantLight.intensity = 1.2 + dormantPulse * 4.4;
         return;
       }
     }
