@@ -143,8 +143,8 @@ export const UNIT_TYPES = {
     team: 'red',
     dark: 0x2a1800, mid: 0x4a2c0a, bright: 0x7a4a18, emissive: 0x080400,
     legH: 0.32, torsoW: 0.48, headS: 0.32, wpnH: 0.70, wpnColor: 0x887766,
-    scale: [0.451, 0.451, 0.451],
-    anchorY: 0.69,
+    scale: [0.902, 0.902, 0.902],
+    anchorY: 1.38,
     // CR 1/8 — Very Easy
     detect: 20,
     hp: 5, ac: 12, speed: 30, initiative: 0, xpReward: 5,
