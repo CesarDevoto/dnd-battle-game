@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { units } from './units.js';
+import { startWaystoneAudio } from './audio.js';
 
 // ── Prop builder helpers ──────────────────────────────────────────────────────
 // sh() enables shadow casting on a mesh and returns it
@@ -2162,10 +2163,17 @@ export function mkWaystoneDisc(waystoneId) {
   };
 
   // Check localStorage directly to avoid circular import through worldMap→zoneLoader→environments→here
-  let _activated = waystoneId
+  const _alreadyActivated = waystoneId
     ? (() => { try { const r = localStorage.getItem('dnd-activated-waystones'); return r ? JSON.parse(r).includes(waystoneId) : false; } catch { return false; } })()
     : false;
-  if (_activated) _visualActivate();
+
+  let _activated = _alreadyActivated;
+  let _setAudioDist = null; // distance-setter returned by startWaystoneAudio
+
+  if (_alreadyActivated) {
+    _visualActivate();
+    _setAudioDist = startWaystoneAudio(false);
+  }
 
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
@@ -2181,6 +2189,7 @@ export function mkWaystoneDisc(waystoneId) {
         const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
         if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
           _visualActivate();
+          _setAudioDist = startWaystoneAudio(true);
           window.dispatchEvent(new CustomEvent('waystone:activated', { detail: { waystoneId } }));
           break;
         }
@@ -2213,6 +2222,19 @@ export function mkWaystoneDisc(waystoneId) {
       w.mesh.material.opacity = op * 0.55;
       w.mesh.position.set(w.ox, H + 0.05 + t * 2.2, w.oz);
       w.mesh.lookAt(w.mesh.position.x, w.mesh.position.y + 10, w.mesh.position.z);
+    }
+
+    // Distance-based audio — find closest hero
+    if (_setAudioDist) {
+      const px = grp.position.x, pz = grp.position.z;
+      let minDist = Infinity;
+      for (const u of units) {
+        if (u.team !== 'blue' || u.hp <= 0) continue;
+        const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < minDist) minDist = d;
+      }
+      _setAudioDist(minDist);
     }
   };
 

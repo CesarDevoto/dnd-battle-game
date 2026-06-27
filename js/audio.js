@@ -81,7 +81,9 @@ const SOUNDS = {
   // UI (files not yet added — will silently skip)
   combat_start:  { src: 'assets/Audio/ui/combat_start.mp3',       category: 'ui' },
   turn_start:    { src: 'assets/Audio/ui/turn_start.mp3',         category: 'ui' },
-  level_up:      { src: 'assets/Audio/system sounds/Ding.mp3',    category: 'ui' },
+  level_up:            { src: 'assets/Audio/system sounds/Ding.mp3',              category: 'ui' },
+  waystone_activation: { src: 'assets/Audio/magic sounds/waystone activation.mp3', category: 'combat' },
+  waystone_pulse:      { src: 'assets/Audio/magic sounds/waystone pulse.mp3',      category: 'combat', loop: true },
 };
 
 const FADE_SECS = 1.5;   // ambient crossfade duration
@@ -159,6 +161,56 @@ export function playSound(key) {
     src.connect(_catGains[cat] ?? _masterGain);
   }
   src.start();
+}
+
+// ── Waystone spatial audio ────────────────────────────────────────────────────
+// Returns a setter fn: call it each frame with the nearest hero distance (WU).
+// Full volume at NEAR, silent at FAR. Pass Infinity to mute immediately.
+export function startWaystoneAudio(playActivation) {
+  const NEAR = 2.5, FAR = 14.0;
+  const ctx  = _getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const gainNode = ctx.createGain();
+  gainNode.gain.value = 0;
+  gainNode.connect(_catGains['combat'] ?? _masterGain);
+
+  let _pulseStarted = false;
+
+  const _startPulse = () => {
+    if (_pulseStarted) return;
+    _pulseStarted = true;
+    const buf = _buffers['waystone_pulse'];
+    if (!buf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop   = true;
+    src.connect(gainNode);
+    src.start();
+  };
+
+  if (playActivation) {
+    const buf = _buffers['waystone_activation'];
+    if (buf) {
+      gainNode.gain.value = 1.0;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(gainNode);
+      src.onended = _startPulse;
+      src.start();
+    } else {
+      _startPulse();
+    }
+  } else {
+    _startPulse();
+  }
+
+  // Returns distance-setter called each frame from propBuilders
+  return (dist) => {
+    if (!_pulseStarted) return;
+    const t = Math.max(0, Math.min(1, 1 - (dist - NEAR) / (FAR - NEAR)));
+    gainNode.gain.setTargetAtTime(t * t, ctx.currentTime, 0.15);
+  };
 }
 
 // ── Ambient crossfade ─────────────────────────────────────────────────────────
