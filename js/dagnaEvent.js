@@ -362,7 +362,7 @@ const _LINES_OUT = [
 // ── Waystone first-activation dialogue (one-time, any zone) ──────────────────
 const _WAYSTONE_FIRST_KEY = 'dlg_waystone_first_seen';
 const _LINES_WAYSTONE_FIRST = [
-  { s: 'Rasec', t: 'Behold! The waystone is kindled. These stones are bound by deep magicks — woven together through blood and spell. When more awaken to our hand, we need but step upon them and the world shall bend, carrying us among them as we will in the space between heartbeats. A most useful sorcery, this.' },
+  { s: 'Rasec', t: 'Behold! A waystone is kindled. These stones are woven together by deep magicks. When more awaken to our hand, we need but step upon them and the world shall bend, carrying us among them in the space of a heartbeat. A most useful sorcery this.' },
 ];
 
 window.addEventListener('waystone:activated', () => {
