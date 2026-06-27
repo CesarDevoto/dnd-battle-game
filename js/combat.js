@@ -611,11 +611,15 @@ function hasSneakAttackCondition(attacker, target, atkResult) {
   if (atkResult.mode === 'advantage') return true;
   const ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE; // 4 = 2 WU = 5 ft
   return units.some(ally => {
-    if (ally === attacker || ally.team !== attacker.team) return false;
+    // Exclude attacker by grp reference — most reliable identity check
+    if (ally.grp === attacker.grp) return false;
+    if (ally.team !== 'blue') return false;
     if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) return false;
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    return dx * dx + dz * dz <= ADJ_SQ;
+    const qualifies = dx * dx + dz * dz <= ADJ_SQ;
+    if (qualifies) console.log(`[Sneak] triggered by ${ally.type} at dist² ${(dx*dx+dz*dz).toFixed(2)} from ${target.type}`);
+    return qualifies;
   });
 }
 
