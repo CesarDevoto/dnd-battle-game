@@ -2114,6 +2114,7 @@ export function mkWaystoneDisc() {
   const halo = new THREE.Mesh(haloGeo, haloMat);
   halo.position.y = H + 0.004;
   halo.renderOrder = 2;
+  halo.visible = false;
   grp.add(halo);
 
   // Vapor wisps — start hidden, confined directly above coin
@@ -2151,6 +2152,7 @@ export function mkWaystoneDisc() {
         if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
           _activated = true;
           blueMat.color.set(0xa8d8ea);     // flip to light blue
+          halo.visible = true;
           wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
           break;
         }
