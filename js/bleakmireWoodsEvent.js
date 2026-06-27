@@ -2,12 +2,148 @@ import * as THREE from 'three';
 import { scene, camera, renderer } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
-import { units } from './units.js';
+import { units, setUnitWalking } from './units.js';
 import { addQuest } from './quests.js';
 import { mkInvestigateStar } from './propBuilders.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { KEY_GOBLIN_PURSUIT } from './ambushEvent.js';
+
+// ── Floosh guide system ───────────────────────────────────────────────────────
+// After quest accepted, Floosh walks NE toward the haunted_wood portal (82, -82).
+// He stops if no hero is within 40 ft (16 WU) and resumes when one gets close.
+// During combat he sinks into terrain; on post-combat he rises and says "Shall we?"
+
+const _GUIDE_WAYPOINTS = [
+  { x: 20,  z: 58 },
+  { x: 36,  z: 40 },
+  { x: 52,  z: 18 },
+  { x: 66,  z:  -8 },
+  { x: 76,  z: -45 },
+  { x: 82,  z: -78 },
+];
+const _GUIDE_SPEED   = 3.5;    // WU/s
+const _GUIDE_STOP_SQ = 16 * 16; // 40 ft = 16 WU squared
+const _SINK_SPEED    = 2.0;    // WU/s sink/rise rate
+const _SINK_DEPTH    = 1.8;    // WU below terrain when hidden
+
+let _guiding      = false;
+let _guideDone    = false;
+let _guideWpIdx   = 0;
+let _flooshUnit   = null;
+let _guideBaseY   = 0;
+let _guidePaused  = false;
+let _guideSinking = false;
+let _guideRising  = false;
+let _shallWeDone  = null; // post-combat done() held until dialogue closes
+
+function _getFloosh() {
+  if (!_flooshUnit) _flooshUnit = units.find(u => u.type === 'grassling' && u.team === 'npc');
+  return _flooshUnit;
+}
+
+function _startGuide() {
+  const f = _getFloosh();
+  if (!f) return;
+  _guiding    = true;
+  _guideDone  = false;
+  _guideWpIdx = 0;
+  _guidePaused = false;
+}
+
+function _tickGuide(dt) {
+  if (!_guiding || _guideDone) return;
+  const f = _getFloosh();
+  if (!f) return;
+
+  const gx = f.grp.position.x;
+  const gz = f.grp.position.z;
+
+  // Animate sinking into terrain during combat
+  if (_guideSinking) {
+    f.grp.position.y -= _SINK_SPEED * dt;
+    if (f.grp.position.y <= _guideBaseY - _SINK_DEPTH) {
+      f.grp.position.y = _guideBaseY - _SINK_DEPTH;
+      f.grp.visible    = false;
+      _guideSinking    = false;
+    }
+    return;
+  }
+
+  // Animate rising back up after combat
+  if (_guideRising) {
+    f.grp.visible     = true;
+    f.grp.position.y += _SINK_SPEED * dt;
+    if (f.grp.position.y >= _guideBaseY) {
+      f.grp.position.y = _guideBaseY;
+      _guideRising     = false;
+      setUnitWalking(f, false);
+      showQuickDialogue([{ s: 'Floosh', t: "Shall we?" }], () => {
+        _shallWeDone?.();
+        _shallWeDone = null;
+      });
+    }
+    return;
+  }
+
+  // Sink when combat starts
+  if (!isPrecombat()) {
+    if (!_guideSinking) {
+      _guideBaseY   = getTerrainHeight(gx, gz);
+      _guideSinking = true;
+      _guidePaused  = false;
+      setUnitWalking(f, false);
+    }
+    return;
+  }
+
+  // Stop if no hero within 40 ft
+  const heroNearby = units.some(u => {
+    if (u.team !== 'blue' || u.hp <= 0) return false;
+    const dx = u.grp.position.x - gx, dz = u.grp.position.z - gz;
+    return dx * dx + dz * dz <= _GUIDE_STOP_SQ;
+  });
+
+  if (!heroNearby) {
+    if (!_guidePaused) { _guidePaused = true; setUnitWalking(f, false); }
+    return;
+  }
+  _guidePaused = false;
+
+  // Reached all waypoints
+  if (_guideWpIdx >= _GUIDE_WAYPOINTS.length) {
+    _guideDone = true;
+    setUnitWalking(f, false);
+    return;
+  }
+
+  // Move toward next waypoint
+  const wp  = _GUIDE_WAYPOINTS[_guideWpIdx];
+  const dx  = wp.x - gx;
+  const dz  = wp.z - gz;
+  const len = Math.sqrt(dx * dx + dz * dz);
+
+  if (len < 0.5) { _guideWpIdx++; return; }
+
+  const step = Math.min(_GUIDE_SPEED * dt, len);
+  f.grp.position.x += (dx / len) * step;
+  f.grp.position.z += (dz / len) * step;
+  f.grp.position.y  = getTerrainHeight(f.grp.position.x, f.grp.position.z);
+  f.grp.rotation.y  = Math.atan2(dx / len, dz / len);
+  setUnitWalking(f, true);
+}
+
+// After all post-combat handlers (loot, Dagna, etc.) rise Floosh and prompt "Shall we?"
+registerPostCombatHandler(100, (_ctx, done) => {
+  if (!_guiding || _guideDone) { done(); return; }
+  const f = _getFloosh();
+  if (!f) { done(); return; }
+  _guideBaseY  = getTerrainHeight(f.grp.position.x, f.grp.position.z);
+  f.grp.position.y = _guideBaseY - _SINK_DEPTH; // ensure below ground before rising
+  f.grp.visible    = false;
+  _guideRising  = true;
+  _shallWeDone  = done; // held until player closes "Shall we?" dialogue
+});
 
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
@@ -136,6 +272,7 @@ function _startQuestDialogue(onDone = null) {
       { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
           addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
           _spawnFlooshQMark();
+          _startGuide();
           onDone?.();
         }) },
       { label: 'Decline', onPick: onDone },
@@ -324,6 +461,8 @@ export function tickBleakmireWoods(dt) {
     }
   }
 
+  _tickGuide(dt);
+
   if (_watchingProximity) {
     for (const u of units) {
       if (u.team !== 'blue' || u.hp <= 0) continue;
@@ -379,6 +518,12 @@ window.addEventListener('zone:loading', () => {
   _flooshQuestPending = false;
   _removeFlooshExcl();
   _removeFlooshQMark();
+  _guiding      = false;
+  _guideDone    = false;
+  _guideSinking = false;
+  _guideRising  = false;
+  _flooshUnit   = null;
+  _shallWeDone  = null;
 });
 
 // ── Floosh click — show quest reminder when ? is active ───────────────────────
