@@ -608,19 +608,23 @@ function hasLineOfSight(ax, az, tx, tz) {
 // Sneak Attack fires when attacker has advantage on the roll, OR a conscious ally
 // (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 2 WU = 1 square = 5 ft)
 function hasSneakAttackCondition(attacker, target, atkResult) {
-  if (atkResult.mode === 'advantage') return true;
+  if (atkResult.mode === 'advantage') {
+    console.log('[Sneak] via ADVANTAGE — atkResult.mode =', atkResult.mode);
+    return true;
+  }
   const ADJ_SQ = WORLD_UNITS_PER_SQUARE * WORLD_UNITS_PER_SQUARE; // 4 = 2 WU = 5 ft
-  return units.some(ally => {
-    // Exclude attacker by grp reference — most reliable identity check
-    if (ally.grp === attacker.grp) return false;
-    if (ally.team !== 'blue') return false;
-    if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) return false;
+  console.log(`[Sneak] checking allies near target(${target.type}) at (${target.grp.position.x.toFixed(1)},${target.grp.position.z.toFixed(1)}). attacker grp defined: ${!!attacker.grp}`);
+  for (const ally of units) {
+    if (ally.grp === attacker.grp) { console.log(`  skip ${ally.type} — is attacker`); continue; }
+    if (ally.team !== 'blue')      { continue; }
+    if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) { continue; }
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    const qualifies = dx * dx + dz * dz <= ADJ_SQ;
-    if (qualifies) console.log(`[Sneak] triggered by ${ally.type} at dist² ${(dx*dx+dz*dz).toFixed(2)} from ${target.type}`);
-    return qualifies;
-  });
+    const dSq = dx * dx + dz * dz;
+    console.log(`  ${ally.type} dist²=${dSq.toFixed(2)} vs ADJ_SQ=${ADJ_SQ} → ${dSq <= ADJ_SQ ? 'QUALIFIES' : 'too far'}`);
+    if (dSq <= ADJ_SQ) return true;
+  }
+  return false;
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
