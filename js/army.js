@@ -164,19 +164,16 @@ renderer.domElement.addEventListener('mousemove', e => {
 // ── Click: select / reposition ────────────────────────────────────────────────
 
 renderer.domElement.addEventListener('click', e => {
-  // ── Waystone click: open associated map ───────────────────────────────────
-  if (isPrecombat()) {
+  // ── Waystone click: open associated map (works in precombat and combat) ──
+  {
     mouse2D.x =  (e.clientX / window.innerWidth)  * 2 - 1;
     mouse2D.y = -(e.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse2D, camera);
     const waystones = activeProps.filter(m => m.userData?.isWaystone);
-    console.log('[WS] activeProps waystones:', waystones.length, waystones.map(w => w.userData));
     const wsHit = raycaster.intersectObjects(waystones, true);
-    console.log('[WS] raycast hits:', wsHit.length);
     if (wsHit.length) {
       let grp = wsHit[0].object;
       while (grp.parent && !grp.userData?.isWaystone) grp = grp.parent;
-      console.log('[WS] grp userData:', grp.userData);
       if (grp.userData?.isWaystone) { openWorldMap(grp.userData.mapTab ?? 'I', grp.userData.waystoneId ?? null); return; }
     }
   }

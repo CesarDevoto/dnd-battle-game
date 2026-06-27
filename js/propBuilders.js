@@ -2087,6 +2087,15 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   const blueMat = new THREE.MeshStandardMaterial({ color: 0x6e8892, roughness: 0.55, metalness: 0.15 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x333a3f, roughness: 0.6,  metalness: 0.25 });
 
+  // Invisible tall cylinder — easy click target regardless of camera angle
+  const clickHelper = new THREE.Mesh(
+    new THREE.CylinderGeometry(R * 1.2, R * 1.2, 1.2, 16),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  clickHelper.position.y = 0.6;
+  clickHelper.userData.isWaystoneHelper = true;
+  grp.add(clickHelper);
+
   // Coin body
   const coin = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 64), [darkMat, blueMat, blueMat]);
   coin.position.y = H / 2;
