@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { units } from './units.js';
 import { activateWaystone, isWaystoneActivated } from './worldMap.js';
+import { triggerCutscene } from './cutsceneManager.js';
 
 // ── Prop builder helpers ──────────────────────────────────────────────────────
 // sh() enables shadow casting on a mesh and returns it
@@ -2161,6 +2162,7 @@ export function mkWaystoneDisc(waystoneId) {
     halo.visible = true;
     wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
     if (waystoneId) activateWaystone(waystoneId);
+    triggerCutscene('waystone_first');
   };
 
   let _activated = waystoneId ? isWaystoneActivated(waystoneId) : false;

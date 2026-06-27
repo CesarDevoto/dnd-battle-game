@@ -1,7 +1,8 @@
 import { CUTSCENE as CUTSCENE_INTRO } from './cutscenes/cutscene_intro.js';
+import { CUTSCENE as CUTSCENE_WAYSTONE_FIRST } from './cutscenes/cutscene_waystone_first.js';
 import { playCombatMusic, stopCombatMusic } from './audio.js';
 
-const _ORDER    = [CUTSCENE_INTRO];
+const _ORDER    = [CUTSCENE_INTRO, CUTSCENE_WAYSTONE_FIRST];
 const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
 
 // ── seen tracking ─────────────────────────────────────────────────────────────
