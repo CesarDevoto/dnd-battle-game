@@ -2172,8 +2172,8 @@ export function mkWaystoneDisc() {
 
     // Pulse glow + halo
     const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
-    glow.intensity  = 1.0 + pulse * 1.4;
-    haloMat.opacity = 0.08 + pulse * 0.22;
+    glow.intensity  = 0.2 + pulse * 20;
+    haloMat.opacity = pulse * 0.92;
 
     // Vapors: rise straight up, fixed x/z above coin surface
     for (const w of wisps) {
