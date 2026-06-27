@@ -192,7 +192,7 @@ export function startWaystoneAudio(playActivation) {
   if (playActivation) {
     const buf = _buffers['waystone_activation'];
     if (buf) {
-      gainNode.gain.value = 1.0;
+      gainNode.gain.value = 0.5;
       const src = ctx.createBufferSource();
       src.buffer = buf;
       src.connect(gainNode);
@@ -210,7 +210,7 @@ export function startWaystoneAudio(playActivation) {
   return (dist) => {
     if (!_pulseStarted) return;
     const t = Math.max(0, Math.min(1, 1 - (dist - NEAR) / (FAR - NEAR)));
-    gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.12, ctx.currentTime, 0.15);
+    gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.09, ctx.currentTime, 0.15);
   };
 }
 
