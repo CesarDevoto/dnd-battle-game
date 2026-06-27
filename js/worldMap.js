@@ -161,7 +161,7 @@ const _SUBMAP_SRCS = {
 // ── Waystone pins on sub-maps ─────────────────────────────────────────────────
 // mapX/mapY: fraction [0,1] of that sub-map image. label added later.
 const SUBMAP_WAYPOINTS = {
-  I:   [ { id: 'ambush', mapX: 0.839, mapY: 0.912, label: 'Ambush' } ],
+  I:   [ { id: 'ambush', mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin' } ],
   II:  [],
   III: [],
 };
