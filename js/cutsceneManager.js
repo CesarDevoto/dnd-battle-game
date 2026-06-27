@@ -1,8 +1,7 @@
 import { CUTSCENE as CUTSCENE_INTRO } from './cutscenes/cutscene_intro.js';
-import { CUTSCENE as CUTSCENE_WAYSTONE_FIRST } from './cutscenes/cutscene_waystone_first.js';
 import { playCombatMusic, stopCombatMusic } from './audio.js';
 
-const _ORDER    = [CUTSCENE_INTRO, CUTSCENE_WAYSTONE_FIRST];
+const _ORDER    = [CUTSCENE_INTRO];
 const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
 
 // ── seen tracking ─────────────────────────────────────────────────────────────
@@ -150,7 +149,6 @@ export function initCutsceneUI() {
   window.addEventListener('zone:loaded',        e  => triggerCutscene(`zone_enter:${e.detail?.id}`));
   window.addEventListener('combat:ended',      () => triggerCutscene('combat_ended'));
   window.addEventListener('ui:ready',          () => triggerCutscene('game_start'));
-  window.addEventListener('waystone:activated', () => triggerCutscene('waystone_first'));
 
   _buildPanel();
 }

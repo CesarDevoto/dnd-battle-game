@@ -359,6 +359,18 @@ const _LINES_OUT = [
   { s: 'Dagna', t: "Victory is yours, brother. Our god has seen fit to restore your lives. Go with honor." },
 ];
 
+// ── Waystone first-activation dialogue (one-time, any zone) ──────────────────
+const _WAYSTONE_FIRST_KEY = 'dlg_waystone_first_seen';
+const _LINES_WAYSTONE_FIRST = [
+  { s: 'Rasec', t: 'Behold! The waystone is kindled. These stones are bound by deep magicks — woven together through blood and spell. When more awaken to our hand, we need but step upon them and the world shall bend, carrying us among them as we will in the space between heartbeats. A most useful sorcery, this.' },
+];
+
+window.addEventListener('waystone:activated', () => {
+  try { if (localStorage.getItem(_WAYSTONE_FIRST_KEY)) return; } catch {}
+  try { localStorage.setItem(_WAYSTONE_FIRST_KEY, '1'); } catch {}
+  showQuickDialogue(_LINES_WAYSTONE_FIRST);
+});
+
 const _SCENES = [
   { id: 'dlg_a',   name: 'The Awakening', lines: _LINES_A },
   { id: 'dlg_b',   name: 'River Styx',    lines: _LINES_B },
