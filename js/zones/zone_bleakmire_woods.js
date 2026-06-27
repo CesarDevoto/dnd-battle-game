@@ -63,7 +63,7 @@ export const ZONE = {
     { model: 'foresttree', x: 20, z: 74, y: 1.9236, rotY: 3.7, scale: 8.5 },
     { model: 'foresttree', x: -50, z: 62, y: 0, rotY: 1.5, scale: 10 },
     { model: 'foresttree', x: 46, z: 54, y: 1.3698, rotY: 3.9, scale: 9 },
-    { model: 'foresttree', x: 10, z: 72, y: 0.9811, rotY: 0.5, scale: 8.5 },
+    { model: 'foresttree', x: 10, z: 72, y: 0.1061, yOff: -0.875, rotY: 1.547, scale: 8.5 },
     { model: 'foresttree', x: -8, z: 48, y: 0, rotY: 5.5, scale: 11 },
     { model: 'foresttree', x: -18, z: 38, y: 0, rotY: 0.3, scale: 10.5 },
     { model: 'foresttree', x: 26, z: 30, y: 0.2038, rotY: 4.2, scale: 9 },

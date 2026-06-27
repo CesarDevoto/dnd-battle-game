@@ -377,7 +377,7 @@ async function _duplicateSelected(dx, dz) {
 
   let mesh;
   if (def.builderFn) {
-    mesh = def.builderFn();
+    mesh = def.builderFn(src);
   } else {
     let original;
     try { original = await _loadGLB(src.model); }
@@ -396,7 +396,9 @@ async function _duplicateSelected(dx, dz) {
     rotX: src.rotX ?? 0,
     scaleF: src.scaleF,
   };
-  if (src.params) entry.params = { ...src.params };
+  if (src.params)            entry.params     = { ...src.params };
+  if (src.waystoneId != null) entry.waystoneId = src.waystoneId;
+  if (src.mapTab     != null) entry.mapTab     = src.mapTab;
   _applyTransform(entry);
   if (_propsHidden) mesh.visible = false;
   scene.add(mesh);
@@ -450,9 +452,11 @@ async function _saveToZone() {
         rotY: +p.rotY.toFixed(3),
         scale: +p.scaleF.toFixed(3),
       };
-      if (p.yOff !== 0) obj.yOff = +p.yOff.toFixed(3);
-      if (p.rotX)        obj.rotX = +p.rotX.toFixed(4);
-      if (p.params)      obj.params = { ...p.params };
+      if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
+      if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
+      if (p.params)            obj.params     = { ...p.params };
+      if (p.waystoneId != null) obj.waystoneId = p.waystoneId;
+      if (p.mapTab     != null) obj.mapTab     = p.mapTab;
       return obj;
     });
   _setSaveStatus('Saving…', '');
@@ -492,9 +496,11 @@ function _exportJSON() {
         rotY:  +p.rotY.toFixed(3),
         scale: +p.scaleF.toFixed(3),
       };
-      if (p.yOff !== 0) obj.yOff = +p.yOff.toFixed(3);
-      if (p.rotX)        obj.rotX = +p.rotX.toFixed(4);
-      if (p.params)      obj.params = { ...p.params };
+      if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
+      if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
+      if (p.params)            obj.params     = { ...p.params };
+      if (p.waystoneId != null) obj.waystoneId = p.waystoneId;
+      if (p.mapTab     != null) obj.mapTab     = p.mapTab;
       return obj;
     });
   return JSON.stringify(arr, null, 2);
@@ -557,10 +563,9 @@ export async function loadZoneProps(propsArray) {
       rotX:   p.rotX  ?? def.defaultRotX ?? 0,
       scaleF: p.scale ?? def.defaultScale,
     };
-    if (p.params) {
-      entry.params = { ...p.params };
-      _applyLightParams(entry);
-    }
+    if (p.params)       { entry.params    = { ...p.params }; _applyLightParams(entry); }
+    if (p.waystoneId != null) entry.waystoneId = p.waystoneId;
+    if (p.mapTab     != null) entry.mapTab     = p.mapTab;
     _applyTransform(entry, def.path ? (p.y ?? null) : null);
     if (_propsHidden) mesh.visible = false;
     scene.add(mesh);
