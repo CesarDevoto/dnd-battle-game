@@ -212,7 +212,6 @@ function _renderSubmap(body, tab) {
     const activePins  = (SUBMAP_WAYPOINTS[tab] ?? []).filter(p => isWaystoneActivated(p.id));
     const sourcePin   = _sourceWaystoneId ? activePins.find(p => p.id === _sourceWaystoneId) : null;
     const canTeleport = sourcePin && activePins.length >= 2;
-    console.log('[MAP] sourceId:', _sourceWaystoneId, 'activePins:', activePins.map(p=>p.id), 'sourcePin:', sourcePin?.id, 'canTeleport:', canTeleport);
 
     const pins = activePins.map(p => {
       const isSource   = sourcePin?.id === p.id;

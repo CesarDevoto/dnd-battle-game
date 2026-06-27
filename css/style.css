@@ -7588,6 +7588,7 @@ td.bst-col-retired { color: #343228 !important; }
 
 #world-map-pins .submap-waystone-wrap.ws-teleport {
   cursor: pointer;
+  pointer-events: all;
 }
 #world-map-pins .submap-waystone-wrap.ws-teleport:hover .submap-waystone {
   animation: ws-pulse 0.6s ease-in-out infinite;
