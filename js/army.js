@@ -174,7 +174,7 @@ renderer.domElement.addEventListener('click', e => {
     if (wsHit.length) {
       let grp = wsHit[0].object;
       while (grp.parent && !grp.userData?.isWaystone) grp = grp.parent;
-      if (grp.userData?.isWaystone) { openWorldMap(grp.userData.mapTab ?? 'I'); return; }
+      if (grp.userData?.isWaystone) { openWorldMap(grp.userData.mapTab ?? 'I', grp.userData.waystoneId ?? null); return; }
     }
   }
 

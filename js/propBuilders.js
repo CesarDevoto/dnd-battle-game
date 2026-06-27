@@ -2079,8 +2079,9 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   const grp = new THREE.Group();
   const R = 1.0, H = 0.17;
   const DETECT_R = 2.0; // WU — ~5ft from coin edge
-  grp.userData.isWaystone = true;
-  grp.userData.mapTab     = mapTab ?? 'I';
+  grp.userData.isWaystone  = true;
+  grp.userData.mapTab      = mapTab ?? 'I';
+  grp.userData.waystoneId  = waystoneId ?? null;
 
   // Dormant: grey-blue. Active: light blue. Shared material — color swapped on activation.
   const blueMat = new THREE.MeshStandardMaterial({ color: 0x6e8892, roughness: 0.55, metalness: 0.15 });

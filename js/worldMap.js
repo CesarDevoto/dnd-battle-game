@@ -66,14 +66,18 @@ export function initWorldMap() {
   document.getElementById('map-btn')?.addEventListener('click', openWorldMap);
 }
 
-export function openWorldMap(tab = 'Lands') {
+let _sourceWaystoneId = null; // set when map is opened by clicking a waystone
+
+export function openWorldMap(tab = 'Lands', sourceWaystoneId = null) {
   _activeTab = tab;
+  _sourceWaystoneId = sourceWaystoneId;
   _overlay.querySelectorAll('.wm-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   _overlay.style.display = 'flex';
   _render();
 }
 
 export function closeWorldMap() {
+  _sourceWaystoneId = null;
   _overlay.style.display = 'none';
 }
 
@@ -206,7 +210,7 @@ function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
     const activePins  = (SUBMAP_WAYPOINTS[tab] ?? []).filter(p => isWaystoneActivated(p.id));
-    const sourcePin   = _nearActiveWaystone();
+    const sourcePin   = _sourceWaystoneId ? activePins.find(p => p.id === _sourceWaystoneId) : null;
     const canTeleport = sourcePin && activePins.length >= 2;
 
     const pins = activePins.map(p => {
