@@ -605,20 +605,21 @@ function hasLineOfSight(ax, az, tx, tz) {
   return !_losRay.intersectObjects(losBlockerMeshes, true).some(h => h.point.y <= ceilY);
 }
 
-// Sneak Attack fires when attacker has advantage on the roll, OR a conscious ally
-// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 3 WU covers orthogonal + diagonal)
-function hasSneakAttackCondition(attacker, target, atkResult) {
-  if (atkResult.mode === 'advantage') return true;
-  const ADJ_SQ = 9; // 3 WU radius: covers orthogonal (2 WU) and diagonal (~2.83 WU) neighbors
+// True when a conscious blue ally (not the attacker) is within 3 WU of target (covers diagonal adjacency)
+function _allyAdjacentToTarget(attacker, target) {
   for (const ally of units) {
     if (ally.grp === attacker.grp) continue;
     if (ally.team !== 'blue') continue;
     if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) continue;
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    if (dx * dx + dz * dz <= ADJ_SQ) return true;
+    if (dx * dx + dz * dz <= 9) return true;
   }
   return false;
+}
+
+function hasSneakAttackCondition(attacker, target, atkResult) {
+  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target);
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -2812,15 +2813,7 @@ function _rebuildHotbar(u) {
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
                        hasLineOfSight(ux, uz, ttx, ttz));
       if (!inRange) return false;
-      // Button active when a conscious ally is adjacent to the TARGET (3 WU covers diagonal too)
-      const hasAlly = units.some(ally => {
-        if (ally.grp === curU.grp || ally.team !== 'blue' || ally.hp <= 0) return false;
-        if (sleepingUnits.has(ally) || ally.stunned) return false;
-        const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
-        const ax = ally.grp.position.x - ttx, az = ally.grp.position.z - ttz;
-        return ax * ax + az * az <= 9;
-      });
-      return hasAlly;
+      return _allyAdjacentToTarget(curU, selectedTarget);
     }, 'action');
     if (u.level >= 2) {
       bindHotkey('KeyE', false, '<span class="hb-hide">HIDE</span>', () => {
