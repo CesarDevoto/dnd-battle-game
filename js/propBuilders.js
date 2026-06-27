@@ -2187,6 +2187,14 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     _setAudioDist = startWaystoneAudio(false);
   }
 
+  // Allow external click-activation (e.g. from army.js within 20ft)
+  grp.userData.tryActivate = () => {
+    if (_activated) return;
+    _visualActivate();
+    _setAudioDist = startWaystoneAudio(true);
+    window.dispatchEvent(new CustomEvent('waystone:activated', { detail: { waystoneId } }));
+  };
+
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
 

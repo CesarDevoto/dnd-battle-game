@@ -174,7 +174,19 @@ renderer.domElement.addEventListener('click', e => {
     if (wsHit.length) {
       let grp = wsHit[0].object;
       while (grp.parent && !grp.userData?.isWaystone) grp = grp.parent;
-      if (grp.userData?.isWaystone) { openWorldMap(grp.userData.mapTab ?? 'I', grp.userData.waystoneId ?? null); return; }
+      if (grp.userData?.isWaystone) {
+        // Activate if any hero is within 20ft (8 WU)
+        const CLICK_ACTIVATE_R = 8.0;
+        const wx = grp.position.x, wz = grp.position.z;
+        const nearby = units.some(u => {
+          if (u.team !== 'blue' || u.hp <= 0) return false;
+          const dx = u.grp.position.x - wx, dz = u.grp.position.z - wz;
+          return dx * dx + dz * dz <= CLICK_ACTIVATE_R * CLICK_ACTIVATE_R;
+        });
+        if (nearby) grp.userData.tryActivate?.();
+        openWorldMap(grp.userData.mapTab ?? 'I', grp.userData.waystoneId ?? null);
+        return;
+      }
     }
   }
 
