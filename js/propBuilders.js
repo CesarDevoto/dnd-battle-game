@@ -2100,7 +2100,7 @@ export function mkWaystoneDisc() {
   grp.add(dot);
 
   // Soft dormant pulse light — always present, dims when activated
-  const dormantLight = new THREE.PointLight(0x66ccff, 0.3, 4, 1.8);
+  const dormantLight = new THREE.PointLight(0x66ccff, 1.0, 7, 1.4);
   dormantLight.position.y = H + 0.4;
   grp.add(dormantLight);
 
@@ -2165,7 +2165,7 @@ export function mkWaystoneDisc() {
       }
       if (!_activated) {
         const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;
-        dormantLight.intensity = 0.12 + dormantPulse * 0.40;
+        dormantLight.intensity = 0.6 + dormantPulse * 2.2;
         return;
       }
     }
