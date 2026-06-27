@@ -606,14 +606,14 @@ function hasLineOfSight(ax, az, tx, tz) {
 }
 
 // Sneak Attack fires when attacker has advantage on the roll, OR a conscious ally
-// (not dead, asleep, or stunned) is adjacent to the ATTACKER (≤ 3 WU ≈ 1 grid square)
-function hasSneakAttackCondition(attacker, atkResult) {
+// (not dead, asleep, or stunned) is adjacent to the TARGET (≤ 3 WU ≈ 1 grid square)
+function hasSneakAttackCondition(attacker, target, atkResult) {
   if (atkResult.mode === 'advantage') return true;
   return units.some(ally => {
     if (ally === attacker || ally.team !== attacker.team) return false;
     if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) return false;
-    const dx = ally.grp.position.x - attacker.grp.position.x;
-    const dz = ally.grp.position.z - attacker.grp.position.z;
+    const dx = ally.grp.position.x - target.grp.position.x;
+    const dz = ally.grp.position.z - target.grp.position.z;
     return dx * dx + dz * dz <= 9;
   });
 }
@@ -1793,7 +1793,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
-  const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, atkResult);
+  const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, target, atkResult);
 
   const isCrit    = atkResult.isCrit;
   const dmgResult = rollDnDDamage(atk, dmgMod, isCrit);
