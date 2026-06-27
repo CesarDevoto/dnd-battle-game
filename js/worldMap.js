@@ -38,6 +38,7 @@ let _activeTab = 'Lands';
 
 export function initWorldMap() {
   _loadActivated();
+  window.addEventListener('waystone:activated', e => activateWaystone(e.detail.waystoneId));
 
   _overlay = document.createElement('div');
   _overlay.id = 'world-map-overlay';

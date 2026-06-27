@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import { units } from './units.js';
-import { activateWaystone, isWaystoneActivated } from './worldMap.js';
-import { triggerCutscene } from './cutsceneManager.js';
 
 // ── Prop builder helpers ──────────────────────────────────────────────────────
 // sh() enables shadow casting on a mesh and returns it
@@ -2155,18 +2153,19 @@ export function mkWaystoneDisc(waystoneId) {
                  life: Math.random(), dur: 1.4 + Math.random() * 1.2 });
   }
 
-  const _doActivate = () => {
+  const _visualActivate = () => {
     _activated = true;
     blueMat.color.set(0xa8d8ea);
     dormantLight.intensity = 0;
     halo.visible = true;
     wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
-    if (waystoneId) activateWaystone(waystoneId);
-    triggerCutscene('waystone_first');
   };
 
-  let _activated = waystoneId ? isWaystoneActivated(waystoneId) : false;
-  if (_activated) _doActivate();
+  // Check localStorage directly to avoid circular import through worldMap→zoneLoader→environments→here
+  let _activated = waystoneId
+    ? (() => { try { const r = localStorage.getItem('dnd-activated-waystones'); return r ? JSON.parse(r).includes(waystoneId) : false; } catch { return false; } })()
+    : false;
+  if (_activated) _visualActivate();
 
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
@@ -2180,7 +2179,11 @@ export function mkWaystoneDisc(waystoneId) {
       for (const u of units) {
         if (u.team !== 'blue' || u.hp <= 0) continue;
         const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
-        if (dx * dx + dz * dz <= DETECT_R * DETECT_R) { _doActivate(); break; }
+        if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
+          _visualActivate();
+          window.dispatchEvent(new CustomEvent('waystone:activated', { detail: { waystoneId } }));
+          break;
+        }
       }
       if (!_activated) {
         const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;

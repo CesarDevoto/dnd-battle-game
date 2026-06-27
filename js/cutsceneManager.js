@@ -147,9 +147,10 @@ export function initCutsceneUI() {
   _overlay.addEventListener('click', _advance);
   _skipBtn.addEventListener('click', e => { e.stopPropagation(); _finish(); });
 
-  window.addEventListener('zone:loaded',   e  => triggerCutscene(`zone_enter:${e.detail?.id}`));
-  window.addEventListener('combat:ended', () => triggerCutscene('combat_ended'));
-  window.addEventListener('ui:ready',     () => triggerCutscene('game_start'));
+  window.addEventListener('zone:loaded',        e  => triggerCutscene(`zone_enter:${e.detail?.id}`));
+  window.addEventListener('combat:ended',      () => triggerCutscene('combat_ended'));
+  window.addEventListener('ui:ready',          () => triggerCutscene('game_start'));
+  window.addEventListener('waystone:activated', () => triggerCutscene('waystone_first'));
 
   _buildPanel();
 }
