@@ -7580,11 +7580,17 @@ td.bst-col-retired { color: #343228 !important; }
   text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
 
+@keyframes ws-pulse {
+  0%   { box-shadow: 0 0 4px 2px rgba(168,216,234,0.5);  transform: scale(1.0); }
+  50%  { box-shadow: 0 0 18px 8px rgba(168,216,234,1.0); transform: scale(1.25); }
+  100% { box-shadow: 0 0 4px 2px rgba(168,216,234,0.5);  transform: scale(1.0); }
+}
+
 #world-map-pins .submap-waystone-wrap.ws-teleport {
   cursor: pointer;
 }
 #world-map-pins .submap-waystone-wrap.ws-teleport:hover .submap-waystone {
-  box-shadow: 0 0 10px 3px rgba(168,216,234,0.8);
+  animation: ws-pulse 0.6s ease-in-out infinite;
 }
 #world-map-pins .ws-teleport-hint {
   display: block;

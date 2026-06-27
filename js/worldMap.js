@@ -170,8 +170,8 @@ const SUBMAP_WAYPOINTS = {
   III: [],
 };
 
-// WU radius (~10ft) within which heroes can use a waystone to teleport
-const TELEPORT_RANGE = 4.0;
+// WU radius within which heroes can use a waystone to teleport (~15ft)
+const TELEPORT_RANGE = 6.0;
 
 function _nearActiveWaystone() {
   const allPins = Object.values(SUBMAP_WAYPOINTS).flat();
@@ -198,7 +198,7 @@ function _teleportTo(pin) {
     }
   } else {
     // Different zone — load it with heroes spawning near waystone
-    loadZone(pin.zoneId, { spawnX: pin.arrivalX, spawnZ: pin.arrivalZ });
+    loadZone(pin.zoneId, true, { x: pin.arrivalX, z: pin.arrivalZ });
   }
 }
 
