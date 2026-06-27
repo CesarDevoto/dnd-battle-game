@@ -20,19 +20,6 @@ export function initQuests() {
   _load();
   if (_quests.some(q => q.status === 'active')) _setVisible(true);
 
-  // Add initial quest on any zone load — duplicate guard in addQuest prevents
-  // double-adds, and localStorage means it survives page reloads.
-  // Re-open the panel on every zone transition while the quest is still active
-  // so the player never loses track of it.
-  window.addEventListener('zone:loaded', () => {
-    addQuest(
-      'deliver_provisions',
-      'Deliver the Provisions',
-      "Deliver Gundren Rockseeker's wagon of mining supplies to Barthen's Provisions in Phandalin."
-    );
-    const q = _quests.find(q => q.id === 'deliver_provisions');
-    if (q?.status === 'active') _setVisible(true);
-  });
 }
 
 export function addQuest(id, title, description, reward = null) {
