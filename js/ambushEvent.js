@@ -29,15 +29,20 @@ const _PURSUIT_LINES = [
   { s: 'Rasec',   t: "Leugren, wait… What of the horses and the wagon? We still have a contract to deliver these provisions to Barthen's in Phandalin." },
 ];
 
+export const KEY_GOBLIN_PURSUIT = 'dnd-quest-goblin-pursuit';
+
 const _PURSUIT_CHOICES = [
-  { label: 'Follow the tracks',  lines: [{ s: 'Milo', t: "This way! The tracks lead north — follow me!" }] },
-  { label: 'Head to Phandalin',  lines: [{ s: 'Gobo', t: "Smart. Let's head back to the wagon and get these supplies to Phandalin before anything else goes wrong." }] },
+  { label: 'Follow the tracks', pursue: true,  lines: [{ s: 'Milo', t: "This way! The tracks lead north — follow me!" }] },
+  { label: 'Head to Phandalin', pursue: false, lines: [{ s: 'Gobo', t: "Smart. Let's head back to the wagon and get these supplies to Phandalin before anything else goes wrong." }] },
 ];
 
 function _buildChoices() {
   return _PURSUIT_CHOICES.map(ch => ({
     label:  ch.label,
-    onPick: () => showQuickDialogue(ch.lines),
+    onPick: () => {
+      if (ch.pursue) try { localStorage.setItem(KEY_GOBLIN_PURSUIT, '1'); } catch {}
+      showQuickDialogue(ch.lines);
+    },
   }));
 }
 

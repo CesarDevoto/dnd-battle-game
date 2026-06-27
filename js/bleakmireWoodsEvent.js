@@ -7,6 +7,7 @@ import { addQuest } from './quests.js';
 import { mkInvestigateStar } from './propBuilders.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
+import { KEY_GOBLIN_PURSUIT } from './ambushEvent.js';
 
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
@@ -344,6 +345,10 @@ export function tickBleakmireWoods(dt) {
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
 window.addEventListener('zone:loaded', e => {
   if (e.detail?.id !== 'bleakmire_woods') return;
+
+  // Only show footprints and Floosh intro if heroes chose to follow the goblin tracks
+  try { if (!localStorage.getItem(KEY_GOBLIN_PURSUIT)) return; } catch {}
+
   _showFootsteps();
 
   try {
