@@ -2136,7 +2136,7 @@ export function mkWaystoneDisc(waystoneId) {
   const _wispTex = new THREE.CanvasTexture(_wispCanvas);
 
   // Vapor wisps — start hidden, confined directly above coin
-  const WISP_COUNT = 12;
+  const WISP_COUNT = 60;
   const wisps = [];
   for (let i = 0; i < WISP_COUNT; i++) {
     const size = 0.10 + Math.random() * 0.14;
