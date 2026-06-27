@@ -8,6 +8,7 @@ import { mkInvestigateStar } from './propBuilders.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { KEY_GOBLIN_PURSUIT } from './ambushEvent.js';
+import { isDevMode } from './devMode.js';
 
 // ── Floosh guide system ───────────────────────────────────────────────────────
 // After quest accepted, Floosh walks NE toward the haunted_wood portal (82, -82).
@@ -22,6 +23,26 @@ const _GUIDE_WAYPOINTS = [
   { x: 76,  z: -45 },
   { x: 82,  z: -78 },
 ];
+let _waypointMarkers = [];
+
+function _spawnWaypointMarkers() {
+  _clearWaypointMarkers();
+  const geo = new THREE.SphereGeometry(0.35, 8, 8);
+  _GUIDE_WAYPOINTS.forEach((wp, i) => {
+    const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0x00ffff : 0xff6600, wireframe: false });
+    const m   = new THREE.Mesh(geo, mat);
+    m.position.set(wp.x, getTerrainHeight(wp.x, wp.z) + 0.5, wp.z);
+    m.frustumCulled = false;
+    scene.add(m);
+    _waypointMarkers.push(m);
+  });
+}
+
+function _clearWaypointMarkers() {
+  _waypointMarkers.forEach(m => { m.geometry.dispose(); m.material.dispose(); scene.remove(m); });
+  _waypointMarkers = [];
+}
+
 const _GUIDE_SPEED   = 3.5;    // WU/s
 const _GUIDE_STOP_SQ = 16 * 16; // 40 ft = 16 WU squared
 const _SINK_SPEED    = 2.0;    // WU/s sink/rise rate
@@ -484,6 +505,7 @@ export function tickBleakmireWoods(dt) {
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
 window.addEventListener('zone:loaded', e => {
   if (e.detail?.id !== 'bleakmire_woods') return;
+  if (isDevMode()) _spawnWaypointMarkers();
 
   // Only show footprints and Floosh intro if heroes chose to follow the goblin tracks
   try { if (!localStorage.getItem(KEY_GOBLIN_PURSUIT)) return; } catch {}
@@ -524,6 +546,7 @@ window.addEventListener('zone:loading', () => {
   _guideRising  = false;
   _flooshUnit   = null;
   _shallWeDone  = null;
+  _clearWaypointMarkers();
 });
 
 // ── Floosh click — show quest reminder when ? is active ───────────────────────
