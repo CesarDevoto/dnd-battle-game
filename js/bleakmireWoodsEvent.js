@@ -544,7 +544,9 @@ window.addEventListener('zone:loading', () => {
   _guideDone    = false;
   _guideSinking = false;
   _guideRising  = false;
+  _guidePaused  = false;
   _flooshUnit   = null;
+  _shallWeDone?.();   // release post-combat chain if heroes zone out mid-rise
   _shallWeDone  = null;
   _clearWaypointMarkers();
 });
