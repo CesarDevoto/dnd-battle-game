@@ -2132,6 +2132,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   const halo = new THREE.Mesh(haloGeo, haloMat);
   halo.position.y = H + 0.004;
   halo.renderOrder = 2;
+  halo.frustumCulled = false;
   halo.visible = false;
   grp.add(halo);
 
@@ -2179,21 +2180,30 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     ? (() => { try { const r = localStorage.getItem('dnd-activated-waystones'); return r ? JSON.parse(r).includes(waystoneId) : false; } catch { return false; } })()
     : false;
 
-  let _activated = _alreadyActivated;
-  let _setAudioDist = null; // distance-setter returned by startWaystoneAudio
+  let _activated    = _alreadyActivated;
+  let _setAudioDist = null;
+  let _audioHandle  = null; // { setDist, stop }
+
+  const _startAudio = (playActivation) => {
+    _audioHandle  = startWaystoneAudio(playActivation);
+    _setAudioDist = _audioHandle.setDist;
+  };
 
   if (_alreadyActivated) {
     _visualActivate();
-    _setAudioDist = startWaystoneAudio(false);
+    _startAudio(false);
   }
 
   // Allow external click-activation (e.g. from army.js within 20ft)
   grp.userData.tryActivate = () => {
     if (_activated) return;
     _visualActivate();
-    _setAudioDist = startWaystoneAudio(true);
+    _startAudio(true);
     window.dispatchEvent(new CustomEvent('waystone:activated', { detail: { waystoneId } }));
   };
+
+  // Called by clearProps() on zone unload — stops looping audio
+  grp.userData.destroy = () => _audioHandle?.stop();
 
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
@@ -2209,7 +2219,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
         const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
         if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
           _visualActivate();
-          _setAudioDist = startWaystoneAudio(true);
+          _startAudio(true);
           window.dispatchEvent(new CustomEvent('waystone:activated', { detail: { waystoneId } }));
           break;
         }

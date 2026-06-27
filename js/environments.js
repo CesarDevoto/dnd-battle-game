@@ -281,7 +281,7 @@ function _disposeObject(obj) {
 }
 
 function clearProps() {
-  activeProps.forEach(obj => { scene.remove(obj); _disposeObject(obj); });
+  activeProps.forEach(obj => { obj.userData.destroy?.(); scene.remove(obj); _disposeObject(obj); });
   activeProps.length = 0;
   propPositions.length = 0;
   losBlockerMeshes.length = 0;

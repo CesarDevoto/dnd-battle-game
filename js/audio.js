@@ -175,18 +175,20 @@ export function startWaystoneAudio(playActivation) {
   gainNode.gain.value = 0;
   gainNode.connect(_catGains['combat'] ?? _masterGain);
 
+  let _pulseSrc    = null;
   let _pulseStarted = false;
+  let _stopped      = false;
 
   const _startPulse = () => {
-    if (_pulseStarted) return;
+    if (_pulseStarted || _stopped) return;
     _pulseStarted = true;
     const buf = _buffers['waystone_pulse'];
     if (!buf) return;
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop   = true;
-    src.connect(gainNode);
-    src.start();
+    _pulseSrc = ctx.createBufferSource();
+    _pulseSrc.buffer = buf;
+    _pulseSrc.loop   = true;
+    _pulseSrc.connect(gainNode);
+    _pulseSrc.start();
   };
 
   if (playActivation) {
@@ -205,13 +207,20 @@ export function startWaystoneAudio(playActivation) {
     _startPulse();
   }
 
-  // Returns distance-setter called each frame from propBuilders.
-  // sqrt curve: rises quickly from FAR but flattens near the stone so close-up isn't overwhelming.
-  return (dist) => {
-    if (!_pulseStarted) return;
+  const setDist = (dist) => {
+    if (!_pulseStarted || _stopped) return;
     const t = Math.max(0, Math.min(1, 1 - (dist - NEAR) / (FAR - NEAR)));
     gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.09, ctx.currentTime, 0.15);
   };
+
+  const stop = () => {
+    if (_stopped) return;
+    _stopped = true;
+    gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
+    setTimeout(() => { try { _pulseSrc?.stop(); gainNode.disconnect(); } catch {} }, 400);
+  };
+
+  return { setDist, stop };
 }
 
 // ── Ambient crossfade ─────────────────────────────────────────────────────────
