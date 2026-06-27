@@ -2157,7 +2157,13 @@ export function mkWaystoneDisc() {
           break;
         }
       }
-      if (!_activated) return;             // still dormant — nothing else to do
+      if (!_activated) {
+        // Dormant soft emissive pulse on coin face
+        const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;
+        blueMat.emissive.setHex(0x4488aa);
+        blueMat.emissiveIntensity = 0.04 + dormantPulse * 0.10;
+        return;
+      }
     }
 
     // Pulse glow + halo
