@@ -2231,10 +2231,10 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
       }
     }
 
-    // Pulse glow + halo
+    // Pulse glow + halo — floors keep ring always visible
     const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
-    glow.intensity  = 0.2 + pulse * 20;
-    haloMat.opacity = pulse * 0.92;
+    glow.intensity  = 3.0 + pulse * 17.0;   // 3 → 20
+    haloMat.opacity = 0.30 + pulse * 0.60;  // 0.30 → 0.90
 
     // Vapors: rise straight up, fixed x/z above coin surface
     for (const w of wisps) {
