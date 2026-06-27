@@ -1,6 +1,6 @@
 import { loadZone, getActiveZone } from './zoneLoader.js';
 import { units } from './units.js';
-import { IS_DEV } from './devConfig.js';
+import { isDevMode } from './devMode.js';
 
 // ── Waystone activation persistence ──────────────────────────────────────────
 const _ACT_KEY   = 'dnd-activated-waystones';
@@ -127,7 +127,7 @@ function _renderLands(body) {
     el.addEventListener('click', e => { e.stopPropagation(); _setTab(el.dataset.marker); });
   });
 
-  if (IS_DEV) _attachCoordPicker(body);
+  if (isDevMode()) _attachCoordPicker(body);
 }
 
 function _attachCoordPicker(body) {
@@ -231,7 +231,7 @@ function _renderSubmap(body, tab) {
       });
     });
 
-    if (IS_DEV) _attachCoordPicker(body);
+    if (isDevMode()) _attachCoordPicker(body);
   } else {
     body.innerHTML = `<div id="world-map-submap">
       <span>Map ${tab} — coming soon</span>
