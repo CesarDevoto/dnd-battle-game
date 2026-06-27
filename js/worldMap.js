@@ -1,55 +1,35 @@
 import { loadZone, getActiveZone } from './zoneLoader.js';
 import { IS_DEV } from './devConfig.js';
 
-const _STORAGE_KEY = 'dnd-discovered-waystones';
-const _discovered  = new Set();
+// ── Waystone activation persistence ──────────────────────────────────────────
+const _ACT_KEY   = 'dnd-activated-waystones';
+const _activated = new Set();
 
-// ── Waypoint data ─────────────────────────────────────────────────────────────
-// mapX/mapY: position as fraction [0,1] of basemap image width/height.
-// arrivalX/arrivalZ: hero spawn coords in the target zone when teleporting.
+export function activateWaystone(id) {
+  if (_activated.has(id)) return;
+  _activated.add(id);
+  try { localStorage.setItem(_ACT_KEY, JSON.stringify([..._activated])); } catch {}
+}
+
+export function isWaystoneActivated(id) {
+  return _activated.has(id);
+}
+
+function _loadActivated() {
+  try {
+    const raw = localStorage.getItem(_ACT_KEY);
+    if (raw) JSON.parse(raw).forEach(id => _activated.add(id));
+  } catch {}
+}
+
+// ── Lands map waypoints (travel destinations) — populated later ───────────────
 export const WAYPOINTS = {
 };
 
 // ── Roman-numeral location markers on the Lands map ──────────────────────────
-// Clicking one switches to that sub-map tab.
 const LAND_MARKERS = [
   { id: 'I', mapX: 0.320, mapY: 0.693 },
 ];
-
-// ── Persistence ───────────────────────────────────────────────────────────────
-
-function _load() {
-  try {
-    const raw = localStorage.getItem(_STORAGE_KEY);
-    if (raw) JSON.parse(raw).forEach(id => _discovered.add(id));
-  } catch {}
-}
-
-function _save() {
-  try { localStorage.setItem(_STORAGE_KEY, JSON.stringify([..._discovered])); } catch {}
-}
-
-export function discoverWaystone(id) {
-  if (_discovered.has(id)) return false;
-  _discovered.add(id);
-  _save();
-  _showDiscoveryToast(WAYPOINTS[id]?.name ?? id);
-  return true;
-}
-
-export function isWaystoneDiscovered(id) {
-  return _discovered.has(id);
-}
-
-function _showDiscoveryToast(name) {
-  const el = document.createElement('div');
-  el.className = 'waystone-toast';
-  el.textContent = `Waystone discovered: ${name}`;
-  document.getElementById('app').appendChild(el);
-  requestAnimationFrame(() => el.classList.add('ws-toast-in'));
-  setTimeout(() => el.classList.add('ws-toast-out'), 3000);
-  setTimeout(() => el.remove(), 4200);
-}
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +37,7 @@ let _overlay  = null;
 let _activeTab = 'Lands';
 
 export function initWorldMap() {
-  _load();
+  _loadActivated();
 
   _overlay = document.createElement('div');
   _overlay.id = 'world-map-overlay';
@@ -180,7 +160,7 @@ const _SUBMAP_SRCS = {
 // ── Waystone pins on sub-maps ─────────────────────────────────────────────────
 // mapX/mapY: fraction [0,1] of that sub-map image. label added later.
 const SUBMAP_WAYPOINTS = {
-  I:   [ { mapX: 0.839, mapY: 0.912, label: 'Ambush' } ],
+  I:   [ { id: 'ambush', mapX: 0.839, mapY: 0.912, label: 'Ambush' } ],
   II:  [],
   III: [],
 };
@@ -188,12 +168,14 @@ const SUBMAP_WAYPOINTS = {
 function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
-    const pins = (SUBMAP_WAYPOINTS[tab] ?? []).map(p =>
-      `<div class="submap-waystone-wrap" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%">
-         <div class="submap-waystone"><div class="submap-waystone-dot"></div></div>
-         ${p.label ? `<span class="submap-waystone-label">${p.label}</span>` : ''}
-       </div>`
-    ).join('');
+    const pins = (SUBMAP_WAYPOINTS[tab] ?? [])
+      .filter(p => isWaystoneActivated(p.id))
+      .map(p =>
+        `<div class="submap-waystone-wrap" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%">
+           <div class="submap-waystone"><div class="submap-waystone-dot"></div></div>
+           ${p.label ? `<span class="submap-waystone-label">${p.label}</span>` : ''}
+         </div>`
+      ).join('');
     body.innerHTML = `<div id="world-map-inner">
       <img id="world-map-img" src="${src}" draggable="false">
       <div id="world-map-pins">${pins}</div>

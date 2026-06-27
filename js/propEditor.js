@@ -540,7 +540,7 @@ export async function loadZoneProps(propsArray) {
 
     let mesh;
     if (def.builderFn) {
-      mesh = def.builderFn();
+      mesh = def.builderFn(p);
     } else {
       const original = _glbCache[p.model];
       if (!original) continue;

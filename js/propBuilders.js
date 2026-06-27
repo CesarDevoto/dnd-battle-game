@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { units } from './units.js';
+import { activateWaystone, isWaystoneActivated } from './worldMap.js';
 
 // ── Prop builder helpers ──────────────────────────────────────────────────────
 // sh() enables shadow casting on a mesh and returns it
@@ -2074,7 +2075,7 @@ export function mkInvestigateStar() {
   return grp;
 }
 
-export function mkWaystoneDisc() {
+export function mkWaystoneDisc(waystoneId) {
   const grp = new THREE.Group();
   const R = 1.0, H = 0.17;
   const DETECT_R = 2.0; // WU — ~5ft from coin edge
@@ -2153,7 +2154,18 @@ export function mkWaystoneDisc() {
                  life: Math.random(), dur: 1.4 + Math.random() * 1.2 });
   }
 
-  let _activated = false;
+  const _doActivate = () => {
+    _activated = true;
+    blueMat.color.set(0xa8d8ea);
+    dormantLight.intensity = 0;
+    halo.visible = true;
+    wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
+    if (waystoneId) activateWaystone(waystoneId);
+  };
+
+  let _activated = waystoneId ? isWaystoneActivated(waystoneId) : false;
+  if (_activated) _doActivate();
+
   let _t = Math.random() * Math.PI * 2;
   const _dt = 1 / 60;
 
@@ -2166,14 +2178,7 @@ export function mkWaystoneDisc() {
       for (const u of units) {
         if (u.team !== 'blue' || u.hp <= 0) continue;
         const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
-        if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
-          _activated = true;
-          blueMat.color.set(0xa8d8ea);
-          dormantLight.intensity = 0;
-          halo.visible = true;
-          wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
-          break;
-        }
+        if (dx * dx + dz * dz <= DETECT_R * DETECT_R) { _doActivate(); break; }
       }
       if (!_activated) {
         const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;
