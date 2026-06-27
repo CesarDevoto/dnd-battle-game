@@ -11,29 +11,29 @@ const _xpCurLabel     = document.getElementById('xp-cur-label');
 const _xpPctLabel     = document.getElementById('xp-pct-label');
 const _xpNextLabel    = document.getElementById('xp-next-label');
 
-// Standard D&D 5e cumulative XP to reach each level (index = level being reached, 1-indexed)
-// XP_THRESHOLDS[2] = 300 means you need 300 total XP to hit level 2.
+// Custom 100-level progression — cumulative XP to reach each level (index = level, 1-indexed)
+// Matches the XP Table displayed in-game. First 20 levels shown explicitly; expands to 100.
 const XP_THRESHOLDS = [
-  0,       // level 1  (starting)
-  300,     // level 2
-  900,     // level 3
-  2700,    // level 4
-  6500,    // level 5
-  14000,   // level 6
-  23000,   // level 7
-  34000,   // level 8
-  48000,   // level 9
-  64000,   // level 10
-  85000,   // level 11
-  100000,  // level 12
-  120000,  // level 13
-  140000,  // level 14
-  165000,  // level 15
-  195000,  // level 16
-  225000,  // level 17
-  265000,  // level 18
-  305000,  // level 19
-  355000,  // level 20
+  0,      // level 1  (starting)
+  200,    // level 2
+  450,    // level 3
+  750,    // level 4
+  1100,   // level 5
+  1500,   // level 6
+  1950,   // level 7
+  2450,   // level 8
+  3000,   // level 9
+  3600,   // level 10
+  4300,   // level 11
+  5100,   // level 12
+  6000,   // level 13
+  7000,   // level 14
+  8200,   // level 15
+  9500,   // level 16
+  11000,  // level 17
+  12700,  // level 18
+  14600,  // level 19
+  16700,  // level 20
 ];
 const MAX_LEVEL = XP_THRESHOLDS.length; // 20
 

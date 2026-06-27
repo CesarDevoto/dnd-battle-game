@@ -161,8 +161,8 @@ if (IS_DEV) {
     document.getElementById('dlg-log-panel').style.display = 'none';
   });
 
-  // D&D 5e XP thresholds (index = level being reached, 1-indexed)
-  const _DEV_XP = [0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
+  // Custom 100-level XP thresholds — must match XP_THRESHOLDS in progression.js
+  const _DEV_XP = [0,200,450,750,1100,1500,1950,2450,3000,3600,4300,5100,6000,7000,8200,9500,11000,12700,14600,16700];
   window.devSetLevel = (n) => {
     const target = Math.max(1, Math.min(20, n));
     const blues  = units.filter(u => u.team === 'blue');
