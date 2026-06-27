@@ -2099,7 +2099,12 @@ export function mkWaystoneDisc() {
   dot.position.y = H + 0.025;
   grp.add(dot);
 
-  // Glow light — starts off
+  // Soft dormant pulse light — always present, dims when activated
+  const dormantLight = new THREE.PointLight(0x66ccff, 0.3, 4, 1.8);
+  dormantLight.position.y = H + 0.4;
+  grp.add(dormantLight);
+
+  // Bright activation glow — starts off
   const glow = new THREE.PointLight(0x88ddff, 0, 6, 1.6);
   glow.position.y = H + 0.6;
   grp.add(glow);
@@ -2151,17 +2156,16 @@ export function mkWaystoneDisc() {
         const dx = u.grp.position.x - px, dz = u.grp.position.z - pz;
         if (dx * dx + dz * dz <= DETECT_R * DETECT_R) {
           _activated = true;
-          blueMat.color.set(0xa8d8ea);     // flip to light blue
+          blueMat.color.set(0xa8d8ea);
+          dormantLight.intensity = 0;
           halo.visible = true;
           wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
           break;
         }
       }
       if (!_activated) {
-        // Dormant soft emissive pulse on coin face
         const dormantPulse = Math.sin(_t * 0.9) * 0.5 + 0.5;
-        blueMat.emissive.setHex(0x66ccff);
-        blueMat.emissiveIntensity = 0.25 + dormantPulse * 0.55;
+        dormantLight.intensity = 0.12 + dormantPulse * 0.40;
         return;
       }
     }
