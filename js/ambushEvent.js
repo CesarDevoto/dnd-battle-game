@@ -5,7 +5,6 @@ import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaE
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { clearAllStars } from './investigateStars.js';
-import { addQuest } from './quests.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -51,11 +50,7 @@ registerDialogueScene({
   id: 'dlg_pursuit',
   name: 'Goblin Ambush — Pursue or Deliver?',
   lines: _PURSUIT_LINES,
-  onDone: () => {
-    addQuest('deliver_provisions', 'Deliver the Provisions',
-      "Deliver Gundren Rockseeker's wagon of mining supplies to Barthen's Provisions in Phandalin.");
-    showChoiceUI(_buildChoices());
-  },
+  onDone: () => showChoiceUI(_buildChoices()),
 });
 
 // ── Post-combat handler (priority 30) ────────────────────────────────────────

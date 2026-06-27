@@ -18,8 +18,13 @@ export function initQuests() {
 
   // Restore persisted quests; auto-show panel if any are still active
   _load();
-  if (_quests.some(q => q.status === 'active')) _setVisible(true);
 
+  // Starting quest — heroes already have this job at game open.
+  // addQuest's duplicate guard + localStorage mean it only ever adds once.
+  addQuest('deliver_provisions', 'Deliver the Provisions',
+    "Deliver Gundren Rockseeker's wagon of mining supplies to Barthen's Provisions in Phandalin.");
+
+  if (_quests.some(q => q.status === 'active')) _setVisible(true);
 }
 
 export function addQuest(id, title, description, reward = null) {
