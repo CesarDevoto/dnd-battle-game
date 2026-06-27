@@ -133,7 +133,7 @@ export const ZONE = {
     { model: 'log', x: 27.68, z: 17.8, y: 1.0266, rotY: 1.309, scale: 3.452 },
     { model: 'deadtree', x: 44.09, z: 2.32, y: 0.3638, rotY: 0, scale: 6.672 },
     { model: 'wagonhorses', x: -4.03, z: 41.91, y: 1.578, yOff: -0.125, rotY: 10.734, scale: 3.797 },
-{ model: 'deadhorse', x: 17.54, z: 19.39, y: 1.3125, yOff: -0.125, rotY: 0, scale: 1.21 },
+    { model: 'deadhorse', x: 17.54, z: 19.39, y: 1.3125, yOff: -0.125, rotY: 0, scale: 1.21 },
     { model: 'deadhorse', x: 15.19, z: 10.04, y: -0.1555, yOff: -0.125, rotY: 4.581, rotX: 6.0214, scale: 1.464 },
     { model: 'arrow', x: 15.18, z: 10.12, y: 0.467, yOff: 0.665, rotY: 0.262, rotX: 0.7854, scale: 1.1 },
     { model: 'arrow', x: 15.45, z: 10.58, y: 0.7867, yOff: 0.79, rotY: 0, rotX: 1.5708, scale: 1 },
@@ -141,7 +141,8 @@ export const ZONE = {
     { model: 'arrow', x: 17.97, z: 19.36, y: 1.8135, yOff: 0.54, rotY: 6.152, rotX: 2.0944, scale: 0.683 },
     { model: 'saddlebag', x: 15.25, z: 11.21, y: 0.4133, rotY: 6.152, rotX: -1.0472, scale: 0.386 },
     { model: 'saddlebag', x: 17.26, z: 18.94, y: 1.4402, rotY: 3.142, rotX: 5.1051, scale: 0.386 },
-{ model: 'investigate_star', x: 15.2, z: 10.79, y: 2.4, yOff: 0, rotY: 0, scale: 1 },
+    { model: 'investigate_star', x: 15.2, z: 10.79, y: 0.0677, rotY: 0, scale: 1 },
+    { model: 'waystone', x: 20.06, z: 22.43, y: 1.4799, yOff: 0.2, rotY: 0, scale: 1 },
   ],
   barriers: [
     { x1: 7.4, z1: 10.92, x2: 9.01, z2: 9.36 },
