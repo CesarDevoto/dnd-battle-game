@@ -145,6 +145,7 @@ export function initCutsceneUI() {
 
   _overlay.addEventListener('click', _advance);
   _skipBtn.addEventListener('click', e => { e.stopPropagation(); _finish(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && _playing) { e.preventDefault(); _finish(); } });
 
   window.addEventListener('zone:loaded',        e  => triggerCutscene(`zone_enter:${e.detail?.id}`));
   window.addEventListener('combat:ended',      () => triggerCutscene('combat_ended'));

@@ -6185,6 +6185,21 @@ td.bst-col-retired { color: #343228 !important; }
   transition: opacity 0.50s ease;
 }
 #cs-prompt.cs-prompt-in { opacity: 1; }
+#cs-prompt.cs-prompt-in + #cs-esc-hint { opacity: 0.7; }
+
+#cs-esc-hint {
+  position: absolute;
+  bottom: 14px; right: 44px;
+  font-family: var(--font-fantasy);
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+  color: rgba(200,175,90,0.55);
+  pointer-events: none;
+  z-index: 3;
+  margin: 0;
+  opacity: 0;
+  transition: opacity 0.50s ease;
+}
 
 /* Skip button */
 #cs-skip {
