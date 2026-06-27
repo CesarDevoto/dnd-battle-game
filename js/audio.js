@@ -210,7 +210,7 @@ export function startWaystoneAudio(playActivation) {
   return (dist) => {
     if (!_pulseStarted) return;
     const t = Math.max(0, Math.min(1, 1 - (dist - NEAR) / (FAR - NEAR)));
-    gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.18, ctx.currentTime, 0.15);
+    gainNode.gain.setTargetAtTime(Math.sqrt(t) * 0.12, ctx.currentTime, 0.15);
   };
 }
 
