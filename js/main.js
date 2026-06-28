@@ -27,7 +27,7 @@ import { initTerrainEditor } from './terrainEditor.js';
 import { initBarrierEditor } from './barrierEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
-import { tickStars } from './investigateStars.js';
+import { tickExclamations } from './exclamationMarkers.js';
 import { initWorldMap } from './worldMap.js';
 
 import { prewarmEffectShaders, initFireboltLight } from './firebolt.js';
@@ -322,7 +322,7 @@ let _prevNow = 0;
   updateMixers(dt);
   tickZone(dt);
   tickPrecombat(dt);
-  tickStars(dt);
+  tickExclamations(dt);
   tickDagna(dt);
   tickAmbush(dt);
   tickLoot(dt);

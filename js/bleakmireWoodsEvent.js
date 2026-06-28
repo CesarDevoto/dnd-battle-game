@@ -4,8 +4,8 @@ import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units, setUnitWalking } from './units.js';
 import { addQuest } from './quests.js';
-import { mkInvestigateStar } from './propBuilders.js';
-import { isMarkerSeen, setMarkerSeen } from './investigateStars.js';
+import { mkExclamationMarker } from './propBuilders.js';
+import { isMarkerSeen, setMarkerSeen } from './exclamationMarkers.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { getQuestFlag } from './quests.js';
@@ -170,7 +170,7 @@ registerPostCombatHandler(100, (_ctx, done) => {
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
 const _KEY_INTRO      = 'dnd-floosh-intro-seen';
-const _MARKER_ID      = 'floosh_quest';         // shared with investigateStars persistence
+const _MARKER_ID      = 'floosh_quest';         // shared with exclamationMarkers persistence
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 
 // Grassling (Floosh) world position in bleakmire_woods
@@ -209,7 +209,7 @@ registerDialogueScene({ id: 'dlg_floosh_accept', name: 'Floosh — Accept Quest'
 
 function _spawnFlooshExcl() {
   if (_flooshExcl) return;
-  _flooshExcl = mkInvestigateStar();
+  _flooshExcl = mkExclamationMarker();
   const y = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z) + 2.5;
   _flooshExcl.position.set(_FLOOSH_X, y, _FLOOSH_Z);
   scene.add(_flooshExcl);

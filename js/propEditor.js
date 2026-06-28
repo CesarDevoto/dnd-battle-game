@@ -4,7 +4,7 @@ import { scene, camera, renderer, ground } from './scene.js';
 import { activeProps, propPositions, losBlockerMeshes, activeEnv } from './environments.js';
 import { getTerrainHeight } from './terrain.js';
 import { PROP_MODELS } from './propRegistry.js';
-import { trackStar, untrackStar, clearAllStars } from './investigateStars.js';
+import { trackExclamation, untrackExclamation, clearAllExclamations } from './exclamationMarkers.js';
 
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ async function _placeAtPoint(pt) {
   if (def.blocksLOS) losBlockerMeshes.push(mesh);
   if (modelKey === 'point_light') entry.params = { intensity: 6, range: 18 };
   _placedProps.push(entry);
-  if (modelKey === 'investigate_star') trackStar(entry.mesh, entry.x, entry.z);
+  if (modelKey === 'exclamation_marker') trackExclamation(entry.mesh, entry.x, entry.z);
   _selectIdx(_placedProps.length - 1);
 }
 
@@ -277,7 +277,7 @@ function _removeSelected() {
   if (_selectedIdx < 0) return;
   _snapshot();
   const entry = _placedProps[_selectedIdx];
-  if (entry.model === 'investigate_star') untrackStar(entry.mesh);
+  if (entry.model === 'exclamation_marker') untrackExclamation(entry.mesh);
   scene.remove(entry.mesh);
 
   // Remove from environment tracking arrays
@@ -330,10 +330,10 @@ function _undo() {
 
   // Restore all transforms to snapshot state
   _placedProps = snap;
-  clearAllStars();
+  clearAllExclamations();
   for (const entry of _placedProps) {
     _applyTransform(entry);
-    if (entry.model === 'investigate_star') trackStar(entry.mesh, entry.x, entry.z);
+    if (entry.model === 'exclamation_marker') trackExclamation(entry.mesh, entry.x, entry.z);
   }
 
   _selectIdx(-1);
@@ -517,7 +517,7 @@ export function prewarmGLBs(modelKeys) {
 export function getPlacedProps() { return _placedProps; }
 
 export function clearEditorProps() {
-  clearAllStars();
+  clearAllExclamations();
 
   _placedProps.forEach(p => scene.remove(p.mesh));
   _placedProps = [];
@@ -573,7 +573,7 @@ export async function loadZoneProps(propsArray) {
     if (def.clashR > 0) propPositions.push({ x: p.x, z: p.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
     if (def.blocksLOS) losBlockerMeshes.push(mesh);
     _placedProps.push(entry);
-    if (p.model === 'investigate_star') trackStar(entry.mesh, p.x, p.z);
+    if (p.model === 'exclamation_marker') trackExclamation(entry.mesh, p.x, p.z);
   }
 }
 

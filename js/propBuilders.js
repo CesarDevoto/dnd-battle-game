@@ -2033,7 +2033,7 @@ export function mkPointLight(intensity = 6, range = 18) {
   return grp;
 }
 
-export function mkInvestigateStar() {
+export function mkExclamationMarker() {
   const grp = new THREE.Group();
 
   // Canvas "!" sprite
