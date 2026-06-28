@@ -52,26 +52,21 @@ registerDialogueScene({
   onDone: () => showChoiceUI(_buildChoices()),
 });
 
-// ── Combat start — fires once on first goblin aggro in road_to_phandelver ────
-let _dialogueFired  = false;  // investigation dialogue played
-let _footstepsFired = false;  // post-combat footsteps shown
+// ── Post-combat handler (priority 30) ────────────────────────────────────────
+// Fires once after the goblin ambush combat ends. Goblins must be dead (hp<=0)
+// in the units array — guards against other combats in the zone triggering it.
+let _dialogueFired = false;
 
-window.addEventListener('combat:start', () => {
-  if (_dialogueFired) return;
-  if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') return;
-  if (!units.some(u => u.type === 'goblin')) return;
+registerPostCombatHandler(30, (ctx, done) => {
+  if (_dialogueFired) { done(); return; }
+  if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
+  if (!units.some(u => u.type === 'goblin' && u.hp <= 0)) { done(); return; }
   _dialogueFired = true;
   clearAllStars();
-  showQuickDialogue(_LINES);
-});
-
-// ── Post-combat handler (priority 30) ────────────────────────────────────────
-// Dialogue already played at combat start; post-combat only shows footsteps.
-registerPostCombatHandler(30, (ctx, done) => {
-  if (_footstepsFired || !_dialogueFired) { done(); return; }
-  if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
-  _footstepsFired = true;
-  setTimeout(() => { _showFootsteps(); done(); }, 400);
+  setTimeout(() => showQuickDialogue(_LINES, () => {
+    _showFootsteps();
+    done();
+  }), 400);
 });
 
 // ── Pursuit trigger: fires after first hero move post-footsteps ───────────────
