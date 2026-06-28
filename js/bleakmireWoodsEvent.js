@@ -508,11 +508,10 @@ window.addEventListener('zone:loaded', e => {
   if (e.detail?.id !== 'bleakmire_woods') return;
   if (isDevMode()) _spawnWaypointMarkers();
 
-  // Only show footprints and Floosh intro if heroes chose to follow the goblin tracks
-  if (!getQuestFlag('goblin_pursuit')) return;
+  // Footsteps only if heroes chose to follow the goblin tracks
+  if (getQuestFlag('goblin_pursuit')) _showFootsteps();
 
-  _showFootsteps();
-
+  // Floosh triggers independently — not gated on any prior quest
   try {
     if (!localStorage.getItem(_KEY_INTRO)) {
       localStorage.setItem(_KEY_INTRO, '1');
