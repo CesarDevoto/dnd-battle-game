@@ -790,11 +790,11 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit) {
       const k = key(nx, nz);
       if (dist.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
-      if (isOccupied(nx, nz, excludeUnit)) continue;
       if (hasPropClash(nx, nz)) continue;
       if (crossesBarrier(x, z, nx, nz)) continue;
       dist.set(k, nd);
-      result.add(k);
+      // Units can pass THROUGH occupied squares but cannot stop on one.
+      if (!isOccupied(nx, nz, excludeUnit)) result.add(k);
       queue.push({ x: nx, z: nz, d: nd });
     }
   }
@@ -3211,8 +3211,8 @@ function _animateRoamNudge(u) {
   const destX     = cx + dx * ratio;
   const destZ     = cz + dz * ratio;
 
-  // Skip nudge if the direct path to the destination crosses a barrier.
-  if (crossesBarrier(cx, cz, destX, destZ)) {
+  // Skip nudge if the path crosses a barrier or the destination is occupied.
+  if (crossesBarrier(cx, cz, destX, destZ) || isOccupied(destX, destZ, u)) {
     if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
     _roamAggroCheck(u);
     return;
@@ -3315,13 +3315,15 @@ function runAITurn(u) {
       const dist  = Math.sqrt(dx * dx + dz * dz);
       const ratio = Math.min(maxWU / dist, 1);
       const destX = cx + dx * ratio, destZ = cz + dz * ratio;
-      // If the direct path crosses a barrier, fall back to BFS pathfinding.
+      // If the direct path crosses a barrier or lands on an occupied square, skip movement.
       let stealthPath;
       if (crossesBarrier(cx, cz, destX, destZ)) {
         const S   = WORLD_UNITS_PER_SQUARE;
         const tnx = cx + Math.round((destX - cx) / S) * S;
         const tnz = cz + Math.round((destZ - cz) / S) * S;
         stealthPath = findPath(cx, cz, tnx, tnz);
+      } else if (isOccupied(destX, destZ, u)) {
+        stealthPath = [];
       } else {
         stealthPath = [{ x: destX, z: destZ }];
       }
