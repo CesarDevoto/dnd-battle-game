@@ -19,6 +19,7 @@ let _active   = false;
 let _aggroed  = false;
 let _selected = null;   // hero selected for movement
 let _frozen   = false;  // set by dagnaEvent during scripted dialogue sequences
+let _miloAmbushFired = false;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -234,7 +235,8 @@ function _triggerAggro(spotter) {
   }
 
   const _doStart = () => { exitPrecombat(); rollInitiative(); };
-  if (getActiveZone()?.id === 'road_to_phandelver') {
+  if (getActiveZone()?.id === 'road_to_phandelver' && !_miloAmbushFired) {
+    _miloAmbushFired = true;
     setTimeout(() => showQuickDialogue(
       [{ s: 'Milo', t: 'An ambush! Ready yourselves!' }],
       _doStart
