@@ -4,8 +4,9 @@
 /* ── Dev / Play mode toggle button ──────────────────────────────────── */
 #dev-mode-btn {
   position: fixed;
-  top: 0;
-  left: 0;
+  bottom: 208px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9999;
   font-family: 'Cinzel', serif;
   font-size: 0.54rem;
@@ -352,12 +353,16 @@ body {
   border-color: rgba(212,175,55,0.60);
   box-shadow: inset 0 2px 5px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.18), 0 0 8px rgba(212,175,55,0.14);
 }
-#start-battle-btn-wrap {
+/* #start-battle-btn-wrap is now a flex child of #bottom-action-bar */
+#bottom-action-bar {
   position: fixed;
   bottom: 160px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .s-title {
   font-family: var(--font-fantasy);
@@ -508,9 +513,9 @@ body {
   border: 1px solid #7a1212;
   color: #cc2222;
   font-family: var(--font-fantasy);
-  font-size: 0.76rem;
-  letter-spacing: 3px;
-  padding: 10px 36px;
+  font-size: 0.60rem;
+  letter-spacing: 2px;
+  padding: 6px 16px;
   white-space: nowrap;
   box-shadow:
     inset 0 1px 0 rgba(255,60,60,0.14),
@@ -525,6 +530,31 @@ body {
   color: #ff5555;
   text-shadow: 0 0 10px #ff3333, 0 0 24px rgba(255,60,40,0.45);
   box-shadow: inset 0 1px 0 rgba(255,100,80,0.18), 0 0 22px rgba(220,30,20,0.40), 0 0 50px rgba(180,0,0,0.18);
+}
+#combat-mode-btn {
+  background: linear-gradient(180deg, rgba(8,16,36,0.96) 0%, rgba(4,8,18,0.99) 100%);
+  border: 1px solid #2a4a80;
+  color: #4a78cc;
+  font-family: var(--font-fantasy);
+  font-size: 0.60rem;
+  letter-spacing: 2px;
+  padding: 6px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(80,130,255,0.12),
+    inset 0 -1px 0 rgba(0,0,0,0.60),
+    0 0 0 1px rgba(0,0,0,0.75),
+    0 4px 20px rgba(0,0,0,0.80),
+    0 0 28px rgba(30,60,150,0.15);
+}
+#combat-mode-btn:hover {
+  background: linear-gradient(180deg, rgba(16,28,64,0.98) 0%, rgba(8,14,36,0.99) 100%);
+  border-color: #4a88ff;
+  color: #7aabff;
+  text-shadow: 0 0 10px #4a88ff, 0 0 24px rgba(60,100,255,0.45);
+  box-shadow: inset 0 1px 0 rgba(100,160,255,0.18), 0 0 22px rgba(40,80,220,0.40), 0 0 50px rgba(20,40,180,0.18);
 }
 .s-row { display: flex; gap: 5px; }
 .s-row .s-btn { flex: 1; }
@@ -690,7 +720,7 @@ body {
   box-shadow: 0 3px 14px rgba(0,0,0,0.75);
 }
 #top-btn-bar button {
-  padding: 6px 14px;
+  padding: 6px 8px;
   height: 30px;
   font-family: var(--font-fantasy);
   font-size: 0.64rem;
@@ -2536,7 +2566,7 @@ body {
 /* ── Hero portrait bar ───────────────────────────────────────────────── */
 #hero-portrait-bar {
   position: absolute;
-  top: 26px;
+  top: 10px;
   left: 0;
   display: flex;
   flex-direction: column;
