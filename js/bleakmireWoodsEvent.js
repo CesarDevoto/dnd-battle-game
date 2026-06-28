@@ -5,6 +5,7 @@ import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaE
 import { units, setUnitWalking } from './units.js';
 import { addQuest } from './quests.js';
 import { mkInvestigateStar } from './propBuilders.js';
+import { isMarkerSeen, setMarkerSeen } from './investigateStars.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { KEY_GOBLIN_PURSUIT } from './ambushEvent.js';
@@ -169,7 +170,7 @@ registerPostCombatHandler(100, (_ctx, done) => {
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
 const _KEY_INTRO      = 'dnd-floosh-intro-seen';
-const _KEY_QUEST      = 'dnd-floosh-quest-seen';
+const _MARKER_ID      = 'floosh_quest';         // shared with investigateStars persistence
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 
 // Grassling (Floosh) world position in bleakmire_woods
@@ -287,7 +288,7 @@ function _startQuestDialogue(onDone = null) {
   _watchingProximity  = false;
   _flooshQuestPending = false;
   _removeFlooshExcl();
-  try { localStorage.setItem(_KEY_QUEST, '1'); } catch {}
+  setMarkerSeen(_MARKER_ID);
   showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
       { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
@@ -517,13 +518,13 @@ window.addEventListener('zone:loaded', e => {
       localStorage.setItem(_KEY_INTRO, '1');
       setTimeout(() => {
         showQuickDialogue(_INTRO_LINES, () => {
-          if (!localStorage.getItem(_KEY_QUEST)) {
+          if (!isMarkerSeen(_MARKER_ID)) {
             _watchingProximity = true;
             _spawnFlooshExcl();
           }
         });
       }, 1200);
-    } else if (!localStorage.getItem(_KEY_QUEST)) {
+    } else if (!isMarkerSeen(_MARKER_ID)) {
       // Intro already seen but quest not yet triggered — re-arm proximity watch
       _watchingProximity = true;
       _spawnFlooshExcl();

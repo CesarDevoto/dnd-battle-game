@@ -5,6 +5,26 @@ import { addLog } from './combat.js';
 import { isDevMode } from './devMode.js';
 import { registerPostCombatHandler } from './postCombat.js';
 
+// ── Persistence ───────────────────────────────────────────────────────────────
+
+const _SEEN_KEY = 'dnd-quest-markers-seen';
+
+function _loadSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(_SEEN_KEY) ?? '[]')); } catch { return new Set(); }
+}
+function _saveSeen(set) {
+  try { localStorage.setItem(_SEEN_KEY, JSON.stringify([...set])); } catch {}
+}
+
+export function isMarkerSeen(id) {
+  return _loadSeen().has(id);
+}
+export function setMarkerSeen(id) {
+  const s = _loadSeen();
+  s.add(id);
+  _saveSeen(s);
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 const _stars   = [];
@@ -13,8 +33,16 @@ const TRIGGER_RADIUS = 2.0;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export function trackStar(mesh, x, z) {
-  _stars.push({ mesh, x, z, t: Math.random() * Math.PI * 2 });
+// cfg: { id?, onTrigger? }
+// id — if provided and already seen, mesh is not added to scene and star is not tracked
+// onTrigger — callback fired when hero walks into range; replaces coordinate event dispatch
+export function trackStar(mesh, x, z, cfg = {}) {
+  if (cfg.id && isMarkerSeen(cfg.id)) {
+    // Already triggered in a prior session — don't spawn at all
+    mesh.parent?.removeChild(mesh);
+    return;
+  }
+  _stars.push({ mesh, x, z, t: Math.random() * Math.PI * 2, id: cfg.id, onTrigger: cfg.onTrigger });
 }
 
 export function untrackStar(mesh) {
@@ -30,17 +58,14 @@ export function clearAllStars() {
 }
 
 // ── Post-combat deferred trigger ──────────────────────────────────────────────
-// If a hero was already inside a star's radius when combat started, the trigger
-// fires here — same visual/narrative moment, just delayed until after combat.
 
 registerPostCombatHandler(3, (ctx, done) => {
   if (!_pending.length) { done(); return; }
   const p = _pending.shift();
   scene.remove(p.mesh);
+  if (p.id) setMarkerSeen(p.id);
   addLog('✦ The heroes discover something of interest…', 'round');
-  window.dispatchEvent(new CustomEvent('investigate:triggered', {
-    detail: { x: p.x, z: p.z },
-  }));
+  p.onTrigger?.();
   done();
 });
 
@@ -75,10 +100,9 @@ export function tickStars(dt) {
       const dz = hero.grp.position.z - s.z;
       if (dx * dx + dz * dz < TRIGGER_RADIUS * TRIGGER_RADIUS) {
         if (isPrecombat()) {
-          _triggerStar(s, i);    // immediate: remove ! and dispatch event now
+          _triggerStar(s, i);
         } else {
-          // In combat: keep ! visible, defer trigger to post-combat handler
-          _pending.push({ mesh: s.mesh, x: s.x, z: s.z });
+          _pending.push(s);
           _stars.splice(i, 1);
         }
         break;
@@ -92,8 +116,7 @@ export function tickStars(dt) {
 function _triggerStar(s, idx) {
   scene.remove(s.mesh);
   _stars.splice(idx, 1);
+  if (s.id) setMarkerSeen(s.id);
   addLog('✦ The heroes discover something of interest…', 'round');
-  window.dispatchEvent(new CustomEvent('investigate:triggered', {
-    detail: { x: s.x, z: s.z },
-  }));
+  s.onTrigger?.();
 }
