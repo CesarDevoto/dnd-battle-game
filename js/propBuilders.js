@@ -2122,16 +2122,16 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   glow.position.y = H + 0.6;
   grp.add(glow);
 
-  // Halo ring — starts invisible
-  const haloGeo = new THREE.RingGeometry(R * 0.95, R * 1.35, 64);
+  // Outer halo ring — clearly visible circle around the coin on activation
+  const haloGeo = new THREE.RingGeometry(R * 1.15, R * 1.75, 64);
   haloGeo.rotateX(-Math.PI / 2);
   const haloMat = new THREE.MeshBasicMaterial({
     color: 0x88ddff, transparent: true, opacity: 0,
-    depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
-  halo.position.y = H + 0.004;
-  halo.renderOrder = 2;
+  halo.position.y = H + 0.02;
+  halo.renderOrder = 10;
   halo.frustumCulled = false;
   halo.visible = false;
   grp.add(halo);
