@@ -73,7 +73,6 @@ let _dialogueFired = false;
 registerPostCombatHandler(30, (ctx, done) => {
   if (_dialogueFired) { done(); return; }
   if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
-  if (!units.some(u => u.type === 'goblin' && u.hp <= 0)) { done(); return; }
   _dialogueFired = true;
   clearAllExclamations();
   setTimeout(() => showQuickDialogue(_LINES, () => {
