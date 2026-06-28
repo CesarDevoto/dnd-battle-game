@@ -58,7 +58,10 @@ registerDialogueScene({
 let _dialogueFired = false;
 
 registerPostCombatHandler(30, (ctx, done) => {
-  if (_dialogueFired || _getActiveZoneIdFn?.() !== 'dungeon_entrance') { done(); return; }
+  if (_dialogueFired) { done(); return; }
+  if (_getActiveZoneIdFn?.() !== 'dungeon_entrance') { done(); return; }
+  // Only fire for the goblin ambush — goblins must have been in this combat
+  if (!units.some(u => u.type === 'goblin' && u.hp <= 0)) { done(); return; }
   _dialogueFired = true;
   clearAllStars();
   setTimeout(() => showQuickDialogue(_LINES, () => {
