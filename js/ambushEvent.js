@@ -4,7 +4,8 @@ import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { clearAllStars } from './investigateStars.js';
+import { clearAllStars, trackStar, isMarkerSeen } from './investigateStars.js';
+import { mkInvestigateStar } from './propBuilders.js';
 import { setQuestFlag } from './quests.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
@@ -50,6 +51,18 @@ registerDialogueScene({
   name: 'Goblin Ambush — Pursue or Deliver?',
   lines: _PURSUIT_LINES,
   onDone: () => showChoiceUI(_buildChoices()),
+});
+
+// ── Zone load — spawn ! near horses ──────────────────────────────────────────
+const _STAR_X = 15.2, _STAR_Z = 10.79;
+
+window.addEventListener('zone:loaded', e => {
+  if (e.detail?.id !== 'road_to_phandelver') return;
+  if (isMarkerSeen('horses_road') || _dialogueFired) return;
+  const star = mkInvestigateStar();
+  star.position.set(_STAR_X, getTerrainHeight(_STAR_X, _STAR_Z) + 1.2, _STAR_Z);
+  scene.add(star);
+  trackStar(star, _STAR_X, _STAR_Z, { id: 'horses_road' });
 });
 
 // ── Post-combat handler (priority 30) ────────────────────────────────────────
