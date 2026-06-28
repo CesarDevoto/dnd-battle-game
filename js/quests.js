@@ -2,6 +2,7 @@ import { awardXP } from './progression.js';
 import { addLog }  from './combat.js';
 
 const _STORAGE_KEY = 'dnd-quests';
+const _FLAGS_KEY   = 'dnd-quest-flags';
 
 // ── Quest state ───────────────────────────────────────────────────────────────
 const _quests = [];
@@ -50,7 +51,29 @@ export function completeQuest(id, reward = null) {
 export function resetQuests() {
   _quests.length = 0;
   try { localStorage.removeItem(_STORAGE_KEY); } catch {}
+  try { localStorage.removeItem(_FLAGS_KEY); } catch {}
   _render();
+}
+
+// ── Quest flags ───────────────────────────────────────────────────────────────
+// Named boolean markers that record choices and stage completions within quests.
+// Gate continuation content: if (!getQuestFlag('goblin_pursuit')) return;
+
+function _loadFlags() {
+  try { return new Set(JSON.parse(localStorage.getItem(_FLAGS_KEY) ?? '[]')); } catch { return new Set(); }
+}
+function _saveFlags(set) {
+  try { localStorage.setItem(_FLAGS_KEY, JSON.stringify([...set])); } catch {}
+}
+
+export function setQuestFlag(flag) {
+  const s = _loadFlags();
+  s.add(flag);
+  _saveFlags(s);
+}
+
+export function getQuestFlag(flag) {
+  return _loadFlags().has(flag);
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────

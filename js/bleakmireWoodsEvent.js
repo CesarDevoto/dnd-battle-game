@@ -8,7 +8,7 @@ import { mkInvestigateStar } from './propBuilders.js';
 import { isMarkerSeen, setMarkerSeen } from './investigateStars.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { KEY_GOBLIN_PURSUIT } from './ambushEvent.js';
+import { getQuestFlag } from './quests.js';
 import { isDevMode } from './devMode.js';
 
 // ── Floosh guide system ───────────────────────────────────────────────────────
@@ -509,7 +509,7 @@ window.addEventListener('zone:loaded', e => {
   if (isDevMode()) _spawnWaypointMarkers();
 
   // Only show footprints and Floosh intro if heroes chose to follow the goblin tracks
-  try { if (!localStorage.getItem(KEY_GOBLIN_PURSUIT)) return; } catch {}
+  if (!getQuestFlag('goblin_pursuit')) return;
 
   _showFootsteps();
 

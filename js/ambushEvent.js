@@ -5,6 +5,7 @@ import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaE
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { clearAllStars } from './investigateStars.js';
+import { setQuestFlag } from './quests.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -29,8 +30,6 @@ const _PURSUIT_LINES = [
   { s: 'Rasec',   t: "Leugren, wait… What of the horses and the wagon? We still have a contract to deliver these provisions to Barthen's in Phandalin." },
 ];
 
-export const KEY_GOBLIN_PURSUIT = 'dnd-quest-goblin-pursuit';
-
 const _PURSUIT_CHOICES = [
   { label: 'Follow the tracks', pursue: true,  lines: [{ s: 'Milo', t: "This way! The tracks lead north — follow me!" }] },
   { label: 'Head to Phandalin', pursue: false, lines: [{ s: 'Gobo', t: "Smart. Let's head back to the wagon and get these supplies to Phandalin before anything else goes wrong." }] },
@@ -40,7 +39,7 @@ function _buildChoices() {
   return _PURSUIT_CHOICES.map(ch => ({
     label:  ch.label,
     onPick: () => {
-      if (ch.pursue) try { localStorage.setItem(KEY_GOBLIN_PURSUIT, '1'); } catch {}
+      if (ch.pursue) setQuestFlag('goblin_pursuit');
       showQuickDialogue(ch.lines);
     },
   }));
