@@ -8,12 +8,17 @@ const WAKE_WU   = Math.round(180 / FT_PER_WU); // 72
 const SLEEP_WU  = Math.round(200 / FT_PER_WU); // 80
 const FADE_STEP = 0.04; // ~25 frames (~0.4s at 60fps) to fully fade
 
+const _NORMAL_BLENDING = 1; // THREE.NormalBlending — avoid importing THREE here
+
 function _applyOpacity(root, opacity) {
   root.traverse(obj => {
     if (!obj.isMesh) return;
     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
     mats.forEach(mat => {
       if (!mat) return;
+      // Skip additive/custom-blend materials (halo rings, wisps, fog patches).
+      // They manage their own transparency and must not be overridden here.
+      if (mat.blending !== _NORMAL_BLENDING) return;
       const wantTransparent = opacity < 1;
       if (mat.transparent !== wantTransparent) {
         mat.transparent = wantTransparent;

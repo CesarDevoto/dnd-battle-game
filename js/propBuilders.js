@@ -2172,7 +2172,16 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     blueMat.color.set(0xa8d8ea);
     dormantLight.intensity = 0;
     halo.visible = true;
-    wisps.forEach(w => { w.mesh.visible = true; w.life = Math.random(); });
+    // Restore transparent flag in case activationRadius._applyOpacity corrupted it.
+    haloMat.transparent = true;
+    haloMat.opacity     = 0.60;
+    haloMat.needsUpdate = true;
+    wisps.forEach(w => {
+      w.mesh.visible = true;
+      w.mesh.material.transparent = true;
+      w.mesh.material.needsUpdate = true;
+      w.life = Math.random();
+    });
   };
 
   // Check localStorage directly to avoid circular import through worldMap→zoneLoader→environments→here
