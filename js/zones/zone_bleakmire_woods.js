@@ -47,7 +47,7 @@ export const ZONE = {
     { type: 'swarm_of_insects', x: 40, z: 12, scale: 0.974, roams: true, patrol: [{x:10,z:12}, {x:40,z:12}] },
   ],
   exits: [
-    { x: 3.32, z: 87.47, targetZone: 'dungeon_entrance', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
+    { x: 3.32, z: 87.47, targetZone: 'road_to_phandelver', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
     { x: 82, z: -82, targetZone: 'haunted_wood', arrivalX: -82, arrivalZ: 78, label: 'Haunted Wood', fogPush: 14 },
   ],
   terrain: [

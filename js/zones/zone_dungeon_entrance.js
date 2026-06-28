@@ -1,6 +1,6 @@
 export const ZONE = {
-  id:        'dungeon_entrance',
-  name:      'Goblin Ambush',
+  id:        'road_to_phandelver',
+  name:      'Road to Phandelver',
   biome: 'forest',
   ambient: 'goblin_ambush',
   heroEntry: [

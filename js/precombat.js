@@ -234,7 +234,7 @@ function _triggerAggro(spotter) {
   }
 
   const _doStart = () => { exitPrecombat(); rollInitiative(); };
-  if (getActiveZone()?.id === 'dungeon_entrance') {
+  if (getActiveZone()?.id === 'road_to_phandelver') {
     setTimeout(() => showQuickDialogue(
       [{ s: 'Milo', t: 'An ambush! Ready yourselves!' }],
       _doStart
