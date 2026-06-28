@@ -4,6 +4,7 @@ import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit } from './
 import { units, corpses } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 import { registerPostCombatHandler } from './postCombat.js';
+import { updateXPBar } from './progression.js';
 
 // Injected at init time to avoid circular deps (both importers of combat.js)
 let _removeUnitsFn      = null;
@@ -678,6 +679,12 @@ function _doStyxTransition() {
   _removeDagna();
   _removePortal();
 
+  // Save hero progression before the rebuild so XP/level survive the zone transition
+  const _savedProg = {};
+  units.filter(u => u.team === 'blue').forEach(u => {
+    _savedProg[u.type] = { xp: u.xp ?? 0, level: u.level ?? 1, hpFrac: u.hpFrac ?? 0 };
+  });
+
   // Clear all blue units + corpses — loadZone will rebuild all 4 heroes fresh
   if (_removeUnitsFn) _removeUnitsFn(u => u.team === 'blue');
   for (let i = corpses.length - 1; i >= 0; i--) {
@@ -688,6 +695,16 @@ function _doStyxTransition() {
   }
 
   if (_loadZoneFn) _loadZoneFn('river_styx', false);
+
+  // Restore XP/level on the freshly built heroes (buildUnit resets these to 0/1)
+  units.filter(u => u.team === 'blue').forEach(u => {
+    const p = _savedProg[u.type];
+    if (!p) return;
+    u.xp     = p.xp;
+    u.level  = p.level;
+    u.hpFrac = p.hpFrac;
+  });
+  updateXPBar();
   _inStyxZone = true;
   _freezePrecombatFn?.(true);  // hold all enemy movement until dialogue B ends
 

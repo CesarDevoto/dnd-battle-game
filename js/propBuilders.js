@@ -2122,19 +2122,6 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   glow.position.y = H + 0.6;
   grp.add(glow);
 
-  // Outer halo ring — clearly visible circle around the coin on activation
-  const haloGeo = new THREE.RingGeometry(R * 1.15, R * 1.75, 64);
-  haloGeo.rotateX(-Math.PI / 2);
-  const haloMat = new THREE.MeshBasicMaterial({
-    color: 0x88ddff, transparent: true, opacity: 0,
-    depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  });
-  const halo = new THREE.Mesh(haloGeo, haloMat);
-  halo.position.y = H + 0.02;
-  halo.renderOrder = 10;
-  halo.frustumCulled = false;
-  halo.visible = false;
-  grp.add(halo);
 
   // Circular soft-blob texture for wisps
   const _wispCanvas = document.createElement('canvas');
@@ -2148,7 +2135,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   _wispCtx.fillRect(0, 0, 64, 64);
   const _wispTex = new THREE.CanvasTexture(_wispCanvas);
 
-  // Vapor wisps — start hidden, confined directly above coin
+  // Vapor wisps — opacity 0 until activated; update loop drives opacity after that
   const WISP_COUNT = 60;
   const wisps = [];
   for (let i = 0; i < WISP_COUNT; i++) {
@@ -2159,7 +2146,6 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
     mesh.renderOrder = 3;
-    mesh.visible = false;
     grp.add(mesh);
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * R * 0.7;
@@ -2171,17 +2157,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     _activated = true;
     blueMat.color.set(0xa8d8ea);
     dormantLight.intensity = 0;
-    halo.visible = true;
-    // Restore transparent flag in case activationRadius._applyOpacity corrupted it.
-    haloMat.transparent = true;
-    haloMat.opacity     = 0.60;
-    haloMat.needsUpdate = true;
-    wisps.forEach(w => {
-      w.mesh.visible = true;
-      w.mesh.material.transparent = true;
-      w.mesh.material.needsUpdate = true;
-      w.life = Math.random();
-    });
+    wisps.forEach(w => { w.life = Math.random(); });
   };
 
   // Check localStorage directly to avoid circular import through worldMap→zoneLoader→environments→here
@@ -2240,10 +2216,8 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
       }
     }
 
-    // Pulse glow + halo — floors keep ring always visible
     const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
-    glow.intensity  = 3.0 + pulse * 17.0;   // 3 → 20
-    haloMat.opacity = 0.30 + pulse * 0.60;  // 0.30 → 0.90
+    glow.intensity = 3.0 + pulse * 17.0;
 
     // Vapors: rise straight up, fixed x/z above coin surface
     for (const w of wisps) {
