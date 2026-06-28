@@ -133,7 +133,7 @@ export function initHotbar() {
       `<span class="hb-label"></span>`;
     btn.addEventListener('click', () => {
       _flash(btn);
-      _reg[k.code]?.fn?.();
+      _fire(k.code);
     });
     normalRow.appendChild(btn);
     _btns[k.code] = btn;
@@ -150,7 +150,7 @@ export function initHotbar() {
       `<span class="hb-label"></span>`;
     btn.addEventListener('click', () => {
       _flash(btn);
-      _reg[k.code]?.fn?.();
+      _fire(k.code);
     });
     shiftRow.appendChild(btn);
     _btns[k.code] = btn;
@@ -163,7 +163,7 @@ export function initHotbar() {
     btn.innerHTML =
       `<span class="hb-key">${ms.label}</span>` +
       `<span class="hb-label"></span>`;
-    btn.addEventListener('click', () => { _flash(btn); _reg[ms.code]?.fn?.(); });
+    btn.addEventListener('click', () => { _flash(btn); _fire(ms.code); });
     normalRow.appendChild(btn);
     _btns[ms.code] = btn;
   }
@@ -175,7 +175,7 @@ export function initHotbar() {
     btn.innerHTML =
       `<span class="hb-key">${ms.label}</span>` +
       `<span class="hb-label"></span>`;
-    btn.addEventListener('click', () => { _flash(btn); _reg[ms.code]?.fn?.(); });
+    btn.addEventListener('click', () => { _flash(btn); _fire(ms.code); });
     shiftRow.appendChild(btn);
     _btns[ms.code] = btn;
   }
@@ -188,7 +188,7 @@ export function initHotbar() {
     e.preventDefault();
     const btn = _btns[k.code];
     if (btn) _flash(btn);
-    _reg[k.code]?.fn?.();
+    _fire(k.code);
   });
 
   // Middle-click anywhere fires the MMB slot
@@ -197,8 +197,17 @@ export function initHotbar() {
     e.preventDefault();
     const btn = _btns['MouseMiddle'];
     if (btn) _flash(btn);
-    _reg['MouseMiddle']?.fn?.();
+    _fire('MouseMiddle');
   });
+}
+
+// Fire a hotkey slot only if its enable function (rangeFn) passes — or if there is none.
+// This makes keyboard shortcuts and button clicks both respect the greyed-out state.
+function _fire(code) {
+  const entry = _reg[code];
+  if (!entry) return;
+  if (entry.rangeFn && !entry.rangeFn()) return;
+  entry.fn?.();
 }
 
 function _flash(btn) {
