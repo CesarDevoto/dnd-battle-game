@@ -40,8 +40,16 @@ function _play(cs) {
 function _loadSlide(idx) {
   const slide = _cs.slides[idx];
 
-  // Ensure black overlay is up while image/position changes
+  // Ensure black fade is up (z-index 3, covers text + image) while we swap content.
   _fadeEl.classList.add('cs-fade-on');
+
+  // Set text content NOW while behind the black fade — no visible flash.
+  _textEl.textContent = slide.text;
+  _textEl.classList.remove('cs-text-in');
+  _promptEl.classList.remove('cs-prompt-in');
+
+  _dotsEl.innerHTML = _cs.slides.map((_, i) =>
+    `<span class="cs-dot${i === idx ? ' cs-dot-on' : ''}"></span>`).join('');
 
   // Title-card mode (no image) vs normal image slide
   if (slide.img) {
@@ -52,41 +60,52 @@ function _loadSlide(idx) {
     _img.style.animation = '';
     _img.className = `cs-img cs-pan-${slide.pan ?? 'left'}`;
     _img.style.objectPosition = slide.objPos ?? '';
-    _img.src = slide.img;
     _overlay.classList.remove('cs-title-card');
   } else {
     _img.style.display = 'none';
     _overlay.classList.add('cs-title-card');
   }
 
-  // Fade from black once image is ready
-  setTimeout(() => _fadeEl.classList.remove('cs-fade-on'), 120);
-
-  _textEl.classList.remove('cs-text-in');
-  _promptEl.classList.remove('cs-prompt-in');
-
-  _dotsEl.innerHTML = _cs.slides.map((_, i) =>
-    `<span class="cs-dot${i === idx ? ' cs-dot-on' : ''}"></span>`).join('');
-
-  // Lock click-through briefly, then reveal text 1 second after image fades in (~120ms)
-  // textContent is set here — not earlier — so the new text never flashes during the fade-out
   _locked = true;
-  setTimeout(() => { _locked = false; }, 400);
-  setTimeout(() => {
-    _textEl.textContent = slide.text;
-    _textEl.classList.add('cs-text-in');
-    setTimeout(() => _promptEl.classList.add('cs-prompt-in'), 700);
-  }, 1120);
+
+  // Reveal image + text together once the image has loaded (or immediately if cached/no image).
+  const _reveal = () => {
+    _fadeEl.classList.remove('cs-fade-on');        // black fades out (0.42s)
+    requestAnimationFrame(() => {
+      _textEl.classList.add('cs-text-in');          // text fades in simultaneously
+      setTimeout(() => {
+        _promptEl.classList.add('cs-prompt-in');
+        _locked = false;
+      }, 600);
+    });
+  };
+
+  if (slide.img) {
+    _img.onload = null;
+    if (_img.complete && _img.src.endsWith(slide.img.split('/').pop())) {
+      // Already cached — set src then reveal after a frame to restart the Ken Burns animation
+      _img.src = slide.img;
+      requestAnimationFrame(() => setTimeout(_reveal, 80));
+    } else {
+      _img.onload = _reveal;
+      _img.src = slide.img;
+    }
+  } else {
+    setTimeout(_reveal, 120);
+  }
 }
 
 function _advance() {
   if (_locked || !_playing) return;
-  _slideIdx++;
-  if (_slideIdx >= _cs.slides.length) { _finish(); return; }
   _locked = true;
   _fadeEl.classList.add('cs-fade-on');
   _textEl.classList.remove('cs-text-in');
   _promptEl.classList.remove('cs-prompt-in');
+  _slideIdx++;
+  if (_slideIdx >= _cs.slides.length) {
+    setTimeout(_finish, 460);  // fade to black first, then close
+    return;
+  }
   setTimeout(() => _loadSlide(_slideIdx), 460);
 }
 

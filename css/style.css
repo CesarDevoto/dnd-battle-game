@@ -6097,7 +6097,7 @@ td.bst-col-retired { color: #343228 !important; }
   inset: 0;
   background: #000;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
   opacity: 0;
   transition: opacity 0.42s ease;
 }
