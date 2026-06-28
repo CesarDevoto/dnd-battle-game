@@ -2584,7 +2584,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
         if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger });
       } else if (trigger === 'enemy_in_ranged_range') {
         const rangedAtk = heroAtks.find(a => a.type === 'ranged');
-        if (rangedAtk && dist <= atkRangeWU(rangedAtk.longRange ?? rangedAtk.range)) {
+        if (rangedAtk && dist <= atkRangeWU(rangedAtk.range)) {
           matches.push({ hero, trigger });
         }
       }
