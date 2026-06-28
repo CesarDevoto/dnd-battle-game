@@ -13,7 +13,7 @@ import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
 import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
-import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_dungeon_entrance.js';
+import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_road_to_phandelver.js';
 import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
 import { ZONE as ZONE_MAUSOLEUM } from './zones/zone_mausoleum.js';
