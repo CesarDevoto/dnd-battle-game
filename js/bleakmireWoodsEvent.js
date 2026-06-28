@@ -56,6 +56,7 @@ let _flooshUnit   = null;
 let _guideBaseY   = 0;
 let _guidePaused  = false;
 let _guideSinking = false;
+let _guideSunk    = false; // true while underground, prevents movement until post-combat rises Floosh
 let _guideRising  = false;
 let _shallWeDone  = null; // post-combat done() held until dialogue closes
 
@@ -88,6 +89,7 @@ function _tickGuide(dt) {
       f.grp.position.y = _guideBaseY - _SINK_DEPTH;
       f.grp.visible    = false;
       _guideSinking    = false;
+      _guideSunk       = true; // freeze movement until post-combat raises Floosh
     }
     return;
   }
@@ -108,9 +110,9 @@ function _tickGuide(dt) {
     return;
   }
 
-  // Sink when combat starts
+  // Sink when combat starts; stay frozen (_guideSunk) until post-combat handler raises Floosh
   if (!isPrecombat()) {
-    if (!_guideSinking) {
+    if (!_guideSinking && !_guideSunk) {
       _guideBaseY   = getTerrainHeight(gx, gz);
       _guideSinking = true;
       _guidePaused  = false;
@@ -118,6 +120,8 @@ function _tickGuide(dt) {
     }
     return;
   }
+  // Between combat-end and the priority-100 post-combat handler firing, do not move while sunk.
+  if (_guideSunk) return;
 
   // Stop if no hero within 40 ft
   const heroNearby = units.some(u => {
@@ -163,6 +167,7 @@ registerPostCombatHandler(100, (_ctx, done) => {
   _guideBaseY  = getTerrainHeight(f.grp.position.x, f.grp.position.z);
   f.grp.position.y = _guideBaseY - _SINK_DEPTH; // ensure below ground before rising
   f.grp.visible    = false;
+  _guideSunk    = false; // allow _tickGuide to process the rising animation
   _guideRising  = true;
   _shallWeDone  = done; // held until player closes "Shall we?" dialogue
 });
@@ -480,6 +485,15 @@ export function tickBleakmireWoods(dt) {
         1,
       );
       spr.position.y = Math.sin(_flooshQMarkT * 1.4) * 0.10;
+    }
+    // Keep ? above Floosh while he's guiding (he moves)
+    if (_guiding && !_guideDone) {
+      const f = _getFloosh();
+      if (f) {
+        _flooshQMark.position.x = f.grp.position.x;
+        _flooshQMark.position.z = f.grp.position.z;
+        _flooshQMark.position.y = getTerrainHeight(f.grp.position.x, f.grp.position.z) + 2.5;
+      }
     }
   }
 
