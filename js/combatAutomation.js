@@ -104,7 +104,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['fire_bolt', 'dagger', 'delay_action'],
-          dwarf:    ['healing_word', 'delay_action', 'light_crossbow', 'warhammer'],
+          dwarf:    ['healing_word', 'light_crossbow', 'warhammer', 'delay_action'],
           human:    ['rage', 'greataxe', 'handaxe', 'delay_action'],
           halfling: ['sneak_attack', 'shortbow', 'shortsword', 'delay_action'],
         },
