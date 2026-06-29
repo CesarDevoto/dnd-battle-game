@@ -163,7 +163,7 @@ export function aiPickAllyDest(u, allies, validTiles) {
 // 'melee'        → strongly prefer tiles in melee range, ranged as fallback.
 // 'ranged'/'kite'→ prefer ranged range, avoid melee; maximise distance within range.
 // 'stay'         → caller should skip this function entirely.
-export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU) {
+export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU, hasLOS) {
   if (!validTiles.size) return null;
   const tx = target.grp.position.x, tz = target.grp.position.z;
   const def  = UNIT_TYPES[u.type] ?? {};
@@ -185,9 +185,19 @@ export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTrigger
       else if (rangedRange > 0 && dist <= rangedRange) score -=  300;
     } else {
       // 'ranged' or 'kite': avoid melee, maximise distance within ranged range
-      if (meleeTrigger > 0 && dist <= meleeTrigger)   score = 10000 + dist;
-      else if (rangedRange > 0 && dist <= rangedRange) score = -dist;
-      else                                             score =  dist;
+      // Prefer tiles with clear LOS to avoid heroes hiding behind walls
+      const inMelee  = meleeTrigger > 0 && dist <= meleeTrigger;
+      const inRanged = rangedRange  > 0 && dist <= rangedRange;
+      const los      = hasLOS ? hasLOS(kx, kz, tx, tz) : true;
+      if (inMelee) {
+        score = 10000 + dist;        // avoid melee range
+      } else if (inRanged && los) {
+        score = -dist;               // ideal: max distance in range with clear LOS
+      } else if (inRanged) {
+        score = 5000 - dist;         // in range but wall-blocked — last resort
+      } else {
+        score = dist;                // out of range — move closer
+      }
     }
     if (score < bestScore) { bestScore = score; best = { x: kx, z: kz }; }
   }

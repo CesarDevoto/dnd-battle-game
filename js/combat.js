@@ -3022,6 +3022,7 @@ export function activateTurn(index) {
     if (u.team === 'blue' && _readied.has(u)) {
       addLog(`${unitLabel(u)}'s ready action expires (trigger never fired).`, 'move');
       _readied.delete(u);
+      _readiedAutomated.delete(u);
       buildTurnList();
     }
     if (u.team === 'blue') playSound('turn_start');
@@ -3506,7 +3507,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
       } else {
-        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU);
+        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, hasLineOfSight);
       }
       hideMoveRange();
     }
