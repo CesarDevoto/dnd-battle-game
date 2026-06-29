@@ -2135,22 +2135,30 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   _wispCtx.fillRect(0, 0, 64, 64);
   const _wispTex = new THREE.CanvasTexture(_wispCanvas);
 
-  // Vapor wisps — opacity 0 until activated; update loop drives opacity after that
-  const WISP_COUNT = 60;
+  // Vapor wisps — single THREE.Points (one draw call). Fade encoded as color brightness
+  // since blending is additive (black = fully transparent, no per-particle alpha needed).
+  const WISP_COUNT = 300;
+  const _wispPos = new Float32Array(WISP_COUNT * 3);
+  const _wispCol = new Float32Array(WISP_COUNT * 3);
+  const _wispGeo = new THREE.BufferGeometry();
+  _wispGeo.setAttribute('position', new THREE.BufferAttribute(_wispPos, 3));
+  _wispGeo.setAttribute('color',    new THREE.BufferAttribute(_wispCol, 3));
+  const _wispPts = new THREE.Points(_wispGeo, new THREE.PointsMaterial({
+    size: 0.17, map: _wispTex, vertexColors: true,
+    transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  }));
+  _wispPts.renderOrder = 3;
+  grp.add(_wispPts);
+
   const wisps = [];
   for (let i = 0; i < WISP_COUNT; i++) {
-    const size = 0.10 + Math.random() * 0.14;
-    const mat  = new THREE.MeshBasicMaterial({
-      color: 0x8800cc, map: _wispTex, transparent: true, opacity: 0,
-      depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-    mesh.renderOrder = 3;
-    grp.add(mesh);
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * R * 0.7;
-    wisps.push({ mesh, ox: Math.cos(a) * r, oz: Math.sin(a) * r,
+    wisps.push({ ox: Math.cos(a) * r, oz: Math.sin(a) * r,
                  life: Math.random(), dur: 1.4 + Math.random() * 1.2 });
+    _wispPos[i * 3]     = wisps[i].ox;
+    _wispPos[i * 3 + 2] = wisps[i].oz;
   }
 
   const _visualActivate = () => {
@@ -2219,8 +2227,11 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     const pulse = Math.sin(_t * 1.8) * 0.5 + 0.5;
     glow.intensity = 3.0 + pulse * 17.0;
 
-    // Vapors: rise straight up, fixed x/z above coin surface
-    for (const w of wisps) {
+    // Vapors: update position/color buffers — one draw call for all 300 particles.
+    // Deep purple (0x8800cc) brightness encodes fade in additive blending.
+    const PR = 0x88 / 0xff, PB = 0xcc / 0xff;
+    for (let i = 0; i < WISP_COUNT; i++) {
+      const w = wisps[i];
       w.life += _dt / w.dur;
       if (w.life >= 1.0) {
         w.life = 0;
@@ -2230,12 +2241,18 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
         w.oz = Math.sin(a) * r;
         w.dur = 1.4 + Math.random() * 1.2;
       }
-      const t  = w.life;
-      const op = t < 0.15 ? t / 0.15 : t > 0.72 ? (1 - t) / 0.28 : 1.0;
-      w.mesh.material.opacity = op * 0.55;
-      w.mesh.position.set(w.ox, H + 0.05 + t * 2.2, w.oz);
-      w.mesh.lookAt(w.mesh.position.x, w.mesh.position.y + 10, w.mesh.position.z);
+      const t    = w.life;
+      const op   = t < 0.15 ? t / 0.15 : t > 0.72 ? (1 - t) / 0.28 : 1.0;
+      const fade = op * 0.55;
+      _wispPos[i * 3]     = w.ox;
+      _wispPos[i * 3 + 1] = H + 0.05 + t * 2.2;
+      _wispPos[i * 3 + 2] = w.oz;
+      _wispCol[i * 3]     = PR * fade;
+      _wispCol[i * 3 + 1] = 0;
+      _wispCol[i * 3 + 2] = PB * fade;
     }
+    _wispGeo.attributes.position.needsUpdate = true;
+    _wispGeo.attributes.color.needsUpdate    = true;
 
     // Distance-based audio — find closest hero
     if (_setAudioDist) {
