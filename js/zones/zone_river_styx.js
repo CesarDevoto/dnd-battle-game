@@ -78,12 +78,12 @@ export const ZONE = {
     { model: 'dungeonwall', x: -17.27, z: 39.28, y: -3.75, yOff: -3.75, rotY: 0, scale: 8 },
   ],
   spawns: [
-    { type: 'mane', x: -0.96, z: -10.73, round: 2, every: 2, roams: true, roamMode: 'patrol', patrol: [{x:-1.57,z:39.22}, {x:21.43,z:34.3}] },
-    { type: 'mane', x: 2.19, z: -8.43, round: 3, every: 2, roams: true, roamMode: 'patrol', patrol: [{x:-0.01,z:38.54}, {x:-27.69,z:34.88}] },
-    { type: 'mane', x: -4.39, z: -12.24, round: 3, every: 2, roams: true, roamMode: 'patrol', patrol: [{x:2.4,z:30.4}, {x:-27.87,z:0.19}] },
-    { type: 'mane', x: 4.11, z: -5.22, round: 3, every: 2, roams: true, roamMode: 'patrol', patrol: [{x:-4.1,z:31.06}, {x:5.4,z:15.44}] },
-    { type: 'abyssal_wretch', x: 6.36, z: -4.43, round: 2, every: 2 },
-    { type: 'abyssal_wretch', x: 8.62, z: -3.67, round: 2, every: 2 },
+    { type: 'mane', x: -0.96, z: -10.73, round: 2, every: 3, roams: true, roamMode: 'patrol', patrol: [{x:-1.57,z:39.22}, {x:21.43,z:34.3}] },
+    { type: 'mane', x: 2.19, z: -8.43, round: 3, every: 3, roams: true, roamMode: 'patrol', patrol: [{x:-0.01,z:38.54}, {x:-27.69,z:34.88}] },
+    { type: 'mane', x: -4.39, z: -12.24, round: 3, every: 3, roams: true, roamMode: 'patrol', patrol: [{x:2.4,z:30.4}, {x:-27.87,z:0.19}] },
+    { type: 'mane', x: 4.11, z: -5.22, round: 3, every: 3, roams: true, roamMode: 'patrol', patrol: [{x:-4.1,z:31.06}, {x:5.4,z:15.44}] },
+    { type: 'abyssal_wretch', x: 6.36, z: -4.43, round: 2, every: 3 },
+    { type: 'abyssal_wretch', x: 8.62, z: -3.67, round: 2, every: 3 },
   ],
   barriers: [
     { x1: -46.32, z1: 45.44, x2: -46.14, z2: -20.2 },
