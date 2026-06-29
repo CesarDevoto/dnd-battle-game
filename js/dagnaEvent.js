@@ -770,10 +770,22 @@ function _startOutro() {
   });
 }
 
-// Place heroes in Leugren+Gobo front / Human+Elf back around the pre-styx anchor position.
+// Place heroes in Leugren+Gobo front / Human+Elf back around the waystone in the
+// returned-to zone, falling back to the pre-styx anchor if no waystone is present.
 function _positionHeroesFormation() {
-  const ax = _leugrenLastPos.x;
-  const az = _leugrenLastPos.z;
+  let ax = _leugrenLastPos.x;
+  let az = _leugrenLastPos.z;
+
+  // After the zone loads its props the waystone group is in the scene with userData.waystoneId set.
+  // Position heroes a few WU behind it (toward the zone interior) to avoid landing on enemies.
+  const wp = new THREE.Vector3();
+  scene.traverse(obj => {
+    if (obj.userData?.waystoneId) {
+      obj.getWorldPosition(wp);
+      ax = wp.x;
+      az = wp.z + 4;
+    }
+  });
   const FORM = [
     { type: 'dwarf',    ox: -1, oz:  0 },
     { type: 'halfling', ox:  1, oz:  0 },
