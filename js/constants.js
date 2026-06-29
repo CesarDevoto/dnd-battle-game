@@ -767,7 +767,7 @@ export const UNIT_TYPES = {
 
   abyssal_chicken: {
     name: 'Abyssal Chicken', team: 'red',
-    scale: [0.33, 0.33, 0.33], anchorY: 0.47,
+    scale: [0.66, 0.66, 0.66], anchorY: 0.47,
     // CR 1/8 — Very Easy (Tiny fiend)
     detect: 20,
     hp: 10, ac: 13, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,

@@ -150,6 +150,10 @@ const ANIM_CLIP_NAMES = {
   abyssal_chicken: {
     idle: 'idle', walk: 'walk', run: 'walk', attack: 'flap', death: 'rest pose',
   },
+  // Non-humanoid flying rig; glide for idle, flap for all movement/attack, idle for death
+  stirge: {
+    idle: 'glide', walk: 'flap', run: 'flap', attack: 'flap', death: 'idle',
+  },
 };
 
 // Auto-detect animation roles by analysing Hips/Root bone Y-axis movement in each clip.

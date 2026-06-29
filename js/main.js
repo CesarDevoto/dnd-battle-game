@@ -117,7 +117,7 @@ initSpellbook();
 }
 initHotbar();
 initZoneUI();
-initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExit });
+initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExit, getActiveZone });
 initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initGroupMove();

@@ -11,6 +11,7 @@ let _removeUnitsFn      = null;
 let _loadZoneFn         = null;
 let _freezePrecombatFn  = null;
 let _endCombatFn        = null;
+let _getActiveZoneFn    = null;
 
 // Track the most recent non-styx zone so the outro can teleport heroes back.
 let _origZoneId = null;
@@ -18,11 +19,12 @@ window.addEventListener('zone:loaded', e => {
   if (e.detail?.id && e.detail.id !== 'river_styx') _origZoneId = e.detail.id;
 });
 
-export function initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat }) {
+export function initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat, getActiveZone }) {
   _removeUnitsFn     = removeUnits;
   _loadZoneFn        = loadZone;
   _freezePrecombatFn = setPrecombatFrozen;
   _endCombatFn       = endCombat;
+  _getActiveZoneFn   = getActiveZone;
   _initPortalGeometry();  // pre-build once so GPU buffers upload on frame 1
   _buildDlgPanel();
 }
@@ -770,36 +772,47 @@ function _startOutro() {
   });
 }
 
-// Place heroes in Leugren+Gobo front / Human+Elf back around the waystone in the
-// returned-to zone, falling back to the pre-styx anchor if no waystone is present.
+// Place heroes around the waystone in the returned-to zone.
+// Fallback: use the zone's heroEntry positions if no waystone is present.
 function _positionHeroesFormation() {
-  let ax = _leugrenLastPos.x;
-  let az = _leugrenLastPos.z;
-
-  // After the zone loads its props the waystone group is in the scene with userData.waystoneId set.
-  // Position heroes a few WU behind it (toward the zone interior) to avoid landing on enemies.
+  // Try to find a waystone in the scene (set synchronously when the zone prop group is created).
   const wp = new THREE.Vector3();
+  let waystoneFound = false;
   scene.traverse(obj => {
-    if (obj.userData?.waystoneId) {
-      obj.getWorldPosition(wp);
-      ax = wp.x;
-      az = wp.z + 4;
-    }
+    if (obj.userData?.waystoneId) { obj.getWorldPosition(wp); waystoneFound = true; }
   });
-  const FORM = [
-    { type: 'dwarf',    ox: -1, oz:  0 },
-    { type: 'halfling', ox:  1, oz:  0 },
-    { type: 'human',    ox: -1, oz:  2 },
-    { type: 'elf',      ox:  1, oz:  2 },
-  ];
-  FORM.forEach(({ type, ox, oz }) => {
-    const u = units.find(u => u.team === 'blue' && u.type === type);
-    if (!u) return;
-    const x = ax + ox, z = az + oz;
-    const y = getTerrainHeight(x, z);
-    u.grp.position.set(x, y, z);
-    if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
-  });
+
+  if (waystoneFound) {
+    // Position heroes a few WU behind the waystone (toward zone interior).
+    const ax = wp.x, az = wp.z + 4;
+    const FORM = [
+      { type: 'dwarf',    ox: -1, oz:  0 },
+      { type: 'halfling', ox:  1, oz:  0 },
+      { type: 'human',    ox: -1, oz:  2 },
+      { type: 'elf',      ox:  1, oz:  2 },
+    ];
+    FORM.forEach(({ type, ox, oz }) => {
+      const u = units.find(u => u.team === 'blue' && u.type === type);
+      if (!u) return;
+      const x = ax + ox, z = az + oz;
+      const y = getTerrainHeight(x, z);
+      u.grp.position.set(x, y, z);
+      if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
+    });
+    return;
+  }
+
+  // No waystone in zone — use heroEntry positions from the active zone.
+  const entry = _getActiveZoneFn?.()?.heroEntry;
+  if (entry?.length) {
+    entry.forEach(({ type, x, z }) => {
+      const u = units.find(u => u.team === 'blue' && u.type === type);
+      if (!u) return;
+      const y = getTerrainHeight(x, z);
+      u.grp.position.set(x, y, z);
+      if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
+    });
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

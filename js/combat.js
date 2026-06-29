@@ -3503,7 +3503,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
     const isAllyMovTgt = movTarget?.team === 'blue';
     let dest = null;
     if (!noMove && preferRange !== 'stay' && movTarget) {
-      showMoveRange(u);
+      const _remFt = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+      const _movFt = (preferRange === 'ranged' || preferRange === 'kite') ? _remFt / 2 : undefined;
+      showMoveRange(u, _movFt);
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
       } else {
