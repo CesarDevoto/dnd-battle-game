@@ -2141,7 +2141,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
   for (let i = 0; i < WISP_COUNT; i++) {
     const size = 0.10 + Math.random() * 0.14;
     const mat  = new THREE.MeshBasicMaterial({
-      color: 0xaaeeff, map: _wispTex, transparent: true, opacity: 0,
+      color: 0x8800cc, map: _wispTex, transparent: true, opacity: 0,
       depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
