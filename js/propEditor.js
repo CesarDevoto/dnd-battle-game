@@ -606,9 +606,16 @@ function _updateStatus() {
 function _buildPanel() {
   const listEl = document.getElementById('pe-model-list');
   if (!listEl) return;
-  listEl.innerHTML = Object.entries(PROP_MODELS).map(([key, def]) =>
-    `<button class="pe-model-btn${key === _selectedModel ? ' active' : ''}" data-model="${key}">${def.label}</button>`
-  ).join('');
+  const all = Object.entries(PROP_MODELS);
+  const collision   = all.filter(([, d]) => d.clashR > 0);
+  const passable    = all.filter(([, d]) => !(d.clashR > 0));
+  const mkBtn = ([key, def]) =>
+    `<button class="pe-model-btn${key === _selectedModel ? ' active' : ''}" data-model="${key}">${def.label}</button>`;
+  listEl.innerHTML =
+    `<div class="pe-section-header">Collision</div>` +
+    collision.map(mkBtn).join('') +
+    `<div class="pe-section-header pe-section-header--passable">No Collision</div>` +
+    passable.map(mkBtn).join('');
   listEl.addEventListener('click', e => {
     const btn = e.target.closest('.pe-model-btn');
     if (!btn) return;
