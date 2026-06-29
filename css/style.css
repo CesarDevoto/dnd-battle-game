@@ -4517,6 +4517,20 @@ td.bst-col-retired { color: #343228 !important; }
 #tendencies-table-wrap {
   overflow-y: auto;
   flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212,175,55,0.35) rgba(6,4,1,0.95);
+}
+#tendencies-table-wrap::-webkit-scrollbar { width: 6px; }
+#tendencies-table-wrap::-webkit-scrollbar-track {
+  background: rgba(6,4,1,0.95);
+  border-left: 1px solid rgba(212,175,55,0.08);
+}
+#tendencies-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(212,175,55,0.30);
+  border-radius: 3px;
+}
+#tendencies-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(212,175,55,0.60);
 }
 
 #tendencies-table {
