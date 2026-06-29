@@ -543,6 +543,9 @@ export async function loadZoneProps(propsArray) {
   for (const p of propsArray) {
     const def = PROP_MODELS[p.model];
     if (!def) continue;
+    if (p.model === 'waystone' && p.waystoneId == null) {
+      console.warn(`[propEditor] Waystone at (${p.x}, ${p.z}) is missing waystoneId — it will not activate or show on the map.`);
+    }
 
     let mesh;
     if (def.builderFn) {

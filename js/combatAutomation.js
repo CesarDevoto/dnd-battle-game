@@ -37,7 +37,7 @@ const CATEGORIES = [
         defaults: {
           elf:      ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
           dwarf:    ['ally_lowest_hp', 'ally_any_wounded', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
-          human:    ['most_dangerous', 'nearest', 'lowest_hp', 'most_clustered'],
+          human:    ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
           halfling: ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
         },
         appliesTo: () => true,
@@ -104,7 +104,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['fire_bolt', 'dagger'],
-          dwarf:    ['healing_word', 'light_crossbow', 'warhammer'],
+          dwarf:    ['healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
           human:    ['rage', 'greataxe', 'handaxe'],
           halfling: ['sneak_attack', 'shortbow', 'shortsword'],
         },
@@ -128,10 +128,10 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['dodge', 'end_turn'],
-          dwarf:    ['healing_word', 'dodge', 'end_turn'],
-          human:    ['dodge', 'end_turn'],
-          halfling: ['dodge', 'end_turn'],
+          elf:      ['ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['healing_word', 'ready_action', 'dodge', 'end_turn'],
+          human:    ['ready_action', 'dodge', 'end_turn'],
+          halfling: ['ready_action', 'dodge', 'end_turn'],
         },
         appliesTo: () => true,
       },
@@ -163,16 +163,30 @@ const CATEGORIES = [
 ];
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
+// Bump this whenever defaults change — clears any saved tendencies on next load.
+const TENDENCIES_VERSION = 2;
+
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
+const LS_VER_KEY = 'dnd-tendencies-version';
 
 function _save() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(_tendencies)); } catch (_) {}
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(_tendencies));
+    localStorage.setItem(LS_VER_KEY, String(TENDENCIES_VERSION));
+  } catch (_) {}
 }
 function _load() {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) _tendencies = JSON.parse(raw);
+    const savedVer = parseInt(localStorage.getItem(LS_VER_KEY) ?? '0', 10);
+    if (savedVer !== TENDENCIES_VERSION) {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_SET_KEY);
+      localStorage.removeItem(LS_VER_KEY);
+    } else {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) _tendencies = JSON.parse(raw);
+    }
   } catch (_) {}
   _tendenciesSet = localStorage.getItem(LS_SET_KEY) === '1';
 }
