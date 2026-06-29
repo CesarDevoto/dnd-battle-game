@@ -92,6 +92,7 @@ function saveZoneEnemiesPlugin() {
               if (e.yOff  != null && e.yOff  !== 0)  s += `, yOff: ${e.yOff}`;
               if (e.scale != null && e.scale !== 1)   s += `, scale: ${e.scale}`;
               if (e.detectRange != null)              s += `, detectRange: ${e.detectRange}`;
+              if (e.socialAggroRange != null)         s += `, socialAggroRange: ${e.socialAggroRange}`;
               if (e.roams)                            s += `, roams: true`;
               if (e.roamMode)                         s += `, roamMode: '${e.roamMode}'`;
               if (e.wanderRadius != null)             s += `, wanderRadius: ${e.wanderRadius}`;
