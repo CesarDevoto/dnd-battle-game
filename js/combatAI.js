@@ -135,3 +135,61 @@ export function aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU) {
   }
   return best;
 }
+
+// Destination picker for ally-proximity tendency (Leugren healer modes).
+// Moves toward the most wounded ally. near_ally_melee → minimize distance;
+// near_ally_ranged → same but allows stopping at crossbow range rather than adjacent.
+export function aiPickAllyDest(u, allies, validTiles) {
+  if (!validTiles.size || !allies.length) return null;
+  const wounded = allies.reduce((best, a) => {
+    const maxHp = UNIT_TYPES[a.type]?.hp ?? a.hp;
+    const ratio  = a.hp / maxHp;
+    if (!best || ratio < best.ratio) return { unit: a, ratio };
+    return best;
+  }, null)?.unit ?? allies[0];
+
+  const tx = wounded.grp.position.x, tz = wounded.grp.position.z;
+  let best = null, bestDist = Infinity;
+  for (const key of validTiles) {
+    const [kx, kz] = key.split(',').map(Number);
+    const dx = tx - kx, dz = tz - kz;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < bestDist) { bestDist = dist; best = { x: kx, z: kz }; }
+  }
+  return best;
+}
+
+// Destination picker for automated hero turns — respects preferred_range tendency.
+// 'melee'        → strongly prefer tiles in melee range, ranged as fallback.
+// 'ranged'/'kite'→ prefer ranged range, avoid melee; maximise distance within range.
+// 'stay'         → caller should skip this function entirely.
+export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU) {
+  if (!validTiles.size) return null;
+  const tx = target.grp.position.x, tz = target.grp.position.z;
+  const def  = UNIT_TYPES[u.type] ?? {};
+  const atks = def.attacks ?? [];
+  const meleeA       = atks.find(a => a.type === 'melee');
+  const rangdA       = atks.find(a => a.type === 'ranged');
+  const meleeTrigger = meleeA ? atkTriggerWU(meleeA)     : 0;
+  const rangedRange  = rangdA ? atkRangeWU(rangdA.range) : 0;
+
+  let best = null, bestScore = Infinity;
+  for (const key of validTiles) {
+    const [kx, kz] = key.split(',').map(Number);
+    const dx = tx - kx, dz = tz - kz;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    let score;
+    if (preferredRange === 'melee') {
+      score = dist;
+      if (meleeTrigger > 0 && dist <= meleeTrigger)   score -= 1000;
+      else if (rangedRange > 0 && dist <= rangedRange) score -=  300;
+    } else {
+      // 'ranged' or 'kite': avoid melee, maximise distance within ranged range
+      if (meleeTrigger > 0 && dist <= meleeTrigger)   score = 10000 + dist;
+      else if (rangedRange > 0 && dist <= rangedRange) score = -dist;
+      else                                             score =  dist;
+    }
+    if (score < bestScore) { bestScore = score; best = { x: kx, z: kz }; }
+  }
+  return best;
+}

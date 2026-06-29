@@ -4467,6 +4467,258 @@ td.bst-col-retired { color: #343228 !important; }
   box-shadow: 0 0 10px rgba(100, 180, 255, 0.35), inset 0 0 8px rgba(100, 180, 255, 0.15);
 }
 
+/* ── Combat automation: button states ───────────────────────────────────── */
+#combat-mode-btn.is-automated {
+  border-color: #2a6aaa;
+  color: #6aabee;
+  background: linear-gradient(180deg, rgba(8,20,44,0.97) 0%, rgba(4,10,24,0.99) 100%);
+}
+#combat-mode-btn.pending-switch {
+  border-color: rgba(212,175,55,0.65);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(212,175,55,0.18);
+}
+
+/* ── Tendencies overlay ──────────────────────────────────────────────────── */
+#tendencies-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#tendencies-overlay.hidden { display: none; }
+
+#tendencies-panel {
+  background: linear-gradient(180deg, rgba(10,7,2,0.98) 0%, rgba(6,4,1,0.99) 100%);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 6px;
+  box-shadow: 0 10px 50px rgba(0,0,0,0.92), 0 0 0 1px rgba(0,0,0,0.80);
+  min-width: 870px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tend-header {
+  font-family: var(--font-fantasy);
+  font-size: 0.82rem;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-align: center;
+  padding: 16px 28px 12px;
+  border-bottom: 1px solid rgba(212,175,55,0.18);
+  flex-shrink: 0;
+}
+
+#tendencies-table-wrap {
+  overflow-y: auto;
+  flex: 1;
+}
+
+#tendencies-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.tend-col-label { width: 130px; }
+.tend-col-hero  { width: 182px; }
+
+.tend-hero-head {
+  padding: 10px 8px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(212,175,55,0.18);
+  border-left: 1px solid rgba(212,175,55,0.08);
+}
+.tend-hero-name {
+  display: block;
+  font-family: var(--font-fantasy);
+  font-size: 0.68rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.tend-hero-class {
+  display: block;
+  font-size: 0.56rem;
+  color: rgba(212,175,55,0.45);
+  letter-spacing: 0.4px;
+  margin-top: 3px;
+}
+
+.tend-cat-header td {
+  font-family: var(--font-fantasy);
+  font-size: 0.64rem;
+  letter-spacing: 2px;
+  color: rgba(212,175,55,0.68);
+  background: rgba(212,175,55,0.055);
+  padding: 8px 12px;
+  border-top: 1px solid rgba(212,175,55,0.18);
+  border-bottom: 1px solid rgba(212,175,55,0.10);
+  cursor: pointer;
+  user-select: none;
+}
+.tend-cat-header:hover td { color: var(--gold); }
+.tend-cat-arrow {
+  display: inline-block;
+  width: 14px;
+  font-size: 0.56rem;
+}
+
+.tend-row td { border-bottom: 1px solid rgba(212,175,55,0.07); vertical-align: top; }
+
+.tend-row-label {
+  font-family: var(--font-body);
+  font-size: 0.61rem;
+  color: rgba(212,175,55,0.55);
+  padding: 7px 10px 7px 12px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.tend-hero-cell {
+  padding: 5px 7px 7px;
+  border-left: 1px solid rgba(212,175,55,0.07);
+}
+.tend-disabled {
+  color: rgba(255,255,255,0.14);
+  text-align: center;
+  padding: 10px 4px;
+  font-size: 0.78rem;
+}
+
+.tend-radio-group { display: flex; flex-direction: column; gap: 3px; }
+.tend-radio-btn {
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  letter-spacing: 0.3px;
+  color: rgba(212,175,55,0.40);
+  background: rgba(10,7,2,0.80);
+  border: 1px solid rgba(212,175,55,0.10);
+  border-radius: 2px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tend-radio-btn:hover { color: rgba(212,175,55,0.78); border-color: rgba(212,175,55,0.28); }
+.tend-radio-btn.active {
+  color: var(--gold);
+  background: rgba(212,175,55,0.10);
+  border-color: rgba(212,175,55,0.48);
+  box-shadow: 0 0 5px rgba(212,175,55,0.12);
+}
+
+.tend-priority-list { display: flex; flex-direction: column; gap: 2px; }
+.tend-priority-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10,7,2,0.80);
+  border: 1px solid rgba(212,175,55,0.10);
+  border-radius: 2px;
+  padding: 3px 5px;
+}
+.tend-priority-num {
+  font-family: var(--font-body);
+  font-size: 0.50rem;
+  color: rgba(212,175,55,0.30);
+  min-width: 10px;
+  text-align: right;
+}
+.tend-priority-label {
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  color: rgba(212,175,55,0.72);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tend-priority-btn {
+  font-size: 0.54rem;
+  color: rgba(212,175,55,0.38);
+  background: none;
+  border: none;
+  padding: 1px 3px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.10s;
+}
+.tend-priority-btn:hover:not(:disabled) { color: var(--gold); }
+.tend-priority-btn:disabled { color: rgba(212,175,55,0.12); cursor: default; }
+
+.tend-footer {
+  padding: 12px 18px;
+  border-top: 1px solid rgba(212,175,55,0.16);
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#tendencies-ok {
+  font-family: var(--font-fantasy);
+  font-size: 0.68rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  background: rgba(212,175,55,0.08);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 3px;
+  padding: 8px 38px;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+#tendencies-ok:hover {
+  background: rgba(212,175,55,0.16);
+  border-color: var(--gold);
+  text-shadow: 0 0 8px rgba(212,175,55,0.50);
+}
+
+/* ── Mode-switch banner ──────────────────────────────────────────────────── */
+#mode-switch-banner {
+  position: fixed;
+  bottom: 236px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  background: linear-gradient(180deg, rgba(10,7,2,0.97) 0%, rgba(6,4,1,0.99) 100%);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 5px;
+  box-shadow: 0 4px 26px rgba(0,0,0,0.85);
+  padding: 14px 28px 12px;
+  text-align: center;
+  min-width: 210px;
+}
+#mode-switch-banner.hidden { display: none; }
+#mode-switch-msg {
+  font-family: var(--font-fantasy);
+  font-size: 0.64rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+#mode-switch-ok {
+  font-family: var(--font-fantasy);
+  font-size: 0.56rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  background: rgba(212,175,55,0.08);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 3px;
+  padding: 5px 22px;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+#mode-switch-ok:hover {
+  background: rgba(212,175,55,0.16);
+  border-color: var(--gold);
+}
+
 /* Mouse-button slots — slightly tinted blue-grey to distinguish from key slots */
 .hb-mouse-btn {
   border-color: rgba(100, 140, 180, 0.22);

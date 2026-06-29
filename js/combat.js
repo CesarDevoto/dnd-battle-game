@@ -16,7 +16,10 @@ import { fireRangedAttack }        from './arrow.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
-         aiGetSpellcasterAttack, aiPickSpellcasterDest } from './combatAI.js';
+         aiGetSpellcasterAttack, aiPickSpellcasterDest,
+         aiPickHeroDest, aiPickAllyDest } from './combatAI.js';
+import { initCombatAutomation, isAutomated, hasPendingSwitch,
+         handleRoundStartSwitch, pickAutoTarget, getTendency } from './combatAutomation.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
 import { rollLoot, spawnLootOrb } from './loot.js';
@@ -494,6 +497,7 @@ const _delayed = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy
 const blueUndo   = document.getElementById('blue-undo-btn');
 const endTurnBtn = document.getElementById('end-turn-btn');
 const moveDistEl = document.getElementById('move-dist');
+initCombatAutomation();
 
 function showUndoBtn() {
   const u = turnOrder[turnIndex];
@@ -3029,6 +3033,8 @@ export function activateTurn(index) {
         } else {
           runAITurn(u);
         }
+      } else if (isAutomated()) {
+        _runAutomatedHeroTurn(u);
       } else {
         endTurnBtn.disabled = false;
         showRangeRings(u);
@@ -3132,6 +3138,11 @@ function doEndTurn() {
       }
     });
     _nudgeRoamers();
+    // At round boundary: intercept if player queued a mode switch
+    if (hasPendingSwitch()) {
+      handleRoundStartSwitch(() => setTimeout(() => activateTurn(0), 200));
+      return;
+    }
   }
   setTimeout(() => activateTurn(turnIndex), 200);
 }
@@ -3267,6 +3278,225 @@ function _runRoamTurn(u) {
     _roamAggroCheck(u);
     setTimeout(() => { doEndTurn(); }, 150);
   }, 200);
+}
+
+// ── Automated hero turn ───────────────────────────────────────────────────────
+function _runAutomatedHeroTurn(u) {
+  endTurnBtn.disabled = true;
+
+  const THINK_MS   = 500;
+  const PRE_ATK_MS = 350;
+  const END_PAUSE  = 300;
+
+  setTimeout(() => {
+    if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+
+    const heroType   = u.type;
+    const preferRange = getTendency(heroType, 'preferred_range');
+    const heroPos    = { x: u.grp.position.x, z: u.grp.position.z };
+    const enemies    = units.filter(e => e.team === 'red' && e.hp > 0);
+    const allies     = units.filter(a => a.team === 'blue' && a !== u && a.hp > 0);
+
+    // Most wounded ally (for healing_word and ally-proximity positioning)
+    const allyWounded = allies.reduce((best, a) => {
+      const maxHp = UNIT_TYPES[a.type]?.hp ?? a.hp;
+      if (a.hp >= maxHp) return best;
+      return (!best || a.hp < best.hp) ? a : best;
+    }, null);
+
+    // movTarget drives positioning (may be an ally for Leugren)
+    const movTarget   = pickAutoTarget(heroType, heroPos, enemies, allies);
+    // enemyTarget is always an enemy — used for actual attacks
+    const enemyTarget = pickAutoTarget(heroType, heroPos, enemies, []);
+
+    // Nothing to do
+    if (!movTarget && !allyWounded) { setTimeout(doEndTurn, END_PAUSE); return; }
+
+    function endHeroAITurn() { setTimeout(doEndTurn, END_PAUSE); }
+
+    // ── Execute a validated attack against enemyTarget ──────────────────
+    function _executeAttack(atk, cb) {
+      turnAttacked = true;
+      showAttackTargets(u);
+      setTimeout(() => {
+        if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+        hideAttackTargets();
+        hideUndoBtn();
+        updateCombatStatus();
+        const hpBefore = enemyTarget.hp;
+        performAttack(u, enemyTarget, atk, () => {
+          _checkDelayedTriggers('ally_damaged', enemyTarget, enemyTarget.hp < hpBefore, cb);
+        });
+      }, PRE_ATK_MS);
+    }
+
+    // ── Try one action from the priority list ────────────────────────────
+    // onDone() = action fired and turn is over
+    // onSkip() = action not available, try next in list
+    function _tryHeroAction(actionVal, onDone, onSkip) {
+      if (turnAttacked && actionVal !== 'rage') { onSkip(); return; }
+
+      // ── Healing Word ─────────────────────────────────────────────────
+      if (actionVal === 'healing_word') {
+        if (!allyWounded) { onSkip(); return; }
+        turnAttacked = true;
+        const healRoll = Math.ceil(Math.random() * 4) + 3; // 1d4+3
+        const maxHp    = UNIT_TYPES[allyWounded.type]?.hp ?? allyWounded.hp;
+        const before   = allyWounded.hp;
+        allyWounded.hp = Math.min(allyWounded.hp + healRoll, maxHp);
+        const healed   = allyWounded.hp - before;
+        addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP`, 'heal');
+        updateHpBars();
+        hideUndoBtn();
+        updateCombatStatus();
+        onDone(); return;
+      }
+
+      // ── Rage (bonus action — hero can still attack after) ────────────
+      if (actionVal === 'rage') {
+        const rageDef = UNIT_TYPES[u.type]?.rage;
+        if (!rageDef || u.raging || (u.rageUsesLeft ?? rageDef.uses) <= 0) { onSkip(); return; }
+        u.raging       = true;
+        u.rageUsesLeft = (u.rageUsesLeft ?? rageDef.uses) - 1;
+        turnBonusActioned = true;
+        addLog(`${unitLabel(u)} enters a RAGE! (${u.rageUsesLeft} uses left)`, 'spell');
+        updateCombatStatus();
+        onSkip(); // bonus action; continue to next action in list
+        return;
+      }
+
+      // ── Delay Action ─────────────────────────────────────────────────
+      if (actionVal === 'delay_action') {
+        const triggerList = getTendency(heroType, 'delay_trigger_priority');
+        const triggers    = Array.isArray(triggerList) ? triggerList : [triggerList];
+        _delayed.set(u, { triggers, automated: true });
+        addLog(`${unitLabel(u)} delays (trigger: ${triggers[0]?.replace(/_/g, ' ') ?? '?'})`, 'move');
+        updateCombatStatus();
+        onDone(); return;
+      }
+
+      // ── Sneak Attack (condition: ally adjacent to target) ────────────
+      if (actionVal === 'sneak_attack') {
+        if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+        if (!UNIT_TYPES[u.type]?.sneakAttack) { onSkip(); return; }
+        const adjAlly = allies.find(a => {
+          const dx = a.grp.position.x - enemyTarget.grp.position.x;
+          const dz = a.grp.position.z - enemyTarget.grp.position.z;
+          return Math.sqrt(dx * dx + dz * dz) <= atkTriggerWU({ range: 5 });
+        });
+        if (!adjAlly) { onSkip(); return; }
+        const edx   = enemyTarget.grp.position.x - u.grp.position.x;
+        const edz   = enemyTarget.grp.position.z - u.grp.position.z;
+        const eDist = Math.sqrt(edx * edx + edz * edz);
+        const atks  = UNIT_TYPES[u.type]?.attacks ?? [];
+        const meleeAtk = atks.find(a => a.type === 'melee' && eDist <= atkTriggerWU(a));
+        const rangdAtk = atks.find(a =>
+          a.type === 'ranged' &&
+          atkHasQty(u, a) &&
+          hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z) &&
+          eDist <= atkRangeWU(a.longRange ?? a.range)
+        );
+        const atk = meleeAtk ?? rangdAtk;
+        if (!atk) { onSkip(); return; }
+        _executeAttack(atk, onDone); return;
+      }
+
+      // ── Named weapon attack ──────────────────────────────────────────
+      if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+      const atks = UNIT_TYPES[u.type]?.attacks ?? [];
+      const atk  = atks.find(a => a.name.toLowerCase().replace(/\s+/g, '_') === actionVal);
+      if (!atk) { onSkip(); return; }
+      const edx   = enemyTarget.grp.position.x - u.grp.position.x;
+      const edz   = enemyTarget.grp.position.z - u.grp.position.z;
+      const eDist = Math.sqrt(edx * edx + edz * edz);
+      if (atk.type === 'melee') {
+        if (eDist > atkTriggerWU(atk)) { onSkip(); return; }
+      } else {
+        if (!atkHasQty(u, atk)) { onSkip(); return; }
+        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (eDist > atkRangeWU(atk.longRange ?? atk.range)) { onSkip(); return; }
+      }
+      _executeAttack(atk, onDone);
+    }
+
+    // ── Iterate action_priority_in_range; fall through to no-range list ─
+    function doActionPriority(cb) {
+      let list = getTendency(heroType, 'action_priority_in_range');
+      if (!Array.isArray(list)) list = [list];
+      function tryIdx(i) {
+        if (i >= list.length) { doNoRangeAction(cb); return; }
+        _tryHeroAction(list[i], cb, () => tryIdx(i + 1));
+      }
+      tryIdx(0);
+    }
+
+    // ── Iterate action_priority_no_range ─────────────────────────────────
+    function doNoRangeAction(cb) {
+      let list = getTendency(heroType, 'action_priority_no_range');
+      if (!Array.isArray(list)) list = [list];
+      function tryIdx(i) {
+        if (i >= list.length) { cb(); return; }
+        const action = list[i];
+        if (action === 'healing_word') {
+          // Reuse _tryHeroAction which already handles the wounded-ally check
+          _tryHeroAction('healing_word', cb, () => tryIdx(i + 1));
+          return;
+        }
+        if (action === 'dodge') {
+          u.dodging = true;
+          addLog(`${unitLabel(u)} takes the Dodge action`, 'spell');
+          updateCombatStatus();
+          cb(); return;
+        }
+        if (action === 'dash') {
+          addLog(`${unitLabel(u)} dashes`, 'move');
+          cb(); return;
+        }
+        cb(); // end_turn or unknown
+      }
+      tryIdx(0);
+    }
+
+    // ── Movement ─────────────────────────────────────────────────────────
+    const isAllyMode   = preferRange === 'near_ally_ranged' || preferRange === 'near_ally_melee';
+    const isAllyMovTgt = movTarget?.team === 'blue';
+    let dest = null;
+    if (preferRange !== 'stay' && movTarget) {
+      showMoveRange(u);
+      if (isAllyMode || isAllyMovTgt) {
+        dest = aiPickAllyDest(u, allies, validTiles);
+      } else {
+        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU);
+      }
+      hideMoveRange();
+    }
+
+    if (dest) {
+      const ox = u.grp.position.x, oz = u.grp.position.z;
+      const path = findPath(ox, oz, dest.x, dest.z);
+      if (!path.length) { doActionPriority(endHeroAITurn); return; }
+      animatePath(u, path, () => {
+        if (!combatPhase || !units.includes(u)) return;
+        const mdx = u.grp.position.x - ox, mdz = u.grp.position.z - oz;
+        const movedFt = Math.round(
+          Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE
+        ) * GRID_SQUARE_FEET;
+        if (movedFt > 0) {
+          turnMovedFt += movedFt;
+          addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'move');
+        }
+        if (movTarget && units.includes(movTarget)) {
+          const tdx = movTarget.grp.position.x - u.grp.position.x;
+          const tdz = movTarget.grp.position.z - u.grp.position.z;
+          u.grp.rotation.y = Math.atan2(tdx, tdz);
+        }
+        updateCombatStatus();
+        setTimeout(() => doActionPriority(endHeroAITurn), PRE_ATK_MS);
+      });
+    } else {
+      doActionPriority(endHeroAITurn);
+    }
+  }, THINK_MS);
 }
 
 // ── Enemy AI (helpers in js/combatAI.js) ────────────────────────────────────
