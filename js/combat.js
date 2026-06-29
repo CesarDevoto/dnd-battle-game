@@ -3297,12 +3297,10 @@ function _runAutomatedHeroTurn(u) {
     const enemies    = units.filter(e => e.team === 'red' && e.hp > 0);
     const allies     = units.filter(a => a.team === 'blue' && a !== u && a.hp > 0);
 
-    // Most wounded ally (for healing_word and ally-proximity positioning)
-    const allyWounded = allies.reduce((best, a) => {
-      const maxHp = UNIT_TYPES[a.type]?.hp ?? a.hp;
-      if (a.hp >= maxHp) return best;
-      return (!best || a.hp < best.hp) ? a : best;
-    }, null);
+    // Most wounded blue unit (includes self — Leugren can heal himself)
+    const allyWounded = units
+      .filter(a => a.team === 'blue' && a.hp > 0 && a.hp < a.maxHp)
+      .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
 
     // movTarget drives positioning (may be an ally for Leugren)
     const movTarget   = pickAutoTarget(heroType, heroPos, enemies, allies);
