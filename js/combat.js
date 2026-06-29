@@ -2630,7 +2630,7 @@ function _showDelayInterrupt({ hero, trigger }) {
   const heroIdx = turnOrder.indexOf(hero);
   if (heroIdx < 0) {
     _delayed.delete(hero);
-    // Hero left combat — skip their interrupt and call the chain continuation
+    _delayedAutomated.delete(hero);
     const cont = _delayCtx.cont;
     _delayCtx = null;
     cont?.();
@@ -2639,6 +2639,17 @@ function _showDelayInterrupt({ hero, trigger }) {
 
   _delayed.delete(hero);
   _activeDelayHero = hero;
+
+  // ── Automated hero: bypass UI, run action priority directly ──────────
+  if (_delayedAutomated.has(hero)) {
+    _delayedAutomated.delete(hero);
+    addLog(`⚡ ${unitLabel(hero)}'s delayed action fires (${_DELAY_LABELS[trigger] ?? trigger})!`, 'move');
+    const cont = _delayCtx.cont;
+    _delayCtx = null;
+    _activeDelayHero = null;
+    setTimeout(() => _runAutomatedHeroTurn(hero, { noMove: true, onEnd: () => setTimeout(cont, 300) }), 300);
+    return;
+  }
 
   // Temporarily make this hero the active unit so all hotbar callbacks work naturally
   turnIndex         = heroIdx;
@@ -3281,7 +3292,9 @@ function _runRoamTurn(u) {
 }
 
 // ── Automated hero turn ───────────────────────────────────────────────────────
-function _runAutomatedHeroTurn(u) {
+const _delayedAutomated = new Set(); // heroes whose delay was set in automated mode
+
+function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
   endTurnBtn.disabled = true;
 
   const THINK_MS   = 500;
@@ -3308,9 +3321,9 @@ function _runAutomatedHeroTurn(u) {
     const enemyTarget = pickAutoTarget(heroType, heroPos, enemies, []);
 
     // Nothing to do
-    if (!movTarget && !allyWounded) { setTimeout(doEndTurn, END_PAUSE); return; }
+    if (!movTarget && !allyWounded) { onEnd ? onEnd() : setTimeout(doEndTurn, END_PAUSE); return; }
 
-    function endHeroAITurn() { setTimeout(doEndTurn, END_PAUSE); }
+    function endHeroAITurn() { onEnd ? onEnd() : setTimeout(doEndTurn, END_PAUSE); }
 
     // ── Execute a validated attack against enemyTarget ──────────────────
     function _executeAttack(atk, cb) {
@@ -3369,8 +3382,13 @@ function _runAutomatedHeroTurn(u) {
       if (actionVal === 'delay_action') {
         const triggerList = getTendency(heroType, 'delay_trigger_priority');
         const triggers    = Array.isArray(triggerList) ? triggerList : [triggerList];
-        _delayed.set(u, { triggers, automated: true });
-        addLog(`${unitLabel(u)} delays (trigger: ${triggers[0]?.replace(/_/g, ' ') ?? '?'})`, 'move');
+        const trigger     = triggers[0];
+        _delayed.set(u, trigger);
+        _delayedBonusActioned.set(u, turnBonusActioned);
+        _delayedAutomated.add(u);
+        turnAttacked = true;
+        addLog(`${unitLabel(u)} delays action (waiting: ${_DELAY_LABELS[trigger] ?? trigger})`, 'move');
+        buildTurnList();
         updateCombatStatus();
         onDone(); return;
       }
@@ -3461,7 +3479,7 @@ function _runAutomatedHeroTurn(u) {
     const isAllyMode   = preferRange === 'near_ally_ranged' || preferRange === 'near_ally_melee';
     const isAllyMovTgt = movTarget?.team === 'blue';
     let dest = null;
-    if (preferRange !== 'stay' && movTarget) {
+    if (!noMove && preferRange !== 'stay' && movTarget) {
       showMoveRange(u);
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
