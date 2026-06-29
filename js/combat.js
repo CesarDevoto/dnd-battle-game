@@ -2644,10 +2644,33 @@ function _showDelayInterrupt({ hero, trigger }) {
   if (_delayedAutomated.has(hero)) {
     _delayedAutomated.delete(hero);
     addLog(`⚡ ${unitLabel(hero)}'s delayed action fires (${_DELAY_LABELS[trigger] ?? trigger})!`, 'move');
-    const cont = _delayCtx.cont;
-    _delayCtx = null;
+    const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
+            savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _delayCtx;
+    _delayCtx      = null;
     _activeDelayHero = null;
-    setTimeout(() => _runAutomatedHeroTurn(hero, { noMove: true, onEnd: () => setTimeout(cont, 300) }), 300);
+    // Set hero as active with a clean action slate
+    turnIndex         = heroIdx;
+    turnAttacked      = false;
+    turnMovedFt       = 0;
+    turnBonusActioned = _delayedBonusActioned.get(hero) ?? false;
+    _delayedBonusActioned.delete(hero);
+    endTurnBtn.disabled = true;
+    setTimeout(() => _runAutomatedHeroTurn(hero, {
+      noMove: true,
+      onEnd: () => {
+        // Restore the interrupted turn's state before resuming
+        turnIndex         = savedIdx;
+        heroMode          = savedHeroMode;
+        turnAttacked      = savedAttacked;
+        turnMovedFt       = savedMovedFt;
+        turnBonusActioned = savedBonusActioned;
+        activeRing.position.set(savedRingX, 0, savedRingZ);
+        activeRing.material.color.setHex(savedRingColor);
+        activeRing.visible = savedRingVisible;
+        endTurnBtn.disabled = true;
+        setTimeout(cont, 300);
+      }
+    }), 300);
     return;
   }
 
