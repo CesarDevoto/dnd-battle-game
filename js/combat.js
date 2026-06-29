@@ -3346,7 +3346,9 @@ function _runAutomatedHeroTurn(u) {
         allyWounded.hp = Math.min(allyWounded.hp + healRoll, maxHp);
         const healed   = allyWounded.hp - before;
         addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP`, 'heal');
-        updateHpBars();
+        showFloatingDamage(allyWounded, `+${healed}`, '#44ff88');
+        allyWounded.barShowUntil = Date.now() + 4000;
+        buildTurnList();
         hideUndoBtn();
         updateCombatStatus();
         onDone(); return;

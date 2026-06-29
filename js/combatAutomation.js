@@ -104,7 +104,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['fire_bolt', 'dagger', 'delay_action'],
-          dwarf:    ['delay_action', 'healing_word', 'light_crossbow', 'warhammer'],
+          dwarf:    ['healing_word', 'delay_action', 'light_crossbow', 'warhammer'],
           human:    ['rage', 'greataxe', 'handaxe', 'delay_action'],
           halfling: ['sneak_attack', 'shortbow', 'shortsword', 'delay_action'],
         },
@@ -129,7 +129,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['delay_action', 'end_turn', 'dodge', 'dash'],
-          dwarf:    ['delay_action', 'healing_word', 'dodge', 'end_turn', 'dash'],
+          dwarf:    ['healing_word', 'delay_action', 'dodge', 'end_turn', 'dash'],
           human:    ['delay_action', 'end_turn', 'dodge', 'dash'],
           halfling: ['delay_action', 'end_turn', 'dodge', 'dash'],
         },
