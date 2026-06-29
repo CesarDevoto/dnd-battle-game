@@ -146,6 +146,10 @@ const ANIM_CLIP_NAMES = {
   shadow: {
     idle: 'Idle_8', walk: 'Idle_8', run: 'Idle_8', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
+  // Non-humanoid rig; clip names provided directly by artist
+  abyssal_chicken: {
+    idle: 'idle', walk: 'walk', run: 'walk', attack: 'flap', death: 'rest pose',
+  },
 };
 
 // Auto-detect animation roles by analysing Hips/Root bone Y-axis movement in each clip.
