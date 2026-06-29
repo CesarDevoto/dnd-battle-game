@@ -8,7 +8,7 @@ import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PE
 import { hideSheet } from './ui.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
 import { renderHeroPortrait } from './heroPortraits.js';
-import { openWorldMap } from './worldMap.js';
+import { openWorldMapAuto } from './worldMap.js';
 import { activeProps } from './environments.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ renderer.domElement.addEventListener('click', e => {
           return dx * dx + dz * dz <= CLICK_ACTIVATE_R * CLICK_ACTIVATE_R;
         });
         if (nearby) grp.userData.tryActivate?.();
-        openWorldMap(grp.userData.mapTab ?? 'I', grp.userData.waystoneId ?? null);
+        openWorldMapAuto(grp.userData.waystoneId ?? null);
         return;
       }
     }

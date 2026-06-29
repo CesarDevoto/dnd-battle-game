@@ -63,7 +63,19 @@ export function initWorldMap() {
   });
   document.getElementById('world-map-close').addEventListener('click', closeWorldMap);
   _overlay.addEventListener('click', e => { if (e.target === _overlay) closeWorldMap(); });
-  document.getElementById('map-btn')?.addEventListener('click', openWorldMap);
+  document.getElementById('map-btn')?.addEventListener('click', () => openWorldMapAuto());
+}
+
+function _tabForCurrentZone() {
+  const zoneId = getActiveZone()?.id ?? '';
+  for (const [tab, pins] of Object.entries(SUBMAP_WAYPOINTS)) {
+    if (pins.some(p => p.zoneId === zoneId)) return tab;
+  }
+  return 'Lands';
+}
+
+export function openWorldMapAuto(sourceWaystoneId = null) {
+  openWorldMap(_tabForCurrentZone(), sourceWaystoneId);
 }
 
 let _sourceWaystoneId = null; // set when map is opened by clicking a waystone

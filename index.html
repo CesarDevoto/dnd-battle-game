@@ -564,10 +564,16 @@
       <button id="blue-undo-btn" class="thud-undo" style="display:none">↩ UNDO MOVE</button>
     </div>
 
-    <!-- ── Combat log (lower left, combat only) ─────────────────── -->
-    <div id="combat-log">
-      <div class="t-title">COMBAT LOG</div>
-      <div id="log-entries"></div>
+    <!-- ── Combat log + target window column (lower left, combat only) ── -->
+    <div id="combat-log-col">
+      <div id="target-window">
+        <canvas id="target-portrait-canvas" width="80" height="80"></canvas>
+        <div id="tw-name"></div>
+      </div>
+      <div id="combat-log">
+        <div class="t-title">COMBAT LOG</div>
+        <div id="log-entries"></div>
+      </div>
     </div>
 
 
@@ -636,9 +642,9 @@
     <!-- Quest log panel — right side, player-facing -->
     <div id="quest-log"></div>
 
-    <!-- Delay Action: trigger selection modal -->
-    <div id="delay-action-modal" style="display:none">
-      <div class="dam-header">⚡ DELAY ACTION</div>
+    <!-- Ready Action: trigger selection modal -->
+    <div id="ready-action-modal" style="display:none">
+      <div class="dam-header">⚡ READY ACTION</div>
       <div class="dam-sub">Trigger your action when…</div>
       <button class="dam-trigger-btn" data-trigger="enemy_in_los">Enemy enters line of sight</button>
       <button class="dam-trigger-btn" data-trigger="enemy_in_melee_range">Enemy enters melee range</button>
@@ -647,9 +653,9 @@
       <button id="dam-cancel-btn">Cancel</button>
     </div>
 
-    <!-- Delay Action: interrupt banner shown when trigger fires -->
-    <div id="delay-banner" style="display:none">
-      <div class="db-title">⚡ DELAY ACTION</div>
+    <!-- Ready Action: interrupt banner shown when trigger fires -->
+    <div id="ready-banner" style="display:none">
+      <div class="db-title">⚡ READY ACTION</div>
       <div class="db-hero"></div>
       <div class="db-trigger"></div>
       <div class="db-hint">Choose any action from your hotbar.</div>
@@ -851,6 +857,10 @@
         <button id="gm-solo-btn" class="gm-btn" title="Solo move — only active hero moves">
           <span class="gm-dot-1"></span>
         </button>
+        <div class="gm-divider"></div>
+        <button id="gm-rally-btn" class="gm-btn gm-rally" title="Rally — Gobo, Rasec &amp; Milo move adjacent to Leugren">
+          <span class="gm-dots-rally"></span>
+        </button>
       </div>
 
       <!-- Hotbar — keyboard slots -->
@@ -891,12 +901,6 @@
       <div class="hb-row" id="hotbar-row-normal"></div>
       <div class="hb-row" id="hotbar-row-shift"></div>
     </div><!-- /#hotbar -->
-
-      <!-- Target window — shown when an enemy is targeted -->
-      <div id="target-window">
-        <canvas id="target-portrait-canvas" width="80" height="80"></canvas>
-        <div id="tw-name"></div>
-      </div>
 
     </div><!-- /#bottom-bar-wrap -->
 

@@ -492,7 +492,7 @@ let turnBonusActioned = false;  // bonus action used this turn (e.g. Healing Wor
 let sneakAttackUsed  = false;   // halfling sneak attack — once per turn
 let prevMoveState = null; // { x, z, movedFt } saved just before a move for undo
 
-const _delayed = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy_in_melee_range' | 'enemy_in_ranged_range' | 'ally_loses_hp')
+const _readied = new Map();  // hero → trigger string ('enemy_in_los' | 'enemy_in_melee_range' | 'enemy_in_ranged_range' | 'ally_loses_hp')
 
 const blueUndo   = document.getElementById('blue-undo-btn');
 const endTurnBtn = document.getElementById('end-turn-btn');
@@ -1395,9 +1395,9 @@ function updateCombatStatus() {
   if (!combatPhase || !u) return;
   // Any action taken during a delay interrupt auto-closes the banner.
   // Attacks already schedule a 2600ms timer in performAttack; don't duplicate.
-  if (_delayCtx && turnAttacked && !_delayAutoCloseTimer) {
-    const _c = _delayCtx;
-    _delayAutoCloseTimer = setTimeout(() => { if (_delayCtx === _c) _endDelayInterrupt(); }, 1500);
+  if (_readyCtx && turnAttacked && !_readyAutoCloseTimer) {
+    const _c = _readyCtx;
+    _readyAutoCloseTimer = setTimeout(() => { if (_readyCtx === _c) _endDelayInterrupt(); }, 1500);
   }
   const speedFt  = UNIT_TYPES[u.type]?.speed ?? 30;
   const remainFt = Math.max(0, speedFt - turnMovedFt);
@@ -1673,9 +1673,9 @@ function faceTarget(unit, target) {
 function performAttack(attacker, target, atk, onSettled = null) {
   // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves.
   // Capture the context reference so a later hero's interrupt isn't accidentally closed.
-  if (_delayCtx && attacker === turnOrder[turnIndex]) {
-    const _myCtx = _delayCtx;
-    _delayAutoCloseTimer = setTimeout(() => { if (_delayCtx === _myCtx) _endDelayInterrupt(); }, 2600);
+  if (_readyCtx && attacker === turnOrder[turnIndex]) {
+    const _myCtx = _readyCtx;
+    _readyAutoCloseTimer = setTimeout(() => { if (_readyCtx === _myCtx) _endDelayInterrupt(); }, 2600);
   }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
@@ -2389,7 +2389,7 @@ export function rollInitiative() {
   divider.visible = false;
   setGridVisible(true);
   _dungeonAwareEnemies.clear();
-  _delayed.clear();
+  _readied.clear();
   initSpellSlots(units);
 
   // Non-dungeon: all red units are immediately aggro, unless precombat BFS explicitly
@@ -2476,11 +2476,11 @@ export function buildTurnList() {
     const el      = document.createElement('div');
     el.className  = 'turn-entry';
     el.dataset.ti = i;
-    const isActiveDelay = u === _activeDelayHero;
-    const readyTag  = (u.team === 'blue' && (_delayed.has(u) || isActiveDelay))
+    const isActiveDelay = u === _activeReadyHero;
+    const readyTag  = (u.team === 'blue' && (_readied.has(u) || isActiveDelay))
       ? '<span class="turn-ready-tag">⚡</span>' : '';
     const arrowTag  = isActiveDelay
-      ? '<span class="turn-delay-arrow">◀</span>' : '';
+      ? '<span class="turn-ready-arrow">◀</span>' : '';
     el.innerHTML  =
       `<div class="turn-hpbar-wrap"><div class="turn-hpbar" style="width:${hpPct}%;background:${barColor}"></div></div>` +
       `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${readyTag}${arrowTag}</span>` +
@@ -2500,33 +2500,33 @@ const HERO_HUD_NAME_COLORS = {
   halfling: { color: '#44dd66', shadow: '0 0 7px rgba(34,204,68,0.55)' },
 };
 
-// ── Delay Action ──────────────────────────────────────────────────────────────
+// ── Ready Action ──────────────────────────────────────────────────────────────
 
-const _DELAY_LABELS = {
+const _READY_LABELS = {
   enemy_in_los:          'Enemy enters line of sight',
   enemy_in_melee_range:  'Enemy enters melee range',
   enemy_in_ranged_range: 'Enemy enters ranged attack range',
   ally_loses_hp:         'Ally loses hit points',
 };
 
-// _delayCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
-let _delayCtx = null;
+// _readyCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
+let _readyCtx = null;
 // timer ID for the auto-close after a delay-interrupt attack; cancelled on manual end
-let _delayAutoCloseTimer = null;
+let _readyAutoCloseTimer = null;
 // tracks each hero's turnBonusActioned state at the moment they committed to delay
-const _delayedBonusActioned = new Map();
+const _readiedBonusActioned = new Map();
 // hero whose delay interrupt is currently active (for turn-list arrow)
-let _activeDelayHero = null;
+let _activeReadyHero = null;
 
-function _showDelayTriggerFloat(hero) {
+function _showReadyTriggerFloat(hero) {
   const heroName = UNIT_TYPES[hero.type]?.name ?? hero.type;
   const color    = '#' + (HERO_RING_COLORS[hero.type] ?? 0xffdd44).toString(16).padStart(6, '0');
   _fv.set(hero.anchor.x, hero.anchor.y + 0.5, hero.anchor.z).project(camera);
   if (_fv.z >= 1) return;
   const el = document.createElement('div');
-  el.className  = 'delay-trigger-float';
+  el.className  = 'ready-trigger-float';
   el.style.color = color;
-  el.innerHTML  = `⚡ Delayed Action<br>Triggered!`;
+  el.innerHTML  = `⚡ Ready Action<br>Triggered!`;
   el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
   el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
   document.getElementById('app').appendChild(el);
@@ -2534,17 +2534,17 @@ function _showDelayTriggerFloat(hero) {
   setTimeout(() => el.remove(), 4000);
 }
 
-function _openDelayModal(hero) {
-  const modal = document.getElementById('delay-action-modal');
+function _openReadyModal(hero) {
+  const modal = document.getElementById('ready-action-modal');
   if (!modal) return;
   modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
     btn.onclick = () => {
       const trigger = btn.dataset.trigger;
-      _delayed.set(hero, trigger);
-      _delayedBonusActioned.set(hero, turnBonusActioned);
+      _readied.set(hero, trigger);
+      _readiedBonusActioned.set(hero, turnBonusActioned);
       turnAttacked = true;
       modal.style.display = 'none';
-      addLog(`${unitLabel(hero)} delays: trigger "${_DELAY_LABELS[trigger]}"`, 'move');
+      addLog(`${unitLabel(hero)} readies action: trigger "${_READY_LABELS[trigger]}"`, 'move');
       buildTurnList();
       updateCombatStatus();
       _rebuildHotbar(hero);
@@ -2571,8 +2571,8 @@ function _enemyInHeroLOS(enemy, hero) {
 
 function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
   const matches = [];
-  for (const [hero, trigger] of _delayed) {
-    if (!units.includes(hero) || hero.hp <= 0) { _delayed.delete(hero); continue; }
+  for (const [hero, trigger] of _readied) {
+    if (!units.includes(hero) || hero.hp <= 0) { _readied.delete(hero); continue; }
     const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
 
     if (eventType === 'enemy_moved') {
@@ -2608,7 +2608,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
   // Chain all matches so every delayed hero gets to act before the original continuation resumes
   function _fireNext(idx) {
     if (idx >= matches.length) { continuation(); return; }
-    _delayCtx = {
+    _readyCtx = {
       savedIdx:            turnIndex,
       savedHeroMode:       heroMode,
       savedAttacked:       turnAttacked,  // must restore so enemy turn resumes with correct attack state
@@ -2626,34 +2626,34 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
 }
 
 function _showDelayInterrupt({ hero, trigger }) {
-  if (!_delayCtx) return;
+  if (!_readyCtx) return;
   const heroIdx = turnOrder.indexOf(hero);
   if (heroIdx < 0) {
-    _delayed.delete(hero);
-    _delayedAutomated.delete(hero);
-    const cont = _delayCtx.cont;
-    _delayCtx = null;
+    _readied.delete(hero);
+    _readiedAutomated.delete(hero);
+    const cont = _readyCtx.cont;
+    _readyCtx = null;
     cont?.();
     return;
   }
 
-  _delayed.delete(hero);
-  _activeDelayHero = hero;
+  _readied.delete(hero);
+  _activeReadyHero = hero;
 
   // ── Automated hero: bypass UI, run action priority directly ──────────
-  if (_delayedAutomated.has(hero)) {
-    _delayedAutomated.delete(hero);
-    addLog(`⚡ ${unitLabel(hero)}'s delayed action fires (${_DELAY_LABELS[trigger] ?? trigger})!`, 'move');
+  if (_readiedAutomated.has(hero)) {
+    _readiedAutomated.delete(hero);
+    addLog(`⚡ ${unitLabel(hero)}'s ready action fires (${_READY_LABELS[trigger] ?? trigger})!`, 'move');
     const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
-            savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _delayCtx;
-    _delayCtx      = null;
-    _activeDelayHero = null;
+            savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
+    _readyCtx      = null;
+    _activeReadyHero = null;
     // Set hero as active with a clean action slate
     turnIndex         = heroIdx;
     turnAttacked      = false;
     turnMovedFt       = 0;
-    turnBonusActioned = _delayedBonusActioned.get(hero) ?? false;
-    _delayedBonusActioned.delete(hero);
+    turnBonusActioned = _readiedBonusActioned.get(hero) ?? false;
+    _readiedBonusActioned.delete(hero);
     endTurnBtn.disabled = true;
     setTimeout(() => _runAutomatedHeroTurn(hero, {
       noMove: true,
@@ -2678,8 +2678,8 @@ function _showDelayInterrupt({ hero, trigger }) {
   turnIndex         = heroIdx;
   turnAttacked      = false;
   turnMovedFt       = 0;   // delay action has no movement
-  turnBonusActioned = _delayedBonusActioned.get(hero) ?? false;
-  _delayedBonusActioned.delete(hero);
+  turnBonusActioned = _readiedBonusActioned.get(hero) ?? false;
+  _readiedBonusActioned.delete(hero);
   heroMode          = null;
 
   endTurnBtn.disabled = false;
@@ -2692,7 +2692,7 @@ function _showDelayInterrupt({ hero, trigger }) {
   showSelectionHighlight(hero);
 
   // Floating "Triggered!" text and pulsing arrow in turn list
-  _showDelayTriggerFloat(hero);
+  _showReadyTriggerFloat(hero);
   buildTurnList();
 
   setFollowUnit(hero);
@@ -2705,25 +2705,25 @@ function _showDelayInterrupt({ hero, trigger }) {
   bindHotkey('Digit5', false, '<span class="hb-end-turn">SKIP<br>ACTION</span>', () => _endDelayInterrupt());
 
   // Show the delay banner
-  const banner = document.getElementById('delay-banner');
+  const banner = document.getElementById('ready-banner');
   if (banner) {
     banner.querySelector('.db-hero').textContent    = unitLabel(hero);
-    banner.querySelector('.db-trigger').textContent = _DELAY_LABELS[trigger];
+    banner.querySelector('.db-trigger').textContent = _READY_LABELS[trigger];
     banner.style.display = 'flex';
   }
 
-  addLog(`⚡ ${unitLabel(hero)}'s Delay Action fires (${_DELAY_LABELS[trigger]})! Choose an action.`, 'move');
+  addLog(`⚡ ${unitLabel(hero)}'s Ready Action fires (${_READY_LABELS[trigger]})! Choose an action.`, 'move');
 }
 
 function _endDelayInterrupt() {
-  clearTimeout(_delayAutoCloseTimer);
-  _delayAutoCloseTimer = null;
-  if (!_delayCtx) return;
+  clearTimeout(_readyAutoCloseTimer);
+  _readyAutoCloseTimer = null;
+  if (!_readyCtx) return;
   const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
-          savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _delayCtx;
-  _delayCtx = null;
+          savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
+  _readyCtx = null;
 
-  const banner = document.getElementById('delay-banner');
+  const banner = document.getElementById('ready-banner');
   if (banner) banner.style.display = 'none';
 
   hideRangeRings();
@@ -2745,7 +2745,7 @@ function _endDelayInterrupt() {
   activeRing.material.color.set(savedRingColor);
   activeRing.visible = savedRingVisible;
 
-  _activeDelayHero = null;
+  _activeReadyHero = null;
   buildTurnList();
 
   if (cont) cont();
@@ -2918,24 +2918,24 @@ function _rebuildHotbar(u) {
     return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
   }, 'action');
   {
-    const armed = _delayed.has(u);
+    const armed = _readied.has(u);
     bindHotkey('Digit6', false,
       armed
-        ? '<span class="hb-ready hb-ready-armed">DELAY ✓</span>'
-        : '<span class="hb-ready">DELAY<br>ACTION</span>',
+        ? '<span class="hb-ready hb-ready-armed">READY ✓</span>'
+        : '<span class="hb-ready">READY<br>ACTION</span>',
       () => {
         const curU = turnOrder[turnIndex];
         if (!curU || curU.team !== 'blue' || isAnimating) return;
-        if (_delayed.has(curU)) {
-          addLog(`${unitLabel(curU)} is delaying: trigger "${_DELAY_LABELS[_delayed.get(curU)]}"`, 'move');
+        if (_readied.has(curU)) {
+          addLog(`${unitLabel(curU)} has readied action: trigger "${_READY_LABELS[_readied.get(curU)]}"`, 'move');
           return;
         }
         if (turnAttacked) return;
-        _openDelayModal(curU);
+        _openReadyModal(curU);
       },
       () => {
         const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_delayCtx;
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_readyCtx;
       },
       'action'
     );
@@ -3019,9 +3019,9 @@ export function activateTurn(index) {
     sneakAttackUsed = false;
     u.dodging       = false;
     // If this hero's delayed action never fired, it expires at turn start
-    if (u.team === 'blue' && _delayed.has(u)) {
-      addLog(`${unitLabel(u)}'s delayed action expires (trigger never fired).`, 'move');
-      _delayed.delete(u);
+    if (u.team === 'blue' && _readied.has(u)) {
+      addLog(`${unitLabel(u)}'s ready action expires (trigger never fired).`, 'move');
+      _readied.delete(u);
       buildTurnList();
     }
     if (u.team === 'blue') playSound('turn_start');
@@ -3183,7 +3183,7 @@ function doEndTurn() {
 
 endTurnBtn.addEventListener('click', () => {
   if (isAnimating) return;
-  if (_delayCtx) { _endDelayInterrupt(); return; }
+  if (_readyCtx) { _endDelayInterrupt(); return; }
   doEndTurn();
 });
 
@@ -3315,7 +3315,7 @@ function _runRoamTurn(u) {
 }
 
 // ── Automated hero turn ───────────────────────────────────────────────────────
-const _delayedAutomated = new Set(); // heroes whose delay was set in automated mode
+const _readiedAutomated = new Set(); // heroes whose delay was set in automated mode
 
 function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
   endTurnBtn.disabled = true;
@@ -3402,15 +3402,15 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       }
 
       // ── Delay Action ─────────────────────────────────────────────────
-      if (actionVal === 'delay_action') {
-        const triggerList = getTendency(heroType, 'delay_trigger_priority');
+      if (actionVal === 'ready_action') {
+        const triggerList = getTendency(heroType, 'ready_trigger_priority');
         const triggers    = Array.isArray(triggerList) ? triggerList : [triggerList];
         const trigger     = triggers[0];
-        _delayed.set(u, trigger);
-        _delayedBonusActioned.set(u, turnBonusActioned);
-        _delayedAutomated.add(u);
+        _readied.set(u, trigger);
+        _readiedBonusActioned.set(u, turnBonusActioned);
+        _readiedAutomated.add(u);
         turnAttacked = true;
-        addLog(`${unitLabel(u)} delays action (waiting: ${_DELAY_LABELS[trigger] ?? trigger})`, 'move');
+        addLog(`${unitLabel(u)} readies action (waiting: ${_READY_LABELS[trigger] ?? trigger})`, 'move');
         buildTurnList();
         updateCombatStatus();
         onDone(); return;
@@ -3478,7 +3478,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       function tryIdx(i) {
         if (i >= list.length) { cb(); return; }
         const action = list[i];
-        if (action === 'healing_word' || action === 'delay_action') {
+        if (action === 'healing_word' || action === 'ready_action') {
           _tryHeroAction(action, cb, () => tryIdx(i + 1));
           return;
         }

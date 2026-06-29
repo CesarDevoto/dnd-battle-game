@@ -81,32 +81,32 @@ const CATEGORIES = [
           elf: [
             { value: 'fire_bolt',    label: 'Fire Bolt'    },
             { value: 'dagger',       label: 'Dagger'       },
-            { value: 'delay_action', label: 'Delay Action' },
+            { value: 'ready_action', label: 'Ready Action' },
           ],
           dwarf: [
             { value: 'healing_word',   label: 'Healing Word'   },
             { value: 'light_crossbow', label: 'Light Crossbow' },
             { value: 'warhammer',      label: 'Warhammer'      },
-            { value: 'delay_action',   label: 'Delay Action'   },
+            { value: 'ready_action',   label: 'Ready Action'   },
           ],
           human: [
             { value: 'rage',         label: 'Rage'         },
             { value: 'greataxe',     label: 'Greataxe'     },
             { value: 'handaxe',      label: 'Handaxe'      },
-            { value: 'delay_action', label: 'Delay Action' },
+            { value: 'ready_action', label: 'Ready Action' },
           ],
           halfling: [
             { value: 'sneak_attack', label: 'Sneak Attack' },
             { value: 'shortbow',     label: 'Shortbow'     },
             { value: 'shortsword',   label: 'Shortsword'   },
-            { value: 'delay_action', label: 'Delay Action' },
+            { value: 'ready_action', label: 'Ready Action' },
           ],
         },
         defaults: {
-          elf:      ['fire_bolt', 'dagger', 'delay_action'],
-          dwarf:    ['healing_word', 'delay_action', 'light_crossbow', 'warhammer'],
-          human:    ['rage', 'greataxe', 'handaxe', 'delay_action'],
-          halfling: ['sneak_attack', 'shortbow', 'shortsword', 'delay_action'],
+          elf:      ['fire_bolt', 'dagger', 'ready_action'],
+          dwarf:    ['healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
+          human:    ['rage', 'greataxe', 'handaxe', 'ready_action'],
+          halfling: ['sneak_attack', 'shortbow', 'shortsword', 'ready_action'],
         },
         appliesTo: () => true,
       },
@@ -114,7 +114,7 @@ const CATEGORIES = [
         id: 'action_priority_no_range', label: 'No enemy in range', type: 'priority',
         options: [
           { value: 'dodge',        label: 'Dodge'        },
-          { value: 'delay_action', label: 'Delay Action' },
+          { value: 'ready_action', label: 'Ready Action' },
           { value: 'end_turn',     label: 'End turn'     },
           { value: 'dash',         label: 'Dash'         },
         ],
@@ -122,28 +122,28 @@ const CATEGORIES = [
           dwarf: [
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'dodge',        label: 'Dodge'        },
-            { value: 'delay_action', label: 'Delay Action' },
+            { value: 'ready_action', label: 'Ready Action' },
             { value: 'end_turn',     label: 'End turn'     },
             { value: 'dash',         label: 'Dash'         },
           ],
         },
         defaults: {
-          elf:      ['delay_action', 'end_turn', 'dodge', 'dash'],
-          dwarf:    ['healing_word', 'delay_action', 'dodge', 'end_turn', 'dash'],
-          human:    ['delay_action', 'end_turn', 'dodge', 'dash'],
-          halfling: ['delay_action', 'end_turn', 'dodge', 'dash'],
+          elf:      ['ready_action', 'end_turn', 'dodge', 'dash'],
+          dwarf:    ['healing_word', 'ready_action', 'dodge', 'end_turn', 'dash'],
+          human:    ['ready_action', 'end_turn', 'dodge', 'dash'],
+          halfling: ['ready_action', 'end_turn', 'dodge', 'dash'],
         },
         appliesTo: () => true,
       },
     ],
   },
   {
-    id: 'delayed_actions', label: 'DELAYED ACTIONS',
+    id: 'ready_actions', label: 'READY ACTIONS',
     rows: [
       {
         // Which trigger fires the delayed action — checked in priority order.
         // When triggered, executes the action_priority_in_range list as normal.
-        id: 'delay_trigger_priority', label: 'Trigger priority', type: 'priority',
+        id: 'ready_trigger_priority', label: 'Trigger priority', type: 'priority',
         options: [
           { value: 'enemy_in_los',          label: 'Enemy enters LOS'          },
           { value: 'enemy_in_ranged_range',  label: 'Enemy enters ranged range' },
