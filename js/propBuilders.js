@@ -2137,7 +2137,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
 
   // Vapor wisps — single THREE.Points (one draw call). Fade encoded as color brightness
   // since blending is additive (black = fully transparent, no per-particle alpha needed).
-  const WISP_COUNT = 300;
+  const WISP_COUNT = 500;
   const _wispPos = new Float32Array(WISP_COUNT * 3);
   const _wispCol = new Float32Array(WISP_COUNT * 3);
   const _wispGeo = new THREE.BufferGeometry();
@@ -2156,7 +2156,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * R * 0.7;
     wisps.push({ ox: Math.cos(a) * r, oz: Math.sin(a) * r,
-                 life: Math.random(), dur: 1.4 + Math.random() * 1.2 });
+                 life: Math.random(), dur: 2.8 + Math.random() * 2.4 });
     _wispPos[i * 3]     = wisps[i].ox;
     _wispPos[i * 3 + 2] = wisps[i].oz;
   }
@@ -2239,7 +2239,7 @@ export function mkWaystoneDisc(waystoneId, mapTab) {
         const r = Math.random() * R * 0.7;
         w.ox = Math.cos(a) * r;
         w.oz = Math.sin(a) * r;
-        w.dur = 1.4 + Math.random() * 1.2;
+        w.dur = 2.8 + Math.random() * 2.4;
       }
       const t    = w.life;
       const op   = t < 0.15 ? t / 0.15 : t > 0.72 ? (1 - t) / 0.28 : 1.0;
