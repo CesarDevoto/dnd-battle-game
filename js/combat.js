@@ -3455,9 +3455,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       function tryIdx(i) {
         if (i >= list.length) { cb(); return; }
         const action = list[i];
-        if (action === 'healing_word') {
-          // Reuse _tryHeroAction which already handles the wounded-ally check
-          _tryHeroAction('healing_word', cb, () => tryIdx(i + 1));
+        if (action === 'healing_word' || action === 'delay_action') {
+          _tryHeroAction(action, cb, () => tryIdx(i + 1));
           return;
         }
         if (action === 'dodge') {
