@@ -63,7 +63,7 @@ registerPostCombatHandler(3, (ctx, done) => {
   const p = _pending.shift();
   scene.remove(p.mesh);
   if (p.id) setMarkerSeen(p.id);
-  addLog('✦ The heroes discover something of interest…', 'round');
+  addLog('✦ The heroes discover something of interest…', 'alert');
   p.onTrigger?.();
   done();
 });
@@ -116,6 +116,6 @@ function _triggerExclamation(e, idx) {
   scene.remove(e.mesh);
   _exclamations.splice(idx, 1);
   if (e.id) setMarkerSeen(e.id);
-  addLog('✦ The heroes discover something of interest…', 'round');
+  addLog('✦ The heroes discover something of interest…', 'alert');
   e.onTrigger?.();
 }

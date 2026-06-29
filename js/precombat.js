@@ -206,7 +206,7 @@ function _triggerAggro(spotter) {
   });
   playUnitAggroSound(spotter.type);
   showCenterAlert('Combat!');
-  addLog(`⚠ ${unitLabel(spotter)} attacks the heroes!`, 'round');
+  addLog(`⚠ ${unitLabel(spotter)} attacks the heroes!`, 'alert');
 
   // BFS social aggro cascade: enemies within an alerted enemy's social range also join
   const enemies = units.filter(u => u.team === 'red' && u.hp > 0 && u !== spotter);
@@ -224,7 +224,7 @@ function _triggerAggro(spotter) {
           b.aggro = true;
           alerted.add(b);
           changed = true;
-          addLog(`⚠ ${unitLabel(b)} attacks the heroes!`, 'round');
+          addLog(`⚠ ${unitLabel(b)} attacks the heroes!`, 'alert');
         }
       }
     }

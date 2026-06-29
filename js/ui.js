@@ -592,6 +592,8 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
   const body   = document.getElementById('spell-bar-body');
   const toggle = document.getElementById('spell-bar-toggle');
   if (!body || !toggle) return;
+  body.classList.add('collapsed');
+  toggle.textContent = '▲';
   toggle.addEventListener('click', e => {
     e.stopPropagation();
     const collapsed = body.classList.toggle('collapsed');

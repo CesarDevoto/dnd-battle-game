@@ -3133,7 +3133,7 @@ function _checkProximityAggro(hero) {
     }
     turnOrder.splice(insertAt, 0, u);
 
-    addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'round');
+    addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'alert');
     anyNew = true;
   }
   if (anyNew) buildTurnList();
@@ -3203,7 +3203,7 @@ function _roamAggroCheck(u) {
     _dungeonAwareEnemies.add(u);
     u.aggro = true;
     u.grp.visible = true;
-    addLog(`⚠ ${unitLabel(u)} spots the heroes during patrol!`, 'round');
+    addLog(`⚠ ${unitLabel(u)} spots the heroes during patrol!`, 'alert');
     buildTurnList();
   }
 }
@@ -3622,7 +3622,7 @@ function runAITurn(u) {
       u.aggro = true;
       u.grp.visible = true;
       if (u.stealthed) setUnitStealth(u, false);
-      addLog(`⚠ ${unitLabel(u)} is alerted by the heroes!`, 'round');
+      addLog(`⚠ ${unitLabel(u)} is alerted by the heroes!`, 'alert');
       buildTurnList();
       // Fall through — enemy acts this turn
     } else {
