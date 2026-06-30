@@ -3176,7 +3176,7 @@ function doEndTurn() {
       return;
     }
   }
-  setTimeout(() => activateTurn(turnIndex), 100);
+  setTimeout(() => activateTurn(turnIndex), 60);
 }
 
 endTurnBtn.addEventListener('click', () => {
@@ -3318,9 +3318,9 @@ const _readiedAutomated = new Set(); // heroes whose delay was set in automated 
 function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
   endTurnBtn.disabled = true;
 
-  const THINK_MS   = 250;
-  const PRE_ATK_MS = 250;
-  const END_PAUSE  = 150;
+  const THINK_MS   = 100;
+  const PRE_ATK_MS = 100;
+  const END_PAUSE  = 80;
 
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
