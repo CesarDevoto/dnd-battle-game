@@ -41,6 +41,7 @@ import { tickLoot } from './loot.js';
 import { initLootPanel } from './lootPanel.js';
 import { initShortRest } from './shortRest.js';
 import { tickBleakmireWoods } from './bleakmireWoodsEvent.js';
+import './mausoleumEvent.js';
 import { initXPTable } from './xpTable.js';
 import { IS_DEV } from './devConfig.js';
 import { initSpellSlots } from './spells.js';

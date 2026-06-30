@@ -19,7 +19,8 @@ let _active   = false;
 let _aggroed  = false;
 let _selected = null;   // hero selected for movement
 let _frozen   = false;  // set by dagnaEvent during scripted dialogue sequences
-let _miloAmbushFired = false;
+let _miloAmbushFired    = false;
+let _morvathDialogFired = false;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,12 @@ function _triggerAggro(spotter) {
     _miloAmbushFired = true;
     setTimeout(() => showQuickDialogue(
       [{ s: 'Milo', t: 'An ambush! Ready yourselves!' }],
+      _doStart
+    ), 700);
+  } else if (getActiveZone()?.id === 'mausoleum' && !_morvathDialogFired && [...alerted].some(u => u.type === 'morvath')) {
+    _morvathDialogFired = true;
+    setTimeout(() => showQuickDialogue(
+      [{ s: 'Morvath', t: "Behold, Rotfang… worms wriggling in our sanctum. How bold! How futile… But take heart, little adventurers. You will not simply die this day. No… You will become something greater — wailing instruments in the choir of my dark legion. Feast upon their flesh, my child. Then… we shall raise them." }],
       _doStart
     ), 700);
   } else {

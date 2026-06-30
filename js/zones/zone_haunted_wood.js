@@ -262,7 +262,6 @@ export const ZONE = {
     { model: 'dryshrub', x: -69.28, z: -69.92, y: -0.2, rotY: 0, scale: 1 },
     { model: 'dryshrub', x: -65.86, z: -58.29, y: -0.2, rotY: 0, scale: 1 },
     { model: 'dryshrub', x: -61.77, z: -60.34, y: -0.2, rotY: 0, scale: 1 },
-    { model: 'exclamation_marker', x: -9.37, z: -68.08, y: 10, rotY: 0, scale: 1 },
   ],
   barriers: [
     { x1: -93.64, z1: 76.68, x2: -91, z2: -92.72 },
