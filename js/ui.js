@@ -370,7 +370,7 @@ function buildActionsPanelHTML(u) {
         <span class="ss-rage-name">🛡 Defensive Stance</span>
         <span class="ss-rage-uses">4-round cooldown</span>
       </div>
-      <div class="ss-rage-desc">+4 AC for 3 rounds · activate as a bonus action</div>
+      <div class="ss-rage-desc">+3 AC for 3 rounds · activate as a bonus action</div>
     </div>`);
   }
   const bonusContent = bonusParts.length ? bonusParts.join('') : `<div class="ss-spell-empty">— none —</div>`;

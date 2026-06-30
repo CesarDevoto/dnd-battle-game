@@ -1072,8 +1072,8 @@ function activateDefensiveStance() {
   u.defStanceCooldown = 4;
   turnBonusActioned   = true;
 
-  addLog(`${unitLabel(u)} takes a Defensive Stance! +4 AC for 3 rounds`, 'move');
-  showFloatingDamage(u, '🛡 +4 AC', '#aaddff');
+  addLog(`${unitLabel(u)} takes a Defensive Stance! +3 AC for 3 rounds`, 'move');
+  showFloatingDamage(u, '🛡 +3 AC', '#aaddff');
   updateCombatStatus();
 }
 
@@ -1758,7 +1758,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
   if (target.dodging) { atkMode = 'disadvantage'; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
 
-  const _acBonus  = (target.defStanceActive ? 4 : 0) + (target.mageArmored ? 3 : 0);
+  const _acBonus  = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
   const targetAC  = (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC) + _acBonus;
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);

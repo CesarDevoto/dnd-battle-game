@@ -26,7 +26,7 @@ const LEVEL_UNLOCKS = {
     2: [
       { name: 'Defensive Stance',
         icon: '🛡',
-        desc: 'Bonus action · +4 AC for 3 rounds · 4-round cooldown' },
+        desc: 'Bonus action · +3 AC for 3 rounds · 4-round cooldown' },
     ],
   },
   halfling: {
