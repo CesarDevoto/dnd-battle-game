@@ -53,13 +53,13 @@ function _renderPortrait(unit) {
   const size   = box.getSize(new THREE.Vector3());
   const maxDim    = Math.max(size.x, size.y, size.z) || 2;
   const fovRad    = _pCamera.fov * (Math.PI / 180);
-  // Bust framing — focus on upper chest, tighter distance
-  const bustY     = center.y + size.y * 0.22;
-  const dist      = (maxDim * 0.38) / Math.tan(fovRad / 2);
+  // Tight bust framing — head/upper chest fills the frame
+  const bustY     = center.y + size.y * 0.28;
+  const dist      = (maxDim * 0.22) / Math.tan(fovRad / 2);
 
   _pCamera.position.set(
-    center.x - maxDim * 0.15,
-    bustY + maxDim * 0.08,
+    center.x - maxDim * 0.10,
+    bustY + maxDim * 0.05,
     center.z + dist
   );
   _pCamera.lookAt(center.x, bustY, center.z);
