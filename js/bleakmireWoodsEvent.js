@@ -106,6 +106,7 @@ function _tickGuide(dt) {
   if (_guideWpIdx >= _GUIDE_WAYPOINTS.length) {
     _guideDone = true;
     setUnitWalking(f, false);
+    _fireArrivalDialogue();
     return;
   }
 
@@ -130,18 +131,20 @@ function _tickGuide(dt) {
 const _KEY_INTRO      = 'dnd-floosh-intro-seen';
 const _MARKER_ID      = 'floosh_quest';         // shared with exclamationMarkers persistence
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
+const _KEY_ARRIVAL    = 'dnd-floosh-arrival-seen';
 
 // Grassling (Floosh) world position in bleakmire_woods
 const _FLOOSH_X  = 6.71;
 const _FLOOSH_Z  = 71.66;
 const _PROX_SQ   = 36;    // 15 ft = 6 WU  →  6² = 36
 
-let _watchingProximity  = false;
-let _flooshQuestPending = false;  // true if proximity triggered during combat
-let _flooshExcl         = null;   // "!" sprite above Floosh
-let _flooshExclT        = 0;
-let _flooshQMark        = null;   // grey "?" sprite — quest active but not yet resolved
-let _flooshQMarkT       = 0;
+let _watchingProximity    = false;
+let _flooshQuestPending   = false;  // true if proximity triggered during combat
+let _arrivalDialogueFired = false;
+let _flooshExcl           = null;   // "!" sprite above Floosh
+let _flooshExclT          = 0;
+let _flooshQMark          = null;   // grey "?" sprite — quest active but not yet resolved
+let _flooshQMarkT         = 0;
 
 const _INTRO_LINES = [
   { s: 'Milo',    t: "Ahead! I've lost the tracks! What now?" },
@@ -161,9 +164,22 @@ const _ACCEPT_LINES = [
   { s: 'Floosh', t: "Follow me when you are ready! May the soil strengthen your steps!" },
 ];
 
-registerDialogueScene({ id: 'dlg_floosh_intro', name: 'Floosh — Zone Entry',   lines: _INTRO_LINES });
-registerDialogueScene({ id: 'dlg_floosh_quest', name: 'Floosh — Quest Offer',  lines: _QUEST_LINES });
-registerDialogueScene({ id: 'dlg_floosh_accept', name: 'Floosh — Accept Quest', lines: _ACCEPT_LINES });
+const _ARRIVAL_LINES = [
+  { s: 'Floosh', t: "Beyond this threshold the blight hath taken grievous hold upon our meadows and ancient woods. The wellspring of this decay lieth most assuredly yonder. Good fortune attend thee, heroes. Our kingdom and all our friends of the wild do rest their hope upon thee. Seek me here upon thy return." },
+];
+
+registerDialogueScene({ id: 'dlg_floosh_intro',    name: 'Floosh — Zone Entry',    lines: _INTRO_LINES });
+registerDialogueScene({ id: 'dlg_floosh_quest',    name: 'Floosh — Quest Offer',   lines: _QUEST_LINES });
+registerDialogueScene({ id: 'dlg_floosh_accept',   name: 'Floosh — Accept Quest',  lines: _ACCEPT_LINES });
+registerDialogueScene({ id: 'dlg_floosh_arrival',  name: 'Floosh — Zone Farewell', lines: _ARRIVAL_LINES });
+
+function _fireArrivalDialogue() {
+  try { if (localStorage.getItem(_KEY_ARRIVAL)) return; } catch {}
+  if (_arrivalDialogueFired) return;
+  _arrivalDialogueFired = true;
+  try { localStorage.setItem(_KEY_ARRIVAL, '1'); } catch {}
+  showQuickDialogue(_ARRIVAL_LINES);
+}
 
 function _spawnFlooshExcl() {
   if (_flooshExcl) return;
@@ -530,8 +546,9 @@ window.addEventListener('zone:loaded', e => {
 
 window.addEventListener('zone:loading', () => {
   _hideFootsteps();
-  _watchingProximity  = false;
-  _flooshQuestPending = false;
+  _watchingProximity    = false;
+  _flooshQuestPending   = false;
+  _arrivalDialogueFired = false;
   _removeFlooshExcl();
   _removeFlooshQMark();
   _guiding            = false;
