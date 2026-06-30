@@ -904,7 +904,20 @@
 
     </div><!-- /#bottom-bar-wrap -->
 
-    <!-- Spell bar — fixed bottom right corner -->
+    <!-- Bottom-right HUD: short rest widget + spell bar, side by side -->
+    <div id="bottom-right-hud">
+
+    <!-- Short Rest Widget -->
+    <div id="sr-widget">
+      <div class="srw-title">SHORT REST</div>
+      <div class="srw-pips">
+        <span class="srw-pip" id="srw-pip-0"></span>
+        <span class="srw-pip" id="srw-pip-1"></span>
+      </div>
+      <button id="srw-btn">🔥 REST</button>
+    </div>
+
+    <!-- Spell bar -->
     <div id="spell-bar">
       <div id="spell-bar-title">SPELLS <button id="spell-bar-toggle" class="sb-toggle">▼</button></div>
       <div id="spell-bar-body">
@@ -942,7 +955,9 @@
         </div>
       </div>
       </div><!-- /#spell-bar-body -->
-    </div>
+    </div><!-- /#spell-bar -->
+
+    </div><!-- /#bottom-right-hud -->
 
   </div><!-- /#app -->
 
