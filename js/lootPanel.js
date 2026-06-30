@@ -2,7 +2,7 @@
 
 import { units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
-import { clearLootOrbs } from './loot.js';
+import { clearLootLabels } from './loot.js';
 import { registerPostCombatHandler } from './postCombat.js';
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ export function initLootPanel() {
 function _onDefeat() {
   _drops    = [];
   _allItems = [];
-  clearLootOrbs();
+  clearLootLabels();
 }
 
 // ── Build panel DOM ───────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ function _finish() {
   _allItems = [];
   _heroes   = [];
   _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
-  clearLootOrbs();
+  clearLootLabels();
   const advance = _done;
   _done = null;
   advance?.(); // hand off to the next post-combat handler (Dagna, zone event, etc.)

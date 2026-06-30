@@ -230,7 +230,7 @@ function _makeSprite(text, color) {
   return spr;
 }
 
-export function spawnLootOrb(position, loot) {
+export function spawnLootLabels(position, loot) {
   const { coins, items } = loot;
   const toLabel = [];
 
@@ -258,7 +258,7 @@ export function spawnLootOrb(position, loot) {
   });
 }
 
-export function clearLootOrbs() {
+export function clearLootLabels() {
   for (const s of _labels) {
     s.material.map?.dispose();
     s.material.dispose();
@@ -268,5 +268,5 @@ export function clearLootOrbs() {
 }
 
 export function tickLoot(_dt) {
-  // Labels are static — cleared only by clearLootOrbs() on loot collect or party wipe
+  // Labels are static — cleared only by clearLootLabels() on loot collect or party wipe
 }

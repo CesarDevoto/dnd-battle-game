@@ -22,7 +22,7 @@ import { initCombatAutomation, isAutomated, hasPendingSwitch,
          handleRoundStartSwitch, pickAutoTarget, getTendency } from './combatAutomation.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
-import { rollLoot, spawnLootOrb } from './loot.js';
+import { rollLoot, spawnLootLabels } from './loot.js';
 import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
@@ -1550,7 +1550,7 @@ function removeDefeatedUnit(u) {
     onEnemyKilled(u);
     const cr   = ENEMY_CR[u.type] ?? 0;
     const loot = rollLoot(cr);
-    spawnLootOrb(u.grp.position, loot);
+    spawnLootLabels(u.grp.position, loot);
     window.dispatchEvent(new CustomEvent('enemy:looted', {
       detail: { enemyName: UNIT_TYPES[u.type]?.name ?? u.type, coins: loot.coins, items: loot.items },
     }));
