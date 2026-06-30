@@ -6,8 +6,9 @@ import { UNIT_TYPES, COMBAT } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
 
-export const units   = [];
-export const corpses = [];  // animated units that have died — kept for mixer updates
+export const units      = [];
+export const corpses    = [];  // animated units that have died — kept for mixer updates
+export const heroRoster = [];  // all 4 hero unit objects, never cleared on death
 
 export let allBarsVisible = false;
 export function toggleAllBars()    { allBarsVisible = !allBarsVisible; }
@@ -459,6 +460,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               _scaleElapsed: 0,
               _scaleOnComplete: null };
   units.push(u);
+  if (team === 'blue' && !heroRoster.includes(u)) heroRoster.push(u);
   return u;
 }
 

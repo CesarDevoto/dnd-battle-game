@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { camera, renderer } from './scene.js';
-import { units } from './units.js';
+import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { playSound } from './audio.js';
 import { showLevelUpModal } from './levelUpModal.js';
@@ -41,6 +41,7 @@ function _xpFloor(lvl) { return XP_THRESHOLDS[lvl - 1] ?? XP_THRESHOLDS[MAX_LEVE
 function _xpCeil(lvl)  { return XP_THRESHOLDS[lvl]     ?? Infinity; }
 
 function showFloatingXP(hero, amount) {
+  if (!hero.anchor) return;
   _pv.set(hero.anchor.x, hero.anchor.y + 1.0, hero.anchor.z).project(camera);
   if (_pv.z >= 1) return;
   const el = document.createElement('div');
@@ -54,6 +55,7 @@ function showFloatingXP(hero, amount) {
 }
 
 export function showLevelUpFloat(hero) {
+  if (!hero.anchor) return;
   _pv.set(hero.anchor.x, hero.anchor.y + 1.6, hero.anchor.z).project(camera);
   if (_pv.z >= 1) return;
   const el = document.createElement('div');
@@ -67,7 +69,7 @@ export function showLevelUpFloat(hero) {
 }
 
 export function updateXPBar() {
-  const hero = units.find(h => h.team === 'blue');
+  const hero = heroRoster[0];
   if (!hero) return;
 
   const lvl    = hero.level ?? 1;
@@ -90,8 +92,7 @@ export function updateXPBar() {
 
 // addLog is passed in to avoid a circular import with combat.js
 export function awardXP(amount, addLog) {
-  // All blue heroes earn XP regardless of hp — dead heroes level up with the party.
-  const heroes = units.filter(h => h.team === 'blue');
+  const heroes = heroRoster;
   if (!heroes.length) return;
 
   addLog(`✦ Party gains ${amount} XP`, 'xp');
