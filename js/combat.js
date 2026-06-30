@@ -24,7 +24,7 @@ import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
 import { rollLoot, spawnLootOrb } from './loot.js';
 import { runPostCombat } from './postCombat.js';
-import { playSound, playUnitAttackSound, playUnitMoveSound, getUnitAttackDuration, playCombatMusic, stopCombatMusic } from './audio.js';
+import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
@@ -1695,14 +1695,10 @@ function performAttack(attacker, target, atk, onSettled = null) {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
       playUnitAttackAnim(attacker, 'ranged', () => {
-        const delay = getUnitAttackDuration(attacker.type) * 1000;
-        setTimeout(() => playSound('range_attack_bow'), delay);
         fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
       });
     }
   } else {
-    const delay = getUnitAttackDuration(attacker.type) * 1000;
-    setTimeout(() => playSound('sword_swing'), delay);
     playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk, onSettled));
   }
 }
