@@ -2598,6 +2598,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
 }
 
@@ -2633,6 +2634,13 @@ body {
   line-height: 1;
   white-space: nowrap;
 }
+
+/* Neck: small box matching ring/wrist outer-col size */
+.eq-grid [data-slot="neck"] .eq-slot-box { width: 46px; }
+
+/* Wrist: portrait orientation — same width, twice as tall */
+.eq-grid [data-slot="wrist-l"] .eq-slot-box,
+.eq-grid [data-slot="wrist-r"] .eq-slot-box { aspect-ratio: 1 / 2; }
 
 /* ── Quest complete floating notification ────────────────────────────── */
 .quest-complete-float {
