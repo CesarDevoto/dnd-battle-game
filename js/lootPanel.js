@@ -30,10 +30,24 @@ export function initLootPanel() {
   _panelEl = document.getElementById('loot-panel');
   document.getElementById('lp-collect-btn')?.addEventListener('click', _collectLoot);
   document.getElementById('lp-skip-btn')?.addEventListener('click', _skipLoot);
-  // Accumulate drops as enemies die during combat
-  window.addEventListener('enemy:looted', e => _drops.push(e.detail));
+  // Accumulate drops as enemies die. If the panel is already showing (second
+  // combat wave while loot is unresolved), rebuild it so new drops are visible.
+  window.addEventListener('enemy:looted', e => {
+    _drops.push(e.detail);
+    if (_done !== null && _panelEl?.style.display !== 'none') _buildPanel();
+  });
   // On party wipe: clear orbs and drops silently — no panel
   window.addEventListener('zone:defeat', _onDefeat);
+  // Zone transition while panel is open (edge case): abort cleanly without
+  // calling advance() — the new zone reinitialises all combat state anyway.
+  window.addEventListener('zone:loaded', () => {
+    if (_panelEl) _panelEl.style.display = 'none';
+    _drops    = [];
+    _allItems = [];
+    _heroes   = [];
+    _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
+    _done     = null;
+  });
 }
 
 function _onDefeat() {

@@ -4,6 +4,7 @@ import { scene, ground, grid, ambient, moon, fire, camera, rebuildGrid } from '.
 import { playAmbient } from './audio.js';
 import { ENVS, ANIM, COLORS, HERO_ZONE } from './constants.js';
 import { getTerrainHeight, rebuildTerrain, isOnTunnelFloor, setTerrainAmplitudeScale, setTerrainProfile } from './terrain.js';
+import { clearLootOrbs } from './loot.js';
 import {
   _windBlobs, _cachedMats, _cachedGeos, updateWind,
   mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile,
@@ -291,6 +292,7 @@ function clearProps() {
   _torchUpdate = null;
   _surfaceY    = null;
   clearPointLightOrbs();
+  clearLootOrbs();
 }
 
 // ── Hero dungeon point lights ─────────────────────────────────────────────────
