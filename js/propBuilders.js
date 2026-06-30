@@ -2010,6 +2010,11 @@ export function setPointLightOrbsVisible(visible) {
   for (const orb of _pointLightOrbs) orb.visible = visible;
 }
 
+// Called by clearProps() on zone transition so disposed orbs don't accumulate.
+export function clearPointLightOrbs() {
+  _pointLightOrbs.clear();
+}
+
 export function mkPointLight(intensity = 6, range = 18) {
   const grp = new THREE.Group();
 

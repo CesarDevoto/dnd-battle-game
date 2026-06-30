@@ -13,6 +13,7 @@ import {
   mkTorch, mkTombstone, mkDeadTree,
   mkIce, mkLog, mkTunnelPillar, mkTunnelWall, mkBrokenStatue,
   _makeMapleLeafGeo,
+  clearPointLightOrbs,
 } from './propBuilders.js';
 
 let t = 0;
@@ -289,6 +290,7 @@ function clearProps() {
   _fogUpdate   = null;
   _torchUpdate = null;
   _surfaceY    = null;
+  clearPointLightOrbs();
 }
 
 // ── Hero dungeon point lights ─────────────────────────────────────────────────

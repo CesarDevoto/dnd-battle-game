@@ -301,4 +301,5 @@ function _applyUI() {
   for (const mesh of _detectRings.values()) mesh.visible = _dev;
   for (const mesh of _socialRings.values()) mesh.visible = _dev;
   setWaypointMarkersVisible(_dev);
+  setPointLightOrbsVisible(_dev);
 }
