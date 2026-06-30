@@ -2532,7 +2532,7 @@ body {
 /* ── Equipment panel (PoE-style grid) ───────────────────────────────── */
 #eq-panel {
   display: none;
-  width: 236px;
+  width: 262px;
   padding: 10px 9px 12px;
   background:
     repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(212,175,55,0.007) 3px, rgba(212,175,55,0.007) 4px),
@@ -2565,12 +2565,34 @@ body {
   border-bottom: 1px solid rgba(212,175,55,0.14);
 }
 
-/* 3-column × 5-row uniform grid, no silhouette */
+/* body-map grid — narrow outer cols for rings/wrists, wide inner cols for body */
 .eq-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 46px 1fr 1fr 46px;
   gap: 6px;
+  grid-template-areas:
+    ".        head       neck       ."
+    ".        chest      cloak      ."
+    "wrist-l  legs       hands      wrist-r"
+    "ring-l   feet       belt       ring-r"
+    ".        main-hand  off-hand   ammo";
 }
+
+.eq-grid [data-slot="head"]      { grid-area: head; }
+.eq-grid [data-slot="neck"]      { grid-area: neck; }
+.eq-grid [data-slot="chest"]     { grid-area: chest; }
+.eq-grid [data-slot="cloak"]     { grid-area: cloak; }
+.eq-grid [data-slot="wrist-l"]   { grid-area: wrist-l; }
+.eq-grid [data-slot="legs"]      { grid-area: legs; }
+.eq-grid [data-slot="hands"]     { grid-area: hands; }
+.eq-grid [data-slot="wrist-r"]   { grid-area: wrist-r; }
+.eq-grid [data-slot="ring-l"]    { grid-area: ring-l; }
+.eq-grid [data-slot="feet"]      { grid-area: feet; }
+.eq-grid [data-slot="belt"]      { grid-area: belt; }
+.eq-grid [data-slot="ring-r"]    { grid-area: ring-r; }
+.eq-grid [data-slot="main-hand"] { grid-area: main-hand; }
+.eq-grid [data-slot="off-hand"]  { grid-area: off-hand; }
+.eq-grid [data-slot="ammo"]      { grid-area: ammo; }
 
 .eq-slot {
   display: flex;

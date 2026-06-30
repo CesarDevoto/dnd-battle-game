@@ -302,30 +302,24 @@ function buildEquipmentPanelHTML(u) {
     `<span class="eq-slot-label">${label}</span>` +
     `</div>`;
 
-  // PoE-style 3×5 grid — weapons flank the body, accessories below
-  // Row 1: Head / Neck / Cloak
-  // Row 2: Main Hand / Chest / Off Hand
-  // Row 3: Ring (L) / Shoulders / Ring (R)
-  // Row 4: Wrists / Belt / Legs
-  // Row 5: Hands / Ammo / Feet
   return (
     `<div class="eq-title">EQUIPMENT</div>` +
     `<div class="eq-grid">` +
       slot('head',      'Head')      +
       slot('neck',      'Neck')      +
-      slot('cloak',     'Cloak')     +
-      slot('hands',     'Hands')     +
       slot('chest',     'Chest')     +
-      slot('feet',      'Feet')      +
-      slot('ring-l',    'Ring')      +
-      slot('shoulders', 'Shoulders') +
-      slot('ring-r',    'Ring')      +
-      slot('wrists',    'Wrists')    +
-      slot('belt',      'Belt')      +
+      slot('cloak',     'Cloak')     +
+      slot('wrist-l',   'Wrist')     +
       slot('legs',      'Legs')      +
+      slot('hands',     'Hands')     +
+      slot('wrist-r',   'Wrist')     +
+      slot('ring-l',    'Ring')      +
+      slot('feet',      'Feet')      +
+      slot('belt',      'Belt')      +
+      slot('ring-r',    'Ring')      +
       slot('main-hand', 'Main Hand') +
-      slot('ammo',      'Ammo')      +
       slot('off-hand',  'Off Hand')  +
+      slot('ammo',      'Ammo')      +
     `</div>`
   );
 }
