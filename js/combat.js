@@ -1912,15 +1912,17 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
 
   targets.forEach((hero, idx) => {
     setTimeout(() => {
-      const heroAb     = UNIT_TYPES[hero.type]?.abilities ?? {};
-      const saveMod    = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
-      const saveResult = rollSave(saveMod, dc);
-      const finalDmg   = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
-      const tLabel     = unitLabel(hero);
-      const outcome    = saveResult.isSave ? '½ dmg' : 'full dmg';
-      const saveWord   = saveResult.isSave ? 'SAVES' : 'FAILS';
+      const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
+      const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
+      const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 4 }).total : 0;
+      const saveResult    = rollSave(saveMod + blessSaveBonus, dc);
+      const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+      const tLabel        = unitLabel(hero);
+      const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
+      const saveWord      = saveResult.isSave ? 'SAVES' : 'FAILS';
 
-      showRoll(`${tLabel} · CON Save`, saveResult, { autoDismiss: false });
+      const saveLabel = `${tLabel} · ${saveType.toUpperCase()} Save` + (blessSaveBonus > 0 ? `  ✦+${blessSaveBonus}` : '');
+      showRoll(saveLabel, saveResult, { autoDismiss: false });
 
       const willDie = hero.hp <= finalDmg;
       hero.aggro = true;
@@ -1929,7 +1931,8 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
       buildTurnList();
       if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
 
-      addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}) — ${finalDmg} dmg [${outcome}]`,
+      const blessTag = blessSaveBonus > 0 ? ` ✦+${blessSaveBonus}` : '';
+      addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}${blessTag}) — ${finalDmg} dmg [${outcome}]`,
              saveResult.isSave ? 'hit' : 'dmg');
       showFloatingDamage(hero, `-${finalDmg}`, '#9922cc');
       playGraveCurseEffect(hero);
