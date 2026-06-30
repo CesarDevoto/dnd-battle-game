@@ -1931,10 +1931,10 @@ body {
   opacity: 0;
   text-shadow: 0 0 10px rgba(190,110,255,0.90), 0 0 24px rgba(140,60,220,0.60);
 }
-.mage-armor-float.cast .maf-icon  { animation: maf-diamond 2.5s ease-out forwards; }
+.mage-armor-float.cast .maf-icon  { animation: maf-shield 2.5s ease-out forwards; }
 .mage-armor-float.cast .maf-label { animation: maf-label-rise 2.5s ease-out forwards; }
 
-@keyframes maf-diamond {
+@keyframes maf-shield {
   0%   { opacity: 0; transform: scale(0.2) rotate(-90deg); }
   16%  { opacity: 1; transform: scale(1.45) rotate(22deg); }
   30%  { transform: scale(1.05) rotate(-6deg); }

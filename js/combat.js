@@ -1087,7 +1087,8 @@ function showMageArmorFloat(u) {
   wrap.className = 'mage-armor-float';
   wrap.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth) + 'px';
   wrap.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
-  const icon  = document.createElement('div'); icon.className  = 'maf-icon';  icon.textContent  = '◆';
+  const icon  = document.createElement('div'); icon.className  = 'maf-icon';
+  icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="0.88em" height="1em" style="display:block;filter:drop-shadow(0 0 6px rgba(190,110,255,0.85))"><path d="M20,43 Q5,33 5,20 L5,8 Q5,4 9,4 L31,4 Q35,4 35,8 L35,20 Q35,33 20,43 Z" fill="currentColor" stroke="rgba(238,221,255,0.7)" stroke-width="1.5" stroke-linejoin="round"/></svg>';
   const label = document.createElement('div'); label.className = 'maf-label'; label.textContent = `MAGE ARMOR · AC ${(u.ac ?? 12) + 3}`;
   wrap.appendChild(icon);
   wrap.appendChild(label);
