@@ -179,7 +179,7 @@ const _SUBMAP_SRCS = {
 // mapX/mapY: fraction [0,1] of that sub-map image. label added later.
 const SUBMAP_WAYPOINTS = {
   I:   [
-    { id: 'ambush',          mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin', zoneId: 'road_to_phandelver',  arrivalX: 20.06, arrivalZ: 22.43 },
+    { id: 'road',            mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin', zoneId: 'road_to_phandelver',  arrivalX: 20.06, arrivalZ: 22.43 },
     { id: 'bleakmire_woods', mapX: 0.697, mapY: 0.669, label: 'Bleakmire Wood',    zoneId: 'bleakmire_woods',  arrivalX: -14.12, arrivalZ: 68.14 },
   ],
   II:  [],
