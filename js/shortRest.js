@@ -35,7 +35,7 @@ function _render() {
   btn.disabled     = combatPhase || remaining <= 0;
   btn.title        = remaining <= 0  ? 'No short rests remaining — refresh on level-up'
                    : combatPhase     ? 'Cannot rest during combat'
-                   : `${remaining} rest${remaining === 1 ? '' : 's'} remaining`;
+                   : `Heroes gain 1dHP+Con hit points and added spell slots per short rest. (${remaining} remaining)`;
 
   if (pip0) pip0.classList.toggle('used', _used >= 1);
   if (pip1) pip1.classList.toggle('used', _used >= 2);
@@ -67,6 +67,13 @@ function _executeRest() {
     const actual = h.hp - prev;
 
     if (actual > 0) showFloatingDamage(h, `+${actual}`, '#55cc55');
+  }
+
+  // Restore 2 spell slots per hero (capped at max)
+  for (const h of heroRoster) {
+    const maxSlots = UNIT_TYPES[h.type]?.spellSlots ?? 0;
+    if (maxSlots <= 0) continue;
+    h.spellSlots = Math.min(maxSlots, (h.spellSlots ?? 0) + 2);
   }
 
   updateHeroUI();
