@@ -411,7 +411,7 @@ function buildSheetHTML(u) {
     <div class="ss-combat">
       <div class="ss-stat">
         <span class="ss-lbl">HP</span>
-        <span class="ss-val">${u.hp}/${def.hp}</span>
+        <span class="ss-val">${u.hp}/${u.maxHp ?? def.hp}</span>
       </div>
       <div class="ss-stat">
         <span class="ss-lbl">AC</span>

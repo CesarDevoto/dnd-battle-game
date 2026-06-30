@@ -121,6 +121,11 @@ export function buildHeroPortraits() {
 
   // Start collapsed — player opens it when needed
   bar.classList.add('collapsed');
+
+  window.addEventListener('hero:levelup', e => {
+    const refs = _cards[e.detail.hero.type];
+    if (refs) refs.maxHp = e.detail.hero.maxHp;
+  });
 }
 
 export function updateHeroUI() {
