@@ -742,8 +742,12 @@ function _startOutro() {
   _inStyxZone = false;
   _hideKills();
 
-  // End combat immediately — skips loot/post-combat chain
+  // End combat immediately — skips loot/post-combat chain.
+  // forceCombatExit fires combat:ended which calls enterPrecombat (unfrozen).
+  // Immediately re-freeze so _checkAggro can't fire while heroes are still at
+  // River Styx coordinates during the zone transition.
   _endCombatFn?.();
+  _freezePrecombatFn?.(true);
 
   // Blinding white flash covers the zone transition
   const flash = document.createElement('div');
@@ -764,7 +768,10 @@ function _startOutro() {
 
       setTimeout(() => {
         flash.remove();
+        // Place heroes around the waystone first, then unfreeze so enemies
+        // detect from the correct hero positions rather than Styx coordinates.
         _positionHeroesFormation();
+        _freezePrecombatFn?.(false);
         const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
         if (leugren) setFollowUnit(leugren);
       }, 1400);
