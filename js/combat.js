@@ -13,6 +13,7 @@ import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
+import { fireThrownAxe }           from './thrownAxe.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
@@ -1691,6 +1692,10 @@ function performAttack(attacker, target, atk, onSettled = null) {
     if (attacker.type === 'elf' && atk.name === 'Fire Bolt') {
       playUnitAttackAnim(attacker, 'ranged');
       playFireboltEffect(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
+    } else if (attacker.type === 'human') {
+      playUnitAttackAnim(attacker, 'ranged', () => {
+        fireThrownAxe(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
+      });
     } else {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
