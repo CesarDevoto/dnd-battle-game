@@ -20,7 +20,7 @@ export const ZONE = {
     { type: 'shadow', x: 19.28, z: 11.76, yOff: -1, scale: 1.771, detectRange: 11, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
   ],
   exits: [
-    { x: 0, z: 39, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },
+    { x: 0, z: 36, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },
   ],
   terrain: [],
   terrainSeed: { ph: [3.12,1.87,4.56,2.34,5.78,0.93,3.45,1.62,4.89,2.71,5.34,0.58], fx: [0.9,2.2,5.8,11.4,38,42], fz: [1.1,3.3,5.6,12.8,31,46], sharpExp: 1.08, scale: 6.5 },
@@ -222,6 +222,7 @@ export const ZONE = {
     { model: 'dungeonwalllong', x: 35.61, z: -34.79, y: 3, yOff: 3, rotY: 0, scale: 10.648 },
     { model: 'dungeonwallcurve', x: 31.7, z: -34.33, y: 3, yOff: 3, rotY: 16.493, scale: 10.648 },
     { model: 'dungeonwallcurve', x: 40.8, z: -33.83, y: 3, yOff: 3, rotY: 14.792, scale: 10.648 },
+    { model: 'waystone', x: 1.28, z: 33.98, y: 0, yOff: 0.2, rotY: 0, scale: 1, waystoneId: 'mausoleum', mapTab: 'I' },
   ],
   barriers: [
     { x1: -2.85, z1: 45.77, x2: -2.88, z2: 42.2 },

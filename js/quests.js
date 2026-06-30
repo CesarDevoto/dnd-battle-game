@@ -5,7 +5,8 @@ const _STORAGE_KEY = 'dnd-quests';
 const _FLAGS_KEY   = 'dnd-quest-flags';
 
 // ── Quest state ───────────────────────────────────────────────────────────────
-const _quests = [];
+const _quests      = [];
+const _questActions = {};  // id → { label, onClick }
 let _panelEl  = null;
 let _btnEl    = null;
 let _visible  = false;
@@ -45,6 +46,23 @@ export function completeQuest(id, reward = null) {
   _render();
   _showCompleteFloat(q.title, q.reward);
   if (q.reward?.xp) awardXP(q.reward.xp, addLog);
+}
+
+export function openQuestPanel()  { _setVisible(true); }
+
+export function setQuestAction(id, label, onClick) {
+  _questActions[id] = { label, onClick };
+  _render();
+}
+
+export function clearQuestAction(id) {
+  delete _questActions[id];
+  _render();
+}
+
+export function expandQuest(id) {
+  const q = _quests.find(q => q.id === id);
+  if (q) { q.open = true; _render(); }
 }
 
 // Call this on a "new run" to wipe quest progress
@@ -129,6 +147,13 @@ function _render() {
       if (q) { q.open = !q.open; _render(); }
     });
   });
+
+  _panelEl.querySelectorAll('.ql-action-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _questActions[btn.dataset.questAction]?.onClick?.();
+    });
+  });
 }
 
 function _questHtml(q) {
@@ -136,11 +161,15 @@ function _questHtml(q) {
   const doneClass = q.status === 'completed' ? ' ql-done' : '';
   const openClass = q.open ? ' ql-open' : '';
   const descHtml  = q.open ? '<div class="ql-desc">' + q.description + '</div>' : '';
+  const action    = _questActions[q.id];
+  const btnHtml   = (q.open && action)
+    ? `<button class="ql-action-btn" data-quest-action="${q.id}">${action.label}</button>`
+    : '';
   return '<div class="ql-item' + doneClass + openClass + '">'
     + '<div class="ql-row" data-quest="' + q.id + '">'
     + '<span class="ql-arrow">' + arrow + '</span>'
     + '<span class="ql-name">' + q.title + '</span>'
-    + '</div>' + descHtml + '</div>';
+    + '</div>' + descHtml + btnHtml + '</div>';
 }
 
 function _showCompleteFloat(title, reward) {

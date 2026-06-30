@@ -2507,6 +2507,28 @@ body {
 .ql-done .ql-arrow { color: #6a5c1e; }
 .ql-done .ql-desc  { color: #6a5c1e; }
 
+.ql-action-btn {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 6px 8px 8px;
+  padding: 6px 10px;
+  background: rgba(30, 18, 2, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 4px;
+  color: #f0d060;
+  font-family: var(--font-fantasy);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-align: center;
+  text-shadow: 0 0 8px rgba(240, 200, 60, 0.5);
+  transition: background 0.15s, border-color 0.15s;
+}
+.ql-action-btn:hover {
+  background: rgba(50, 32, 4, 0.95);
+  border-color: rgba(212, 175, 55, 0.85);
+}
+
 /* ── Quest complete floating notification ────────────────────────────── */
 .quest-complete-float {
   position: fixed;

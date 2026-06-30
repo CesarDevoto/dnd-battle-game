@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { scene, camera, renderer } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
-import { units, setUnitWalking } from './units.js';
-import { addQuest, getQuestFlag, setQuestFlag } from './quests.js';
+import { units, corpses, setUnitWalking } from './units.js';
+import { addQuest, getQuestFlag, setQuestFlag, completeQuest,
+         setQuestAction, clearQuestAction, expandQuest, openQuestPanel } from './quests.js';
+import { loadZone } from './zoneLoader.js';
 import { mkExclamationMarker } from './propBuilders.js';
 import { isMarkerSeen, setMarkerSeen } from './exclamationMarkers.js';
 import { isPrecombat } from './precombat.js';
@@ -132,6 +134,52 @@ const _KEY_INTRO      = 'dnd-floosh-intro-seen';
 const _MARKER_ID      = 'floosh_quest';         // shared with exclamationMarkers persistence
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 const _KEY_ARRIVAL    = 'dnd-floosh-arrival-seen';
+const _KEY_RETURN     = 'dnd-floosh-return-ready';
+
+let _quickTraveling = false;
+
+function _placeHeroesNearFloosh() {
+  const FORM = [
+    { type: 'dwarf',    ox: -1, oz: 3 },
+    { type: 'human',    ox:  1, oz: 3 },
+    { type: 'elf',      ox: -1, oz: 5 },
+    { type: 'halfling', ox:  1, oz: 5 },
+  ];
+  FORM.forEach(({ type, ox, oz }) => {
+    const u = units.find(u => u.team === 'blue' && u.type === type);
+    if (!u) return;
+    const x = _FLOOSH_X + ox, z = _FLOOSH_Z + oz;
+    const y = getTerrainHeight(x, z);
+    u.grp.position.set(x, y, z);
+    if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
+  });
+}
+
+function _armReturnButton() {
+  setQuestAction('floosh_undead', 'Quick travel to Floosh', () => {
+    try { localStorage.removeItem(_KEY_RETURN); } catch {}
+    clearQuestAction('floosh_undead');
+    _quickTraveling = true;
+    loadZone('bleakmire_woods', false);
+  });
+  expandQuest('floosh_undead');
+}
+
+// ── Post-combat: arm return button when Morvath is defeated ──────────────────
+registerPostCombatHandler(15, (ctx, done) => {
+  done();  // always advance chain; side-effect only
+  if (!ctx.isVictory) return;
+  try { if (localStorage.getItem(_KEY_RETURN)) return; } catch {}
+  if (!getQuestFlag('floosh_accepted')) return;
+  const morvathDead = [...units, ...corpses].some(u => u.type === 'morvath' && u.hp <= 0);
+  if (!morvathDead) return;
+
+  setFlooshQuestDone();
+  completeQuest('floosh_undead');
+  try { localStorage.setItem(_KEY_RETURN, '1'); } catch {}
+  _armReturnButton();
+  openQuestPanel();
+});
 
 // Grassling (Floosh) world position in bleakmire_woods
 const _FLOOSH_X  = 6.71;
@@ -513,6 +561,15 @@ export function tickBleakmireWoods(dt) {
 
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
 window.addEventListener('zone:loaded', e => {
+  // Re-arm return button on any zone load if still pending (quest panel is global)
+  try { if (localStorage.getItem(_KEY_RETURN)) _armReturnButton(); } catch {}
+
+  // Position heroes near Floosh after quick travel
+  if (e.detail?.id === 'bleakmire_woods' && _quickTraveling) {
+    _quickTraveling = false;
+    setTimeout(_placeHeroesNearFloosh, 250);
+  }
+
   if (e.detail?.id !== 'bleakmire_woods') return;
   if (isDevMode()) _spawnWaypointMarkers();
 
@@ -549,6 +606,7 @@ window.addEventListener('zone:loading', () => {
   _watchingProximity    = false;
   _flooshQuestPending   = false;
   _arrivalDialogueFired = false;
+  _quickTraveling       = false;
   _removeFlooshExcl();
   _removeFlooshQMark();
   _guiding            = false;
