@@ -296,11 +296,15 @@ function _initSpellAccordions() {
 }
 
 function buildEquipmentPanelHTML(u) {
-  const slot = (id, label) =>
-    `<div class="eq-slot" data-slot="${id}" title="${label}">` +
-    `<div class="eq-slot-box"></div>` +
-    `<span class="eq-slot-label">${label}</span>` +
-    `</div>`;
+  const slot = (id, label) => {
+    const item = u.equipment?.[id];
+    const rarityClass = item ? ` rarity-${item.rarity}` : '';
+    const title = item ? item.name : label;
+    return `<div class="eq-slot" data-slot="${id}" title="${title}">` +
+      `<div class="eq-slot-box${rarityClass}"></div>` +
+      `<span class="eq-slot-label">${label}</span>` +
+      `</div>`;
+  };
 
   const bag = n =>
     `<div class="eq-bag">` +

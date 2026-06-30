@@ -460,7 +460,11 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               _scaleElapsed: 0,
               _scaleOnComplete: null };
   units.push(u);
-  if (team === 'blue' && !heroRoster.includes(u)) heroRoster.push(u);
+  if (team === 'blue') {
+    if (!u.equipment) u.equipment = {};
+    if (!u.currency)  u.currency  = { copper: 0, silver: 0, gold: 5, platinum: 0 };
+    if (!heroRoster.includes(u)) heroRoster.push(u);
+  }
   return u;
 }
 
