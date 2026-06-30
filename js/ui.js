@@ -297,54 +297,35 @@ function _initSpellAccordions() {
 
 function buildEquipmentPanelHTML(u) {
   const slot = (id, label) =>
-    `<div class="eq-slot" data-slot="${id}">` +
+    `<div class="eq-slot" data-slot="${id}" title="${label}">` +
     `<div class="eq-slot-box"></div>` +
     `<span class="eq-slot-label">${label}</span>` +
     `</div>`;
 
-  const silSVG =
-    `<svg viewBox="0 0 60 132" xmlns="http://www.w3.org/2000/svg" class="eq-silhouette">` +
-    // Head
-    `<ellipse cx="30" cy="13" rx="11" ry="12" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
-    // Neck
-    `<rect x="26" y="24" width="8" height="6" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
-    // Torso
-    `<path d="M15,30 Q10,30 10,35 L10,70 Q10,74 15,74 L45,74 Q50,74 50,70 L50,35 Q50,30 45,30 Z" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
-    // Left arm
-    `<path d="M15,32 Q7,35 5,54 Q3,63 7,66 L13,66 L18,33" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
-    // Right arm
-    `<path d="M45,32 Q53,35 55,54 Q57,63 53,66 L47,66 L42,33" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
-    // Left leg
-    `<path d="M15,74 L12,110 Q11,116 17,116 L25,116 L28,74" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
-    // Right leg
-    `<path d="M45,74 L48,110 Q49,116 43,116 L35,116 L32,74" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
-    `</svg>`;
-
+  // PoE-style 3×5 grid — weapons flank the body, accessories below
+  // Row 1: Head / Neck / Cloak
+  // Row 2: Main Hand / Chest / Off Hand
+  // Row 3: Ring (L) / Shoulders / Ring (R)
+  // Row 4: Wrists / Belt / Legs
+  // Row 5: Hands / Ammo / Feet
   return (
     `<div class="eq-title">EQUIPMENT</div>` +
-    `<div class="eq-doll">` +
-      `<div class="eq-col">` +
-        slot('head',      'Head')      +
-        slot('shoulders', 'Shoulders') +
-        slot('chest',     'Chest')     +
-        slot('wrists',    'Wrists')    +
-        slot('hands',     'Hands')     +
-        slot('legs',      'Legs')      +
-        slot('feet',      'Feet')      +
-      `</div>` +
-      `<div class="eq-sil">${silSVG}</div>` +
-      `<div class="eq-col">` +
-        slot('neck',   'Neck')  +
-        slot('cloak',  'Cloak') +
-        slot('ring-l', 'Ring')  +
-        slot('ring-r', 'Ring')  +
-        slot('belt',   'Belt')  +
-        slot('ammo',   'Ammo')  +
-      `</div>` +
-    `</div>` +
-    `<div class="eq-weapons">` +
+    `<div class="eq-grid">` +
+      slot('head',      'Head')      +
+      slot('neck',      'Neck')      +
+      slot('cloak',     'Cloak')     +
       slot('main-hand', 'Main Hand') +
+      slot('chest',     'Chest')     +
       slot('off-hand',  'Off Hand')  +
+      slot('ring-l',    'Ring')      +
+      slot('shoulders', 'Shoulders') +
+      slot('ring-r',    'Ring')      +
+      slot('wrists',    'Wrists')    +
+      slot('belt',      'Belt')      +
+      slot('legs',      'Legs')      +
+      slot('hands',     'Hands')     +
+      slot('ammo',      'Ammo')      +
+      slot('feet',      'Feet')      +
     `</div>`
   );
 }
