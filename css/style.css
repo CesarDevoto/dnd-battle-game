@@ -2548,11 +2548,18 @@ body {
     0 8px 40px rgba(0,0,0,0.90),
     inset 0 0 45px rgba(0,0,0,0.40);
   pointer-events: auto;
-  flex-direction: row;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 0;
 }
 #eq-panel.show { display: flex; }
+
+/* eq-content is the actual flex-row that holds .eq-left and .eq-right */
+#eq-content {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+}
 
 .eq-title {
   font-family: var(--font-fantasy);
