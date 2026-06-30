@@ -538,6 +538,7 @@ const _BUST_SRC = {
   Gobo:    '/assets/Pictures%20Cutscenes%20Icons/Gobobust.jpg',
   Rasec:   '/assets/Pictures%20Cutscenes%20Icons/Rasecbust.jpg',
   Floosh:  '/assets/Pictures%20Cutscenes%20Icons/grassling.jpg',
+  Morvath: '/assets/Pictures%20Cutscenes%20Icons/morvathbust.jpg',
 };
 
 function _renderLine() {
