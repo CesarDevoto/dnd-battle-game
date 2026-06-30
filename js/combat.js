@@ -3399,6 +3399,26 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         return;
       }
 
+      // ── Bless (dwarf, main action, uses spell slot) ──────────────────
+      if (actionVal === 'bless') {
+        if (u.type !== 'dwarf')          { onSkip(); return; }
+        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (blessedUnits.size > 0)       { onSkip(); return; } // already active
+        castBless(u);
+        setTimeout(onDone, 900);
+        return;
+      }
+
+      // ── Mage Armor (elf, main action, uses spell slot, persists until long rest) ─
+      if (actionVal === 'mage_armor') {
+        if (u.type !== 'elf')            { onSkip(); return; }
+        if (u.mageArmored)               { onSkip(); return; }
+        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        activateMageArmor();
+        setTimeout(onDone, 700);
+        return;
+      }
+
       // ── Rage (bonus action — hero can still attack after) ────────────
       if (actionVal === 'rage') {
         const rageDef = UNIT_TYPES[u.type]?.rage;

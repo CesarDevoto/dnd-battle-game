@@ -810,7 +810,7 @@ export const UNIT_TYPES = {
     anchorY: 2.0,
     hp: 12, ac: 12, speed: 35, initiative: 0,
     hitDie: 6,
-    profBonus: 2, xpNext: 300,
+    profBonus: 2, xpNext: 200,
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int' },
@@ -828,7 +828,7 @@ export const UNIT_TYPES = {
     anchorY: 1.45,
     hp: 15, ac: 16, speed: 25, initiative: 0,
     hitDie: 8,
-    profBonus: 2, xpNext: 300,
+    profBonus: 2, xpNext: 200,
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer',     type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
@@ -846,7 +846,7 @@ export const UNIT_TYPES = {
     anchorY: 2.1,
     hp: 19, ac: 14, speed: 30, initiative: 0,
     hitDie: 12,
-    profBonus: 2, xpNext: 300,
+    profBonus: 2, xpNext: 200,
     rage: { uses: 3, dmgBonus: 2 },
     abilities: { str: 16, dex: 12, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
@@ -865,7 +865,7 @@ export const UNIT_TYPES = {
     anchorY: 1.19,
     hp: 14, ac: 14, speed: 25, initiative: 0,
     hitDie: 8,
-    profBonus: 2, xpNext: 300,
+    profBonus: 2, xpNext: 200,
     sneakAttack: { dice: 1, sides: 6 },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [

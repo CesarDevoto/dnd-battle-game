@@ -79,11 +79,13 @@ const CATEGORIES = [
         options: [],
         optionsFor: {
           elf: [
+            { value: 'mage_armor',   label: 'Mage Armor'   },
             { value: 'fire_bolt',    label: 'Fire Bolt'    },
             { value: 'dagger',       label: 'Dagger'       },
             { value: 'ready_action', label: 'Ready Action' },
           ],
           dwarf: [
+            { value: 'bless',          label: 'Bless'          },
             { value: 'healing_word',   label: 'Healing Word'   },
             { value: 'light_crossbow', label: 'Light Crossbow' },
             { value: 'warhammer',      label: 'Warhammer'      },
@@ -103,8 +105,8 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['fire_bolt', 'dagger'],
-          dwarf:    ['healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
+          elf:      ['mage_armor', 'fire_bolt', 'dagger'],
+          dwarf:    ['bless', 'healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
           human:    ['rage', 'greataxe', 'handaxe'],
           halfling: ['sneak_attack', 'shortbow', 'shortsword'],
         },
@@ -119,7 +121,15 @@ const CATEGORIES = [
           { value: 'dash',         label: 'Dash'         },
         ],
         optionsFor: {
+          elf: [
+            { value: 'mage_armor',   label: 'Mage Armor'   },
+            { value: 'dodge',        label: 'Dodge'        },
+            { value: 'ready_action', label: 'Ready Action' },
+            { value: 'end_turn',     label: 'End turn'     },
+            { value: 'dash',         label: 'Dash'         },
+          ],
           dwarf: [
+            { value: 'bless',        label: 'Bless'        },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'dodge',        label: 'Dodge'        },
             { value: 'ready_action', label: 'Ready Action' },
@@ -128,8 +138,8 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['ready_action', 'dodge', 'end_turn'],
-          dwarf:    ['healing_word', 'ready_action', 'dodge', 'end_turn'],
+          elf:      ['mage_armor', 'ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['bless', 'healing_word', 'ready_action', 'dodge', 'end_turn'],
           human:    ['ready_action', 'dodge', 'end_turn'],
           halfling: ['ready_action', 'dodge', 'end_turn'],
         },
@@ -164,7 +174,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 2;
+const TENDENCIES_VERSION = 3;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

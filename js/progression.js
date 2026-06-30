@@ -90,7 +90,8 @@ export function updateXPBar() {
 
 // addLog is passed in to avoid a circular import with combat.js
 export function awardXP(amount, addLog) {
-  const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+  // All blue heroes earn XP regardless of hp — dead heroes level up with the party.
+  const heroes = units.filter(h => h.team === 'blue');
   if (!heroes.length) return;
 
   addLog(`✦ Party gains ${amount} XP`, 'xp');
