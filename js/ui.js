@@ -302,24 +302,50 @@ function buildEquipmentPanelHTML(u) {
     `<span class="eq-slot-label">${label}</span>` +
     `</div>`;
 
+  const bag = n =>
+    `<div class="eq-bag">` +
+    `<div class="eq-bag-box"></div>` +
+    `<span class="eq-bag-label">Bag ${n}</span>` +
+    `</div>`;
+
+  const cur = (label, val) =>
+    `<div class="eq-currency-row">` +
+    `<span class="eq-currency-label">${label}</span>` +
+    `<span class="eq-currency-value">${val}</span>` +
+    `</div>`;
+
+  if (!u.currency) u.currency = { copper: 0, silver: 0, gold: 5, platinum: 0 };
+  const { copper, silver, gold, platinum } = u.currency;
+
   return (
-    `<div class="eq-title">EQUIPMENT</div>` +
-    `<div class="eq-grid">` +
-      slot('head',      'Head')      +
-      slot('neck',      'Neck')      +
-      slot('chest',     'Chest')     +
-      slot('cloak',     'Cloak')     +
-      slot('wrist-l',   'Wrist')     +
-      slot('legs',      'Legs')      +
-      slot('hands',     'Hands')     +
-      slot('wrist-r',   'Wrist')     +
-      slot('ring-l',    'Ring')      +
-      slot('feet',      'Feet')      +
-      slot('belt',      'Belt')      +
-      slot('ring-r',    'Ring')      +
-      slot('main-hand', 'Main Hand') +
-      slot('off-hand',  'Off Hand')  +
-      slot('ammo',      'Ammo')      +
+    `<div class="eq-left">` +
+      `<div class="eq-title">EQUIPMENT</div>` +
+      `<div class="eq-grid">` +
+        slot('head',      'Head')      +
+        slot('neck',      'Neck')      +
+        slot('chest',     'Chest')     +
+        slot('cloak',     'Cloak')     +
+        slot('wrist-l',   'Wrist')     +
+        slot('legs',      'Legs')      +
+        slot('hands',     'Hands')     +
+        slot('wrist-r',   'Wrist')     +
+        slot('ring-l',    'Ring')      +
+        slot('feet',      'Feet')      +
+        slot('belt',      'Belt')      +
+        slot('ring-r',    'Ring')      +
+        slot('main-hand', 'Main Hand') +
+        slot('off-hand',  'Off Hand')  +
+        slot('ammo',      'Ammo')      +
+      `</div>` +
+    `</div>` +
+    `<div class="eq-right">` +
+      `<div class="eq-bags">${bag(1)}${bag(2)}${bag(3)}${bag(4)}</div>` +
+      `<div class="eq-currency">` +
+        cur('Copper',   copper)   +
+        cur('Silver',   silver)   +
+        cur('Gold',     gold)     +
+        cur('Platinum', platinum) +
+      `</div>` +
     `</div>`
   );
 }

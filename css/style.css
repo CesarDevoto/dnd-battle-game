@@ -2532,7 +2532,7 @@ body {
 /* ── Equipment panel (PoE-style grid) ───────────────────────────────── */
 #eq-panel {
   display: none;
-  width: 262px;
+  width: 400px;
   padding: 10px 9px 12px;
   background:
     repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(212,175,55,0.007) 3px, rgba(212,175,55,0.007) 4px),
@@ -2548,7 +2548,8 @@ body {
     0 8px 40px rgba(0,0,0,0.90),
     inset 0 0 45px rgba(0,0,0,0.40);
   pointer-events: auto;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 0;
 }
 #eq-panel.show { display: flex; }
@@ -2641,6 +2642,105 @@ body {
 /* Wrist: portrait orientation — same width, twice as tall */
 .eq-grid [data-slot="wrist-l"] .eq-slot-box,
 .eq-grid [data-slot="wrist-r"] .eq-slot-box { aspect-ratio: 1 / 2; }
+
+/* Left column wraps title + body grid */
+.eq-left {
+  display: flex;
+  flex-direction: column;
+  width: 244px;
+  flex-shrink: 0;
+}
+
+/* Right column: bags + currency, separated by a vertical line */
+.eq-right {
+  display: flex;
+  flex-direction: column;
+  width: 116px;
+  flex-shrink: 0;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(212,175,55,0.20);
+  align-self: stretch;
+}
+
+/* 2×2 bag grid */
+.eq-bags {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  align-content: start;
+}
+
+.eq-bag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.eq-bag-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(212,175,55,0.24);
+  border-radius: 4px;
+  background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.70),
+    inset 0 0 0 1px rgba(212,175,55,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.50);
+  cursor: pointer;
+  transition: border-color 0.13s, box-shadow 0.13s;
+}
+.eq-bag-box:hover {
+  border-color: rgba(212,175,55,0.55);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(212,175,55,0.14),
+    0 0 8px rgba(212,175,55,0.18);
+}
+
+.eq-bag-label {
+  font-family: var(--font-fantasy);
+  font-size: 0.50rem;
+  letter-spacing: 0.5px;
+  color: rgba(212,175,55,0.55);
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Currency table — pushed to bottom of right column */
+.eq-currency {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(212,175,55,0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.eq-currency-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eq-currency-label {
+  font-family: var(--font-fantasy);
+  font-size: 0.50rem;
+  letter-spacing: 0.5px;
+  color: rgba(212,175,55,0.60);
+  text-transform: uppercase;
+}
+
+.eq-currency-value {
+  font-family: var(--font-fantasy);
+  font-size: 0.55rem;
+  color: rgba(212,175,55,0.95);
+  text-align: right;
+  min-width: 18px;
+}
 
 /* ── Quest complete floating notification ────────────────────────────── */
 .quest-complete-float {
