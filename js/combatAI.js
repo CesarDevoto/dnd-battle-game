@@ -173,6 +173,21 @@ export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTrigger
   const meleeTrigger = meleeA ? atkTriggerWU(meleeA)     : 0;
   const rangedRange  = rangdA ? atkRangeWU(rangdA.range) : 0;
 
+  // Ranged heroes hold position if already at a comfortable standoff: between
+  // 40% and 100% of ranged range, not in melee range, and with clear LOS.
+  // Prevents Rasec/Milo from retreating to the edge of the map every turn.
+  if (preferredRange !== 'melee' && rangedRange > 0) {
+    const ux = u.grp.position.x, uz = u.grp.position.z;
+    const cdx = tx - ux, cdz = tz - uz;
+    const curDist    = Math.sqrt(cdx * cdx + cdz * cdz);
+    const minStandoff = rangedRange * 0.40;
+    const notInMelee  = meleeTrigger <= 0 || curDist > meleeTrigger;
+    const inRange     = curDist <= rangedRange;
+    const farEnough   = curDist >= minStandoff;
+    const currentLOS  = hasLOS ? hasLOS(ux, uz, tx, tz) : true;
+    if (inRange && farEnough && notInMelee && currentLOS) return null;
+  }
+
   let best = null, bestScore = Infinity;
   for (const key of validTiles) {
     const [kx, kz] = key.split(',').map(Number);
