@@ -314,18 +314,18 @@ function buildEquipmentPanelHTML(u) {
       slot('head',      'Head')      +
       slot('neck',      'Neck')      +
       slot('cloak',     'Cloak')     +
-      slot('main-hand', 'Main Hand') +
+      slot('hands',     'Hands')     +
       slot('chest',     'Chest')     +
-      slot('off-hand',  'Off Hand')  +
+      slot('feet',      'Feet')      +
       slot('ring-l',    'Ring')      +
       slot('shoulders', 'Shoulders') +
       slot('ring-r',    'Ring')      +
       slot('wrists',    'Wrists')    +
       slot('belt',      'Belt')      +
       slot('legs',      'Legs')      +
-      slot('hands',     'Hands')     +
+      slot('main-hand', 'Main Hand') +
       slot('ammo',      'Ammo')      +
-      slot('feet',      'Feet')      +
+      slot('off-hand',  'Off Hand')  +
     `</div>`
   );
 }
