@@ -11,8 +11,8 @@ export const ZONE = {
     { x:  1, z: 31, type: 'halfling' },
   ],
   enemies: [
-    { type: 'abyssal_chicken', x: 2.37, z: 5.67, roams: true, patrol: [{x:-1.78,z:35.56}, {x:7.67,z:26}] },
-    { type: 'abyssal_chicken', x: -2.47, z: 4.27, roams: true, patrol: [{x:-3.34,z:34.19}, {x:-19.33,z:31.46}] },
+    { type: 'abyssal_chicken', x: 2.37, z: 5.67, roams: true, patrol: [{x:-1.78,z:35.56}, {x:7.67,z:26}], animOverrides: {idle:1,walk:0,run:0,attack:0,death:2} },
+    { type: 'abyssal_chicken', x: -2.47, z: 4.27, roams: true, patrol: [{x:-3.34,z:34.19}, {x:-19.33,z:31.46}], animOverrides: {idle:1,walk:0,run:0,attack:0,death:2} },
     { type: 'abyssal_wretch', x: 0.07, z: 4.77, patrol: [{x:0.59,z:25.96}, {x:-9.46,z:20.29}], animOverrides: {idle:2,walk:4,run:4,attack:0,death:1} },
     { type: 'mane', x: -4.61, z: 2.18, roams: true, patrol: [{x:-3.7,z:34.33}, {x:-10.03,z:30.02}], animOverrides: {idle:2,walk:4,run:4,attack:0,death:1} },
   ],

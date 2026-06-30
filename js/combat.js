@@ -2950,7 +2950,8 @@ function _rebuildHotbar(u) {
         turnAttacked = true;
         curU.dodging = true;
         addLog(`${unitLabel(curU)} takes the Dodge action — enemies have disadvantage to hit.`, 'move');
-        _rebuildHotbar();
+        updateCombatStatus();
+        _rebuildHotbar(curU);
       },
       () => {
         const curU = turnOrder[turnIndex];
@@ -3371,6 +3372,12 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
     function _tryHeroAction(actionVal, onDone, onSkip) {
       if (turnAttacked && actionVal !== 'rage') { onSkip(); return; }
 
+      // SPELL ANIMATION RULE: every spell handler below must call its visual
+      // effect function (e.g. playHealingWordEffect, playFireboltEffect) and
+      // put onDone() inside the impact callback — never call onDone() before
+      // the animation fires.  When adding a new spell to combatAutomation.js,
+      // add a matching handler here that uses the spell's playXxxEffect import.
+
       // ── Healing Word ─────────────────────────────────────────────────
       if (actionVal === 'healing_word') {
         if (!allyWounded) { onSkip(); return; }
@@ -3380,13 +3387,16 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         const before   = allyWounded.hp;
         allyWounded.hp = Math.min(allyWounded.hp + healRoll, maxHp);
         const healed   = allyWounded.hp - before;
-        addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP`, 'heal');
-        showFloatingDamage(allyWounded, `+${healed}`, '#44ff88');
         allyWounded.barShowUntil = Date.now() + 4000;
-        buildTurnList();
         hideUndoBtn();
         updateCombatStatus();
-        onDone(); return;
+        playHealingWordEffect(u, allyWounded, () => {
+          showFloatingDamage(allyWounded, `+${healed}`, '#44ff88');
+          addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP`, 'heal');
+          buildTurnList();
+          onDone();
+        });
+        return;
       }
 
       // ── Rage (bonus action — hero can still attack after) ────────────

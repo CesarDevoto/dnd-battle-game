@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { UNIT_TYPES } from './constants.js';
 
-const PORTRAIT_SIZE = 80;
+const PORTRAIT_SIZE = 280;
 
 // ── Off-screen portrait renderer (separate context, renders on demand) ────────
 const _portraitCanvas = document.getElementById('target-portrait-canvas');
@@ -51,17 +51,18 @@ function _renderPortrait(unit) {
   const box    = new THREE.Box3().setFromObject(clone);
   const center = box.getCenter(new THREE.Vector3());
   const size   = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 2;
-  const fovRad = _pCamera.fov * (Math.PI / 180);
-  const dist   = (maxDim * 0.65) / Math.tan(fovRad / 2);
+  const maxDim    = Math.max(size.x, size.y, size.z) || 2;
+  const fovRad    = _pCamera.fov * (Math.PI / 180);
+  // Bust framing — focus on upper chest, tighter distance
+  const bustY     = center.y + size.y * 0.22;
+  const dist      = (maxDim * 0.38) / Math.tan(fovRad / 2);
 
-  // Slight 3/4 angle — camera in front-left, elevated slightly
   _pCamera.position.set(
-    center.x - maxDim * 0.3,
-    center.y + maxDim * 0.1,
+    center.x - maxDim * 0.15,
+    bustY + maxDim * 0.08,
     center.z + dist
   );
-  _pCamera.lookAt(center);
+  _pCamera.lookAt(center.x, bustY, center.z);
   _pr.render(_pScene, _pCamera);
 }
 

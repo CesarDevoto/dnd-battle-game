@@ -633,12 +633,13 @@ body {
 /* ── Target window ───────────────────────────────────────────────────── */
 #target-window {
   display: none;
-  height: 129px;
+  height: calc(100vh - 472px);
+  overflow: hidden;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 10px 12px;
   background:
     repeating-linear-gradient(-45deg, transparent 0, transparent 3px, var(--gold-trace) 3px, var(--gold-trace) 4px),
     radial-gradient(ellipse 200% 70% at 50% 0%, rgba(55,36,10,0.45) 0%, transparent 55%),
@@ -657,8 +658,10 @@ body {
 #target-window.show { display: flex; }
 
 #target-portrait-canvas {
-  width: 92px;
-  height: 92px;
+  flex: 1 1 0;
+  min-height: 0;
+  aspect-ratio: 1;
+  max-width: 100%;
   border-radius: 3px;
   border: 1px solid rgba(90,65,18,0.70);
   flex-shrink: 0;
