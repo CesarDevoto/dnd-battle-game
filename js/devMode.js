@@ -7,6 +7,7 @@ import { getMarkersVisible, setMarkersVisible } from './terrainEditor.js';
 import { setPointLightOrbsVisible } from './environments.js';
 import { isAIPanelOpen } from './npcAIEditor.js';
 import { IS_DEV } from './devConfig.js';
+import { setWaypointMarkersVisible } from './bleakmireWoodsEvent.js';
 
 let _dev = IS_DEV;
 const _wasOpen = { prop: false, npc: false, terrain: false };
@@ -296,7 +297,8 @@ function _applyUI() {
   btn.textContent = _dev ? '▶  PLAY VIEW' : '⚙  DEV VIEW';
   btn.title       = _dev ? 'Switch to player view' : 'Switch to dev view';
   btn.classList.toggle('play-mode-active', !_dev);
-  // Immediately sync ring visibility with the new dev state
+  // Immediately sync ring and dev-marker visibility with the new dev state
   for (const mesh of _detectRings.values()) mesh.visible = _dev;
   for (const mesh of _socialRings.values()) mesh.visible = _dev;
+  setWaypointMarkersVisible(_dev);
 }

@@ -33,9 +33,14 @@ function _spawnWaypointMarkers() {
     const m   = new THREE.Mesh(geo, mat);
     m.position.set(wp.x, getTerrainHeight(wp.x, wp.z) + 0.5, wp.z);
     m.frustumCulled = false;
+    m.visible = isDevMode();
     scene.add(m);
     _waypointMarkers.push(m);
   });
+}
+
+export function setWaypointMarkersVisible(v) {
+  _waypointMarkers.forEach(m => { m.visible = v; });
 }
 
 function _clearWaypointMarkers() {
@@ -45,19 +50,12 @@ function _clearWaypointMarkers() {
 
 const _GUIDE_SPEED   = 3.5;    // WU/s
 const _GUIDE_STOP_SQ = 16 * 16; // 40 ft = 16 WU squared
-const _SINK_SPEED    = 2.0;    // WU/s sink/rise rate
-const _SINK_DEPTH    = 1.8;    // WU below terrain when hidden
 
-let _guiding      = false;
-let _guideDone    = false;
-let _guideWpIdx   = 0;
-let _flooshUnit   = null;
-let _guideBaseY   = 0;
-let _guidePaused  = false;
-let _guideSinking = false;
-let _guideSunk    = false; // true while underground, prevents movement until post-combat rises Floosh
-let _guideRising  = false;
-let _shallWeDone  = null; // post-combat done() held until dialogue closes
+let _guiding     = false;
+let _guideDone   = false;
+let _guideWpIdx  = 0;
+let _flooshUnit  = null;
+let _guidePaused = false;
 
 function _getFloosh() {
   if (!_flooshUnit) _flooshUnit = units.find(u => u.type === 'grassling' && u.team === 'npc');
@@ -78,58 +76,25 @@ function _tickGuide(dt) {
   const f = _getFloosh();
   if (!f) return;
 
+  // Stand still during combat — no sink/rise, just wait
+  if (!isPrecombat()) {
+    if (!_guidePaused) { _guidePaused = true; setUnitWalking(f, false); }
+    return;
+  }
+
   const gx = f.grp.position.x;
   const gz = f.grp.position.z;
 
-  // Animate sinking into terrain during combat
-  if (_guideSinking) {
-    f.grp.position.y -= _SINK_SPEED * dt;
-    if (f.grp.position.y <= _guideBaseY - _SINK_DEPTH) {
-      f.grp.position.y = _guideBaseY - _SINK_DEPTH;
-      f.grp.visible    = false;
-      _guideSinking    = false;
-      _guideSunk       = true; // freeze movement until post-combat raises Floosh
-    }
+  // Resume only when Leugren (dwarf) is within range; fall back to any hero
+  const leugren = units.find(u => u.type === 'dwarf' && u.team === 'blue' && u.hp > 0);
+  const leader  = leugren ?? units.find(u => u.team === 'blue' && u.hp > 0);
+  if (!leader) {
+    if (!_guidePaused) { _guidePaused = true; setUnitWalking(f, false); }
     return;
   }
-
-  // Animate rising back up after combat
-  if (_guideRising) {
-    f.grp.visible     = true;
-    f.grp.position.y += _SINK_SPEED * dt;
-    if (f.grp.position.y >= _guideBaseY) {
-      f.grp.position.y = _guideBaseY;
-      _guideRising     = false;
-      setUnitWalking(f, false);
-      showQuickDialogue([{ s: 'Floosh', t: "Shall we?" }], () => {
-        _shallWeDone?.();
-        _shallWeDone = null;
-      });
-    }
-    return;
-  }
-
-  // Sink when combat starts; stay frozen (_guideSunk) until post-combat handler raises Floosh
-  if (!isPrecombat()) {
-    if (!_guideSinking && !_guideSunk) {
-      _guideBaseY   = getTerrainHeight(gx, gz);
-      _guideSinking = true;
-      _guidePaused  = false;
-      setUnitWalking(f, false);
-    }
-    return;
-  }
-  // Between combat-end and the priority-100 post-combat handler firing, do not move while sunk.
-  if (_guideSunk) return;
-
-  // Stop if no hero within 40 ft
-  const heroNearby = units.some(u => {
-    if (u.team !== 'blue' || u.hp <= 0) return false;
-    const dx = u.grp.position.x - gx, dz = u.grp.position.z - gz;
-    return dx * dx + dz * dz <= _GUIDE_STOP_SQ;
-  });
-
-  if (!heroNearby) {
+  const ldx = leader.grp.position.x - gx;
+  const ldz = leader.grp.position.z - gz;
+  if (ldx * ldx + ldz * ldz > _GUIDE_STOP_SQ) {
     if (!_guidePaused) { _guidePaused = true; setUnitWalking(f, false); }
     return;
   }
@@ -157,19 +122,6 @@ function _tickGuide(dt) {
   f.grp.rotation.y  = Math.atan2(dx / len, dz / len);
   setUnitWalking(f, true);
 }
-
-// After all post-combat handlers (loot, Dagna, etc.) rise Floosh and prompt "Shall we?"
-registerPostCombatHandler(100, (_ctx, done) => {
-  if (!_guiding || _guideDone) { done(); return; }
-  const f = _getFloosh();
-  if (!f) { done(); return; }
-  _guideBaseY  = getTerrainHeight(f.grp.position.x, f.grp.position.z);
-  f.grp.position.y = _guideBaseY - _SINK_DEPTH; // ensure below ground before rising
-  f.grp.visible    = false;
-  _guideSunk    = false; // allow _tickGuide to process the rising animation
-  _guideRising  = true;
-  _shallWeDone  = done; // held until player closes "Shall we?" dialogue
-});
 
 // ── Floosh intro — one-shot, persisted via localStorage ───────────────────────
 
@@ -562,14 +514,10 @@ window.addEventListener('zone:loading', () => {
   _flooshQuestPending = false;
   _removeFlooshExcl();
   _removeFlooshQMark();
-  _guiding      = false;
-  _guideDone    = false;
-  _guideSinking = false;
-  _guideRising  = false;
-  _guidePaused  = false;
-  _flooshUnit   = null;
-  _shallWeDone?.();   // release post-combat chain if heroes zone out mid-rise
-  _shallWeDone  = null;
+  _guiding     = false;
+  _guideDone   = false;
+  _guidePaused = false;
+  _flooshUnit  = null;
   _clearWaypointMarkers();
 });
 
