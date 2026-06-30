@@ -300,8 +300,11 @@ function buildEquipmentPanelHTML(u) {
     const item = u.equipment?.[id];
     const rarityClass = item ? ` rarity-${item.rarity}` : '';
     const title = item ? item.name : label;
+    const icon = item?.icon
+      ? `<img class="eq-slot-icon" src="${item.icon}" alt="${item.name}">`
+      : '';
     return `<div class="eq-slot" data-slot="${id}" title="${title}">` +
-      `<div class="eq-slot-box${rarityClass}"></div>` +
+      `<div class="eq-slot-box${rarityClass}">${icon}</div>` +
       `<span class="eq-slot-label">${label}</span>` +
       `</div>`;
   };

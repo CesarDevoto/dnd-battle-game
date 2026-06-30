@@ -8,6 +8,7 @@
 //                     'legs'|'hands'|'feet'|'belt'|'ring-l'|'ring-r'|
 //                     'main-hand'|'off-hand'|'ammo'
 //   rarity: String  — 'grey'|'green'|'blue'|'purple'|'orange'|'red'
+//   icon:   String  — path to icon PNG, e.g. 'assets/items/weapons/handaxe.png'
 //   // stat properties (ac, dmg, bonus, etc.) added per-item as needed
 // }
 
