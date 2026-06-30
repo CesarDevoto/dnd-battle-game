@@ -94,6 +94,7 @@ export function onCombatEnd() {
   if (!_heroDiedThisCombat || _dagnaSeen) return;
   _dagnaSeen = true;
   _heroDiedThisCombat = false;
+  _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
   setTimeout(_startIntroA, 800);
 }
 
@@ -106,6 +107,7 @@ const _unregisterDagnaIntro = registerPostCombatHandler(20, (ctx, done) => {
   _dagnaSeen = true;
   _heroDiedThisCombat = false;
   _unregisterDagnaIntro(); // one-shot: remove from hierarchy permanently
+  _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
   setTimeout(_startIntroA, 800);
 });
 
@@ -555,6 +557,7 @@ function _previewCleanup() {
   _removeDagna();
   _removePortal();
   if (_lightsDimmed) _restoreLights(1.4);
+  _freezePrecombatFn?.(false);
 }
 
 function _onContinue() {
