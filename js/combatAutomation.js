@@ -1,4 +1,5 @@
 import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
+import { LEVEL_SPELLS } from './spells.js';
 
 // ─── Display metadata ────────────────────────────────────────────────────────
 const HERO_META = {
@@ -234,6 +235,30 @@ function _set(heroType, rowId, value) {
   if (!_tendencies[heroType]) _tendencies[heroType] = {};
   _tendencies[heroType][rowId] = value;
 }
+
+// ─── Auto-append new abilities to tendencies on level-up ─────────────────────
+window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
+  const newKeys = LEVEL_SPELLS[hero.type]?.[newLevel] ?? [];
+  if (!newKeys.length) return;
+
+  for (const cat of CATEGORIES) {
+    for (const row of cat.rows) {
+      const available = row.optionsFor?.[hero.type];
+      if (!available) continue;
+      const availableValues = available.map(o => o.value);
+      const toAdd = newKeys.filter(k => availableValues.includes(k));
+      if (!toAdd.length) continue;
+
+      const current = getTendency(hero.type, row.id);
+      const list = Array.isArray(current) ? [...current] : (current ? [current] : []);
+      let changed = false;
+      for (const k of toAdd) {
+        if (!list.includes(k)) { list.push(k); changed = true; }
+      }
+      if (changed) { _set(hero.type, row.id, list); _save(); }
+    }
+  }
+});
 
 // ─── Public state API ─────────────────────────────────────────────────────────
 export function isAutomated()      { return _mode === 'automated'; }
