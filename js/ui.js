@@ -348,7 +348,9 @@ function buildActionsPanelHTML(u) {
 
   // ── Bonus Actions ──────────────────────────────────────────────────────────
   const rageDef = def.rage;
-  const bonusContent = rageDef ? `
+  const bonusParts = [];
+  if (rageDef) {
+    bonusParts.push(`
     <div class="ss-rage">
       <div class="ss-rage-top">
         <span class="ss-rage-name">⚔ Rage</span>
@@ -359,7 +361,19 @@ function buildActionsPanelHTML(u) {
         <span class="ss-rage-resist">½ physical damage</span>
       </div>
       <div class="ss-rage-desc">Lasts full combat · ends if no attack this turn · ${rageDef.uses} uses per long rest</div>
-    </div>` : `<div class="ss-spell-empty">— none —</div>`;
+    </div>`);
+  }
+  if (u.type === 'human' && (u.level ?? 1) >= 2) {
+    bonusParts.push(`
+    <div class="ss-rage">
+      <div class="ss-rage-top">
+        <span class="ss-rage-name">🛡 Defensive Stance</span>
+        <span class="ss-rage-uses">4-round cooldown</span>
+      </div>
+      <div class="ss-rage-desc">+4 AC for 3 rounds · activate as a bonus action</div>
+    </div>`);
+  }
+  const bonusContent = bonusParts.length ? bonusParts.join('') : `<div class="ss-spell-empty">— none —</div>`;
 
   // ── Reactions ──────────────────────────────────────────────────────────────
   const reactionsContent = `<div class="ss-spell-empty">— none —</div>`;
