@@ -78,6 +78,8 @@ const sidePanelEl       = document.getElementById('ss-side-panel');
 const sideContentEl     = document.getElementById('ss-side-content');
 const spellListPanelEl  = document.getElementById('ss-spell-list-panel');
 const spellListContentEl = document.getElementById('ss-spell-list-content');
+const eqPanelEl         = document.getElementById('eq-panel');
+const eqContentEl       = document.getElementById('eq-content');
 
 let _activeSideBtn      = null;
 let _spellPanelHTML     = '';
@@ -86,27 +88,33 @@ let _traitsPanelHTML    = '';
 let _equipmentPanelHTML = '';
 
 function _toggleSidePanel(btnId) {
-  const isSame = _activeSideBtn === btnId && sidePanelEl.classList.contains('show');
+  const isEq   = btnId === 'ss-btn-equipment';
+  const isSame = _activeSideBtn === btnId &&
+    (isEq ? eqPanelEl?.classList.contains('show') : sidePanelEl.classList.contains('show'));
   sidePanelEl.classList.remove('show');
   spellListPanelEl.classList.remove('show');
+  eqPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
   document.getElementById('ss-btn-equipment')?.classList.remove('active');
   _activeSideBtn = null;
   if (!isSame) {
-    if (btnId === 'ss-btn-spellbook') {
+    if (isEq) {
+      eqContentEl.innerHTML = _equipmentPanelHTML;
+      eqPanelEl?.classList.add('show');
+    } else if (btnId === 'ss-btn-spellbook') {
       sideContentEl.innerHTML = _spellPanelHTML;
       _initSpellAccordions();
+      sidePanelEl.classList.add('show');
     } else if (btnId === 'ss-btn-traits') {
       sideContentEl.innerHTML = _traitsPanelHTML;
-    } else if (btnId === 'ss-btn-equipment') {
-      sideContentEl.innerHTML = _equipmentPanelHTML;
+      sidePanelEl.classList.add('show');
     } else {
       sideContentEl.innerHTML = _actionsPanelHTML;
       _initActionAccordions();
+      sidePanelEl.classList.add('show');
     }
-    sidePanelEl.classList.add('show');
     document.getElementById(btnId)?.classList.add('active');
     _activeSideBtn = btnId;
   }
@@ -288,7 +296,57 @@ function _initSpellAccordions() {
 }
 
 function buildEquipmentPanelHTML(u) {
-  return '';
+  const slot = (id, label) =>
+    `<div class="eq-slot" data-slot="${id}">` +
+    `<div class="eq-slot-box"></div>` +
+    `<span class="eq-slot-label">${label}</span>` +
+    `</div>`;
+
+  const silSVG =
+    `<svg viewBox="0 0 60 132" xmlns="http://www.w3.org/2000/svg" class="eq-silhouette">` +
+    // Head
+    `<ellipse cx="30" cy="13" rx="11" ry="12" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
+    // Neck
+    `<rect x="26" y="24" width="8" height="6" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
+    // Torso
+    `<path d="M15,30 Q10,30 10,35 L10,70 Q10,74 15,74 L45,74 Q50,74 50,70 L50,35 Q50,30 45,30 Z" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3"/>` +
+    // Left arm
+    `<path d="M15,32 Q7,35 5,54 Q3,63 7,66 L13,66 L18,33" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
+    // Right arm
+    `<path d="M45,32 Q53,35 55,54 Q57,63 53,66 L47,66 L42,33" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
+    // Left leg
+    `<path d="M15,74 L12,110 Q11,116 17,116 L25,116 L28,74" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
+    // Right leg
+    `<path d="M45,74 L48,110 Q49,116 43,116 L35,116 L32,74" fill="rgba(212,175,55,0.045)" stroke="rgba(212,175,55,0.28)" stroke-width="1.3" stroke-linejoin="round"/>` +
+    `</svg>`;
+
+  return (
+    `<div class="eq-title">EQUIPMENT</div>` +
+    `<div class="eq-doll">` +
+      `<div class="eq-col">` +
+        slot('head',      'Head')      +
+        slot('shoulders', 'Shoulders') +
+        slot('chest',     'Chest')     +
+        slot('wrists',    'Wrists')    +
+        slot('hands',     'Hands')     +
+        slot('legs',      'Legs')      +
+        slot('feet',      'Feet')      +
+      `</div>` +
+      `<div class="eq-sil">${silSVG}</div>` +
+      `<div class="eq-col">` +
+        slot('neck',   'Neck')  +
+        slot('cloak',  'Cloak') +
+        slot('ring-l', 'Ring')  +
+        slot('ring-r', 'Ring')  +
+        slot('belt',   'Belt')  +
+        slot('ammo',   'Ammo')  +
+      `</div>` +
+    `</div>` +
+    `<div class="eq-weapons">` +
+      slot('main-hand', 'Main Hand') +
+      slot('off-hand',  'Off Hand')  +
+    `</div>`
+  );
 }
 
 function buildTraitsPanelHTML(u) {
@@ -560,6 +618,7 @@ export function hideSheet() {
   sheetWrap.classList.remove('show');
   sidePanelEl.classList.remove('show');
   spellListPanelEl.classList.remove('show');
+  eqPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
