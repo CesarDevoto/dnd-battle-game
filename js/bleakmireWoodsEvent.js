@@ -51,11 +51,12 @@ function _clearWaypointMarkers() {
 const _GUIDE_SPEED   = 3.5;    // WU/s
 const _GUIDE_STOP_SQ = 16 * 16; // 40 ft = 16 WU squared
 
-let _guiding     = false;
-let _guideDone   = false;
-let _guideWpIdx  = 0;
-let _flooshUnit  = null;
-let _guidePaused = false;
+let _guiding          = false;
+let _guideDone        = false;
+let _guideWpIdx       = 0;
+let _flooshUnit       = null;
+let _guidePaused      = false;
+let _watchingGuideStart = false; // true when quest accepted but guide not yet running
 
 function _getFloosh() {
   if (!_flooshUnit) _flooshUnit = units.find(u => u.type === 'grassling' && u.team === 'npc');
@@ -65,10 +66,11 @@ function _getFloosh() {
 function _startGuide() {
   const f = _getFloosh();
   if (!f) return;
-  _guiding    = true;
-  _guideDone  = false;
-  _guideWpIdx = 0;
-  _guidePaused = false;
+  _guiding            = true;
+  _guideDone          = false;
+  _guideWpIdx         = 0;
+  _guidePaused        = false;
+  _watchingGuideStart = false;
 }
 
 function _tickGuide(dt) {
@@ -258,7 +260,7 @@ function _startQuestDialogue(onDone = null) {
           setQuestFlag('floosh_accepted');
           addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
           _spawnFlooshQMark();
-          _startGuide();
+          _watchingGuideStart = true;
           onDone?.();
         }) },
       { label: 'Decline', onPick: onDone },
@@ -458,6 +460,23 @@ export function tickBleakmireWoods(dt) {
 
   _tickGuide(dt);
 
+  // Proximity trigger for "Ready?" when quest accepted but guide not yet running
+  if (_watchingGuideStart && !_guiding && isPrecombat()) {
+    const f = _getFloosh();
+    if (f) {
+      const leugren = units.find(u => u.type === 'dwarf' && u.team === 'blue' && u.hp > 0);
+      const checker = leugren ?? units.find(u => u.team === 'blue' && u.hp > 0);
+      if (checker) {
+        const dx = checker.grp.position.x - f.grp.position.x;
+        const dz = checker.grp.position.z - f.grp.position.z;
+        if (dx * dx + dz * dz <= _PROX_SQ) {
+          _watchingGuideStart = false;
+          _showQuestReminderDialogue();
+        }
+      }
+    }
+  }
+
   if (_watchingProximity) {
     for (const u of units) {
       if (u.team !== 'blue' || u.hp <= 0) continue;
@@ -504,6 +523,7 @@ window.addEventListener('zone:loaded', e => {
       // Quest accepted, undead not yet cleared — show ? and ensure quest is in the panel
       addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
       _spawnFlooshQMark();
+      _watchingGuideStart = true;
     }
   } catch {}
 });
@@ -514,10 +534,11 @@ window.addEventListener('zone:loading', () => {
   _flooshQuestPending = false;
   _removeFlooshExcl();
   _removeFlooshQMark();
-  _guiding     = false;
-  _guideDone   = false;
-  _guidePaused = false;
-  _flooshUnit  = null;
+  _guiding            = false;
+  _guideDone          = false;
+  _guidePaused        = false;
+  _watchingGuideStart = false;
+  _flooshUnit         = null;
   _clearWaypointMarkers();
 });
 
