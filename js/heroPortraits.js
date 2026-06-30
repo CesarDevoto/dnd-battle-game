@@ -167,7 +167,7 @@ export function updateHeroUI() {
       if (u && concentrating === u)
         badges += `<span class="cond-badge cond-conc">◈ Concentrating: ${concentratingSpell}<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
       if (u && u.stealthed && u.team === 'blue')
-        badges += `<span class="cond-badge cond-stealth">👁 Hidden (${u.hideRoll ?? '?'})</span>`;
+        badges += `<span class="cond-badge cond-stealth">👁 Hidden · Stealth ${u.hideRoll ?? '?'}</span>`;
 
       refs.condEl.innerHTML = badges;
       refs.condEl.classList.toggle('has-content', badges.length > 0);
