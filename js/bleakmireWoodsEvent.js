@@ -3,12 +3,11 @@ import { scene, camera, renderer } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units, setUnitWalking } from './units.js';
-import { addQuest } from './quests.js';
+import { addQuest, getQuestFlag, setQuestFlag } from './quests.js';
 import { mkExclamationMarker } from './propBuilders.js';
 import { isMarkerSeen, setMarkerSeen } from './exclamationMarkers.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { getQuestFlag } from './quests.js';
 import { isDevMode } from './devMode.js';
 
 // ── Floosh guide system ───────────────────────────────────────────────────────
@@ -281,9 +280,16 @@ export function setFlooshQuestDone() {
 }
 
 function _showQuestReminderDialogue() {
+  if (_guiding && !_guideDone) {
+    showQuickDialogue([{ s: 'Floosh', t: "Follow me! The haunted wood lies this way." }], () => {});
+    return;
+  }
   showQuickDialogue(
-    [{ s: 'Floosh', t: "Did you find the undead source haunting our forest?" }],
-    () => showChoiceUI([{ label: 'Close', onPick: () => {} }]),
+    [{ s: 'Floosh', t: "Ready? Follow me and I shall lead you to the haunted wood." }],
+    () => showChoiceUI([
+      { label: 'Ready, lead the way!', onPick: () => { _startGuide(); } },
+      { label: 'Not yet',              onPick: () => {} },
+    ]),
   );
 }
 
@@ -297,6 +303,7 @@ function _startQuestDialogue(onDone = null) {
   showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
       { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
+          setQuestFlag('floosh_accepted');
           addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
           _spawnFlooshQMark();
           _startGuide();
@@ -531,18 +538,19 @@ window.addEventListener('zone:loaded', e => {
       localStorage.setItem(_KEY_INTRO, '1');
       setTimeout(() => {
         showQuickDialogue(_INTRO_LINES, () => {
-          if (!isMarkerSeen(_MARKER_ID)) {
+          if (!getQuestFlag('floosh_accepted')) {
             _watchingProximity = true;
             _spawnFlooshExcl();
           }
         });
       }, 1200);
-    } else if (!isMarkerSeen(_MARKER_ID)) {
-      // Intro already seen but quest not yet triggered — re-arm proximity watch
+    } else if (!getQuestFlag('floosh_accepted')) {
+      // Intro seen but quest never accepted — re-arm ! so player can accept
       _watchingProximity = true;
       _spawnFlooshExcl();
     } else if (!localStorage.getItem(_KEY_QUEST_DONE)) {
-      // Quest offered, not yet resolved (ghoul still alive) — grey ? over Floosh
+      // Quest accepted, undead not yet cleared — show ? and ensure quest is in the panel
+      addQuest('floosh_undead', 'Cleanse the Haunted Wood', "Rid Neverwinter Wood of the undead plaguing it. Floosh has sworn to guide you straight to the goblins once the forest is cleansed.");
       _spawnFlooshQMark();
     }
   } catch {}
