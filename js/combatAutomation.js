@@ -93,12 +93,14 @@ const CATEGORIES = [
             { value: 'ready_action',   label: 'Ready Action'   },
           ],
           human: [
-            { value: 'rage',         label: 'Rage'         },
-            { value: 'greataxe',     label: 'Greataxe'     },
-            { value: 'handaxe',      label: 'Handaxe'      },
-            { value: 'ready_action', label: 'Ready Action' },
+            { value: 'rage',              label: 'Rage'              },
+            { value: 'defensive_stance',  label: 'Defensive Stance'  },
+            { value: 'greataxe',          label: 'Greataxe'          },
+            { value: 'handaxe',           label: 'Handaxe'           },
+            { value: 'ready_action',      label: 'Ready Action'      },
           ],
           halfling: [
+            { value: 'hide',         label: 'Hide'         },
             { value: 'sneak_attack', label: 'Sneak Attack' },
             { value: 'shortbow',     label: 'Shortbow'     },
             { value: 'shortsword',   label: 'Shortsword'   },
@@ -108,8 +110,8 @@ const CATEGORIES = [
         defaults: {
           elf:      ['mage_armor', 'fire_bolt', 'dagger'],
           dwarf:    ['bless', 'healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
-          human:    ['rage', 'greataxe', 'handaxe'],
-          halfling: ['sneak_attack', 'shortbow', 'shortsword'],
+          human:    ['rage', 'defensive_stance', 'greataxe', 'handaxe'],
+          halfling: ['hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
         appliesTo: () => true,
       },
@@ -137,12 +139,26 @@ const CATEGORIES = [
             { value: 'end_turn',     label: 'End turn'     },
             { value: 'dash',         label: 'Dash'         },
           ],
+          human: [
+            { value: 'defensive_stance', label: 'Defensive Stance' },
+            { value: 'dodge',            label: 'Dodge'            },
+            { value: 'ready_action',     label: 'Ready Action'     },
+            { value: 'end_turn',         label: 'End turn'         },
+            { value: 'dash',             label: 'Dash'             },
+          ],
+          halfling: [
+            { value: 'hide',         label: 'Hide'         },
+            { value: 'dodge',        label: 'Dodge'        },
+            { value: 'ready_action', label: 'Ready Action' },
+            { value: 'end_turn',     label: 'End turn'     },
+            { value: 'dash',         label: 'Dash'         },
+          ],
         },
         defaults: {
           elf:      ['mage_armor', 'ready_action', 'dodge', 'end_turn'],
           dwarf:    ['bless', 'healing_word', 'ready_action', 'dodge', 'end_turn'],
-          human:    ['ready_action', 'dodge', 'end_turn'],
-          halfling: ['ready_action', 'dodge', 'end_turn'],
+          human:    ['defensive_stance', 'ready_action', 'dodge', 'end_turn'],
+          halfling: ['hide', 'ready_action', 'dodge', 'end_turn'],
         },
         appliesTo: () => true,
       },
@@ -175,7 +191,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 3;
+const TENDENCIES_VERSION = 4;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

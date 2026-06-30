@@ -128,10 +128,14 @@ export const STARTING_SPELLS = {
   elf:   new Set(['fire_bolt']),
 };
 
-// Spells that unlock at specific levels (keyed by required level)
+// Abilities/spells that unlock at specific levels (keyed by required level).
+// Values are action/bonus-action keys used by both the tendencies system
+// and _tryHeroAction in combat.js. Add new entries here as heroes gain abilities.
 export const LEVEL_SPELLS = {
-  dwarf: { 2: ['bless'] },
-  elf:   { 2: ['mage_armor'] },
+  dwarf:    { 2: ['bless'] },
+  elf:      { 2: ['mage_armor'] },
+  human:    { 2: ['defensive_stance'] },
+  halfling: { 2: ['hide'] },
 };
 
 // ── Spell slot initialisation (called when battle begins) ─────────────────────

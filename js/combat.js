@@ -3431,6 +3431,47 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         return;
       }
 
+      // ── Defensive Stance (bonus action — hero can still attack after) ──
+      if (actionVal === 'defensive_stance') {
+        if (u.type !== 'human' || turnBonusActioned || u.defStanceActive || (u.defStanceCooldown ?? 0) > 0) { onSkip(); return; }
+        u.defStanceActive   = true;
+        u.defStanceRounds   = 3;
+        u.defStanceCooldown = 4;
+        turnBonusActioned   = true;
+        addLog(`${unitLabel(u)} takes a Defensive Stance! +3 AC for 3 rounds`, 'move');
+        showFloatingDamage(u, '🛡 +3 AC', '#aaddff');
+        updateCombatStatus();
+        onSkip(); // bonus action; continue to next action in list
+        return;
+      }
+
+      // ── Hide (bonus action — hero can still attack after) ────────────
+      if (actionVal === 'hide') {
+        if (u.type !== 'halfling' || turnBonusActioned || u.stealthed || (u.hideCooldown ?? 0) > 0) { onSkip(); return; }
+        const ux = u.grp.position.x, uz = u.grp.position.z;
+        const inEnemyLOS = units.some(e => {
+          if (e.team !== 'red' || e.hp <= 0 || !e.aggro) return false;
+          return hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz);
+        });
+        if (inEnemyLOS) { onSkip(); return; }
+        const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
+        const stealth = Math.floor(Math.random() * 20) + 1 + dexMod;
+        u.hideCooldown    = 2;
+        turnBonusActioned = true;
+        if (stealth >= 10) {
+          u.hideRoll = stealth;
+          setUnitStealth(u, true);
+          addLog(`${unitLabel(u)} hides! Stealth ${stealth}`, 'move');
+          showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
+        } else {
+          addLog(`${unitLabel(u)} tries to hide but fails (${stealth})`, 'move');
+          showFloatingDamage(u, 'HIDE FAILED', '#ff8844');
+        }
+        updateCombatStatus();
+        onSkip(); // bonus action; continue to next action in list
+        return;
+      }
+
       // ── Delay Action ─────────────────────────────────────────────────
       if (actionVal === 'ready_action') {
         const triggerList = getTendency(heroType, 'ready_trigger_priority');
