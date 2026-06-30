@@ -786,9 +786,9 @@ export const UNIT_TYPES = {
     team: 'red',
     aiStyle: 'spellcaster',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 28, ac: 12, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 52, ac: 14, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
     abilities: { str: 10, dex: 13, con: 11, int: 11, wis: 13, cha: 14 },
-    spellSlots: 4,
+    spellSlots: 6,
     attacks: [
       { name: 'Claws',           type: 'melee',    range: 5,  dice: 1, sides: 4,  dmgBonus: 2, statMod: 'dex' },
       { name: 'Inflict Wounds',  type: 'melee',    range: 5,  dice: 1, sides: 10, hitBonus: 3, spellSlotCost: 1 },
