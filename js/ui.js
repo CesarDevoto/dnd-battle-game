@@ -309,11 +309,19 @@ function buildEquipmentPanelHTML(u) {
       `</div>`;
   };
 
-  const bag = n =>
-    `<div class="eq-bag">` +
-    `<div class="eq-bag-box"></div>` +
-    `<span class="eq-bag-label">Bag ${n}</span>` +
-    `</div>`;
+  const bag = n => {
+    const bagSlot = `bag-${n}`;
+    const item = u.equipment?.[bagSlot];
+    const rarityClass = item ? ` rarity-${item.rarity}` : '';
+    const title = item ? item.name : `Bag ${n}`;
+    const icon = item?.icon
+      ? `<img class="eq-slot-icon" src="${item.icon}" alt="${item.name}">`
+      : '';
+    return `<div class="eq-bag" data-slot="${bagSlot}" title="${title}">` +
+      `<div class="eq-bag-box${rarityClass}">${icon}</div>` +
+      `<span class="eq-bag-label">Bag ${n}</span>` +
+      `</div>`;
+  };
 
   const cur = (label, val) =>
     `<div class="eq-currency-row">` +
