@@ -249,6 +249,6 @@ function _triggerAggro(spotter) {
       _doStart
     ), 700);
   } else {
-    setTimeout(_doStart, 900);
+    setTimeout(_doStart, 450);
   }
 }

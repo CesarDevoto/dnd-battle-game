@@ -1244,11 +1244,6 @@ function castMagicMissile(caster, target) {
   );
   const totalDmg = darts.reduce((s, r) => s + r.total, 0);
 
-  // Show dart rolls staggered to match missile launch cadence
-  darts.forEach((r, i) => {
-    setTimeout(() => showRoll(`${unitLabel(caster)}  →  ${unitLabel(target)}  ·  Missile ${i + 1}`, r, { autoDismiss: false, skip3D: true }), i * 380);
-  });
-
   // Visual — 4 neon purple arrows; damage applies when last bolt lands
   playMagicMissileEffect(caster, target, () => {
     target.aggro = true;
@@ -1769,18 +1764,12 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
-  let rollLabel = `${aLabel}  →  ${tLabel}  ·  ${atk.name}`;
-  if (atkDisadvReason) rollLabel += `  (${atkDisadvReason})`;
-  if (blessBonus > 0)  rollLabel += `  ✦+${blessBonus}`;
-
   const D            = 0;
   const FAST_ROLL_MS = 0;
   const FAST_SETTLE  = 0;
   const SLOW_SETTLE  = 0;
   const BANNER_MS    = 0;
   const RESULT_PAUSE = 0;
-
-  setTimeout(() => showRoll(rollLabel, atkResult, { autoDismiss: false }), D);
 
   const hit = atkResult.isHit;
   const modStr = dmgMod >= 0 ? `+${dmgMod}` : `${dmgMod}`;
@@ -1807,13 +1796,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
 
   const isCrit    = atkResult.isCrit;
   const dmgResult = rollDnDDamage(atk, dmgMod, isCrit);
-  setTimeout(() => showRoll('Damage', dmgResult, { autoDismiss: false }), D + 800);
 
   let sneakResult = null;
   if (doSneak) {
     sneakAttackUsed = true;
     sneakResult     = rollDnDDamage(sneakDef, 0, isCrit);
-    setTimeout(() => showRoll('Sneak Attack!', sneakResult, { autoDismiss: false }), D + 1400);
   }
 
   const dmg      = Math.max(1, dmgResult.total);
@@ -3070,7 +3057,7 @@ export function activateTurn(index) {
       heroMode = null;
       if (u.team === 'red') {
         if (u.dormant) {
-          setTimeout(() => doEndTurn(), 150);
+          setTimeout(() => doEndTurn(), 60);
         } else {
           runAITurn(u);
         }
@@ -3181,11 +3168,11 @@ function doEndTurn() {
     _nudgeRoamers();
     // At round boundary: intercept if player queued a mode switch
     if (hasPendingSwitch()) {
-      handleRoundStartSwitch(() => setTimeout(() => activateTurn(0), 200));
+      handleRoundStartSwitch(() => setTimeout(() => activateTurn(0), 100));
       return;
     }
   }
-  setTimeout(() => activateTurn(turnIndex), 60);
+  setTimeout(() => activateTurn(turnIndex), 30);
 }
 
 endTurnBtn.addEventListener('click', () => {
@@ -3317,8 +3304,8 @@ function _runRoamTurn(u) {
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
     _roamAggroCheck(u);
-    setTimeout(() => { doEndTurn(); }, 150);
-  }, 200);
+    setTimeout(() => { doEndTurn(); }, 50);
+  }, 50);
 }
 
 // ── Automated hero turn ───────────────────────────────────────────────────────
@@ -3738,11 +3725,13 @@ function runAITurn(u) {
     }
   }
 
-  const THINK_MS    = 600;    // pause before acting
-  const PRE_ATK_MS  = 350;    // pause before swinging so player sees the target ring
+  // Automated mode: no one is reading each enemy's "think" beat, so run it much
+  // tighter. Manual mode keeps the original pacing so enemy turns stay readable.
+  const THINK_MS    = isAutomated() ? 150 : 600;    // pause before acting
+  const PRE_ATK_MS  = isAutomated() ? 120 : 350;    // pause before swinging so player sees the target ring
   // Must outlast: anim_duration(~1030) + travel(~760) + death_window(400) ≈ 2190
   const ATK_RESOLVE = 2200;
-  const END_PAUSE   = 300;    // breather before advancing to next turn
+  const END_PAUSE   = isAutomated() ? 100 : 300;    // breather before advancing to next turn
 
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) {
