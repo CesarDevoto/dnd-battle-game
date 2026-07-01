@@ -55,7 +55,7 @@ function _renderPortrait(unit) {
   const fovRad    = _pCamera.fov * (Math.PI / 180);
   // Tight bust framing — head/upper chest fills the frame
   const bustY     = center.y + size.y * 0.28;
-  const dist      = (maxDim * 0.22) / Math.tan(fovRad / 2);
+  const dist      = (maxDim * 0.27) / Math.tan(fovRad / 2);
 
   _pCamera.position.set(
     center.x - maxDim * 0.10,
