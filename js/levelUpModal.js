@@ -48,6 +48,9 @@ const LEVEL_UNLOCKS = {
   },
 };
 
+let _open = false;
+export function isLevelUpModalOpen() { return _open; }
+
 // levelUps: [{ hero, newLevel, hpGain, oldLevel }]
 export function showLevelUpModal(levelUps) {
   const byType = Object.fromEntries(levelUps.map(e => [e.hero.type, e]));
@@ -55,6 +58,8 @@ export function showLevelUpModal(levelUps) {
   if (!sections.length) return;
 
   document.getElementById('lum-overlay')?.remove();
+  _open = true;
+  window.dispatchEvent(new CustomEvent('levelup:modal', { detail: { open: true } }));
 
   const overlay = document.createElement('div');
   overlay.id = 'lum-overlay';
@@ -146,7 +151,12 @@ export function showLevelUpModal(levelUps) {
       panel.querySelector('.lum-btn-back').addEventListener('click', () => { idx--; render(); });
     }
     panel.querySelector('.lum-btn:not(.lum-btn-back)').addEventListener('click', () => {
-      if (isLast) { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 300); }
+      if (isLast) {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+        _open = false;
+        window.dispatchEvent(new CustomEvent('levelup:modal', { detail: { open: false } }));
+      }
       else { idx++; render(); }
     });
   }

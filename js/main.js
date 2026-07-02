@@ -4,7 +4,7 @@ import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
 import { initEngagementLines, updateEngagementLines } from './engagementLines.js';
 import { updateHUD, trackSheet } from './ui.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExit } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -119,7 +119,7 @@ initSpellbook();
 }
 initHotbar();
 initZoneUI();
-initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExit, getActiveZone });
+initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExitWithLoot, getActiveZone });
 initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initShortRest();

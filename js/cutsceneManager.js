@@ -1,7 +1,8 @@
 import { CUTSCENE as CUTSCENE_INTRO } from './cutscenes/cutscene_intro.js';
+import { CUTSCENE as CUTSCENE_STYX_VICTORY } from './cutscenes/cutscene_styx_victory.js';
 import { playCombatMusic, stopCombatMusic } from './audio.js';
 
-const _ORDER    = [CUTSCENE_INTRO];
+const _ORDER    = [CUTSCENE_INTRO, CUTSCENE_STYX_VICTORY];
 const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
 
 // ── seen tracking ─────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ export function triggerCutscene(trigger) {
 // ── player ────────────────────────────────────────────────────────────────────
 function _play(cs) {
   _cs = cs; _playing = true; _slideIdx = 0;
-  playCombatMusic('prologue_music');
+  if (cs.music !== null) playCombatMusic(cs.music ?? 'prologue_music');
   _overlay.style.display = 'flex';
   // double-rAF so display:flex has painted before opacity transition starts
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -112,6 +113,7 @@ function _advance() {
 function _finish() {
   if (_cs.playOnce) _markSeen(_cs.id);
   const trigger = _cs.trigger;
+  const id      = _cs.id;
   stopCombatMusic();
   _overlay.classList.remove('cs-active');
   setTimeout(() => {
@@ -119,6 +121,7 @@ function _finish() {
     _playing = false;
     _cs = null;
     if (trigger === 'game_start') window.dispatchEvent(new CustomEvent('game:ready'));
+    window.dispatchEvent(new CustomEvent('cutscene:finished', { detail: { id, trigger } }));
   }, 420);
 }
 

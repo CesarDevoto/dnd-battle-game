@@ -62,6 +62,9 @@ const SOUNDS = {
   skeleton_moving:    { src: 'assets/Audio/combat/skeleton moving.mp3',     category: 'combat' },
   shadow_aggro:       { src: 'assets/Audio/combat/shadow aggro.mp3',        category: 'combat' },
   shadow_attack:      { src: 'assets/Audio/combat/shadow attack.mp3',       category: 'combat' },
+  twigblight_aggro:   { src: 'assets/Audio/combat/twigblight aggro.mp3',    category: 'combat' },
+  twigblight_attack:  { src: 'assets/Audio/combat/twigblight attack.mp3',   category: 'combat' },
+  twigblight_moving:  { src: 'assets/Audio/combat/twigblight moving.mp3',   category: 'combat' },
   // Cutscene / prologue music
   prologue_music:  { src: 'assets/Audio/ambient/prologuemusic.mp3', category: 'music', loop: true },
   // Combat music
@@ -341,6 +344,7 @@ const UNIT_SOUNDS = {
   zombie:                 { aggro: 'zombie_aggro',   attack: 'zombie_attack',   move: 'zombie_moving' },
   skeleton:               { aggro: 'skeleton_aggro', attack: 'skeleton_attack', move: 'skeleton_moving' },
   shadow:                 { aggro: 'shadow_aggro',   attack: 'shadow_attack' },
+  twig_blight:            { aggro: 'twigblight_aggro', attack: 'twigblight_attack', move: 'twigblight_moving' },
   human:           { attack: 'human_attack' },
   halfling:        { attack: 'halfling_attack' },
   dwarf:           { attack: 'dwarf_attack' },

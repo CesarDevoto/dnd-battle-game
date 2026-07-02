@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit } from './scene.js';
+import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit, setGridVisible } from './scene.js';
 import { units, corpses } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { updateXPBar } from './progression.js';
+import { triggerCutscene } from './cutsceneManager.js';
 
 // Injected at init time to avoid circular deps (both importers of combat.js)
 let _removeUnitsFn      = null;
@@ -37,7 +38,6 @@ let _leugrenLastPos      = new THREE.Vector3(0, 0, 20);
 let _inStyxZone      = false;
 let _styxKillCount   = 0;
 let _styxMissionDone = false;
-let _styxDagnaSeen   = false;
 
 // ── Portal ────────────────────────────────────────────────────────────────────
 // Pre-built once at init and kept permanently in scene (avoids GPU buffer-upload
@@ -111,16 +111,14 @@ const _unregisterDagnaIntro = registerPostCombatHandler(20, (ctx, done) => {
   setTimeout(_startIntroA, 800);
 });
 
+// Stops combat and starts the outro the instant the 6th kill lands — even if
+// other enemies are still up — so heroes aren't forced to fight the rest out.
 export function onEnemyKilled(u) {
   if (u.team !== 'red' || !_inStyxZone || _styxMissionDone) return;
   _styxKillCount++;
   _refreshKills();
-  if (_styxKillCount >= 6) _styxMissionDone = true;
-}
-
-export function onHeroTurnStart() {
-  if (_styxMissionDone && !_styxDagnaSeen) {
-    _styxDagnaSeen = true;
+  if (_styxKillCount >= 6) {
+    _styxMissionDone = true;
     setTimeout(_startOutro, 400);
   }
 }
@@ -653,9 +651,10 @@ function _openPortalAndWalk(pp, lp, onArrived) {
   _activatePortal(pp.x, pp.y, pp.z);
   // Wait for portal open animation before spawning Dagna inside it
   setTimeout(() => {
-    const gy       = getTerrainHeight(lp.x, lp.z) + 0.05;
-    const spawnAt  = new THREE.Vector3(pp.x, gy, pp.z);
-    const walkTo   = new THREE.Vector3(lp.x + 3.8, gy, lp.z);
+    const spawnGy  = getTerrainHeight(pp.x, pp.z) + 0.3;
+    const walkGy   = getTerrainHeight(lp.x + 3.8, lp.z) + 0.3;
+    const spawnAt  = new THREE.Vector3(pp.x, spawnGy, pp.z);
+    const walkTo   = new THREE.Vector3(lp.x + 3.8, walkGy, lp.z);
     const facing   = Math.atan2(walkTo.x - spawnAt.x, walkTo.z - spawnAt.z);
     _spawnDagna(spawnAt, facing, () => {
       _startMove(spawnAt, walkTo, 4.0, onArrived);
@@ -701,6 +700,7 @@ function _doStyxTransition() {
   }
 
   if (_loadZoneFn) _loadZoneFn('river_styx', false);
+  setGridVisible(false);
 
   // Restore XP/level on the freshly built heroes (buildUnit resets these to 0/1)
   units.filter(u => u.team === 'blue').forEach(u => {
@@ -741,46 +741,42 @@ function _startIntroB() {
   });
 }
 
-// ── Outro: fires on next hero turn after 6 kills ──────────────────────────────
+// ── Outro: fires the instant the 6th kill lands ────────────────────────────
 function _startOutro() {
   _inStyxZone = false;
   _hideKills();
 
-  // End combat immediately — skips loot/post-combat chain.
-  // forceCombatExit fires combat:ended which calls enterPrecombat (unfrozen).
-  // Immediately re-freeze so _checkAggro can't fire while heroes are still at
-  // River Styx coordinates during the zone transition.
+  // Register before ending combat — if there's no loot at all, the post-combat
+  // chain can resolve synchronously inside forceCombatExitWithLoot() below.
+  window.addEventListener('postcombat:done', _onStyxLootDone, { once: true });
+
+  // End combat immediately, even with enemies still aggro'd — the loot/post-combat
+  // chain still runs (loot panel, etc.) before the cutscene + zone transition.
+  // combat:ended fires and unfreezes precombat; immediately re-freeze so
+  // _checkAggro can't fire while heroes are still at River Styx coordinates.
   _endCombatFn?.();
   _freezePrecombatFn?.(true);
+}
 
-  // Blinding white flash covers the zone transition
-  const flash = document.createElement('div');
-  flash.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;z-index:9999;pointer-events:none;transition:opacity 0.08s ease-in';
-  document.body.appendChild(flash);
+// Loot's been resolved (collected or skipped) — play the outro cutscene and
+// swap zones behind it once the cutscene overlay is fully opaque.
+function _onStyxLootDone() {
+  triggerCutscene('styx_victory');
+  window.addEventListener('cutscene:finished', _onStyxCutsceneDone, { once: true });
 
-  requestAnimationFrame(() => {
-    flash.style.opacity = '1';
+  setTimeout(() => {
+    if (_loadZoneFn) _loadZoneFn(_origZoneId ?? 'mausoleum', false);
+    units.filter(u => u.team === 'blue').forEach(u => { u.hp = u.maxHp; });
+  }, 500);
+}
 
-    // Load origin zone while screen is white; restore HP
-    setTimeout(() => {
-      if (_loadZoneFn) _loadZoneFn(_origZoneId ?? 'mausoleum', false);
-      units.filter(u => u.team === 'blue').forEach(u => { u.hp = u.maxHp; });
-
-      // Fade out over 1.4 s — zone has settled by the time it clears
-      flash.style.transition = 'opacity 1.4s ease-out';
-      flash.style.opacity = '0';
-
-      setTimeout(() => {
-        flash.remove();
-        // Place heroes around the waystone first, then unfreeze so enemies
-        // detect from the correct hero positions rather than Styx coordinates.
-        _positionHeroesFormation();
-        _freezePrecombatFn?.(false);
-        const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
-        if (leugren) setFollowUnit(leugren);
-      }, 1400);
-    }, 200);
-  });
+function _onStyxCutsceneDone() {
+  // Place heroes around the waystone first, then unfreeze so enemies
+  // detect from the correct hero positions rather than Styx coordinates.
+  _positionHeroesFormation();
+  _freezePrecombatFn?.(false);
+  const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf');
+  if (leugren) setFollowUnit(leugren);
 }
 
 // Place heroes around the waystone in the returned-to zone.

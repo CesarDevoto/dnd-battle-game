@@ -33,9 +33,11 @@ function _render() {
 
   const remaining  = SR_MAX - _used;
   btn.disabled     = combatPhase || remaining <= 0;
-  btn.title        = remaining <= 0  ? 'No short rests remaining — refresh on level-up'
-                   : combatPhase     ? 'Cannot rest during combat'
-                   : `Heroes gain 1dHP+Con hit points and added spell slots per short rest. (${remaining} remaining)`;
+  btn.title        = 'Two short rests per level. ' + (
+                       remaining <= 0  ? 'No short rests remaining — refresh on level-up'
+                     : combatPhase     ? 'Cannot rest during combat'
+                     : `Heroes gain 1dHP+Con hit points and added spell slots per short rest. (${remaining} remaining)`
+                     );
 
   if (pip0) pip0.classList.toggle('used', _used >= 1);
   if (pip1) pip1.classList.toggle('used', _used >= 2);

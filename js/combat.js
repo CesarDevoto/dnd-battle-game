@@ -15,7 +15,7 @@ import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.
 import { fireRangedAttack }        from './arrow.js';
 import { fireThrownAxe }           from './thrownAxe.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
-import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges } from './hotbar.js';
+import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable } from './hotbar.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
          aiGetSpellcasterAttack, aiPickSpellcasterDest,
          aiPickHeroDest, aiPickAllyDest } from './combatAI.js';
@@ -23,10 +23,11 @@ import { initCombatAutomation, isAutomated, hasPendingSwitch,
          handleRoundStartSwitch, pickAutoTarget, getTendency } from './combatAutomation.js';
 import { buildHeroSpellPanel, refreshHeroSpellPanel } from './heroAbilities.js';
 import { awardXP } from './progression.js';
+import { isLevelUpModalOpen } from './levelUpModal.js';
 import { rollLoot, spawnLootLabels } from './loot.js';
 import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
-import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
+import { onHeroDied, onCombatEnd, onEnemyKilled } from './dagnaEvent.js';
 import { computeAC } from './equipment.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
@@ -1503,12 +1504,15 @@ function _teardownCombat() {
   document.getElementById('turn-panel').style.display = 'none';
 }
 
-// Called by dagnaEvent for the styx outro — ends combat without the normal loot/post-combat chain.
-export function forceCombatExit() {
+// Called by dagnaEvent for the styx outro — ends combat immediately (even with
+// enemies still aggro'd) but still runs the normal loot/post-combat chain, so
+// 'postcombat:done' fires once the loot panel (if any) has been resolved.
+export function forceCombatExitWithLoot() {
   if (!combatPhase) return;
   _teardownCombat();
   stopCombatMusic();
   window.dispatchEvent(new CustomEvent('combat:ended'));
+  runPostCombat({ isVictory: true });
 }
 
 // All aggro'd threats defeated — return to free-roam without a terminal banner.
@@ -2798,6 +2802,8 @@ function _rebuildHotbar(u) {
                             selectedTarget.grp.position.x, selectedTarget.grp.position.z) &&
              atkHasQty(curU, firstRanged);
     }, 'action');
+  } else {
+    markHotkeyUnavailable('Digit3');
   }
   const spellPanel = document.getElementById('blue-spell-panel');
   if (spellPanel) {
@@ -3003,7 +3009,7 @@ export function activateTurn(index) {
       u.aggro === false
     );
     if (u.team === 'blue' && !unawareEnemy) setFollowUnit(u);
-    if (u.team === 'blue') { u.barForced = true; onHeroTurnStart(); }
+    if (u.team === 'blue') u.barForced = true;
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
     activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
     activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));
@@ -3170,11 +3176,26 @@ function doEndTurn() {
     _nudgeRoamers();
     // At round boundary: intercept if player queued a mode switch
     if (hasPendingSwitch()) {
-      handleRoundStartSwitch(() => setTimeout(() => activateTurn(0), 100));
+      handleRoundStartSwitch(() => setTimeout(_proceedToNextTurn, 100));
       return;
     }
   }
-  setTimeout(() => activateTurn(turnIndex), 30);
+  setTimeout(_proceedToNextTurn, 30);
+}
+
+// Holds the turn advance while a level-up modal is on screen (e.g. XP from
+// the kill that just ended a turn crossed a level threshold mid-battle).
+// Resumes automatically the moment the player closes the modal.
+function _proceedToNextTurn() {
+  if (isLevelUpModalOpen()) {
+    window.addEventListener('levelup:modal', function _onModalChange(e) {
+      if (e.detail?.open) return;
+      window.removeEventListener('levelup:modal', _onModalChange);
+      activateTurn(turnIndex);
+    });
+    return;
+  }
+  activateTurn(turnIndex);
 }
 
 endTurnBtn.addEventListener('click', () => {

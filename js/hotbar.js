@@ -71,6 +71,13 @@ export function updateHotkeyRanges() {
   }
 }
 
+// Grey out a slot with no functional binding (e.g. a hero with no ranged attack).
+export function markHotkeyUnavailable(code, shift = false) {
+  const k = _key(code, shift);
+  const btn = _btns[k];
+  if (btn) btn.classList.add('hb-disabled');
+}
+
 export function unbindHotkey(code, shift) {
   const k = _key(code, shift);
   delete _reg[k];

@@ -53,9 +53,11 @@ function _renderPortrait(unit) {
   const size   = box.getSize(new THREE.Vector3());
   const maxDim    = Math.max(size.x, size.y, size.z) || 2;
   const fovRad    = _pCamera.fov * (Math.PI / 180);
-  // Tight bust framing — head/upper chest fills the frame
-  const bustY     = center.y + size.y * 0.28;
-  const dist      = (maxDim * 0.27) / Math.tan(fovRad / 2);
+  // Bust framing — head/upper chest fills the frame. Uses a modest offset
+  // and extra distance margin so tall props (raised weapons/staves) that
+  // inflate the bounding box don't push the actual head/body out of frame.
+  const bustY     = center.y + size.y * 0.16;
+  const dist      = (maxDim * 0.34) / Math.tan(fovRad / 2);
 
   _pCamera.position.set(
     center.x - maxDim * 0.10,

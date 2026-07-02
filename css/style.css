@@ -664,7 +664,7 @@ body {
 
 #tw-name {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
   font-family: var(--font-fantasy);
@@ -676,8 +676,8 @@ body {
   text-shadow: 0 0 8px rgba(0,0,0,0.9);
   text-align: center;
   white-space: nowrap;
-  background: linear-gradient(transparent, rgba(0,0,0,0.75) 40%);
-  padding: 10px 4px 4px;
+  background: linear-gradient(rgba(0,0,0,0.75) 40%, transparent);
+  padding: 4px 4px 10px;
 }
 
 /* ── Combat log column (target window stacked above combat log) ─────── */
@@ -6923,6 +6923,7 @@ td.bst-col-retired { color: #343228 !important; }
 .cs-pan-right { animation: cs-pan-right 13s linear both; }
 .cs-pan-up    { animation: cs-pan-up    13s linear both; }
 .cs-zoom-in   { animation: cs-zoom-in   13s linear both; }
+.cs-pan-zoom  { animation: cs-zoom-in   13s linear both; }
 
 /* Title-card mode — no image, text centered */
 .cs-title-card #cs-text-wrap {

@@ -834,7 +834,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', 'off-hand': 'shield1', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'chainarmor1', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -878,7 +878,7 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', 'main-hand': 'sword4', 'off-hand': 'longbow4', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

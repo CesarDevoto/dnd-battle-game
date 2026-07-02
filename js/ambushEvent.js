@@ -6,7 +6,7 @@ import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { clearAllExclamations, trackExclamation, isMarkerSeen } from './exclamationMarkers.js';
 import { mkExclamationMarker } from './propBuilders.js';
-import { setQuestFlag } from './quests.js';
+import { setQuestFlag, addQuest } from './quests.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -40,7 +40,11 @@ function _buildChoices() {
   return _PURSUIT_CHOICES.map(ch => ({
     label:  ch.label,
     onPick: () => {
-      if (ch.pursue) setQuestFlag('goblin_pursuit');
+      if (ch.pursue) {
+        setQuestFlag('goblin_pursuit');
+        addQuest('goblin_pursuit', 'Follow the Goblin Tracks',
+          "Track the goblins north to rescue Gundren Rockseeker and Sildar Hallwinter.");
+      }
       showQuickDialogue(ch.lines);
     },
   }));
