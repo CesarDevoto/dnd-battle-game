@@ -2757,6 +2757,47 @@ body {
   white-space: nowrap;
 }
 
+/* Item detail box — shows stats of the last-clicked equipped item */
+.eq-detail {
+  margin-top: 8px;
+  padding: 6px 7px;
+  min-height: 40px;
+  border: 1px solid rgba(212,175,55,0.20);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(20,14,4,0.70) 0%, rgba(8,5,2,0.85) 100%);
+  font-family: var(--font-fantasy);
+  font-size: 0.55rem;
+  color: rgba(212,175,55,0.45);
+  line-height: 1.5;
+}
+
+.eq-detail-name {
+  font-size: 0.60rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--hc);
+  margin-bottom: 2px;
+}
+
+.eq-detail-stat {
+  color: rgba(212,175,55,0.85);
+}
+
+.eq-detail-props {
+  color: rgba(212,175,55,0.55);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.eq-slot.selected .eq-slot-box,
+.eq-bag.selected .eq-bag-box {
+  border-color: rgba(212,175,55,0.65);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(212,175,55,0.20),
+    0 0 8px rgba(212,175,55,0.25);
+}
+
 /* Currency table — pushed to bottom of right column */
 .eq-currency {
   margin-top: auto;

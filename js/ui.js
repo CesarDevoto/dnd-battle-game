@@ -103,6 +103,7 @@ function _toggleSidePanel(btnId) {
   if (!isSame) {
     if (isEq) {
       eqContentEl.innerHTML = _equipmentPanelHTML;
+      _initEquipmentPanel();
       eqPanelEl?.classList.add('show');
     } else if (btnId === 'ss-btn-spellbook') {
       sideContentEl.innerHTML = _spellPanelHTML;
@@ -296,6 +297,42 @@ function _initSpellAccordions() {
   });
 }
 
+function formatItemDetailHTML(item) {
+  if (!item) return 'Select an item to view its stats';
+
+  const lines = [`<div class="eq-detail-name">${item.name}</div>`];
+
+  if (item.dmg) lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
+  if (item.ac)  lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
+
+  const props = [];
+  if (item.light)      props.push('Light');
+  if (item.finesse)    props.push('Finesse');
+  if (item.thrown)     props.push('Thrown');
+  if (item.heavy)      props.push('Heavy');
+  if (item.reach)      props.push('Reach');
+  if (item.twoHanded)  props.push('Two-Handed');
+  if (item.versatile)  props.push(`Versatile (${item.versatile})`);
+  if (item.ammunition) props.push('Ammunition');
+  if (item.loading)    props.push('Loading');
+  if (props.length) lines.push(`<div class="eq-detail-props">${props.join(' · ')}</div>`);
+
+  return lines.join('');
+}
+
+function _initEquipmentPanel() {
+  const detailEl = document.getElementById('eq-detail');
+  if (!detailEl) return;
+  eqContentEl.querySelectorAll('[data-slot]').forEach(el => {
+    el.addEventListener('click', () => {
+      const item = sheetUnit?.equipment?.[el.dataset.slot] ?? null;
+      detailEl.innerHTML = formatItemDetailHTML(item);
+      eqContentEl.querySelectorAll('[data-slot].selected').forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+}
+
 function buildEquipmentPanelHTML(u) {
   const slot = (id, label) => {
     const item = u.equipment?.[id];
@@ -356,6 +393,7 @@ function buildEquipmentPanelHTML(u) {
     `</div>` +
     `<div class="eq-right">` +
       `<div class="eq-bags">${bag(1)}${bag(2)}${bag(3)}${bag(4)}</div>` +
+      `<div class="eq-detail" id="eq-detail">Select an item to view its stats</div>` +
       `<div class="eq-currency">` +
         cur('Copper',   copper)   +
         cur('Silver',   silver)   +
