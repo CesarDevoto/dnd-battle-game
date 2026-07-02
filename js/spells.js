@@ -79,13 +79,16 @@ export function tickBless() {
 export const ELF_SPELLS = {
   // ── Cantrips (level 0) ──────────────────────────────────────────────────────
   fire_bolt: {
-    key:         'fire_bolt',
-    name:        'Fire Bolt',
-    level:       0,
-    actionType:  'action',
-    imgSrc:      'assets/Spells/Firebolt.jpg',
-    displayOnly: true,   // combat handled via attacks[] in constants.js
-    desc:        '120 ft · 1d10+INT fire · INT to hit',
+    key:        'fire_bolt',
+    name:       'Fire Bolt',
+    level:      0,
+    actionType: 'action',
+    imgSrc:     'assets/Spells/Firebolt.jpg',
+    rangeFt:    120,
+    dice:       1,
+    sides:      10,
+    statMod:    'int',
+    desc:       '120 ft · 1d10+INT fire · INT to hit',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
   mage_armor: {

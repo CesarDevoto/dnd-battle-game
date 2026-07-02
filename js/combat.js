@@ -1208,6 +1208,14 @@ function handleRageBtnClick() {
 
 // ── Elf (Rasec) spell casting ─────────────────────────────────────────────────
 
+// Fire Bolt as an attacks[]-shaped object — lets it reuse performAttack()'s
+// to-hit/damage/crit/VFX pipeline without living in UNIT_TYPES.attacks (which
+// would wrongly make it Rasec's "ranged weapon").
+function _fireBoltAtk() {
+  const sp = ELF_SPELLS.fire_bolt;
+  return { name: sp.name, type: 'ranged', range: sp.rangeFt, dice: sp.dice, sides: sp.sides, statMod: sp.statMod };
+}
+
 function showMagicMissileTargets(caster) {
   hideAttackTargets();
   if (turnAttacked) return;
@@ -2886,18 +2894,32 @@ function _rebuildHotbar(u) {
       }, 'action');
     }
   } else if (u.type === 'elf') {
+    // Fire Bolt is a cantrip spell attack, not a weapon — it has no attacks[]
+    // entry (that slot is reserved for Rasec's Quarterstaff/no-ranged-weapon
+    // status). It reuses performAttack()'s to-hit/damage/VFX machinery via a
+    // synthetic atk object built from ELF_SPELLS.fire_bolt, same shape a real
+    // weapon attack would have, so it's unlimited-use and never costs a spell slot.
     bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Firebolt.jpg">', () => {
-      triggerSpellBarAction('fire_bolt');
+      if (!selectedTarget || turnAttacked || isAnimating) return;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return;
+      const tgt = selectedTarget;
+      turnAttacked = true;
+      hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
+      performAttack(curU, tgt, _fireBoltAtk());
+      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
+      else { heroMode = null; }
+      updateCombatStatus();
     }, () => {
       if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf') return false;
-      const rangedAtk = UNIT_TYPES[curU.type]?.attacks?.find(a => a.type === 'ranged');
-      if (!rangedAtk) return false;
+      const atk = _fireBoltAtk();
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist <= atkRangeWU(rangedAtk.range) &&
+      return dist <= atkRangeWU(atk.range) &&
              hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
                             selectedTarget.grp.position.x, selectedTarget.grp.position.z);
     }, 'action');
@@ -3533,6 +3555,19 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         _executeAttack(atk, onDone); return;
       }
 
+      // ── Fire Bolt (elf cantrip — no spell slot, no attacks[] entry) ──
+      if (actionVal === 'fire_bolt') {
+        if (u.type !== 'elf')            { onSkip(); return; }
+        if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+        const atk = _fireBoltAtk();
+        const edx = enemyTarget.grp.position.x - u.grp.position.x;
+        const edz = enemyTarget.grp.position.z - u.grp.position.z;
+        const eDist = Math.sqrt(edx * edx + edz * edz);
+        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (eDist > atkRangeWU(atk.range)) { onSkip(); return; }
+        _executeAttack(atk, onDone); return;
+      }
+
       // ── Named weapon attack ──────────────────────────────────────────
       if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
       const atks = UNIT_TYPES[u.type]?.attacks ?? [];
@@ -3987,28 +4022,6 @@ export function triggerSpellBarAction(spellKey) {
   const sp = ELF_SPELLS[spellKey] ?? SPELLS[spellKey];
   if (!sp) return;
 
-  // Cantrip (level 0) — ranged-attack path (e.g. Fire Bolt) or fall through to handler
-  if ((sp.level ?? 1) === 0) {
-    const attacks   = UNIT_TYPES[u.type]?.attacks ?? [];
-    const rangedAtk = attacks.find(a => a.type === 'ranged');
-    if (!rangedAtk || !sp.displayOnly) {
-      // Not a ranged-attack cantrip (e.g. Healing Word) — route to unit-type handler
-      if (u.type === 'elf') handleElfSpellBtnClick(spellKey);
-      else handleSpellBtnClick(spellKey);
-      return;
-    }
-    if (!selectedTarget || turnAttacked) return;
-    const tgt = selectedTarget;
-    turnAttacked = true;
-    hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-    performAttack(u, tgt, rangedAtk);
-    const rem = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
-    if (rem > 0) { heroMode = 'move'; showMoveRange(u); } else { heroMode = null; }
-    updateCombatStatus();
-    return;
-  }
-
-  // Level 1+ — route to the appropriate unit-type handler
   if (u.type === 'elf') {
     handleElfSpellBtnClick(spellKey);
   } else {

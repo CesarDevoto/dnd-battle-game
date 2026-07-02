@@ -93,13 +93,14 @@ const ANIM_CLIP_NAMES = {
   ogre: {
     idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
   },
-  // New barbarian GLB (Jul 2026) — different attack clip. Verified via Hips.position
-  // Y-range/duration: Charged_Upward_Slash (rangeY 8.34) is the new melee swing, but
-  // auto-detect would wrongly grab mage_soell_cast_7 (rangeY 9.86, spell-cast pose —
-  // Gobo doesn't cast spells) since it edges out on the tiebreak. Pin explicitly.
+  // New barbarian GLB (Jul 2026, 3rd export) — clip set changed again. This export has
+  // a clip literally named "Attack" but user directed Skill_03 for the real melee swing
+  // instead (per lesson from prior exports: don't trust clip names at face value). No
+  // dedicated throw/archery clip this time — user directed the spell-cast pose
+  // (mage_soell_cast_4) be reused for Gobo's thrown-handaxe ranged attack.
   human: {
-    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Charged_Upward_Slash',
-    rangedAttack: 'Archery_Shot_1', death: 'Dead',
+    idle: 'Idle_5', walk: 'Walking', run: 'Running', attack: 'Skill_03',
+    rangedAttack: 'mage_soell_cast_4', death: 'Dead',
   },
   // mage_soell_cast_7 has larger rangeY than Archery_Shot_1 so auto-detection grabs it first
   halfling: {

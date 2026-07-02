@@ -812,3 +812,14 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
     triggerSpellBarAction(btn.dataset.spell);
   });
 })();
+
+(function() {
+  const body   = document.getElementById('log-entries');
+  const toggle = document.getElementById('combat-log-toggle');
+  if (!body || !toggle) return;
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    const collapsed = body.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '▲' : '▼';
+  });
+})();

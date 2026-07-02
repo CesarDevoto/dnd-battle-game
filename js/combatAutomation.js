@@ -65,7 +65,7 @@ const CATEGORIES = [
             { value: 'near_ally_melee',  label: 'Near ally (melee)'   },
           ],
         },
-        defaults:  { elf: 'melee', dwarf: 'near_ally_melee', human: 'melee', halfling: 'ranged' },
+        defaults:  { elf: 'ranged', dwarf: 'near_ally_melee', human: 'melee', halfling: 'ranged' },
         appliesTo: () => true,
       },
     ],
@@ -82,6 +82,7 @@ const CATEGORIES = [
         optionsFor: {
           elf: [
             { value: 'mage_armor',    label: 'Mage Armor'    },
+            { value: 'fire_bolt',     label: 'Fire Bolt'     },
             { value: 'quarterstaff',  label: 'Quarterstaff'  },
             { value: 'ready_action',  label: 'Ready Action'  },
           ],
@@ -107,7 +108,7 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['mage_armor', 'quarterstaff'],
+          elf:      ['mage_armor', 'fire_bolt', 'quarterstaff'],
           dwarf:    ['bless', 'healing_word', 'warhammer', 'ready_action'],
           human:    ['rage', 'defensive_stance', 'greataxe', 'handaxe'],
           halfling: ['hide', 'sneak_attack', 'shortbow', 'shortsword'],
@@ -190,7 +191,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 5;
+const TENDENCIES_VERSION = 6;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

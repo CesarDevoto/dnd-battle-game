@@ -707,14 +707,24 @@ body {
   font-family: var(--font-body);
   box-shadow: var(--panel-shadow);
 }
+#combat-log .t-title {
+  position: relative;
+}
 #log-entries {
   display: flex;
   flex-direction: column;
   gap: 1px;
   max-height: 19vh;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: #4a3412 transparent;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+#log-entries.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ── Cutscenes button ────────────────────────────────────────────────────── */
