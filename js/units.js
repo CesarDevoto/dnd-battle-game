@@ -93,8 +93,13 @@ const ANIM_CLIP_NAMES = {
   ogre: {
     idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
   },
+  // New barbarian GLB (Jul 2026) — different attack clip. Verified via Hips.position
+  // Y-range/duration: Charged_Upward_Slash (rangeY 8.34) is the new melee swing, but
+  // auto-detect would wrongly grab mage_soell_cast_7 (rangeY 9.86, spell-cast pose —
+  // Gobo doesn't cast spells) since it edges out on the tiebreak. Pin explicitly.
   human: {
-    idle: 'mage_soell_cast_7', walk: 'Attack', attack: 'Running', rangedAttack: 'Idle_8', death: 'Walking',
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Charged_Upward_Slash',
+    rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   // mage_soell_cast_7 has larger rangeY than Archery_Shot_1 so auto-detection grabs it first
   halfling: {
