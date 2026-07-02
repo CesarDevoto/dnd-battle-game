@@ -307,7 +307,7 @@ function formatItemDetailHTML(item) {
 
   if (item.dmg)   lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
   if (item.ac)    lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
-  if (item.slots) lines.push(`<div class="eq-detail-stat">Container (${item.slots} slots)</div>`);
+  if (item.slots) lines.push(`<div class="eq-detail-stat">Container</div><div class="eq-detail-stat">(${item.slots} slots)</div>`);
 
   const props = [];
   if (item.light)      props.push('Light');
@@ -315,11 +315,11 @@ function formatItemDetailHTML(item) {
   if (item.thrown)     props.push('Thrown');
   if (item.heavy)      props.push('Heavy');
   if (item.reach)      props.push('Reach');
-  if (item.twoHanded)  props.push('Two-Handed');
   if (item.versatile)  props.push(`Versatile (${item.versatile})`);
   if (item.ammunition) props.push('Ammunition');
   if (item.loading)    props.push('Loading');
   if (props.length) lines.push(`<div class="eq-detail-props">${props.join(' · ')}</div>`);
+  if (item.twoHanded)  lines.push(`<div class="eq-detail-props">Two-Handed</div>`);
 
   return lines.join('');
 }

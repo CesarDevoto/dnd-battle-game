@@ -813,7 +813,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: [], shields: false },
     weaponProficiency: { simple: false, martial: false, weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light Crossbow'] },
-    startingEquipment: { chest: 'clothshirt1', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'clothshirt1', belt: 'belt13', cloak: 'cloak12', 'bag-1': 'bag1' },
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int' },
@@ -878,7 +878,7 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

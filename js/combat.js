@@ -8,7 +8,7 @@ import { roll, showRoll, clearRollFeed } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.js';
@@ -3396,6 +3396,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       // ── Bless (dwarf, main action, uses spell slot) ──────────────────
       if (actionVal === 'bless') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'bless')) { onSkip(); return; }
         if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
         if (blessedUnits.size > 0)       { onSkip(); return; } // already active
         castBless(u);
@@ -3406,6 +3407,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       // ── Mage Armor (elf, main action, uses spell slot, persists until long rest) ─
       if (actionVal === 'mage_armor') {
         if (u.type !== 'elf')            { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'mage_armor')) { onSkip(); return; }
         if (u.mageArmored)               { onSkip(); return; }
         if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
         activateMageArmor();
@@ -3429,6 +3431,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       // ── Defensive Stance (bonus action — hero can still attack after) ──
       if (actionVal === 'defensive_stance') {
         if (u.type !== 'human' || turnBonusActioned || u.defStanceActive || (u.defStanceCooldown ?? 0) > 0) { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'defensive_stance')) { onSkip(); return; }
         u.defStanceActive   = true;
         u.defStanceRounds   = 3;
         u.defStanceCooldown = 4;
@@ -3443,6 +3446,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       // ── Hide (bonus action — hero can still attack after) ────────────
       if (actionVal === 'hide') {
         if (u.type !== 'halfling' || turnBonusActioned || u.stealthed || (u.hideCooldown ?? 0) > 0) { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'hide')) { onSkip(); return; }
         const ux = u.grp.position.x, uz = u.grp.position.z;
         const inEnemyLOS = units.some(e => {
           if (e.team !== 'red' || e.hp <= 0 || !e.aggro) return false;

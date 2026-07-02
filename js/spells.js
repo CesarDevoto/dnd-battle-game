@@ -138,6 +138,23 @@ export const LEVEL_SPELLS = {
   halfling: { 2: ['hide'] },
 };
 
+// Single source of truth for "can this hero use this ability yet" — used by
+// the tendencies-window option filter, the level-up auto-append listener,
+// and the actual action-execution guards in combat.js. Abilities not listed
+// in LEVEL_SPELLS have no gate (available from level 1).
+export function abilityMinLevel(heroType, key) {
+  const levels = LEVEL_SPELLS[heroType];
+  if (!levels) return 1;
+  for (const [lvl, keys] of Object.entries(levels)) {
+    if (keys.includes(key)) return Number(lvl);
+  }
+  return 1;
+}
+
+export function isAbilityUnlocked(heroType, level, key) {
+  return (level ?? 1) >= abilityMinLevel(heroType, key);
+}
+
 // ── Spell slot initialisation (called when battle begins) ─────────────────────
 export function initSpellSlots(units) {
   units.forEach(u => {

@@ -1684,7 +1684,7 @@ export const ITEMS = {
   },
   belt8: {
     id:     'belt8',
-    name:   'Belt VIII',
+    name:   'Simple Belt',
     slot:   'belt',
     rarity: 'grey',
     icon:   'assets/items/armor/belt8.png',
@@ -1719,7 +1719,7 @@ export const ITEMS = {
   },
   belt13: {
     id:     'belt13',
-    name:   'Belt XIII',
+    name:   'Simple Belt',
     slot:   'belt',
     rarity: 'grey',
     icon:   'assets/items/armor/belt13.png',
@@ -2694,7 +2694,7 @@ export const ITEMS = {
   },
   cloak12: {
     id:     'cloak12',
-    name:   'Cloak XII',
+    name:   'Simple Cloak',
     slot:   'cloak',
     rarity: 'grey',
     icon:   'assets/items/armor/cloak12.png',

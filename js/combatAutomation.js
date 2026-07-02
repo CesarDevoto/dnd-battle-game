@@ -1,5 +1,6 @@
 import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
-import { LEVEL_SPELLS } from './spells.js';
+import { LEVEL_SPELLS, isAbilityUnlocked } from './spells.js';
+import { units } from './units.js';
 
 // ─── Display metadata ────────────────────────────────────────────────────────
 const HERO_META = {
@@ -361,6 +362,20 @@ function _openTendencies(onSave) {
   okBtn.addEventListener('click', handler);
 }
 
+function _heroLevel(heroType) {
+  const hero = units.find(u => u.team === 'blue' && u.type === heroType);
+  return hero?.level ?? 1;
+}
+
+// Options a hero can currently pick from — catalog entry, minus anything
+// gated behind a level they haven't reached yet (isAbilityUnlocked, shared
+// with the execution-time guards in combat.js — single source of truth).
+function _availableOpts(row, heroType) {
+  const opts  = row.optionsFor?.[heroType] ?? row.options;
+  const level = _heroLevel(heroType);
+  return opts.filter(o => isAbilityUnlocked(heroType, level, o.value));
+}
+
 function _buildTable(overlay) {
   const thead = overlay.querySelector('#tendencies-thead');
   if (thead) {
@@ -419,7 +434,7 @@ function _buildTable(overlay) {
           if (row.type === 'radio') {
             const grp = document.createElement('div');
             grp.className = 'tend-radio-group';
-            const opts = row.optionsFor?.[heroType] ?? row.options;
+            const opts = _availableOpts(row, heroType);
             for (const opt of opts) {
               const btn = document.createElement('button');
               btn.className = 'tend-radio-btn' + (opt.value === curVal ? ' active' : '');
@@ -436,7 +451,7 @@ function _buildTable(overlay) {
             td.appendChild(grp);
 
           } else if (row.type === 'priority') {
-            const opts    = row.optionsFor?.[heroType] ?? row.options;
+            const opts    = _availableOpts(row, heroType);
             const allVals = opts.map(o => o.value);
             // Preserve saved order; append any options not yet in it (e.g. newly added)
             const saved   = Array.isArray(curVal) ? curVal.filter(v => allVals.includes(v)) : [];
