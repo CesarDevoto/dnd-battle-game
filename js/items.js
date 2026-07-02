@@ -7,6 +7,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag1.png',
+    slots:  10,
   },
   bag2: {
     id:     'bag2',

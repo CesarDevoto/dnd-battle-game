@@ -813,7 +813,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: [], shields: false },
     weaponProficiency: { simple: false, martial: false, weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light Crossbow'] },
-    startingEquipment: { chest: 'clothshirt1' },
+    startingEquipment: { chest: 'clothshirt1', 'bag-1': 'bag1' },
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int' },
@@ -834,7 +834,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', 'off-hand': 'shield1' },
+    startingEquipment: { chest: 'chainarmor1', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -856,7 +856,7 @@ export const UNIT_TYPES = {
     unarmoredDefense: true,
     armorProficiency: { armor: ['Light', 'Medium'], shields: true },
     weaponProficiency: { simple: true, martial: true, weapons: [] },
-    startingEquipment: { 'main-hand': 'greataxe' },
+    startingEquipment: { 'main-hand': 'greataxe', 'bag-1': 'bag1' },
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },
@@ -878,7 +878,7 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1' },
+    startingEquipment: { chest: 'leatherarmor1', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

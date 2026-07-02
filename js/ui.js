@@ -81,6 +81,8 @@ const spellListPanelEl  = document.getElementById('ss-spell-list-panel');
 const spellListContentEl = document.getElementById('ss-spell-list-content');
 const eqPanelEl         = document.getElementById('eq-panel');
 const eqContentEl       = document.getElementById('eq-content');
+const eqBagPanelEl      = document.getElementById('eq-bag-panel');
+const eqBagContentEl    = document.getElementById('eq-bag-content');
 
 let _activeSideBtn      = null;
 let _spellPanelHTML     = '';
@@ -95,6 +97,7 @@ function _toggleSidePanel(btnId) {
   sidePanelEl.classList.remove('show');
   spellListPanelEl.classList.remove('show');
   eqPanelEl?.classList.remove('show');
+  eqBagPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
@@ -302,8 +305,9 @@ function formatItemDetailHTML(item) {
 
   const lines = [`<div class="eq-detail-name">${item.name}</div>`];
 
-  if (item.dmg) lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
-  if (item.ac)  lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
+  if (item.dmg)   lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
+  if (item.ac)    lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
+  if (item.slots) lines.push(`<div class="eq-detail-stat">Container (${item.slots} slots)</div>`);
 
   const props = [];
   if (item.light)      props.push('Light');
@@ -320,6 +324,21 @@ function formatItemDetailHTML(item) {
   return lines.join('');
 }
 
+function buildBagContentsHTML(item) {
+  if (!item.contents) item.contents = new Array(item.slots).fill(null);
+  const boxes = item.contents.map((contentItem, i) => {
+    const icon = contentItem?.icon
+      ? `<img class="eq-bagslot-icon" src="${contentItem.icon}" alt="${contentItem.name}">`
+      : '';
+    const title = contentItem ? contentItem.name : `Slot ${i + 1}`;
+    return `<div class="eq-bagslot-box" data-bagslot="${i}" title="${title}">${icon}</div>`;
+  }).join('');
+  return (
+    `<div class="eq-bagslot-title">${item.name} (${item.slots})</div>` +
+    `<div class="eq-bagslot-grid">${boxes}</div>`
+  );
+}
+
 function _initEquipmentPanel() {
   const detailEl = document.getElementById('eq-detail');
   if (!detailEl) return;
@@ -329,6 +348,22 @@ function _initEquipmentPanel() {
       detailEl.innerHTML = formatItemDetailHTML(item);
       eqContentEl.querySelectorAll('[data-slot].selected').forEach(s => s.classList.remove('selected'));
       el.classList.add('selected');
+
+      if (item?.slots) {
+        eqBagContentEl.innerHTML = buildBagContentsHTML(item);
+        eqBagContentEl.querySelectorAll('[data-bagslot]').forEach(box => {
+          box.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const contentItem = item.contents[Number(box.dataset.bagslot)];
+            detailEl.innerHTML = formatItemDetailHTML(contentItem);
+            eqBagContentEl.querySelectorAll('[data-bagslot].selected').forEach(s => s.classList.remove('selected'));
+            box.classList.add('selected');
+          });
+        });
+        eqBagPanelEl?.classList.add('show');
+      } else {
+        eqBagPanelEl?.classList.remove('show');
+      }
     });
   });
 }
@@ -717,6 +752,7 @@ export function hideSheet() {
   sidePanelEl.classList.remove('show');
   spellListPanelEl.classList.remove('show');
   eqPanelEl?.classList.remove('show');
+  eqBagPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');

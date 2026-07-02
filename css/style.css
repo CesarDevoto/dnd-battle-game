@@ -2553,6 +2553,80 @@ body {
 }
 #eq-panel.show { display: flex; }
 
+/* Bag contents panel — opens to the right of #eq-panel when a container item is clicked */
+#eq-bag-panel {
+  display: none;
+  width: 170px;
+  padding: 10px 9px 12px;
+  background:
+    repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(212,175,55,0.007) 3px, rgba(212,175,55,0.007) 4px),
+    radial-gradient(ellipse 180% 65% at 50% 0%, rgba(55,38,10,0.45) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(20,13,4,0.98) 0%, rgba(6,4,1,1.00) 100%);
+  border: 1px solid var(--border-outer);
+  border-radius: 5px;
+  box-shadow:
+    inset 0 0 0 1px rgba(212,175,55,0.10),
+    inset 0 1px 0 rgba(212,175,55,0.20),
+    0 0 0 1px rgba(0,0,0,0.80),
+    0 0 22px rgba(212,175,55,0.12),
+    0 8px 40px rgba(0,0,0,0.90),
+    inset 0 0 45px rgba(0,0,0,0.40);
+  pointer-events: auto;
+  flex-direction: column;
+  gap: 8px;
+}
+#eq-bag-panel.show { display: flex; }
+
+.eq-bagslot-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.60rem;
+  letter-spacing: 0.6px;
+  color: var(--hc);
+  text-transform: uppercase;
+}
+
+.eq-bagslot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 67px);
+  gap: 6px;
+}
+
+.eq-bagslot-box {
+  width: 67px;
+  aspect-ratio: 1 / 1;
+  border: 2px solid rgba(212,175,55,0.24);
+  border-radius: 4px;
+  background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.70),
+    inset 0 0 0 1px rgba(212,175,55,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.50);
+  cursor: pointer;
+  transition: border-color 0.13s, box-shadow 0.13s;
+}
+.eq-bagslot-box:hover {
+  border-color: rgba(212,175,55,0.55);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(212,175,55,0.14),
+    0 0 8px rgba(212,175,55,0.18);
+}
+.eq-bagslot-box.selected {
+  border-color: rgba(212,175,55,0.65);
+  box-shadow:
+    inset 0 1px 5px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(212,175,55,0.20),
+    0 0 8px rgba(212,175,55,0.25);
+}
+
+.eq-bagslot-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  pointer-events: none;
+}
+
 /* eq-content is the actual flex-row that holds .eq-left and .eq-right */
 #eq-content {
   display: flex;
