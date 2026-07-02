@@ -1,6 +1,6 @@
 // js/shortRest.js — short rest widget: 2 uses per level, reset on level-up
 
-import { heroRoster } from './units.js';
+import { heroRoster, reviveUnit } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { combatPhase, showFloatingDamage } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
@@ -52,8 +52,12 @@ function _executeRest() {
   for (const h of heroRoster) {
     if (h.hp <= 0) {
       // Leugren falling triggers the Dagna sequence (deferred); other dead heroes
-      // revive at 1 HP — they'll spawn correctly on next zone load.
-      if (h.type !== 'dwarf') h.hp = 1;
+      // revive at 1 HP immediately — pulled out of their corpse pose and back
+      // into the live unit list so they show up correctly without a zone reload.
+      if (h.type !== 'dwarf') {
+        h.hp = 1;
+        reviveUnit(h);
+      }
       continue;
     }
     if (h.hp >= h.maxHp) continue;

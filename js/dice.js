@@ -4,6 +4,15 @@ export function rollDie(sides) {
   return Math.floor(Math.random() * sides) + 1;
 }
 
+// Parses a "NdS", "NdS+M", or "NdS-M" formula string (e.g. '2d4+2') into
+// { count, sides, modifier } for roll(). Returns null if the string doesn't parse.
+export function parseDiceFormula(str) {
+  const m = /^(\d+)d(\d+)(?:([+-])(\d+))?$/.exec(String(str).trim());
+  if (!m) return null;
+  const [, count, sides, sign, mod] = m;
+  return { count: +count, sides: +sides, modifier: mod ? (sign === '-' ? -1 : 1) * +mod : 0 };
+}
+
 export const d4  = () => rollDie(4);
 export const d6  = () => rollDie(6);
 export const d8  = () => rollDie(8);

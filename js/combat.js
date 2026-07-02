@@ -4,7 +4,7 @@ import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitSt
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
-import { roll, showRoll, clearRollFeed } from './dice.js';
+import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
@@ -29,6 +29,12 @@ import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled } from './dagnaEvent.js';
 import { computeAC } from './equipment.js';
+
+// Tracks the active zone id purely off the global zone:loaded event, so loot
+// rolls can key one-time drops to a zone without importing zoneLoader.js
+// (which itself imports from this module — would be circular).
+let _activeZoneId = null;
+window.addEventListener('zone:loaded', e => { _activeZoneId = e.detail?.id ?? null; });
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
 // Maps sleeping unit → { roundsLeft, zzzEl }
@@ -1184,6 +1190,38 @@ function _checkHidePerception(hero) {
   }
 }
 
+// ── Healing potion (bonus action, Digit6) ───────────────────────────────────
+// Bag-1 slot 0 is reserved for healing potions (see lootPanel.js) — any item
+// with a `heal` dice-formula string sitting there is usable here.
+
+function _heroPotion(u) {
+  const item = u.equipment?.['bag-1']?.contents?.[0];
+  return item?.heal ? item : null;
+}
+
+function _useHealingPotion(u) {
+  if (isAnimating || turnBonusActioned) return;
+  const item = _heroPotion(u);
+  if (!item) return;
+
+  turnBonusActioned = true;
+
+  const formula = parseDiceFormula(item.heal);
+  const healed  = formula ? Math.max(1, roll(formula).total) : 1;
+  const prev    = u.hp;
+  u.hp = Math.min(u.maxHp, u.hp + healed);
+  const actual = u.hp - prev;
+
+  showFloatingDamage(u, `+${actual}`, '#55cc55');
+  addLog(`${unitLabel(u)} drinks a ${item.name}, restoring ${actual} HP`, 'heal');
+
+  item.qty = (item.qty ?? 1) - 1;
+  if (item.qty <= 0) u.equipment['bag-1'].contents[0] = null;
+
+  updateCombatStatus();
+  _rebuildHotbar(u);
+}
+
 // ── Rage ─────────────────────────────────────────────────────────────────────
 
 function activateRage(u) {
@@ -1559,7 +1597,7 @@ function removeDefeatedUnit(u) {
     if (reward > 0) awardXP(reward, addLog);
     onEnemyKilled(u);
     const cr   = ENEMY_CR[u.type] ?? 0;
-    const loot = rollLoot(cr);
+    const loot = rollLoot(cr, u.type, _activeZoneId);
     spawnLootLabels(u.grp.position, loot);
     window.dispatchEvent(new CustomEvent('enemy:looted', {
       detail: { enemyName: UNIT_TYPES[u.type]?.name ?? u.type, coins: loot.coins, items: loot.items },
@@ -2941,7 +2979,7 @@ function _rebuildHotbar(u) {
   }, 'action');
   {
     const armed = _readied.has(u);
-    bindHotkey('Digit6', false,
+    bindHotkey('Digit1', false,
       armed
         ? '<span class="hb-ready hb-ready-armed">READY ✓</span>'
         : '<span class="hb-ready">READY<br>ACTION</span>',
@@ -2960,6 +2998,18 @@ function _rebuildHotbar(u) {
         return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_readyCtx;
       },
       'action'
+    );
+  }
+  {
+    const potion = _heroPotion(u);
+    bindHotkey('Digit6', false,
+      potion ? potion.name.toUpperCase() : 'HEAL POTION',
+      () => _useHealingPotion(u),
+      () => {
+        const curU = turnOrder[turnIndex];
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnBonusActioned && !!_heroPotion(curU);
+      },
+      'bonus'
     );
   }
   {

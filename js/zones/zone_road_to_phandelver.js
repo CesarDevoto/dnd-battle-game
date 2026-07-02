@@ -12,7 +12,6 @@ export const ZONE = {
   enemies: [
     { type: 'goblin', x: 8.18, z: -0.57, attackPref: 'ranged', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 9.47, z: -0.46, attackPref: 'ranged', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
-    { type: 'goblin', x: 28.95, z: 0.21, attackPref: 'ranged', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 26.89, z: -0.94, attackPref: 'ranged', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 23.4, z: -7.28, detectRange: 23, attackPref: 'melee', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 12.44, z: -2.43, attackPref: 'melee', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },

@@ -6,7 +6,7 @@ import { blessedUnits, concentrating, concentratingSpell, getBlessRoundsLeft } f
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
-const AVATAR_SRC = {
+export const AVATAR_SRC = {
   elf:      'assets/Pictures Cutscenes Icons/rasecavatar.jpg',
   dwarf:    'assets/Pictures Cutscenes Icons/leugrenavatar.jpg',
   human:    'assets/Pictures Cutscenes Icons/goboavatar.jpg',

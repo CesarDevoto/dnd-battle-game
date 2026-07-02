@@ -132,6 +132,7 @@ export function initHotbar() {
     let _typeIcon = '';
     if (k.code === 'Digit2') _typeIcon = '<span class="hb-type-icon hb-melee">⚔</span>';
     if (k.code === 'Digit3') _typeIcon = '<span class="hb-type-icon hb-ranged">🏹</span>';
+    if (k.code === 'Digit6') _typeIcon = '<img class="hb-type-icon hb-potion-icon" src="assets/items/potions/potion5.png" alt="">';
 
     btn.innerHTML =
       _typeIcon +

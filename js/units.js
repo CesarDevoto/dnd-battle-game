@@ -57,6 +57,7 @@ const MODEL_PATHS = {
   shadow:         'assets/models/shadow.glb',
   ettin:          'assets/models/ettin.glb',
   hill_giant:     'assets/models/hillgiant.glb',
+  nothic:         'assets/models/nothic.glb',
   // Demon monsters
   mane:             'assets/models/mane.glb',
   abyssal_wretch:   'assets/models/abyssalwretch.glb',
@@ -608,6 +609,29 @@ export function playUnitDeathAnim(unit) {
   }
   // Keep the mixer ticking so the death animation actually plays out.
   corpses.push(unit);
+}
+
+// Reverses playUnitDeathAnim's corpse state — pulls the unit out of corpses[],
+// resets its pose to idle, reattaches its (detached, not destroyed) HP bar,
+// and puts it back in units[] so updateHeroUI()/targeting/aggro see it again.
+// Used by short rest to bring a fallen hero back up outside of combat.
+export function reviveUnit(unit) {
+  const ci = corpses.indexOf(unit);
+  if (ci >= 0) corpses.splice(ci, 1);
+
+  if (unit._scaleMode !== null) {
+    unit._scaleMode    = 'idle';
+    unit._scaleElapsed = 0;
+  } else if (unit.mixer) {
+    unit.mixer.stopAllAction();
+    unit.idleAction?.reset().setEffectiveWeight(1).play();
+  }
+  unit.isWalking = false;
+  unit._runMode  = false;
+
+  if (unit.barEl && !unit.barEl.isConnected) hud.appendChild(unit.barEl);
+
+  if (!units.includes(unit)) units.push(unit);
 }
 
 // ── Animation override helpers (used by npcEditor) ────────────────────────────

@@ -40,6 +40,7 @@ import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { tickLoot } from './loot.js';
 import { initLootPanel } from './lootPanel.js';
 import { initShortRest } from './shortRest.js';
+import { initHealingWordOOC } from './healingWordOOC.js';
 import { tickBleakmireWoods } from './bleakmireWoodsEvent.js';
 import './mausoleumEvent.js';
 import { initXPTable } from './xpTable.js';
@@ -123,6 +124,7 @@ initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExi
 initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initShortRest();
+initHealingWordOOC();
 initGroupMove();
 initQuests();
 initWorldMap();

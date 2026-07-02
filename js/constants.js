@@ -779,6 +779,23 @@ export const UNIT_TYPES = {
     ],
   },
 
+  nothic: {
+    name: 'Nothic', team: 'red',
+    // Static (unrigged) model — natural bounding box is ~1.8 units tall, already
+    // close to Medium-creature scale, so scale stays 1:1. Origin is at the mesh's
+    // volumetric center rather than its feet, so yOffset lifts it to sit on the
+    // ground (raises it by the same amount its lowest point sits below origin).
+    scale: [1.0, 1.0, 1.0], yOffset: 0.90, anchorY: 2.0,
+    // CR 2
+    hp: 45, ac: 15, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    abilities: { str: 14, dex: 16, con: 16, int: 13, wis: 8, cha: 12 },
+    attacks: [
+      { name: 'Bite',         type: 'melee',  range: 5,  dice: 1, sides: 10, statMod: 'str' },
+      { name: 'Rotting Gaze', type: 'ranged', range: 30, dice: 3, sides: 6,  statMod: 'int',
+        note: 'Necrotic gaze attack' },
+    ],
+  },
+
   // ── Named bosses ──────────────────────────────────────────────────────────
 
   morvath: {
@@ -948,6 +965,7 @@ export const ENEMY_CR = {
   giant_constrictor_snake: 2,
   lizardfolk_shaman:       2,
   ghast:            2,
+  nothic:           2,
   // ── CR 3 ────────────────────────────────────────────────────────
   yeti:             3,
   owlbear:          3,

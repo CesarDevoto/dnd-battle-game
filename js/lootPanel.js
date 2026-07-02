@@ -1,14 +1,17 @@
 // js/lootPanel.js — post-combat loot distribution panel
 
-import { units } from './units.js';
+import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
+import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
 import { registerPostCombatHandler } from './postCombat.js';
+
+const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
 // ── Module state ──────────────────────────────────────────────────────────────
 let _panelEl  = null;
 let _drops    = [];   // { enemyName, coins, items[] } per enemy
-let _allItems = [];   // flat list with assignedTo index (hero idx or null)
+let _allItems = [];   // flat list; assignedTo is a hero object, 'destroy', or null
 let _heroes   = [];
 let _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
 let _split    = { per: { cp: 0, sp: 0, gp: 0, pp: 0 }, rem: { cp: 0, sp: 0, gp: 0, pp: 0 } };
@@ -82,6 +85,7 @@ function _buildPanel() {
 
   _renderCoins();
   _renderItems();
+  _updateCollectBtnState();
 }
 
 function _renderCoins() {
@@ -108,6 +112,9 @@ function _renderCoins() {
   }
 }
 
+// Every item must be assigned to a hero or marked for destruction before the
+// player can collect the currency — forces a decision on each drop instead of
+// silently discarding whatever's left unassigned.
 function _renderItems() {
   const container = _panelEl.querySelector('#lp-items');
   container.innerHTML = '';
@@ -122,10 +129,16 @@ function _renderItems() {
     card.className = `lp-item-card lp-rarity-${item.rarity}`;
     card.dataset.idx = idx;
 
-    const heroButtons = _heroes.map((h, hi) => {
-      const hname = UNIT_TYPES[h.type]?.name?.split(' ')[0] ?? h.type;
-      return `<button class="lp-hero-btn" data-item="${idx}" data-hero="${hi}">${hname}</button>`;
+    const heroBoxes = HERO_ORDER.map(type => {
+      const h = heroRoster.find(u => u.type === type);
+      if (!h) return '';
+      const name     = UNIT_TYPES[type]?.name ?? type;
+      const assigned = item.assignedTo === h ? ' lp-assigned' : '';
+      return `<button class="lp-assign-box${assigned}" data-item="${idx}" data-hero="${type}" title="${name}">` +
+        `<img class="lp-assign-avatar" src="${AVATAR_SRC[type] ?? ''}" alt="${name}"></button>`;
     }).join('');
+    const destroyed = item.assignedTo === 'destroy' ? ' lp-assigned' : '';
+    const destroyBox = `<button class="lp-assign-box lp-assign-destroy${destroyed}" data-item="${idx}" data-hero="destroy" title="Destroy">✕</button>`;
 
     card.innerHTML = `
       <div class="lp-item-header">
@@ -133,27 +146,41 @@ function _renderItems() {
         <span class="lp-item-name">${item.name}</span>
         ${item.value ? `<span class="lp-item-value">${item.value.toLocaleString()} gp</span>` : ''}
       </div>
-      <div class="lp-item-desc">${item.description}</div>
-      ${heroButtons ? `<div class="lp-item-assign">${heroButtons}</div>` : ''}`;
+      <div class="lp-item-desc">${item.description ?? ''}</div>
+      <div class="lp-item-assign">${heroBoxes}${destroyBox}</div>`;
 
     container.appendChild(card);
   });
 
   container.addEventListener('click', e => {
-    const btn = e.target.closest('.lp-hero-btn');
+    const btn = e.target.closest('.lp-assign-box');
     if (!btn) return;
-    const itemIdx = +btn.dataset.item;
-    const heroIdx = +btn.dataset.hero;
-    _allItems[itemIdx].assignedTo = heroIdx;
+    const itemIdx  = +btn.dataset.item;
+    const heroType = btn.dataset.hero;
+    _allItems[itemIdx].assignedTo = heroType === 'destroy'
+      ? 'destroy'
+      : (heroRoster.find(u => u.type === heroType) ?? null);
     const card = container.querySelector(`[data-idx="${itemIdx}"]`);
-    card.querySelectorAll('.lp-hero-btn').forEach(b => {
-      b.classList.toggle('lp-assigned', +b.dataset.hero === heroIdx);
+    card.querySelectorAll('.lp-assign-box').forEach(b => {
+      b.classList.toggle('lp-assigned', b.dataset.hero === heroType);
     });
+    _updateCollectBtnState();
   });
 }
 
+function _updateCollectBtnState() {
+  const btn = _panelEl?.querySelector('#lp-collect-btn');
+  if (!btn) return;
+  const allAssigned = _allItems.every(it => it.assignedTo != null);
+  btn.disabled = !allAssigned;
+  btn.title = allAssigned ? '' : 'Assign every item to a hero or destroy it before collecting';
+}
+
 function _rarityLabel(rarity) {
-  const map = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', veryRare: 'Very Rare', gem: 'Gem' };
+  const map = {
+    common: 'Common', uncommon: 'Uncommon', rare: 'Rare', veryRare: 'Very Rare', gem: 'Gem',
+    grey: 'Common', green: 'Uncommon', blue: 'Rare', purple: 'Epic', orange: 'Legendary', red: 'Unique',
+  };
   return map[rarity] ?? rarity;
 }
 
@@ -179,21 +206,60 @@ function _collectLoot() {
     }
   }
 
-  // Assign items to chosen heroes
+  // Hand off items to their assigned hero's bags (or drop them if destroyed).
+  // _updateCollectBtnState() keeps this button disabled until every item has
+  // an assignedTo, so there's nothing left unresolved here.
   _allItems.forEach(item => {
-    if (item.assignedTo == null) return;
-    const hero = _heroes[item.assignedTo];
-    if (!hero) return;
-    if (!hero.inventory) hero.inventory = [];
-    hero.inventory.push({
-      name:        item.name,
-      rarity:      item.rarity,
-      description: item.description,
-      value:       item.value,
-    });
+    if (item.assignedTo === 'destroy' || item.assignedTo == null) return;
+    _placeInFirstEmptyBagSlot(item.assignedTo, item);
   });
 
   _finish();
+}
+
+// Bag-1 slot 0 is reserved exclusively for healing potions (any item with a
+// `heal` field — today just Potion of Lesser Healing, but greater tiers can
+// slot into the same reserved spot later). Non-potions can never land there.
+function _isHealingPotion(item) { return !!item.heal; }
+
+// Walks a hero's bag-1..bag-4 slots in order and drops the item into the
+// first empty (or same-item, for stacking) slot. Bag `.contents` arrays are
+// created lazily (same as the equipment panel's bag view) so this works even
+// if the bag's never been opened.
+function _placeInFirstEmptyBagSlot(hero, item) {
+  const { assignedTo, ...cleanItem } = item;
+  const isPotion = _isHealingPotion(cleanItem);
+
+  if (isPotion) {
+    const bag1 = hero.equipment?.['bag-1'];
+    if (bag1?.slots) {
+      if (!bag1.contents) bag1.contents = new Array(bag1.slots).fill(null);
+      const slot0 = bag1.contents[0];
+      if (slot0 == null) {
+        bag1.contents[0] = { ...cleanItem, qty: 1 };
+        return true;
+      }
+      if (slot0.id === cleanItem.id) {
+        slot0.qty = (slot0.qty ?? 1) + 1;
+        return true;
+      }
+      return false; // reserved slot holds a different potion tier — no room
+    }
+  }
+
+  for (let n = 1; n <= 4; n++) {
+    const bag = hero.equipment?.[`bag-${n}`];
+    if (!bag?.slots) continue;
+    if (!bag.contents) bag.contents = new Array(bag.slots).fill(null);
+    const start = n === 1 ? 1 : 0; // slot 0 of bag-1 is potion-reserved
+    for (let i = start; i < bag.contents.length; i++) {
+      if (bag.contents[i] != null) continue;
+      if (isPotion) continue; // potions only ever go in the reserved slot
+      bag.contents[i] = { ...cleanItem };
+      return true;
+    }
+  }
+  return false; // every bag is full — item is lost, same as destroying it
 }
 
 function _skipLoot() {

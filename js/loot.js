@@ -2,6 +2,7 @@
 
 import * as THREE from 'three';
 import { scene } from './scene.js';
+import { getPotion } from './potions.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -77,86 +78,49 @@ function _pickGem(bracket) {
   return { name, rarity: 'gem', description: `A ${name.toLowerCase()} worth ${tier} gp.`, value: tier };
 }
 
-// ── D&D 2024 Magic Item tables ────────────────────────────────────────────────
-const _ITEMS = {
-  common: [
-    { name: 'Potion of Healing',        description: 'Drink to regain 2d4+2 hit points.',                                      value: 50  },
-    { name: 'Potion of Climbing',       description: 'Climb speed equals walk speed for 1 hour.',                              value: 50  },
-    { name: 'Spell Scroll: Guidance',   description: 'Cantrip. Target adds 1d4 to one ability check.',                        value: 30  },
-    { name: 'Spell Scroll: Cure Wounds',description: '1st-level. Creature regains 1d8 + modifier HP.',                        value: 75  },
-    { name: 'Spell Scroll: Detect Magic',description:'1st-level. Sense magic within 30 ft. for 10 minutes.',                  value: 75  },
-    { name: 'Spell Scroll: Identify',   description: '1st-level. Learn the properties of a magic item.',                      value: 75  },
-    { name: 'Silvered Weapon',          description: 'Bypasses resistance to non-magical weapons.',                            value: 100 },
-    { name: 'Mystery Key',              description: 'Fits one lock perfectly, then vanishes.',                                value: 0   },
-    { name: 'Candle of the Deep',       description: 'Burns for 8 hours even underwater.',                                    value: 30  },
-    { name: 'Elemental Gem (Fire)',     description: 'Crush to summon a fire elemental that obeys you for 1 hour.',           value: 500 },
-  ],
-  uncommon: [
-    { name: 'Potion of Greater Healing',description: 'Drink to regain 4d4+4 hit points.',                                     value: 150  },
-    { name: 'Potion of Fire Breath',    description: 'Exhale a cone of fire (4d6 dmg) for up to 1 minute.',                  value: 150  },
-    { name: 'Potion of Resistance',     description: 'Resistance to one damage type for 1 hour.',                             value: 300  },
-    { name: 'Spell Scroll: Misty Step', description: '2nd-level. Teleport up to 30 ft. to an unoccupied space.',             value: 150  },
-    { name: 'Spell Scroll: Invisibility',description:'2nd-level. Creature becomes invisible for 1 hour.',                    value: 150  },
-    { name: 'Spell Scroll: Fireball',   description: '3rd-level. 8d6 fire damage in a 20-ft. radius.',                       value: 300  },
-    { name: 'Spell Scroll: Fly',        description: '3rd-level. Fly speed of 60 ft. for 10 minutes.',                       value: 300  },
-    { name: 'Bag of Tricks (Gray)',     description: 'Pull a random small beast from the bag up to 3×/day.',                 value: 50   },
-    { name: 'Eyes of the Eagle',        description: 'Advantage on Perception checks; see clearly up to 1 mile.',            value: 2500 },
-    { name: 'Cloak of Protection',      description: '+1 bonus to AC and all saving throws. Requires attunement.',           value: 3500 },
-    { name: 'Hat of Disguise',          description: 'Cast Disguise Self at will. Requires attunement.',                     value: 2000 },
-    { name: 'Wand of Magic Missiles',   description: '7 charges. Expend 1–3 to fire 1–3 darts (1d4+1 force each).',         value: 6000 },
-    { name: 'Immovable Rod',            description: 'Press the button to freeze the rod in place in the air.',              value: 5000 },
-    { name: 'Ring of Swimming',         description: 'Gain a swimming speed of 40 ft.',                                      value: 3000 },
-  ],
-  rare: [
-    { name: 'Potion of Superior Healing',description:'Drink to regain 8d4+8 hit points.',                                    value: 450  },
-    { name: 'Potion of Heroism',        description: 'Gain 10 temporary HP and the Bless effect for 1 hour.',                value: 180  },
-    { name: 'Potion of Invulnerability',description: 'Resistance to all damage for 1 minute.',                               value: 3840 },
-    { name: 'Spell Scroll: Banishment', description: '4th-level. Banish a creature to another plane (Concentration).',      value: 500  },
-    { name: 'Spell Scroll: Cone of Cold',description:'5th-level. 8d8 cold damage in a 60-ft. cone.',                        value: 1000 },
-    { name: '+1 Weapon',                description: '+1 bonus to attack rolls and damage rolls.',                            value: 1000 },
-    { name: 'Ring of Protection',       description: '+1 bonus to AC and saving throws. Requires attunement.',               value: 3500 },
-    { name: 'Amulet of Health',         description: 'Constitution score becomes 19. Requires attunement.',                  value: 8000 },
-    { name: 'Boots of Speed',           description: 'Double walk speed; opportunity attacks against you have disadvantage.', value: 4000 },
-    { name: 'Necklace of Adaptation',   description: 'Breathe normally in any environment.',                                 value: 1400 },
-    { name: 'Staff of the Python',      description: 'Throw to transform into a giant constrictor snake. 6 charges.',       value: 2000 },
-  ],
-  veryRare: [
-    { name: 'Potion of Supreme Healing',description: 'Drink to regain 10d4+20 hit points.',                                  value: 20000  },
-    { name: '+2 Weapon',                description: '+2 bonus to attack rolls and damage rolls.',                            value: 4000   },
-    { name: 'Belt of Giant Strength',   description: 'Strength score becomes 21. Requires attunement.',                     value: 1000   },
-    { name: 'Cloak of Displacement',    description: 'Attackers have disadvantage on all attack rolls against you.',        value: 60000  },
-    { name: 'Ring of Regeneration',     description: 'Regain 1d6 HP every 10 minutes. Requires attunement.',               value: 25000  },
-    { name: 'Amulet of the Planes',     description: 'Cast Plane Shift at will. Requires attunement.',                      value: 160000 },
-    { name: '+2 Shield',                description: '+2 bonus to AC (in addition to normal shield bonus).',                 value: 2000   },
-  ],
-};
+// ── Magic item tables — removed for now (2026-07-02), will be baked back in later ──
+// In the meantime, the only item drop is the Lesser Healing Potion (see below).
 
-function _pickItem(rarity) {
-  const list = _ITEMS[rarity];
-  return { ...(list[Math.floor(Math.random() * list.length)]), rarity };
-}
-
-// ── Drop chances per bracket ──────────────────────────────────────────────────
+// ── Drop chances per bracket (gems only — item drops handled separately) ─────
 const _CHANCES = [
-  { gem: 0.00, gemTier: 0, item: 0.05, itemRarity: 'common'   },  // CR 0–½
-  { gem: 0.10, gemTier: 0, item: 0.10, itemRarity: 'common'   },  // CR 1–2
-  { gem: 0.15, gemTier: 1, item: 0.15, itemRarity: 'uncommon' },  // CR 3–8
-  { gem: 0.25, gemTier: 2, item: 0.20, itemRarity: 'rare'     },  // CR 9–16
-  { gem: 0.40, gemTier: 3, item: 0.30, itemRarity: 'veryRare' },  // CR 17+
+  { gem: 0.00, gemTier: 0 },  // CR 0–½
+  { gem: 0.10, gemTier: 0 },  // CR 1–2
+  { gem: 0.15, gemTier: 1 },  // CR 3–8
+  { gem: 0.25, gemTier: 2 },  // CR 9–16
+  { gem: 0.40, gemTier: 3 },  // CR 17+
 ];
 
+// ── Lesser Healing Potion ──────────────────────────────────────────────────────
+// Flat 4% drop chance for any kill. Goblins in the Road to Phandelver zone are
+// guaranteed to drop one the very first time (a scripted introduction to the
+// item), tracked via localStorage so it never repeats.
+const LESSER_HEALING_POTION = getPotion('potion5');
+const LESSER_HEALING_CHANCE = 0.04;
+const _ROAD_GOBLIN_POTION_KEY = 'dnd_road_goblin_potion_dropped';
+
+function _roadGoblinPotionAlreadyDropped() {
+  try { return localStorage.getItem(_ROAD_GOBLIN_POTION_KEY) === '1'; } catch { return false; }
+}
+function _markRoadGoblinPotionDropped() {
+  try { localStorage.setItem(_ROAD_GOBLIN_POTION_KEY, '1'); } catch {}
+}
+
 // ── Public: roll loot for one enemy ──────────────────────────────────────────
-export function rollLoot(cr) {
+// type/zoneId are optional — pass them to enable the one-time guaranteed drop.
+export function rollLoot(cr, type = null, zoneId = null) {
   const b  = _bracket(cr);
   const ch = _CHANCES[b];
   const coins = _rollCoins(b);
   const items = [];
 
-  if (Math.random() < ch.gem)  items.push(_pickGem(ch.gemTier));
-  if (Math.random() < ch.item) items.push(_pickItem(ch.itemRarity));
+  if (Math.random() < ch.gem) items.push(_pickGem(ch.gemTier));
 
-  // CR 3+ enemies have a small extra-item bonus roll
-  if (cr >= 3 && Math.random() < 0.08) items.push(_pickItem('common'));
+  if (type === 'goblin' && zoneId === 'road_to_phandelver' && !_roadGoblinPotionAlreadyDropped()) {
+    items.push({ ...LESSER_HEALING_POTION });
+    _markRoadGoblinPotionDropped();
+  } else if (Math.random() < LESSER_HEALING_CHANCE) {
+    items.push({ ...LESSER_HEALING_POTION });
+  }
 
   return { coins, items };
 }

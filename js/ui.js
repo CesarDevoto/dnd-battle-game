@@ -324,14 +324,19 @@ function formatItemDetailHTML(item) {
   return lines.join('');
 }
 
-function buildBagContentsHTML(item) {
+function buildBagContentsHTML(item, slotKey) {
   if (!item.contents) item.contents = new Array(item.slots).fill(null);
   const boxes = item.contents.map((contentItem, i) => {
     const icon = contentItem?.icon
       ? `<img class="eq-bagslot-icon" src="${contentItem.icon}" alt="${contentItem.name}">`
       : '';
-    const title = contentItem ? contentItem.name : `Slot ${i + 1}`;
-    return `<div class="eq-bagslot-box" data-bagslot="${i}" title="${title}">${icon}</div>`;
+    const qty = contentItem?.qty > 1
+      ? `<span class="eq-bagslot-qty">${contentItem.qty}</span>`
+      : '';
+    // Slot 0 of whatever's equipped in the bag-1 slot is reserved for healing potions.
+    const reserved = i === 0 && slotKey === 'bag-1' ? ' eq-bagslot-reserved' : '';
+    const title = contentItem ? contentItem.name : (reserved ? 'Reserved for healing potions' : `Slot ${i + 1}`);
+    return `<div class="eq-bagslot-box${reserved}" data-bagslot="${i}" title="${title}">${icon}${qty}</div>`;
   }).join('');
   return (
     `<div class="eq-bagslot-title">${item.name} (${item.slots})</div>` +
@@ -350,7 +355,7 @@ function _initEquipmentPanel() {
       el.classList.add('selected');
 
       if (item?.slots) {
-        eqBagContentEl.innerHTML = buildBagContentsHTML(item);
+        eqBagContentEl.innerHTML = buildBagContentsHTML(item, el.dataset.slot);
         eqBagContentEl.querySelectorAll('[data-bagslot]').forEach(box => {
           box.addEventListener('click', (ev) => {
             ev.stopPropagation();
