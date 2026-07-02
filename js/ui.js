@@ -5,6 +5,7 @@ import { UNIT_TYPES, HERO_RING_COLORS } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, triggerSpellBarAction } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
+import { computeAC } from './equipment.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
 // firstHitOnly stops traversal at the nearest terrain hit (early-exit).
@@ -367,12 +368,11 @@ function buildEquipmentPanelHTML(u) {
 
 function buildTraitsPanelHTML(u) {
   const def = UNIT_TYPES[u.type];
+  const sections = [];
+
   const sneakDef = def.sneakAttack;
-  if (!sneakDef) return '';
-  return `
-    <div class="ss-spells-hdr">
-      <span class="ss-spell-title">SPECIAL</span>
-    </div>
+  if (sneakDef) {
+    sections.push(`
     <div class="ss-sneak">
       <div class="ss-sneak-top">
         <span class="ss-sneak-name">Sneak Attack</span>
@@ -380,7 +380,51 @@ function buildTraitsPanelHTML(u) {
       </div>
       <div class="ss-sneak-desc">Once per turn · conscious ally adjacent to attacker, or attacker has advantage</div>
       <div class="ss-sneak-crit">Critical hit → +${sneakDef.dice * 2}d${sneakDef.sides}</div>
-    </div>`;
+    </div>`);
+  }
+
+  const armorProf = def.armorProficiency;
+  if (armorProf) {
+    const armorDesc = armorProf.armor.length
+      ? `Proficient in ${armorProf.armor.join(', ')} armor`
+      : 'Proficient in no armor — cannot wear light, medium, or heavy armor';
+    const shieldDesc = armorProf.shields === undefined ? ''
+      : `<div class="ss-sneak-desc">${armorProf.shields ? 'Proficient with shields' : 'Not proficient with shields'}</div>`;
+    sections.push(`
+    <div class="ss-sneak">
+      <div class="ss-sneak-top">
+        <span class="ss-sneak-name">Armor Proficiency</span>
+      </div>
+      <div class="ss-sneak-desc">${armorDesc}</div>${shieldDesc}
+    </div>`);
+  }
+
+  const weaponProf = def.weaponProficiency;
+  if (weaponProf) {
+    const categories = [];
+    if (weaponProf.simple)  categories.push('Simple');
+    if (weaponProf.martial) categories.push('Martial');
+    const catDesc = categories.length
+      ? `Proficient with ${categories.join(' and ')} weapons`
+      : 'Not proficient with Simple or Martial weapons';
+    const exceptDesc = weaponProf.weapons?.length
+      ? `<div class="ss-sneak-desc">Also: ${weaponProf.weapons.join(', ')}</div>`
+      : '';
+    sections.push(`
+    <div class="ss-sneak">
+      <div class="ss-sneak-top">
+        <span class="ss-sneak-name">Weapon Proficiency</span>
+      </div>
+      <div class="ss-sneak-desc">${catDesc}</div>${exceptDesc}
+    </div>`);
+  }
+
+  if (!sections.length) return '';
+  return `
+    <div class="ss-spells-hdr">
+      <span class="ss-spell-title">SPECIAL</span>
+    </div>
+    ${sections.join('')}`;
 }
 
 function buildActionsPanelHTML(u) {
@@ -503,7 +547,7 @@ function buildSheetHTML(u) {
       </div>
       <div class="ss-stat">
         <span class="ss-lbl">AC</span>
-        <span class="ss-val">${def.ac}</span>
+        <span class="ss-val">${u.equipment ? computeAC(u) : def.ac}</span>
       </div>
       <div class="ss-stat">
         <span class="ss-lbl">SPD</span>

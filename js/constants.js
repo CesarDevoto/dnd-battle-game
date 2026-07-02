@@ -811,6 +811,9 @@ export const UNIT_TYPES = {
     hp: 12, ac: 12, speed: 35, initiative: 0,
     hitDie: 6,
     profBonus: 2, xpNext: 200,
+    armorProficiency: { armor: [], shields: false },
+    weaponProficiency: { simple: false, martial: false, weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light Crossbow'] },
+    startingEquipment: { chest: 'clothshirt1' },
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       { name: 'Fire Bolt', type: 'ranged', range: 60, dice: 1, sides: 10, statMod: 'int' },
@@ -829,10 +832,12 @@ export const UNIT_TYPES = {
     hp: 15, ac: 16, speed: 25, initiative: 0,
     hitDie: 8,
     profBonus: 2, xpNext: 200,
+    armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
+    weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
+    startingEquipment: { chest: 'chainarmor1', 'off-hand': 'shield1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
-      { name: 'Warhammer',     type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
-      { name: 'Light Crossbow', type: 'ranged', range: 40, longRange: 80, rawLongRange: 160, dice: 1, sides: 8, statMod: 'dex' },
+      { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
     ],
   },
 
@@ -848,7 +853,10 @@ export const UNIT_TYPES = {
     hitDie: 12,
     profBonus: 2, xpNext: 200,
     rage: { uses: 3, dmgBonus: 2 },
-    abilities: { str: 16, dex: 12, con: 15, int: 8, wis: 10, cha: 12 },
+    unarmoredDefense: true,
+    armorProficiency: { armor: ['Light', 'Medium'], shields: true },
+    weaponProficiency: { simple: true, martial: true, weapons: [] },
+    abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },
       { name: 'Handaxe',  type: 'ranged', range: 20, longRange: 30, rawLongRange: 60, dice: 1, sides: 6, statMod: 'str', qty: 2, note: 'Qty 2 · thrown' },
@@ -867,6 +875,9 @@ export const UNIT_TYPES = {
     hitDie: 8,
     profBonus: 2, xpNext: 200,
     sneakAttack: { dice: 1, sides: 6 },
+    armorProficiency: { armor: ['Light'], shields: false },
+    weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
+    startingEquipment: { chest: 'leatherarmor1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

@@ -27,6 +27,7 @@ import { rollLoot, spawnLootLabels } from './loot.js';
 import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled, onHeroTurnStart } from './dagnaEvent.js';
+import { computeAC } from './equipment.js';
 
 // ── Sleep state ──────────────────────────────────────────────────────────────
 // Maps sleeping unit → { roundsLeft, zzzEl }
@@ -1759,8 +1760,9 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
   if (target.dodging) { atkMode = 'disadvantage'; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
 
-  const _acBonus  = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
-  const targetAC  = (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC) + _acBonus;
+  const _acBonus   = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
+  const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
+  const targetAC   = targetBase + _acBonus;
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 

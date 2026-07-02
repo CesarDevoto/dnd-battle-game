@@ -86,11 +86,10 @@ const CATEGORIES = [
             { value: 'ready_action', label: 'Ready Action' },
           ],
           dwarf: [
-            { value: 'bless',          label: 'Bless'          },
-            { value: 'healing_word',   label: 'Healing Word'   },
-            { value: 'light_crossbow', label: 'Light Crossbow' },
-            { value: 'warhammer',      label: 'Warhammer'      },
-            { value: 'ready_action',   label: 'Ready Action'   },
+            { value: 'bless',        label: 'Bless'        },
+            { value: 'healing_word', label: 'Healing Word' },
+            { value: 'warhammer',    label: 'Warhammer'    },
+            { value: 'ready_action', label: 'Ready Action' },
           ],
           human: [
             { value: 'rage',              label: 'Rage'              },
@@ -109,7 +108,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['mage_armor', 'fire_bolt', 'dagger'],
-          dwarf:    ['bless', 'healing_word', 'ready_action', 'light_crossbow', 'warhammer'],
+          dwarf:    ['bless', 'healing_word', 'warhammer', 'ready_action'],
           human:    ['rage', 'defensive_stance', 'greataxe', 'handaxe'],
           halfling: ['hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },

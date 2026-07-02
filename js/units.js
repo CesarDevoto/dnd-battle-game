@@ -5,6 +5,8 @@ import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
+import { equipItem } from './equipment.js';
+import { getItem } from './items.js';
 
 export const units      = [];
 export const corpses    = [];  // animated units that have died — kept for mixer updates
@@ -98,10 +100,14 @@ const ANIM_CLIP_NAMES = {
   halfling: {
     rangedAttack: 'Archery_Shot_1',
   },
-  // Archery_Shot_1 beats Walking on rangeY tiebreak (6.509 vs 5.917) at equal duration;
-  // spellCast slot needed because dwarf has both a crossbow and separate spell animation
+  // New dwarf GLB (Jul 2026) — clip names mostly match content, verified via Hips.position
+  // Y-range/duration (Dead drops to 13.81 vs standing ~90 = death; Idle_5 has smallest
+  // rangeY = idle; Right_Hand_Sword_Slash has the biggest swing = melee attack).
+  // No dedicated archery clip in this export (old Archery_Shot_1 is gone) — rangedAttack
+  // pinned null so auto-detect doesn't wrongly grab mage_soell_cast_7 (the spell cast).
   dwarf: {
-    walk: 'Walking', rangedAttack: 'Archery_Shot_1', spellCast: 'mage_soell_cast_7',
+    idle: 'Idle_5', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: null, spellCast: 'mage_soell_cast_7', death: 'Dead',
   },
   // Non-humanoid rig — no Hips/Pelvis bone; pin clips by name directly
   giant_spider: {
@@ -461,7 +467,16 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               _scaleOnComplete: null };
   units.push(u);
   if (team === 'blue') {
-    if (!u.equipment) u.equipment = {};
+    if (!u.equipment) {
+      u.equipment = {};
+      const starting = UNIT_TYPES[type]?.startingEquipment;
+      if (starting) {
+        for (const [slot, itemId] of Object.entries(starting)) {
+          const item = getItem(itemId);
+          if (item) equipItem(u, item, slot);
+        }
+      }
+    }
     if (!u.currency)  u.currency  = { copper: 0, silver: 0, gold: 5, platinum: 0 };
     if (!heroRoster.includes(u)) heroRoster.push(u);
   }
