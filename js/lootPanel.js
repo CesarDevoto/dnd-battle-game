@@ -11,7 +11,7 @@ let _drops    = [];   // { enemyName, coins, items[] } per enemy
 let _allItems = [];   // flat list with assignedTo index (hero idx or null)
 let _heroes   = [];
 let _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
-let _perHero  = 0;
+let _split    = { per: { cp: 0, sp: 0, gp: 0, pp: 0 }, rem: { cp: 0, sp: 0, gp: 0, pp: 0 } };
 let _done     = null; // post-combat sequencer callback
 
 // ── Register as first post-combat handler (priority 10) ──────────────────────
@@ -46,6 +46,7 @@ export function initLootPanel() {
     _allItems = [];
     _heroes   = [];
     _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
+    _split    = { per: { cp: 0, sp: 0, gp: 0, pp: 0 }, rem: { cp: 0, sp: 0, gp: 0, pp: 0 } };
     _done     = null;
   });
 }
@@ -69,11 +70,15 @@ function _buildPanel() {
     _total.pp += d.coins.pp ?? 0;
   });
 
-  const gpEquiv = _total.gp
-    + _total.pp * 10
-    + Math.floor(_total.sp / 10)
-    + Math.floor(_total.cp / 100);
-  _perHero = _heroes.length ? Math.floor(gpEquiv / _heroes.length) : 0;
+  // Split each denomination evenly across living heroes; whatever doesn't
+  // divide evenly goes to the party leader so no coins vanish.
+  const n = _heroes.length;
+  _split = { per: {}, rem: {} };
+  for (const type of ['cp', 'sp', 'gp', 'pp']) {
+    const per = n ? Math.floor(_total[type] / n) : 0;
+    _split.per[type] = per;
+    _split.rem[type] = _total[type] - per * n;
+  }
 
   _renderCoins();
   _renderItems();
@@ -89,9 +94,18 @@ function _renderCoins() {
   _panelEl.querySelector('#lp-coins').textContent =
     parts.length ? parts.join(' · ') : '—';
 
-  _panelEl.querySelector('#lp-split').textContent = _heroes.length
-    ? `Split: +${_perHero} gp each (${_heroes.length} heroes)`
-    : 'No living heroes';
+  if (_heroes.length) {
+    const splitParts = [];
+    if (_split.per.pp) splitParts.push(`${_split.per.pp} pp`);
+    if (_split.per.gp) splitParts.push(`${_split.per.gp} gp`);
+    if (_split.per.sp) splitParts.push(`${_split.per.sp} sp`);
+    if (_split.per.cp) splitParts.push(`${_split.per.cp} cp`);
+    _panelEl.querySelector('#lp-split').textContent = splitParts.length
+      ? `Split: +${splitParts.join(' ')} each (${_heroes.length} heroes)`
+      : `Split: nothing to divide (${_heroes.length} heroes)`;
+  } else {
+    _panelEl.querySelector('#lp-split').textContent = 'No living heroes';
+  }
 }
 
 function _renderItems() {
@@ -144,18 +158,25 @@ function _rarityLabel(rarity) {
 }
 
 // ── Collect loot ──────────────────────────────────────────────────────────────
-function _collectLoot() {
-  // Gold split among living heroes
-  _heroes.forEach(h => { h.gold = (h.gold ?? 0) + _perHero; });
+const _CURRENCY_KEY = { cp: 'copper', sp: 'silver', gp: 'gold', pp: 'platinum' };
 
-  // Remainder and non-gp coins go on party leader
+function _collectLoot() {
+  // Every denomination (copper/silver/gold/platinum) is split evenly across
+  // all living heroes and written to the same hero.currency fields the
+  // character sheet reads — not a gp-equivalent lump sum on one hero.
+  _heroes.forEach(h => {
+    if (!h.currency) h.currency = { copper: 0, silver: 0, gold: 0, platinum: 0 };
+    for (const type of ['cp', 'sp', 'gp', 'pp']) {
+      h.currency[_CURRENCY_KEY[type]] += _split.per[type];
+    }
+  });
+
+  // Remainder (whatever didn't divide evenly) goes to the party leader.
   if (_heroes.length) {
     const leader = _heroes[0];
-    leader.partyCp = (leader.partyCp ?? 0) + _total.cp;
-    leader.partySp = (leader.partySp ?? 0) + _total.sp;
-    leader.partyPp = (leader.partyPp ?? 0) + _total.pp;
-    const remainder = _total.gp - _perHero * _heroes.length;
-    if (remainder > 0) leader.gold = (leader.gold ?? 0) + remainder;
+    for (const type of ['cp', 'sp', 'gp', 'pp']) {
+      leader.currency[_CURRENCY_KEY[type]] += _split.rem[type];
+    }
   }
 
   // Assign items to chosen heroes
@@ -186,6 +207,7 @@ function _finish() {
   _allItems = [];
   _heroes   = [];
   _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
+  _split    = { per: { cp: 0, sp: 0, gp: 0, pp: 0 }, rem: { cp: 0, sp: 0, gp: 0, pp: 0 } };
   clearLootLabels();
   const advance = _done;
   _done = null;
