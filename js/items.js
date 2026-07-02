@@ -1370,6 +1370,28 @@ export const ITEMS = {
     icon:   'assets/items/armor/clothlegs11.png',
   },
 
+  loincloth1: {
+    id:     'loincloth1',
+    name:   'Simple Loincloth',
+    slot:   'legs',
+    rarity: 'grey',
+    icon:   'assets/items/armor/loincloth1.png',
+  },
+  loincloth2: {
+    id:     'loincloth2',
+    name:   'Simple Loincloth II',
+    slot:   'legs',
+    rarity: 'grey',
+    icon:   'assets/items/armor/loincloth2.png',
+  },
+  loincloth3: {
+    id:     'loincloth3',
+    name:   'Simple Loincloth III',
+    slot:   'legs',
+    rarity: 'grey',
+    icon:   'assets/items/armor/loincloth3.png',
+  },
+
   leatherhelm1: {
     id:     'leatherhelm1',
     name:   'Leather Helm',

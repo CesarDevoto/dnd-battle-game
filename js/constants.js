@@ -855,7 +855,7 @@ export const UNIT_TYPES = {
     unarmoredDefense: true,
     armorProficiency: { armor: ['Light', 'Medium'], shields: true },
     weaponProficiency: { simple: true, martial: true, weapons: [] },
-    startingEquipment: { 'main-hand': 'greataxe', 'bag-1': 'bag1' },
+    startingEquipment: { 'main-hand': 'greataxe', legs: 'loincloth1', 'bag-1': 'bag1' },
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },
