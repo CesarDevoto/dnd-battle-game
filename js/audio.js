@@ -126,6 +126,30 @@ document.addEventListener('pointerdown', () => {
   if (_ctx?.state === 'suspended') _ctx.resume();
 }, { once: false });
 
+// ── Peak-based normalization for assets/Audio/combat/* one-shots ─────────────
+// These clips were recorded/exported at wildly different levels (some barks
+// are much hotter than others). Each clip's true peak sample is measured once
+// on load and used to compute a gain that brings it to TARGET_PEAK, so combat
+// sounds all read as similarly loud regardless of source level. Clamped so a
+// near-silent clip doesn't get boosted into audible noise floor, and an
+// already-hot clip doesn't get attenuated to near-nothing.
+const TARGET_PEAK   = 0.9;
+const MIN_NORM_GAIN = 0.4;
+const MAX_NORM_GAIN = 2.5;
+const _normGains    = {};  // key → multiplier, combat-folder one-shots only
+
+function _peakOf(buffer) {
+  let peak = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const v = Math.abs(data[i]);
+      if (v > peak) peak = v;
+    }
+  }
+  return peak;
+}
+
 // ── Buffer loading ────────────────────────────────────────────────────────────
 async function _load(key) {
   if (_buffers[key]) return _buffers[key];
@@ -136,8 +160,17 @@ async function _load(key) {
     if (!resp.ok) return null;
     const arr  = await resp.arrayBuffer();
     const ctx  = _getCtx();
-    _buffers[key] = await ctx.decodeAudioData(arr);
-    return _buffers[key];
+    const buf  = await ctx.decodeAudioData(arr);
+    _buffers[key] = buf;
+
+    if (!def.loop && def.src.startsWith('assets/Audio/combat/')) {
+      const peak = _peakOf(buf);
+      if (peak > 0.001) {
+        _normGains[key] = Math.max(MIN_NORM_GAIN, Math.min(MAX_NORM_GAIN, TARGET_PEAK / peak));
+      }
+    }
+
+    return buf;
   } catch {
     return null;  // file missing — fail silently
   }
@@ -158,9 +191,10 @@ export function playSound(key) {
   const cat = def.category ?? 'combat';
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  if (def.volume !== undefined) {
+  const gainVal = (def.volume ?? 1) * (_normGains[key] ?? 1);
+  if (gainVal !== 1) {
     const g = ctx.createGain();
-    g.gain.value = def.volume;
+    g.gain.value = gainVal;
     g.connect(_catGains[cat] ?? _masterGain);
     src.connect(g);
   } else {
