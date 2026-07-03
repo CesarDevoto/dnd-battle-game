@@ -8,7 +8,7 @@ import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots } from './spells.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.js';
@@ -1822,6 +1822,33 @@ function saveBreakdown(r, saveType) {
   return `${label} save · d100: ${r.kept}, needed ≥ ${r.threshold} (${r.saveChance}% to save)`;
 }
 
+// Concentration check — call whenever a unit that might be concentrating
+// (currently only Bless) takes damage. DC = 10 or half the damage taken,
+// whichever is higher. Failure ends the spell for everyone it affects, not
+// just the concentrating caster (mirrors D&D: losing concentration drops
+// the whole effect).
+function _checkConcentration(unit, dmgTaken, willDie) {
+  if (concentrating !== unit) return;
+  const label = unitLabel(unit);
+  if (willDie) {
+    addLog(`${label}'s concentration on ${concentratingSpell} ends.`, 'spell');
+    clearBless();
+    return;
+  }
+  if (dmgTaken <= 0) return;
+  const dc     = Math.max(10, Math.floor(dmgTaken / 2));
+  const conMod = Math.floor(((UNIT_TYPES[unit.type]?.abilities?.con ?? 10) - 10) / 2);
+  const result = rollSave(conMod, dc);
+  showRoll(`${label} · Concentration (CON DC ${dc})`, result, { autoDismiss: false });
+  if (result.isSave) {
+    addLog(`${label} maintains concentration on ${concentratingSpell} (${saveBreakdown(result, 'con')})`, 'spell');
+  } else {
+    addLog(`${label} loses concentration on ${concentratingSpell}! (${saveBreakdown(result, 'con')})`, 'spell');
+    showFloatingDamage(unit, 'CONCENTRATION BROKEN', '#ff6644');
+    clearBless();
+  }
+}
+
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
   const ab      = def.abilities ?? {};
@@ -1920,6 +1947,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     target.barShowUntil = Date.now() + 5000;
     buildTurnList();
     if (sleepingUnits.has(target)) wakeUnit(target, 'damage');
+    _checkConcentration(target, finalDmg, willDie);
   }, hpUpdateDelay + RESULT_PAUSE);
 
   // Hit log + floating damage + damage log — after damage dice settle + reading pause
@@ -2010,6 +2038,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
       hero.barShowUntil = Date.now() + 5000;
       buildTurnList();
       if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
+      _checkConcentration(hero, finalDmg, willDie);
 
       const blessTag = blessSaveBonus > 0 ? ` ✦+${blessSaveBonus}` : '';
       addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}${blessTag}) — ${finalDmg} dmg [${outcome}]`,
@@ -3759,7 +3788,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
       } else {
-        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, hasLineOfSight);
+        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, hasLineOfSight,
+                               u.type === 'elf' ? _fireBoltAtk() : null);
       }
       hideMoveRange();
     }

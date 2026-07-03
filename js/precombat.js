@@ -245,7 +245,7 @@ function _triggerAggro(spotter) {
   } else if (getActiveZone()?.id === 'mausoleum' && !_morvathDialogFired && [...alerted].some(u => u.type === 'morvath')) {
     _morvathDialogFired = true;
     setTimeout(() => showQuickDialogue(
-      [{ s: 'Morvath', t: "Behold, Rotfang… worms wriggling in our sanctum. How bold! How futile… But take heart, little adventurers. You will not simply die this day. No… You will become something greater — wailing instruments in the choir of my dark legion. Feast upon their flesh, my child. Then… we shall raise them." }],
+      [{ s: 'Morvath', t: "Behold, Rotfang… worms wriggling in our sanctum! How futile… You will not simply die this day adventurers. You will become something greater — wailing instruments in the choir of my legion. Feast upon their flesh, my child. Then… we shall raise them." }],
       _doStart
     ), 700);
   } else {

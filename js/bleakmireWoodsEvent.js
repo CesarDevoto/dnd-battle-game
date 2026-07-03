@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer } from './scene.js';
+import { scene, camera, renderer, setFollowUnit, snapCameraToUnit } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units, corpses, setUnitWalking } from './units.js';
@@ -145,6 +145,7 @@ function _placeHeroesNearFloosh() {
     { type: 'elf',      ox: -1, oz: 5 },
     { type: 'halfling', ox:  1, oz: 5 },
   ];
+  let leader = null;
   FORM.forEach(({ type, ox, oz }) => {
     const u = units.find(u => u.team === 'blue' && u.type === type);
     if (!u) return;
@@ -152,7 +153,16 @@ function _placeHeroesNearFloosh() {
     const y = getTerrainHeight(x, z);
     u.grp.position.set(x, y, z);
     if (u.anchor) { u.anchor.x = x; u.anchor.y = y; u.anchor.z = z; }
+    if (type === 'dwarf') leader = u;
   });
+  // loadZone() was called with repositionHeroes=false for this quick-travel
+  // (heroes are placed here instead, once Floosh's position is known), which
+  // means it never snaps the camera either — do it ourselves, otherwise the
+  // camera stays on the old zone and it looks like the button did nothing.
+  if (leader) {
+    snapCameraToUnit(leader);
+    setFollowUnit(leader);
+  }
 }
 
 function _armReturnButton() {
@@ -213,7 +223,7 @@ const _ACCEPT_LINES = [
 ];
 
 const _ARRIVAL_LINES = [
-  { s: 'Floosh', t: "Beyond this threshold the blight hath taken grievous hold upon our meadows and ancient woods. The wellspring of this decay lieth most assuredly yonder. Good fortune attend thee, heroes. Our kingdom and all our friends of the wild do rest their hope upon thee. Seek me here upon thy return." },
+  { s: 'Floosh', t: "Beyond the blight hath taken grievous hold upon our ancient woods. The wellspring of this decay most assuredly lieth yonder. Good fortune heroes. Our kingdom and all friends of the wild rest their hope upon thee. Seek me here upon thy return." },
 ];
 
 registerDialogueScene({ id: 'dlg_floosh_intro',    name: 'Floosh — Zone Entry',    lines: _INTRO_LINES });

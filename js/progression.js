@@ -40,6 +40,18 @@ const MAX_LEVEL = XP_THRESHOLDS.length; // 20
 function _xpFloor(lvl) { return XP_THRESHOLDS[lvl - 1] ?? XP_THRESHOLDS[MAX_LEVEL - 1]; }
 function _xpCeil(lvl)  { return XP_THRESHOLDS[lvl]     ?? Infinity; }
 
+// Level-aware XP progress for a hero — single source of truth so every
+// display (top XP bar, character sheet, etc.) agrees with the actual
+// XP_THRESHOLDS table instead of each computing its own (wrong) numbers.
+export function getXpProgress(hero) {
+  const level = hero?.level ?? 1;
+  const floor = _xpFloor(level);
+  const ceil  = level >= MAX_LEVEL ? floor : _xpCeil(level);
+  const span  = Math.max(1, ceil - floor);
+  const earned = Math.max(0, (hero?.xp ?? 0) - floor);
+  return { level, earned, span, maxed: level >= MAX_LEVEL };
+}
+
 function showFloatingXP(hero, amount) {
   if (!hero.anchor) return;
   _pv.set(hero.anchor.x, hero.anchor.y + 1.0, hero.anchor.z).project(camera);
@@ -72,15 +84,11 @@ export function updateXPBar() {
   const hero = heroRoster[0];
   if (!hero) return;
 
-  const lvl    = hero.level ?? 1;
-  const floor  = _xpFloor(lvl);
-  const ceil   = lvl >= MAX_LEVEL ? floor : _xpCeil(lvl);
-  const span   = Math.max(1, ceil - floor);
-  const earned = Math.max(0, hero.xp - floor);
-  const pct    = lvl >= MAX_LEVEL ? 1 : Math.min(1, earned / span);
+  const { level, earned, span, maxed } = getXpProgress(hero);
+  const pct = maxed ? 1 : Math.min(1, earned / span);
 
   if (_xpCurLabel)  _xpCurLabel.textContent  = earned.toLocaleString();
-  if (_xpPctLabel)  _xpPctLabel.textContent  = `Level ${lvl}`;
+  if (_xpPctLabel)  _xpPctLabel.textContent  = `Level ${level}`;
   if (_xpNextLabel) _xpNextLabel.textContent = span.toLocaleString();
 
   const N = _xpBubbleFills.length;

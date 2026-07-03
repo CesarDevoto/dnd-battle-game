@@ -163,13 +163,17 @@ export function aiPickAllyDest(u, allies, validTiles) {
 // 'melee'        → strongly prefer tiles in melee range, ranged as fallback.
 // 'ranged'/'kite'→ prefer ranged range, avoid melee; maximise distance within range.
 // 'stay'         → caller should skip this function entirely.
-export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU, hasLOS) {
+// extraRangedAtk: for heroes whose ranged option is a spell/cantrip that
+// deliberately isn't in UNIT_TYPES.attacks (e.g. Rasec's Fire Bolt — kept out
+// of attacks[] so it doesn't masquerade as a ranged weapon), the caller can
+// pass an attacks[]-shaped object here so positioning still accounts for it.
+export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU, hasLOS, extraRangedAtk = null) {
   if (!validTiles.size) return null;
   const tx = target.grp.position.x, tz = target.grp.position.z;
   const def  = UNIT_TYPES[u.type] ?? {};
   const atks = def.attacks ?? [];
   const meleeA       = atks.find(a => a.type === 'melee');
-  const rangdA       = atks.find(a => a.type === 'ranged');
+  const rangdA       = atks.find(a => a.type === 'ranged') ?? extraRangedAtk;
   const meleeTrigger = meleeA ? atkTriggerWU(meleeA)     : 0;
   const rangedRange  = rangdA ? atkRangeWU(rangdA.range) : 0;
 

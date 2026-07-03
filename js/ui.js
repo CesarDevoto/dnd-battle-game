@@ -6,6 +6,7 @@ import { turnOrder, turnIndex, combatPhase, triggerSpellBarAction } from './comb
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
 import { computeAC } from './equipment.js';
+import { getXpProgress } from './progression.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
 // firstHitOnly stops traversal at the nearest terrain hit (early-exit).
@@ -638,7 +639,10 @@ function buildSheetHTML(u) {
         <span class="ss-val">+${def.profBonus}</span>
       </div>` : ''}
     </div>
-    ${def.xpNext ? `<div class="ss-xp">XP: <strong>${u.xp ?? 0}</strong> / ${def.xpNext} &nbsp;(Lvl 2)</div>` : ''}
+    ${(() => {
+      const { level, earned, span, maxed } = getXpProgress(u);
+      return `<div class="ss-xp">XP: <strong>${earned}</strong> / ${maxed ? 'MAX' : span} &nbsp;(Lvl ${level})</div>`;
+    })()}
     <div class="ss-sep"></div>
     <div class="ss-abilities">
       ${abilities.map(([lbl, score]) => `

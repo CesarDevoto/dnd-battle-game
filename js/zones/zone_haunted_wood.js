@@ -262,7 +262,7 @@ export const ZONE = {
     { model: 'dryshrub', x: -69.28, z: -69.92, y: -0.2, rotY: 0, scale: 1 },
     { model: 'dryshrub', x: -65.86, z: -58.29, y: -0.2, rotY: 0, scale: 1 },
     { model: 'dryshrub', x: -61.77, z: -60.34, y: -0.2, rotY: 0, scale: 1 },
-    { model: 'waystone', x: -71.41, z: 76.16, y: 0, yOff: 0.2, rotY: 0, scale: 1 },
+    { model: 'waystone', x: -71.41, z: 76.16, y: 0, yOff: 0.2, rotY: 0, scale: 1, waystoneId: 'haunted_wood', mapTab: 'I' },
   ],
   barriers: [
     { x1: -93.64, z1: 76.68, x2: -91, z2: -92.72 },
