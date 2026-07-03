@@ -1,50 +1,77 @@
-// js/healingWordOOC.js — Leugren's out-of-combat Healing Word: one free use
-// between combats, resets the moment a new combat ends.
+// js/healingWordOOC.js — Leugren's out-of-combat Healing Word.
+//
+// No dedicated widget: when Leugren is the selected (precombat-controlled)
+// hero and outside combat, his Healing Word appears on the hotbar (KeyQ,
+// same slot it uses in combat) instead of a separate box on screen. One use
+// between combats — resets the moment the next combat ends. Clicking it
+// shows the same green targeting rings used in combat (startOOCHealTargeting
+// in combat.js) — click a ring to cast, click elsewhere to cancel.
 
-import { heroRoster, units } from './units.js';
+import { heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
-import { combatPhase, showFloatingDamage, addLog } from './combat.js';
+import {
+  combatPhase, showFloatingDamage, addLog,
+  startOOCHealTargeting, cancelOOCHealTargeting,
+} from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
+import { bindHotkey, unbindHotkey, updateHotkeyRanges } from './hotbar.js';
 
-let _used = false;
+let _used     = false;
+let _selected = null;   // currently PC-selected hero (from pc-hero:selected)
+let _picking  = false;  // true while the green targeting rings are up
 
 export function initHealingWordOOC() {
-  document.getElementById('hw-btn')?.addEventListener('click', _executeHeal);
-  window.addEventListener('combat:start', _render);
-  window.addEventListener('combat:ended', () => { _used = false; _render(); });
-  _render();
+  window.addEventListener('pc-hero:selected',   e => { _selected = e.detail?.hero ?? null; _stopPicking(); _render(); });
+  window.addEventListener('pc-hero:deselected', () => { _selected = null; _stopPicking(); _render(); });
+  window.addEventListener('combat:start',       () => { _picking = false; _render(); });
+  window.addEventListener('combat:ended',       () => { _used = false; _render(); });
 }
 
-function _leugren()      { return heroRoster.find(h => h.type === 'dwarf' && h.hp > 0) ?? null; }
-function _mostWounded()  {
-  return units
-    .filter(u => u.team === 'blue' && u.hp > 0 && u.hp < u.maxHp)
-    .reduce((best, u) => (!best || u.hp < best.hp) ? u : best, null);
+function _canCast() {
+  return !combatPhase && !_used && !!_selected && _selected.type === 'dwarf' && _selected.hp > 0;
 }
 
 function _render() {
-  const btn = document.getElementById('hw-btn');
-  if (!btn) return;
-  const leugren = _leugren();
-  const target  = _mostWounded();
-  const canUse  = !combatPhase && !_used && !!leugren && !!target;
-
-  btn.disabled = !canUse;
-  btn.title    = combatPhase   ? 'Cannot use during combat'
-               : _used         ? 'Already used — resets after your next combat'
-               : !leugren      ? 'Leugren must be alive to cast this'
-               : !target       ? 'No wounded ally to heal'
-               :                 'Leugren casts Healing Word on the most wounded ally (once between combats)';
-
-  document.getElementById('hw-pip-0')?.classList.toggle('used', _used);
+  // combat.js's own _rebuildHotbar owns KeyQ during actual turns (it's
+  // Leugren's in-combat Healing Word slot too) — never touch it once a
+  // fight is live, only manage it for the precombat/exploration phase.
+  if (combatPhase) return;
+  if (!_canCast()) {
+    unbindHotkey('KeyQ', false);
+    updateHotkeyRanges();
+    return;
+  }
+  bindHotkey('KeyQ', false,
+    _picking
+      ? '<span class="hb-ready">CHOOSE<br>TARGET</span>'
+      : '<img class="hb-spell-img-fill" src="assets/Spells/Healingword.jpg">',
+    () => { _picking ? _stopPicking() : _startPicking(); },
+    _canCast,
+    'bonus'
+  );
+  updateHotkeyRanges();
 }
 
-function _executeHeal() {
-  if (combatPhase || _used) return;
-  const leugren = _leugren();
-  const target  = _mostWounded();
-  if (!leugren || !target) return;
+function _startPicking() {
+  if (!_canCast()) return;
+  _picking = true;
+  startOOCHealTargeting(_selected, target => {
+    _picking = false;
+    if (target) _cast(target);
+    else _render();
+  });
+  _render();
+}
 
+function _stopPicking() {
+  if (!_picking) return;
+  _picking = false;
+  cancelOOCHealTargeting();
+}
+
+function _cast(target) {
+  const caster = _selected;
+  if (!_canCast() || !caster) { _render(); return; }
   _used = true;
 
   const wisMod = Math.floor(((UNIT_TYPES.dwarf?.abilities?.wis ?? 10) - 10) / 2);
@@ -53,8 +80,9 @@ function _executeHeal() {
   target.hp    = Math.min(target.maxHp, target.hp + healed);
   const actual = target.hp - prev;
 
+  const targetName = UNIT_TYPES[target.type]?.name ?? target.type;
   showFloatingDamage(target, `+${actual}`, '#55cc55');
-  addLog(`${UNIT_TYPES.dwarf.name} casts Healing Word on ${UNIT_TYPES[target.type]?.name ?? target.type}, restoring ${actual} HP`, 'heal');
+  addLog(`${UNIT_TYPES.dwarf.name} casts Healing Word on ${targetName}, restoring ${actual} HP`, 'heal');
 
   updateHeroUI();
   _render();

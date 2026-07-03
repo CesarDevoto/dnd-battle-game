@@ -32,7 +32,7 @@ export const CUTSCENE = {
     {
       img:  'assets/Pictures%20Cutscenes%20Icons/3%20GundrenSildar.jpg',
       pan:  'left',
-      text: 'Gundren rode ahead on horseback with the warrior Sildar Hallwinter, eager to \'take care of business.\'',
+      text: 'With a curious map in tow, Gundren rode ahead on horseback with the warrior Sildar Hallwinter, eager to \'take care of business.\'',
     },
     {
       img:  'assets/Pictures%20Cutscenes%20Icons/4%20TriboarTrailMap.jpg',

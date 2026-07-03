@@ -307,7 +307,9 @@ function formatItemDetailHTML(item) {
 
   if (item.dmg)   lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
   if (item.ac)    lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
+  if (item.heal)  lines.push(`<div class="eq-detail-stat">Heals ${item.heal} HP</div>`);
   if (item.slots) lines.push(`<div class="eq-detail-stat">Container</div><div class="eq-detail-stat">(${item.slots} slots)</div>`);
+  if (item.description) lines.push(`<div class="eq-detail-desc">${item.description}</div>`);
 
   const props = [];
   if (item.light)      props.push('Light');
@@ -820,11 +822,13 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
 
 (function() {
   const body   = document.getElementById('log-entries');
+  const panel  = document.getElementById('combat-log');
   const toggle = document.getElementById('combat-log-toggle');
   if (!body || !toggle) return;
   toggle.addEventListener('click', e => {
     e.stopPropagation();
     const collapsed = body.classList.toggle('collapsed');
+    panel?.classList.toggle('log-collapsed', collapsed);
     toggle.textContent = collapsed ? '▲' : '▼';
   });
 })();

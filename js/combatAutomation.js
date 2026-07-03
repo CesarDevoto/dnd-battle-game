@@ -569,8 +569,11 @@ export function pickAutoTarget(heroType, heroPos, enemies, allies = []) {
     // ── Ally criteria ─────────────────────────────────────────────────────
     if (criterion === 'ally_lowest_hp' || criterion === 'ally_any_wounded') {
       const wounded = allies.filter(a => {
-        const maxHp = UNIT_TYPES[a.type]?.hp ?? a.hp;
-        return a.hp < maxHp;
+        // Real current maxHp (grows with level-ups), not the static base hp
+        // from UNIT_TYPES — that stays fixed at the starting value forever
+        // and under-detects wounds once anyone's leveled up.
+        const maxHp = a.maxHp ?? UNIT_TYPES[a.type]?.hp ?? a.hp;
+        return a.hp <= maxHp * 0.75;
       });
       if (!wounded.length) continue; // no wounded allies → try next criterion
 

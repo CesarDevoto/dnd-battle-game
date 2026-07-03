@@ -57,7 +57,7 @@ const MODEL_PATHS = {
   shadow:         'assets/models/shadow.glb',
   ettin:          'assets/models/ettin.glb',
   hill_giant:     'assets/models/hillgiant.glb',
-  nothic:         'assets/models/nothic.glb',
+  nothic:         'assets/models/noxic.glb',
   // Demon monsters
   mane:             'assets/models/mane.glb',
   abyssal_wretch:   'assets/models/abyssalwretch.glb',

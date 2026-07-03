@@ -910,6 +910,41 @@ function hideHealTargets() {
   healTargets.clear();
 }
 
+// ── Out-of-combat Healing Word targeting (Leugren, one use between combats) ──
+// Reuses the same green rings/raycasting as the in-combat version, but isn't
+// driven by turnOrder/heroMode/turnAttacked since there's no turn outside
+// combat. Driven by js/healingWordOOC.js.
+let _oocHealCaster = null;
+let _oocHealOnCast = null;
+
+export function isOOCHealPicking() { return _oocHealCaster !== null; }
+
+export function startOOCHealTargeting(caster, onCast) {
+  if (combatPhase) return;
+  _oocHealCaster = caster;
+  _oocHealOnCast = onCast;
+  showHealTargets(caster, 'healing_word');
+}
+
+// Cancels picking (e.g. clicked empty ground, or the player toggled it off).
+// Still calls onCast(null) so the caller can reset its own UI state.
+export function cancelOOCHealTargeting() {
+  if (!_oocHealCaster) return;
+  const cb = _oocHealOnCast;
+  _oocHealCaster = null;
+  _oocHealOnCast = null;
+  hideHealTargets();
+  cb?.(null);
+}
+
+function _resolveOOCHeal(target) {
+  const cb = _oocHealOnCast;
+  _oocHealCaster = null;
+  _oocHealOnCast = null;
+  hideHealTargets();
+  cb?.(target);
+}
+
 // ── Spell casting ─────────────────────────────────────────────────────────────
 
 function castHeal(caster, target, spellKey) {
@@ -1673,14 +1708,14 @@ function unitCombatLevel(u) {
 }
 
 // Percentage-based hit resolution.
-//   Hit% = ((AtkBonus + 20 − DefAC) / 20) × 100 + (((AtkLvl/5)+1) − DefLvl) × 3  [clamped 15–85]
+//   Hit% = ((AtkBonus + 20 − DefAC) / 20) × 100 + (((AtkLvl/5)+1) − DefLvl) × 3  [clamped 5–95]
 //   Base term mirrors d20 math: each ±1 attack/AC point = ±5%. Baseline atkBonus=5 vs AC=15 → 55%.
 //   Level term: hero power tier (1 tier per 5 levels) vs enemy tier (profBonus); ±3% per tier gap.
 //   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
 //   Advantage: keep higher die. Disadvantage: keep lower die.
 function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
   const rawPct    = ((atkBonus + 20 - defAC) / 20) * 100 + (((atkLvl / 5) + 1) - defLvl) * 3;
-  const hitChance = Math.round(Math.max(15, Math.min(85, rawPct)));
+  const hitChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold = 100 - hitChance;
 
   const r1 = Math.floor(Math.random() * 100) + 1;
@@ -2224,6 +2259,21 @@ renderer.domElement.addEventListener('click', e => {
   if (isAnimating) return;
 
   const pt  = groundHit(e.clientX, e.clientY);  // also primes _ray
+
+  // Out-of-combat Healing Word target pick (see startOOCHealTargeting above).
+  // Takes priority over everything else while active; army.js's own click
+  // handler backs off via isOOCHealPicking() so clicking a hero here doesn't
+  // also re-select them for movement control.
+  if (_oocHealCaster) {
+    const meshHit = rayHitUnit(healTargets);
+    if (meshHit) { _resolveOOCHeal(meshHit); return; }
+    if (pt) for (const [target] of healTargets) {
+      const dx = target.grp.position.x - pt.x, dz = target.grp.position.z - pt.z;
+      if (dx * dx + dz * dz < INTERACTION.pickRadiusSq * 2.5) { _resolveOOCHeal(target); return; }
+    }
+    cancelOOCHealTargeting();
+    return;
+  }
 
   // Spell-cast modes — only active during the blue hero's combat turn
   if (combatPhase) {
@@ -2979,7 +3029,7 @@ function _rebuildHotbar(u) {
   }, 'action');
   {
     const armed = _readied.has(u);
-    bindHotkey('Digit1', false,
+    bindHotkey('KeyR', false,
       armed
         ? '<span class="hb-ready hb-ready-armed">READY ✓</span>'
         : '<span class="hb-ready">READY<br>ACTION</span>',
@@ -3132,6 +3182,11 @@ export function activateTurn(index) {
 
     turnBonusActioned = false;
     _rebuildHotbar(u);
+    // Apply each slot's greyed/enabled state immediately — without this, a
+    // freshly-bound slot whose rangeFn depends on nothing else the player is
+    // about to click (e.g. Digit6's potion check) stays visually "enabled"
+    // until some unrelated action happens to call updateCombatStatus().
+    updateHotkeyRanges();
 
     if (combatPhase) {
       heroMode = null;
@@ -3422,9 +3477,12 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
     const enemies    = units.filter(e => e.team === 'red' && e.hp > 0);
     const allies     = units.filter(a => a.team === 'blue' && a !== u && a.hp > 0);
 
-    // Most wounded blue unit (includes self — Leugren can heal himself)
+    // Most wounded blue unit (includes self — Leugren can heal himself).
+    // Requires a meaningful wound (missing >=25% of max HP) — otherwise a
+    // 1-HP graze would make Leugren spend his turn healing instead of
+    // readying an action for a real threat.
     const allyWounded = units
-      .filter(a => a.team === 'blue' && a.hp > 0 && a.hp < a.maxHp)
+      .filter(a => a.team === 'blue' && a.hp > 0 && a.hp <= a.maxHp * 0.75)
       .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
 
     // movTarget drives positioning (may be an ally for Leugren)
@@ -3470,7 +3528,10 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         if (!allyWounded) { onSkip(); return; }
         turnAttacked = true;
         const healRoll = Math.ceil(Math.random() * 4) + 3; // 1d4+3
-        const maxHp    = UNIT_TYPES[allyWounded.type]?.hp ?? allyWounded.hp;
+        // Bug fix: this used to read the hero's base UNIT_TYPES hp (stale
+        // once they've leveled up) instead of their real current maxHp,
+        // capping — or even reducing — HP for anyone past their starting max.
+        const maxHp    = allyWounded.maxHp ?? UNIT_TYPES[allyWounded.type]?.hp ?? allyWounded.hp;
         const before   = allyWounded.hp;
         allyWounded.hp = Math.min(allyWounded.hp + healRoll, maxHp);
         const healed   = allyWounded.hp - before;

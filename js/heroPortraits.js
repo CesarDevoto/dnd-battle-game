@@ -34,6 +34,7 @@ export function buildHeroPortraits() {
 
     const card = document.createElement('div');
     card.className = `hero-portrait-card hpc-${type}`;
+    card.dataset.heroType = type;
 
     // ── Top row: [portrait img] [stats col | sheet btn] ────────────────
     const topRow = document.createElement('div');

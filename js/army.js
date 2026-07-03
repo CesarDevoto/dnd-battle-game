@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
 import { units, buildUnit } from './units.js';
-import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating } from './combat.js';
+import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
 import { isGroupMove, setGroupMove } from './groupMove.js';
 import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, SCENE } from './constants.js';
@@ -109,6 +109,7 @@ function _selectHero(hero) {
   selectRing.position.set(hero.grp.position.x, hero.grp.position.y + 0.06, hero.grp.position.z);
   selectRing.visible = true;
   setFollowUnit(hero);
+  window.dispatchEvent(new CustomEvent('pc-hero:selected', { detail: { hero } }));
 }
 const mouse2D   = new THREE.Vector2();
 
@@ -164,6 +165,10 @@ renderer.domElement.addEventListener('mousemove', e => {
 // ── Click: select / reposition ────────────────────────────────────────────────
 
 renderer.domElement.addEventListener('click', e => {
+  // Leugren's out-of-combat Healing Word is picking a target this click —
+  // combat.js's own listener owns it entirely, don't also reselect a hero.
+  if (isOOCHealPicking()) return;
+
   // ── Waystone click: open associated map (works in precombat and combat) ──
   {
     mouse2D.x =  (e.clientX / window.innerWidth)  * 2 - 1;
@@ -221,6 +226,7 @@ renderer.domElement.addEventListener('click', e => {
     // Click on valid terrain but no hero selected → deselect
     clearMove();
     deselectPCHero();
+    window.dispatchEvent(new CustomEvent('pc-hero:deselected'));
     return;
   }
 });
@@ -292,7 +298,11 @@ document.addEventListener('keydown', e => {
 
   // Escape: deselect
   if (e.key === 'Escape') {
-    if (isPrecombat()) { clearMove(); deselectPCHero(); }
+    if (isPrecombat()) {
+      clearMove();
+      deselectPCHero();
+      window.dispatchEvent(new CustomEvent('pc-hero:deselected'));
+    }
   }
 
 });

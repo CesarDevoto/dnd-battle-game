@@ -84,6 +84,7 @@ export function unbindHotkey(code, shift) {
   const btn = _btns[k];
   if (btn) {
     btn.querySelector('.hb-label').textContent = '';
+    btn.classList.add('hb-disabled');
     _setActionTag(btn.querySelector('.hb-action-tag'), null);
   }
 }
@@ -95,7 +96,12 @@ export function clearAllHotkeys() {
     const btn = _btns[k];
     if (btn) {
       btn.querySelector('.hb-label').innerHTML = '';
-      btn.classList.remove('hb-disabled');
+      // An unbound slot has nothing to do — it should read as inactive, not
+      // "ready." Whatever rebinds it next (if anything) will re-enable it via
+      // updateHotkeyRanges(). Without this, a slot cleared outside a hero's
+      // own turn (enemy turns, page load, combat end) shows fully bright
+      // with no functional binding behind it.
+      btn.classList.add('hb-disabled');
       _setActionTag(btn.querySelector('.hb-action-tag'), null);
     }
   }
@@ -110,6 +116,7 @@ export function bindPermanentHotkey(code, label, fn, getActive = null) {
   if (!btn) return;
   btn.querySelector('.hb-label').innerHTML = label;
   btn.classList.add('hb-permanent');
+  btn.classList.remove('hb-disabled'); // permanent hotkeys work immediately, no turn/rangeFn gating
   if (getActive) {
     const _syncToggle = () => btn.classList.toggle('hb-toggled', getActive());
     const _origFn = fn;
@@ -127,7 +134,7 @@ export function initHotbar() {
   // Top row — number/symbol keys
   for (const k of TOP_KEYS) {
     const btn = document.createElement('button');
-    btn.className = 'hb-btn';
+    btn.className = 'hb-btn hb-disabled';
 
     let _typeIcon = '';
     if (k.code === 'Digit2') _typeIcon = '<span class="hb-type-icon hb-melee">⚔</span>';
@@ -150,7 +157,7 @@ export function initHotbar() {
   // Bottom row — Q W E R T Y keys
   for (const k of BOTTOM_KEYS) {
     const btn = document.createElement('button');
-    btn.className = 'hb-btn';
+    btn.className = 'hb-btn hb-disabled';
 
     btn.innerHTML =
       `<span class="hb-action-tag" style="display:none"></span>` +
@@ -167,7 +174,7 @@ export function initHotbar() {
   // Top row — MMB slot (right of 6)
   for (const ms of MOUSE_SLOTS_TOP) {
     const btn = document.createElement('button');
-    btn.className = 'hb-btn hb-mouse-btn';
+    btn.className = 'hb-btn hb-mouse-btn hb-disabled';
     btn.innerHTML =
       `<span class="hb-key">${ms.label}</span>` +
       `<span class="hb-label"></span>`;
@@ -179,7 +186,7 @@ export function initHotbar() {
   // Bottom row — LMB slot (right of Y)
   for (const ms of MOUSE_SLOTS_BOTTOM) {
     const btn = document.createElement('button');
-    btn.className = 'hb-btn hb-mouse-btn';
+    btn.className = 'hb-btn hb-mouse-btn hb-disabled';
     btn.innerHTML =
       `<span class="hb-key">${ms.label}</span>` +
       `<span class="hb-label"></span>`;

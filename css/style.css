@@ -709,6 +709,19 @@ body {
 }
 #combat-log .t-title {
   position: relative;
+  /* Match #spell-bar-title exactly so the two widgets read as one system,
+     especially when both are shrunk down to just their title bars. */
+  font-size: 0.58rem;
+  letter-spacing: 3px;
+  border-bottom: none;
+  border-image: none;
+  padding-bottom: 0;
+  text-shadow: 0 0 10px rgba(212, 175, 55, 0.45);
+}
+/* Collapsed footprint mirrors #spell-bar's exactly (padding 6px 8px 7px, gap 6px). */
+#combat-log.log-collapsed {
+  gap: 6px;
+  padding-bottom: 7px;
 }
 #log-entries {
   display: flex;
@@ -2891,6 +2904,13 @@ body {
   margin-top: 2px;
 }
 
+.eq-detail-desc {
+  color: rgba(200,185,150,0.70);
+  font-size: 0.56rem;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
 .eq-slot.selected .eq-slot-box,
 .eq-bag.selected .eq-bag-box {
   border-color: rgba(212,175,55,0.65);
@@ -4468,38 +4488,6 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #srw-btn:disabled { opacity: 0.32; cursor: not-allowed; }
 
-/* ── Healing Word (out of combat) widget ─────────────────────────────── */
-#hw-widget {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 11px 9px;
-  background: rgba(7, 4, 1, 0.94);
-  border-top: 1px solid rgba(212, 175, 55, 0.20);
-  box-shadow: 0 -4px 22px rgba(0, 0, 0, 0.80);
-}
-#hw-btn {
-  font-family: var(--font-fantasy);
-  font-size: 0.54rem;
-  letter-spacing: 1px;
-  color: #70c8ee;
-  background: linear-gradient(180deg, rgba(8,26,40,0.96) 0%, rgba(3,12,18,0.99) 100%);
-  border: 1px solid rgba(40,120,160,0.50);
-  border-radius: 3px;
-  padding: 3px 9px 4px;
-  cursor: pointer;
-  text-shadow: 0 0 8px rgba(80,180,220,0.40);
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s, text-shadow 0.15s;
-}
-#hw-btn:hover:not(:disabled) {
-  border-color: #3a9aca;
-  color: #bbeeff;
-  text-shadow: 0 0 12px rgba(80,180,220,0.70);
-}
-#hw-btn:disabled { opacity: 0.32; cursor: not-allowed; }
-
 /* ── Spell bar ───────────────────────────────────────────────────────── */
 #spell-bar {
   position: relative;
@@ -5585,10 +5573,16 @@ td.bst-col-retired { color: #343228 !important; }
   filter: brightness(0) saturate(100%) invert(55%) sepia(50%) saturate(550%) hue-rotate(168deg) brightness(108%) drop-shadow(0 0 3px rgba(85,153,204,0.7));
 }
 .hb-potion-icon {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   filter: drop-shadow(0 0 3px rgba(85,204,120,0.6));
+}
+/* The base .hb-disabled grayscale(0.9) still leaves a visible red tint on a
+   photographic (non-monochrome) icon like the potion bottle — force it fully
+   grey and drop the "available" glow when the slot can't be used. */
+.hb-btn.hb-disabled .hb-potion-icon {
+  filter: grayscale(1) brightness(0.6);
 }
 
 /* ── Zone system ─────────────────────────────────────────────────────── */
