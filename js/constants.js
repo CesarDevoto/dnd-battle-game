@@ -830,7 +830,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: [], shields: false },
     weaponProficiency: { simple: false, martial: false, weapons: ['Dagger', 'Dart', 'Sling', 'Quarterstaff', 'Light Crossbow'] },
-    startingEquipment: { chest: 'clothshirt1', belt: 'belt13', cloak: 'cloak12', 'main-hand': 'stave8', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'robe2', belt: 'belt13', cloak: 'cloak12', feet: 'sandals6', 'main-hand': 'stave8', 'bag-1': 'bag1' },
     abilities: { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 },
     attacks: [
       { name: 'Quarterstaff', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
@@ -850,7 +850,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'chainarmor1', feet: 'plateboots4', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },

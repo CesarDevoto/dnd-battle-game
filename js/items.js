@@ -1940,7 +1940,7 @@ export const ITEMS = {
   },
   robe2: {
     id:     'robe2',
-    name:   'Robe II',
+    name:   'Simple Robe',
     slot:   'chest',
     rarity: 'grey',
     icon:   'assets/items/armor/robe2.png',
@@ -2363,7 +2363,7 @@ export const ITEMS = {
   },
   sandals6: {
     id:     'sandals6',
-    name:   'Sandals VI',
+    name:   'Simple Sandals',
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/sandals6.png',
@@ -2439,11 +2439,10 @@ export const ITEMS = {
   },
   plateboots4: {
     id:     'plateboots4',
-    name:   'Plate Boots IV',
+    name:   'Simple Mail Boots',
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots4.png',
-    ac:     3,
   },
   plateboots5: {
     id:     'plateboots5',
