@@ -2009,19 +2009,22 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 4 }).total : 0;
 
   // Long-range shot: beyond normal range but within longRange → disadvantage
-  let atkMode = 'normal';
+  let hasAdvantage    = false;
+  let hasDisadvantage = false;
   let atkDisadvReason = '';
   // Smoke & Mirrors: Milo gets advantage on attacks that already qualify for
   // Sneak Attack (ally adjacent to target) while he's inside his own smoke cloud.
   if (attacker.type === 'halfling' && attacker.smokeActive && _allyAdjacentToTarget(attacker, target)) {
-    atkMode = 'advantage';
+    hasAdvantage = true;
   }
   if (atk.type === 'ranged' && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
-    if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { atkMode = 'disadvantage'; atkDisadvReason = 'long range'; }
+    if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
   }
-  if (target.dodging) { atkMode = 'disadvantage'; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
+  if (target.dodging) { hasDisadvantage = true; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
+  // Advantage and disadvantage from different sources cancel out to a normal roll (D&D RAW).
+  const atkMode = hasAdvantage && hasDisadvantage ? 'normal' : hasAdvantage ? 'advantage' : hasDisadvantage ? 'disadvantage' : 'normal';
 
   const _acBonus   = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
   const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
