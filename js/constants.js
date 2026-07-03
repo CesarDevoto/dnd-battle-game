@@ -850,7 +850,7 @@ export const UNIT_TYPES = {
     profBonus: 2, xpNext: 200,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', feet: 'plateboots4', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'chainarmor1', legs: 'chainlegs1', feet: 'plateboots4', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },

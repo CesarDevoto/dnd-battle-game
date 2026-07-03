@@ -1187,6 +1187,13 @@ export const ITEMS = {
     heavy:  true,
   },
 
+  chainlegs1: {
+    id:     'chainlegs1',
+    name:   'Simple Chain Legs',
+    slot:   'legs',
+    rarity: 'grey',
+    icon:   'assets/items/armor/chainlegs1.png',
+  },
   leatherlegs1: {
     id:     'leatherlegs1',
     name:   'Leather Leggings',
