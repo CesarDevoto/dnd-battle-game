@@ -1021,6 +1021,7 @@ body {
 .log-levelup { color: #fff060; font-weight: bold; letter-spacing: 1px; text-shadow: 0 0 8px rgba(255,240,60,0.55); }
 .log-heal  { color: #44ee88; }
 .log-spell { color: #aabbff; }
+.log-ready { color: #ffcc44; }
 .log-qty   { color: #ff2222; font-weight: bold; text-shadow: 0 0 6px rgba(255,30,30,0.55); }
 
 /* ── Turn order panel ────────────────────────────────────────────────── */

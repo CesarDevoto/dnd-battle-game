@@ -1737,12 +1737,25 @@ function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
 // Save throw — mirrors rollToHit for DC checks.
 // saveChance = ((saveMod + 20 - dc) / 20) × 100, clamped [5–95].
 // Roll d100 high to succeed: need ≥ (100 - saveChance).
-function rollSave(saveMod, dc) {
+// Advantage: keep higher die. Disadvantage: keep lower die.
+function rollSave(saveMod, dc, mode = 'normal') {
   const rawPct     = ((saveMod + 20 - dc) / 20) * 100;
   const saveChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold  = 100 - saveChance;
-  const kept       = Math.floor(Math.random() * 100) + 1;
-  return { kept, saveChance, threshold, isSave: kept >= threshold };
+
+  const r1 = Math.floor(Math.random() * 100) + 1;
+  let r2 = null, kept;
+  if (mode === 'advantage') {
+    r2   = Math.floor(Math.random() * 100) + 1;
+    kept = Math.max(r1, r2);
+  } else if (mode === 'disadvantage') {
+    r2   = Math.floor(Math.random() * 100) + 1;
+    kept = Math.min(r1, r2);
+  } else {
+    kept = r1;
+  }
+
+  return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, saveChance, threshold, isSave: kept >= threshold };
 }
 
 function faceTarget(unit, target) {
@@ -1818,8 +1831,10 @@ function atkBreakdown(r) {
 }
 
 function saveBreakdown(r, saveType) {
-  const label = (saveType ?? 'con').toUpperCase();
-  return `${label} save · d100: ${r.kept}, needed ≥ ${r.threshold} (${r.saveChance}% to save)`;
+  const label  = (saveType ?? 'con').toUpperCase();
+  const adv    = r.mode === 'advantage' ? 'ADV ' : r.mode === 'disadvantage' ? 'DIS ' : '';
+  const dieStr = r.mode && r.mode !== 'normal' ? `[${r.dice.join('/')} → ${r.kept}]` : String(r.kept);
+  return `${label} save · ${adv}d100: ${dieStr}, needed ≥ ${r.threshold} (${r.saveChance}% to save)`;
 }
 
 // Concentration check — call whenever a unit that might be concentrating
@@ -1838,7 +1853,7 @@ function _checkConcentration(unit, dmgTaken, willDie) {
   if (dmgTaken <= 0) return;
   const dc     = Math.max(10, Math.floor(dmgTaken / 2));
   const conMod = Math.floor(((UNIT_TYPES[unit.type]?.abilities?.con ?? 10) - 10) / 2);
-  const result = rollSave(conMod, dc);
+  const result = rollSave(conMod, dc, unit.dodging ? 'advantage' : 'normal');
   showRoll(`${label} · Concentration (CON DC ${dc})`, result, { autoDismiss: false });
   if (result.isSave) {
     addLog(`${label} maintains concentration on ${concentratingSpell} (${saveBreakdown(result, 'con')})`, 'spell');
@@ -2023,7 +2038,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
       const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
       const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
       const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 4 }).total : 0;
-      const saveResult    = rollSave(saveMod + blessSaveBonus, dc);
+      const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
       const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
       const tLabel        = unitLabel(hero);
       const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
@@ -2667,7 +2682,7 @@ function _openReadyModal(hero) {
       _readiedBonusActioned.set(hero, turnBonusActioned);
       turnAttacked = true;
       modal.style.display = 'none';
-      addLog(`${unitLabel(hero)} readies action: trigger "${_READY_LABELS[trigger]}"`, 'move');
+      addLog(`${unitLabel(hero)} readies action: trigger "${_READY_LABELS[trigger]}"`, 'ready');
       buildTurnList();
       updateCombatStatus();
       _rebuildHotbar(hero);
@@ -2766,7 +2781,7 @@ function _showDelayInterrupt({ hero, trigger }) {
   // ── Automated hero: bypass UI, run action priority directly ──────────
   if (_readiedAutomated.has(hero)) {
     _readiedAutomated.delete(hero);
-    addLog(`⚡ ${unitLabel(hero)}'s ready action fires (${_READY_LABELS[trigger] ?? trigger})!`, 'move');
+    addLog(`⚡ ${unitLabel(hero)}'s ready action fires (${_READY_LABELS[trigger] ?? trigger})!`, 'ready');
     const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
             savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
     _readyCtx      = null;
@@ -2835,7 +2850,7 @@ function _showDelayInterrupt({ hero, trigger }) {
     banner.style.display = 'flex';
   }
 
-  addLog(`⚡ ${unitLabel(hero)}'s Ready Action fires (${_READY_LABELS[trigger]})! Choose an action.`, 'move');
+  addLog(`⚡ ${unitLabel(hero)}'s Ready Action fires (${_READY_LABELS[trigger]})! Choose an action.`, 'ready');
 }
 
 function _endDelayInterrupt() {
@@ -3066,7 +3081,7 @@ function _rebuildHotbar(u) {
         const curU = turnOrder[turnIndex];
         if (!curU || curU.team !== 'blue' || isAnimating) return;
         if (_readied.has(curU)) {
-          addLog(`${unitLabel(curU)} has readied action: trigger "${_READY_LABELS[_readied.get(curU)]}"`, 'move');
+          addLog(`${unitLabel(curU)} has readied action: trigger "${_READY_LABELS[_readied.get(curU)]}"`, 'ready');
           return;
         }
         if (turnAttacked) return;
@@ -3172,7 +3187,7 @@ export function activateTurn(index) {
     u.dodging       = false;
     // If this hero's delayed action never fired, it expires at turn start
     if (u.team === 'blue' && _readied.has(u)) {
-      addLog(`${unitLabel(u)}'s ready action expires (trigger never fired).`, 'move');
+      addLog(`${unitLabel(u)}'s ready action expires (trigger never fired).`, 'ready');
       _readied.delete(u);
       _readiedAutomated.delete(u);
       buildTurnList();
@@ -3676,7 +3691,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         _readiedBonusActioned.set(u, turnBonusActioned);
         _readiedAutomated.add(u);
         turnAttacked = true;
-        addLog(`${unitLabel(u)} readies action (waiting: ${_READY_LABELS[trigger] ?? trigger})`, 'move');
+        addLog(`${unitLabel(u)} readies action (waiting: ${_READY_LABELS[trigger] ?? trigger})`, 'ready');
         buildTurnList();
         updateCombatStatus();
         onDone(); return;
