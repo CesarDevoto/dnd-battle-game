@@ -40,6 +40,15 @@ const MAX_LEVEL = XP_THRESHOLDS.length; // 20
 function _xpFloor(lvl) { return XP_THRESHOLDS[lvl - 1] ?? XP_THRESHOLDS[MAX_LEVEL - 1]; }
 function _xpCeil(lvl)  { return XP_THRESHOLDS[lvl]     ?? Infinity; }
 
+// Cumulative XP needed to reach a given level — exported for the dev-only
+// "set party level" tool, which awards this much XP in one shot starting
+// from level 1 so every intermediate level-up (HP gain, ability unlocks,
+// hero:levelup event) fires exactly as it would in a real playthrough.
+export function xpForLevel(level) {
+  return _xpFloor(Math.max(1, Math.min(level, MAX_LEVEL)));
+}
+export const MAX_HERO_LEVEL = MAX_LEVEL;
+
 // Level-aware XP progress for a hero — single source of truth so every
 // display (top XP bar, character sheet, etc.) agrees with the actual
 // XP_THRESHOLDS table instead of each computing its own (wrong) numbers.

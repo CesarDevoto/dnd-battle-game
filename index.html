@@ -32,6 +32,7 @@
     <div id="top-btn-bar">
       <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
       <button id="smart-xp-btn"        class="dev-only">SMART XP</button>
+      <button id="dev-level-btn"      class="dev-only">SET LEVEL</button>
       <button id="smart-aggro-btn"     class="dev-only">SMART AGGRO</button>
       <button id="biomes-btn"         class="dev-only">BIOMES</button>
       <button id="prop-editor-btn"    class="dev-only">PROPS</button>
@@ -123,6 +124,22 @@
             At <strong>0 ft</strong>, the monster will not aggro unless attacked directly.
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- Dev-only: instantly set the whole party's level for testing -->
+    <div id="dev-level-overlay" class="dev-only">
+      <div id="dev-level-modal">
+        <div id="dev-level-header">
+          <div id="dev-level-title">SET PARTY LEVEL</div>
+          <div id="dev-level-subtitle">Resets XP/HP, replays every level-up 1→N</div>
+          <button id="dev-level-close">✕</button>
+        </div>
+        <div id="dev-level-body">
+          <label id="dev-level-label" for="dev-level-input">Target level (1–20)</label>
+          <input id="dev-level-input" type="number" min="1" max="20" value="2">
+          <button id="dev-level-apply">APPLY TO PARTY</button>
         </div>
       </div>
     </div>

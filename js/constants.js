@@ -310,7 +310,7 @@ export const UNIT_TYPES = {
 
   constrictor_snake: {
     name: 'Constrictor Snake', team: 'red',
-    scale: [5.0, 5.0, 5.0], anchorY: 4.0,
+    scale: [2.5, 2.5, 2.5], anchorY: 2.0,
     hp: 13, ac: 12, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
@@ -651,7 +651,7 @@ export const UNIT_TYPES = {
 
   shadow: {
     name: 'Shadow', team: 'red',
-    scale: [1.26, 1.26, 1.26], anchorY: 2.52, hoverY: -1,
+    scale: [1.771, 1.771, 1.771], anchorY: 3.54, hoverY: -1,
     hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
     attacks: [

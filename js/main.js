@@ -52,6 +52,7 @@ import { showLevelUpModal } from './levelUpModal.js';
 import { playSound } from './audio.js';
 import { initGroupMove } from './groupMove.js';
 import { initQuests } from './quests.js';
+import { initDevLevelTool } from './devLevelTool.js';
 
 if (IS_DEV) document.body.classList.add('dev-mode');
 
@@ -68,6 +69,7 @@ initEngagementLines();
 initBestiary();
 initXPTable();
 initSpellbook();
+initDevLevelTool();
 
 // Smart XP overlay (dev-only)
 {
