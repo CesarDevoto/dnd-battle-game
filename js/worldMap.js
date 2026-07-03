@@ -223,15 +223,22 @@ function _teleportTo(pin) {
 function _renderSubmap(body, tab) {
   const src = _SUBMAP_SRCS[tab];
   if (src) {
-    const activePins  = (SUBMAP_WAYPOINTS[tab] ?? []).filter(p => isWaystoneActivated(p.id));
-    const sourcePin   = _sourceWaystoneId ? activePins.find(p => p.id === _sourceWaystoneId) : null;
-    const canTeleport = sourcePin && activePins.length >= 2;
+    const activePins   = (SUBMAP_WAYPOINTS[tab] ?? []).filter(p => isWaystoneActivated(p.id));
+    const sourcePin    = _sourceWaystoneId ? activePins.find(p => p.id === _sourceWaystoneId) : null;
+    const canTeleport  = sourcePin && activePins.length >= 2;
+    const currentZoneId = getActiveZone()?.id ?? '';
 
     const pins = activePins.map(p => {
       const isSource   = sourcePin?.id === p.id;
       const clickable  = canTeleport && !isSource;
+      const isHere     = p.zoneId === currentZoneId;
       return `<div class="submap-waystone-wrap${clickable ? ' ws-teleport' : ''}" style="position:absolute;left:${p.mapX*100}%;top:${p.mapY*100}%" data-wsid="${p.id}">
-           <div class="submap-waystone"><div class="submap-waystone-dot"></div></div>
+           <div class="submap-waystone">
+             <div class="submap-waystone-dot"></div>
+             ${isHere ? `<div class="submap-here-icon" title="Heroes are here">
+               <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="4"/><path d="M12 12c-5 0-8 3-8 7v1h16v-1c0-4-3-7-8-7z"/></svg>
+             </div>` : ''}
+           </div>
            ${p.label ? `<span class="submap-waystone-label">${p.label}</span>` : ''}
            ${clickable ? `<span class="ws-teleport-hint">Teleport</span>` : ''}
          </div>`;

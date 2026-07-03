@@ -8477,6 +8477,23 @@ td.bst-col-retired { color: #343228 !important; }
   border-radius: 50%;
   background: #000;
 }
+/* Gold person marker over whichever waystone's zone the heroes are in */
+#world-map-pins .submap-here-icon {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  color: #ffcc44;
+  filter: drop-shadow(0 0 4px #ffaa00) drop-shadow(0 1px 1px rgba(0,0,0,0.9));
+  pointer-events: none;
+}
+#world-map-pins .submap-here-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 #world-map-pins .submap-waystone-wrap .submap-waystone-label {
   color: #a8d8ea !important;
   font-size: 0.80rem;
