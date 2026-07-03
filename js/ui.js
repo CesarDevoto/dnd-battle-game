@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { units, allBarsVisible } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
-import { UNIT_TYPES, HERO_RING_COLORS } from './constants.js';
+import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, triggerSpellBarAction } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
@@ -549,20 +549,21 @@ function buildActionsPanelHTML(u) {
   const rageDef = def.rage;
   const bonusParts = [];
   if (rageDef) {
+    const rageUsesNow = rageUsesForLevel(u.level);
     bonusParts.push(`
     <div class="ss-rage">
       <div class="ss-rage-top">
         <span class="ss-rage-name">⚔ Rage</span>
-        <span class="ss-rage-uses">×${rageDef.uses} / rest</span>
+        <span class="ss-rage-uses">×${rageUsesNow} / combat</span>
       </div>
       <div class="ss-rage-bonuses">
         <span class="ss-rage-dmg">+${rageDef.dmgBonus} melee damage</span>
         <span class="ss-rage-resist">½ physical damage</span>
       </div>
-      <div class="ss-rage-desc">Lasts full combat · ends if no attack this turn · ${rageDef.uses} uses per long rest</div>
+      <div class="ss-rage-desc">Lasts full combat · ends if no attack this turn · ${rageUsesNow} use${rageUsesNow === 1 ? '' : 's'} per combat</div>
     </div>`);
   }
-  if (u.type === 'human' && (u.level ?? 1) >= 2) {
+  if (u.type === 'human' && (u.level ?? 1) >= 3) {
     bonusParts.push(`
     <div class="ss-rage">
       <div class="ss-rage-top">

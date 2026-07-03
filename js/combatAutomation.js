@@ -85,6 +85,7 @@ const CATEGORIES = [
           elf: [
             { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
             { value: 'mage_armor',    label: 'Mage Armor'    },
+            { value: 'magic_missile', label: 'Magic Missile' },
             { value: 'fire_bolt',     label: 'Fire Bolt'     },
             { value: 'quarterstaff',  label: 'Quarterstaff'  },
             { value: 'ready_action',  label: 'Ready Action'  },
@@ -93,6 +94,7 @@ const CATEGORIES = [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'healing_word', label: 'Healing Word' },
+            { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'warhammer',    label: 'Warhammer'    },
             { value: 'ready_action', label: 'Ready Action' },
           ],
@@ -105,19 +107,20 @@ const CATEGORIES = [
             { value: 'ready_action',      label: 'Ready Action'      },
           ],
           halfling: [
-            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
-            { value: 'hide',         label: 'Hide'         },
-            { value: 'sneak_attack', label: 'Sneak Attack' },
-            { value: 'shortbow',     label: 'Shortbow'     },
-            { value: 'shortsword',   label: 'Shortsword'   },
-            { value: 'ready_action', label: 'Ready Action' },
+            { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
+            { value: 'smoke_mirrors', label: 'Smoke & Mirrors' },
+            { value: 'hide',          label: 'Hide'         },
+            { value: 'sneak_attack',  label: 'Sneak Attack' },
+            { value: 'shortbow',      label: 'Shortbow'     },
+            { value: 'shortsword',    label: 'Shortsword'   },
+            { value: 'ready_action',  label: 'Ready Action' },
           ],
         },
         defaults: {
-          elf:      ['use_potion', 'mage_armor', 'fire_bolt', 'quarterstaff'],
-          dwarf:    ['use_potion', 'bless', 'healing_word', 'warhammer', 'ready_action'],
+          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff'],
+          dwarf:    ['use_potion', 'bless', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
           human:    ['use_potion', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
-          halfling: ['use_potion', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
+          halfling: ['use_potion', 'smoke_mirrors', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
         appliesTo: () => true,
       },
@@ -132,17 +135,19 @@ const CATEGORIES = [
         ],
         optionsFor: {
           elf: [
-            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
-            { value: 'mage_armor',   label: 'Mage Armor'   },
-            { value: 'dodge',        label: 'Dodge'        },
-            { value: 'ready_action', label: 'Ready Action' },
-            { value: 'end_turn',     label: 'End turn'     },
-            { value: 'dash',         label: 'Dash'         },
+            { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
+            { value: 'mage_armor',    label: 'Mage Armor'    },
+            { value: 'magic_missile', label: 'Magic Missile' },
+            { value: 'dodge',         label: 'Dodge'         },
+            { value: 'ready_action',  label: 'Ready Action'  },
+            { value: 'end_turn',      label: 'End turn'      },
+            { value: 'dash',          label: 'Dash'          },
           ],
           dwarf: [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'healing_word', label: 'Healing Word' },
+            { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'dodge',        label: 'Dodge'        },
             { value: 'ready_action', label: 'Ready Action' },
             { value: 'end_turn',     label: 'End turn'     },
@@ -157,19 +162,20 @@ const CATEGORIES = [
             { value: 'dash',             label: 'Dash'             },
           ],
           halfling: [
-            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
-            { value: 'hide',         label: 'Hide'         },
-            { value: 'dodge',        label: 'Dodge'        },
-            { value: 'ready_action', label: 'Ready Action' },
-            { value: 'end_turn',     label: 'End turn'     },
-            { value: 'dash',         label: 'Dash'         },
+            { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
+            { value: 'smoke_mirrors', label: 'Smoke & Mirrors' },
+            { value: 'hide',          label: 'Hide'         },
+            { value: 'dodge',         label: 'Dodge'        },
+            { value: 'ready_action',  label: 'Ready Action' },
+            { value: 'end_turn',      label: 'End turn'     },
+            { value: 'dash',          label: 'Dash'         },
           ],
         },
         defaults: {
-          elf:      ['use_potion', 'mage_armor', 'ready_action', 'dodge', 'end_turn'],
-          dwarf:    ['use_potion', 'bless', 'healing_word', 'ready_action', 'dodge', 'end_turn'],
+          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['use_potion', 'bless', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
           human:    ['use_potion', 'defensive_stance', 'ready_action', 'dodge', 'end_turn'],
-          halfling: ['use_potion', 'hide', 'ready_action', 'dodge', 'end_turn'],
+          halfling: ['use_potion', 'smoke_mirrors', 'hide', 'ready_action', 'dodge', 'end_turn'],
         },
         appliesTo: () => true,
       },
@@ -202,7 +208,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 7;
+const TENDENCIES_VERSION = 10;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

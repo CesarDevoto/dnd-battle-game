@@ -15,15 +15,25 @@ const LEVEL_UNLOCKS = {
   dwarf: {
     2: [
       { name: 'Bless',
-        imgSrc: 'assets/Spells/bless.jpg',
+        imgSrc: 'assets/spells and skills/bless.jpg',
         desc: 'Target all allies · +1d4 to attack rolls & saving throws · Concentration · costs 1 spell slot' },
       { name: 'Spell Slots ×2',
         icon: '◈',
         desc: '2 level-1 spell slots per combat · replenish on long rest' },
     ],
+    3: [
+      { name: 'Sacred Flame',
+        icon: '🔥',
+        desc: '60 ft · 1d8 radiant · DEX save DC 12 negates · cantrip, no spell slot cost' },
+    ],
   },
   human: {
     2: [
+      { name: 'Rage ×2 Uses',
+        icon: '⚔',
+        desc: 'Rage now usable twice per combat (up from once)' },
+    ],
+    3: [
       { name: 'Defensive Stance',
         icon: '🛡',
         desc: 'Bonus action · +3 AC for 3 rounds · 4-round cooldown' },
@@ -35,15 +45,25 @@ const LEVEL_UNLOCKS = {
         icon: '👁',
         desc: 'Bonus action · attempt to hide · Stealth check vs enemy Perception · 2-turn cooldown' },
     ],
+    3: [
+      { name: 'Smoke & Mirrors',
+        imgSrc: 'assets/spells and skills/smoke and mirrors.jpg',
+        desc: 'Action · once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · hide as though in cover · advantage on sneak attacks while inside' },
+    ],
   },
   elf: {
     2: [
       { name: 'Mage Armor',
-        imgSrc: 'assets/Spells/magearmor.jpg',
+        imgSrc: 'assets/spells and skills/magearmor.jpg',
         desc: 'Self · +3 AC until long rest · stacks with base AC · costs 1 spell slot' },
       { name: 'Spell Slots ×2',
         icon: '◈',
         desc: '2 level-1 spell slots per combat · replenish on long rest' },
+    ],
+    3: [
+      { name: 'Magic Missile',
+        imgSrc: 'assets/spells and skills/magicmissile.jpg',
+        desc: '120 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then costs 1 spell slot' },
     ],
   },
 };

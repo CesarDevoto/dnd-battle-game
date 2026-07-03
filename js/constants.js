@@ -868,7 +868,7 @@ export const UNIT_TYPES = {
     hp: 19, ac: 14, speed: 30, initiative: 0,
     hitDie: 12,
     profBonus: 2,
-    rage: { uses: 3, dmgBonus: 2 },
+    rage: { uses: 1, dmgBonus: 2 },
     unarmoredDefense: true,
     armorProficiency: { armor: ['Light', 'Medium'], shields: true },
     weaponProficiency: { simple: true, martial: true, weapons: [] },
@@ -998,6 +998,11 @@ export const COMBAT = {
   defaultInitiative:  2,
   defaultDamage:     { dice: 1, sides: 6, bonus: 0 },
 };
+
+// Gobo's Rage uses per combat — 1 at level 1, 2 from level 2 onward.
+export function rageUsesForLevel(level) {
+  return (level ?? 1) >= 2 ? 2 : 1;
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  UI / GAMEPLAY SETTINGS

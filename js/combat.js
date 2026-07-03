@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
-         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE } from './constants.js';
+         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE, rageUsesForLevel } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
+import { playSacredFlameEffect }   from './sacredflame.js';
+import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
@@ -782,6 +784,14 @@ function animatePath(unit, path, onComplete) {
 
 // ── Move range ────────────────────────────────────────────────────────────────
 
+// Smoke & Mirrors (Milo, lvl 3) — 10 ft radius smoke bomb, heavily obscured
+// for 2 rounds after the casting round. Tick counter starts at 3: the cast
+// round itself doesn't decrement, then 2 more full round-advances do, so the
+// cloud covers the cast turn plus his next two turns before dissipating.
+const SMOKE_RADIUS_FT  = 10;
+const SMOKE_ROUNDS_LOG = 2;   // for player-facing text only
+const SMOKE_TICKS      = 3;   // internal round-advance countdown (see comment above)
+
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
 function _bfsReachable(ux, uz, maxDist, excludeUnit) {
@@ -824,6 +834,17 @@ function showMoveRange(u, overrideFt) {
 
   validTiles.clear();
   for (const k of _bfsReachable(ux, uz, maxDist, u)) validTiles.add(k);
+
+  // Smoke & Mirrors: Milo won't leave the cloud he threw down until it dissipates
+  if (u.smokeActive && u.smokeCenter) {
+    const smokeRadiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+    const { x: scx, z: scz } = u.smokeCenter;
+    for (const k of [...validTiles]) {
+      const [tx, tz] = k.split(',').map(Number);
+      const dx = tx - scx, dz = tz - scz;
+      if (dx * dx + dz * dz > smokeRadiusWU * smokeRadiusWU) validTiles.delete(k);
+    }
+  }
 
   if (validTiles.size > 0) {
     moveRangeRing.geometry.dispose();
@@ -989,6 +1010,63 @@ function castHeal(caster, target, spellKey) {
 
 }
 
+// ── Sacred Flame (Cleric lvl 3 cantrip — no spell slot, targets an enemy) ────
+function showSacredFlameTargets(caster) {
+  hideAttackTargets();
+  if (turnAttacked) return;
+  const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  let ri = 0;
+  units.filter(e => e.team !== caster.team && e.hp > 0).forEach(enemy => {
+    if (ri >= MAX_ATK_RINGS) return;
+    const dx = enemy.grp.position.x - ux, dz = enemy.grp.position.z - uz;
+    if (Math.sqrt(dx * dx + dz * dz) > rangeWU) return;
+    if (!hasLineOfSight(ux, uz, enemy.grp.position.x, enemy.grp.position.z)) return;
+    const ring = atkRings[ri++];
+    ring.material.color.set(0xffcc33);
+    ring.position.set(enemy.grp.position.x, enemy.grp.position.y + 0.07, enemy.grp.position.z);
+    ring.visible = true;
+    atkTargets.set(enemy, 'sacred_flame');
+  });
+}
+
+function castSacredFlame(caster, target, onDone) {
+  const spell = SPELLS.sacred_flame;
+  faceTarget(caster, target);
+  playUnitAttackAnim(caster, 'spell');
+  hideAttackTargets();
+  hideSpellRangeRing();
+  heroMode = null;
+  turnAttacked = true;   // cantrip — no spell slot cost
+
+  const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
+  if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
+
+  const dexMod     = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
+  const saveResult = rollSave(dexMod, spell.saveDC, target.dodging ? 'advantage' : 'normal');
+  const dmgRoll    = roll({ sides: spell.sides, count: spell.dice });
+  const dmg        = saveResult.isSave ? 0 : dmgRoll.total;
+
+  playSacredFlameEffect(caster, target, () => {
+    target.aggro = true;
+    buildTurnList();
+    showRoll(`${unitLabel(target)} · DEX Save (Sacred Flame)`, saveResult, { autoDismiss: false });
+    if (dmg > 0) {
+      target.hp = Math.max(0, target.hp - dmg);
+      target.barShowUntil = Date.now() + 5000;
+      showFloatingDamage(target, `-${dmg}`, '#ffcc44');
+      addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: FAILS (${saveBreakdown(saveResult, 'dex')}) — ${dmg} radiant dmg`, 'spell');
+      if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target), 400);
+    } else {
+      showFloatingDamage(target, 'SAVE', '#88ccff');
+      addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: SAVES (${saveBreakdown(saveResult, 'dex')}) — no damage`, 'spell');
+    }
+    onDone?.();
+  });
+
+  updateCombatStatus();
+}
+
 function castBless(caster) {
   if ((caster.spellSlots ?? 0) <= 0) return;
   playUnitAttackAnim(caster, 'spell');
@@ -1066,6 +1144,27 @@ function handleSpellBtnClick(spellKey) {
 
   if (spellKey === 'bless') {
     castBless(u);
+    return;
+  }
+
+  if (spellKey === 'sacred_flame') {
+    if (turnAttacked) return;
+    if (heroMode === 'dwarfatk_sacred_flame') {
+      heroMode = null;
+      hideCastConfirm();
+      hideAttackTargets();
+      hideSpellRangeRing();
+      const cancelRemaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+      if (cancelRemaining > 0) { heroMode = 'move'; showMoveRange(u); }
+      updateCombatStatus();
+      return;
+    }
+    heroMode = 'dwarfatk_sacred_flame';
+    hideMoveRange();
+    hideHealTargets();
+    showSacredFlameTargets(u);
+    showSpellRangeRing(u, SPELLS.sacred_flame.rangeFt);
+    updateCombatStatus();
     return;
   }
 
@@ -1176,7 +1275,9 @@ function activateHide() {
   if ((u.hideCooldown ?? 0) > 0) return;
 
   const ux = u.grp.position.x, uz = u.grp.position.z;
-  const hasEnemyLOS = units.some(e =>
+  // Smoke & Mirrors: while inside his own smoke cloud, Milo has cover — he
+  // can attempt to hide even if an enemy would otherwise have line of sight.
+  const hasEnemyLOS = !u.smokeActive && units.some(e =>
     e.team === 'red' && e.hp > 0 && e.aggro &&
     hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz)
   );
@@ -1201,6 +1302,32 @@ function activateHide() {
     addLog(`${unitLabel(u)}: Hide failed! (Stealth ${stealth} vs DC 10)`, 'dmg');
     showFloatingDamage(u, `HIDE FAIL (${stealth})`, '#ff6644');
   }
+  updateCombatStatus();
+}
+
+// ── Smoke & Mirrors (Rogue lvl 3) ─────────────────────────────────────────────
+// Action, once per combat. Throws a smoke bomb in a 10 ft radius around Milo;
+// the area is heavily obscured for 2 rounds. While inside: he can Hide as
+// though he has cover (see activateHide above) and gets advantage on sneak
+// attacks he'd otherwise qualify for (see _executeAttack below). He won't
+// move out of the cloud until it dissipates (see showMoveRange above).
+function activateSmokeMirrors() {
+  if (isAnimating || turnAttacked) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'halfling' || u.smokeUsed) return;
+
+  u.smokeUsed       = true;
+  u.smokeActive     = true;
+  u.smokeCenter     = { x: u.grp.position.x, z: u.grp.position.z };
+  u.smokeRoundsLeft = SMOKE_TICKS;
+  turnAttacked      = true;
+
+  if (u._smokeVFX) u._smokeVFX.dispose();
+  const radiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  u._smokeVFX = spawnSmokeCloud(u.grp.position.x, 0, u.grp.position.z, radiusWU);
+
+  addLog(`${unitLabel(u)} throws a smoke bomb! The area is heavily obscured for ${SMOKE_ROUNDS_LOG} rounds.`, 'spell');
+  showFloatingDamage(u, 'SMOKE & MIRRORS', '#9a9ab0');
   updateCombatStatus();
 }
 
@@ -1308,15 +1435,16 @@ function showMagicMissileTargets(caster) {
   });
 }
 
-function castMagicMissile(caster, target) {
-  const spell = ELF_SPELLS.magic_missile;
-  if ((caster.spellSlots ?? 0) <= 0) return;
+function castMagicMissile(caster, target, onDone) {
+  const spell   = ELF_SPELLS.magic_missile;
+  const freeUse = !caster.mmFreeUsed;
+  if (!freeUse && (caster.spellSlots ?? 0) <= 0) return;
   faceTarget(caster, target);
   playUnitAttackAnim(caster, 'ranged');
   hideAttackTargets();
   hideSpellRangeRing();
   heroMode = null;
-  caster.spellSlots--;
+  if (freeUse) caster.mmFreeUsed = true; else caster.spellSlots--;
   turnAttacked = true;
 
   const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
@@ -1335,8 +1463,9 @@ function castMagicMissile(caster, target) {
     target.barShowUntil = Date.now() + 5000;
     const dartStr = darts.map(r => r.total).join('+');
     showFloatingDamage(target, `-${totalDmg}`, '#aa66ff');
-    addLog(`${unitLabel(caster)} casts Magic Missile → ${unitLabel(target)}: ${dartStr} = ${totalDmg} force dmg`, 'spell');
+    addLog(`${unitLabel(caster)} casts Magic Missile${freeUse ? ' (free cast)' : ''} → ${unitLabel(target)}: ${dartStr} = ${totalDmg} force dmg`, 'spell');
     if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target), 400);
+    onDone?.();
   });
 
   updateCombatStatus();
@@ -1441,7 +1570,9 @@ function handleElfSpellBtnClick(spellKey) {
   if (isAnimating) return;
   const u = turnOrder[turnIndex];
   if (!u || u.type !== 'elf') return;
-  if ((u.spellSlots ?? 0) <= 0 || turnAttacked) return;
+  if (turnAttacked) return;
+  const hasFreeMM = spellKey === 'magic_missile' && !u.mmFreeUsed;
+  if (!hasFreeMM && (u.spellSlots ?? 0) <= 0) return;
 
   if (spellKey === 'magic_missile') {
     if (heroMode === 'elfatk_magic_missile') {
@@ -1880,6 +2011,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // Long-range shot: beyond normal range but within longRange → disadvantage
   let atkMode = 'normal';
   let atkDisadvReason = '';
+  // Smoke & Mirrors: Milo gets advantage on attacks that already qualify for
+  // Sneak Attack (ally adjacent to target) while he's inside his own smoke cloud.
+  if (attacker.type === 'halfling' && attacker.smokeActive && _allyAdjacentToTarget(attacker, target)) {
+    atkMode = 'advantage';
+  }
   if (atk.type === 'ranged' && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
@@ -2344,6 +2480,27 @@ renderer.domElement.addEventListener('click', e => {
         return;
       }
 
+      if (heroMode === 'dwarfatk_sacred_flame' && !turnAttacked) {
+        const meshHit = rayHitUnit(atkTargets);
+        if (meshHit) {
+          castSacredFlame(u, meshHit);
+          return;
+        }
+        if (pt) for (const [target] of atkTargets) {
+          const dx = target.grp.position.x - pt.x;
+          const dz = target.grp.position.z - pt.z;
+          if (dx * dx + dz * dz < INTERACTION.pickRadiusSq * 2.5) {
+            castSacredFlame(u, target);
+            return;
+          }
+        }
+        hideCastConfirm();
+        heroMode = null;
+        hideAttackTargets();
+        updateCombatStatus();
+        return;
+      }
+
       if (heroMode?.startsWith('spell_')) {
         const spellKey  = heroMode.slice(6);
         const spellName = SPELLS[spellKey]?.name ?? spellKey;
@@ -2552,15 +2709,22 @@ export function rollInitiative() {
   units.forEach(u => {
     const rageDef = UNIT_TYPES[u.type]?.rage;
     if (rageDef) {
-      u.raging = false;
-      if (u.rageUses === undefined) {
-        u.rageUses    = rageDef.uses;
-        u.rageUsesMax = rageDef.uses;
-      }
+      u.raging      = false;
+      u.rageUsesMax = rageUsesForLevel(u.level);
+      u.rageUses    = u.rageUsesMax;
     }
     // Level 2 ability state reset each battle
     if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
-    if (u.type === 'halfling') { u.hideCooldown = 0; }
+    if (u.type === 'halfling') {
+      u.hideCooldown = 0;
+      // Smoke & Mirrors: once per combat; clear any cloud left over from a previous fight
+      u.smokeUsed  = false;
+      u.smokeActive = false;
+      u.smokeCenter = null;
+      if (u._smokeVFX) { u._smokeVFX.dispose(); u._smokeVFX = null; }
+    }
+    // Magic Missile: first cast each combat is free, then costs a spell slot
+    if (u.type === 'elf')      { u.mmFreeUsed = false; }
     u.dodging = false;
     // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
@@ -2964,7 +3128,7 @@ function _rebuildHotbar(u) {
       if (!curU || !UNIT_TYPES[curU.type]?.rage) return false;
       return (curU.rageUses ?? 0) > 0 && !curU.raging && !turnBonusActioned;
     }, 'bonus');
-    if (u.level >= 2) {
+    if (u.level >= 3) {
       bindHotkey('KeyE', false, '<span class="hb-stance">DEF<br>STANCE</span>', () => {
         activateDefensiveStance();
       }, () => {
@@ -3002,8 +3166,17 @@ function _rebuildHotbar(u) {
         return (curU.hideCooldown ?? 0) === 0;
       }, 'bonus');
     }
+    if (u.level >= 3) {
+      bindHotkey('KeyT', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/smoke and mirrors.jpg">', () => {
+        activateSmokeMirrors();
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'halfling' || turnAttacked) return false;
+        return !curU.smokeUsed;
+      }, 'action');
+    }
   } else if (u.type === 'dwarf') {
-    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Healingword.jpg">', () => {
+    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/Healingword.jpg">', () => {
       triggerSpellBarAction('healing_word');
     }, () => {
       const curU = turnOrder[turnIndex];
@@ -3017,12 +3190,28 @@ function _rebuildHotbar(u) {
       });
     }, 'action');
     if (u.level >= 2) {
-      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/Spells/bless.jpg">', () => {
+      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/bless.jpg">', () => {
         handleSpellBtnClick('bless');
       }, () => {
         const curU = turnOrder[turnIndex];
         if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
         return units.some(u => u.team === 'blue' && u.hp > 0);
+      }, 'action');
+    }
+    if (u.level >= 3) {
+      bindHotkey('KeyT', false, '<span class="hb-hide">SACRED<br>FLAME</span>', () => {
+        handleSpellBtnClick('sacred_flame');
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+        const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+        return units.some(e => {
+          if (e.team === curU.team || e.hp <= 0) return false;
+          const dx = e.grp.position.x - curU.grp.position.x;
+          const dz = e.grp.position.z - curU.grp.position.z;
+          return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+                 hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
+        });
       }, 'action');
     }
   } else if (u.type === 'elf') {
@@ -3031,7 +3220,7 @@ function _rebuildHotbar(u) {
     // status). It reuses performAttack()'s to-hit/damage/VFX machinery via a
     // synthetic atk object built from ELF_SPELLS.fire_bolt, same shape a real
     // weapon attack would have, so it's unlimited-use and never costs a spell slot.
-    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/Spells/Firebolt.jpg">', () => {
+    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/Firebolt.jpg">', () => {
       if (!selectedTarget || turnAttacked || isAnimating) return;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
@@ -3056,12 +3245,29 @@ function _rebuildHotbar(u) {
                             selectedTarget.grp.position.x, selectedTarget.grp.position.z);
     }, 'action');
     if (u.level >= 2) {
-      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/Spells/magearmor.jpg">', () => {
+      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/magearmor.jpg">', () => {
         activateMageArmor();
       }, () => {
         const curU = turnOrder[turnIndex];
         if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
         return !curU.mageArmored;
+      }, 'action');
+    }
+    if (u.level >= 3) {
+      bindHotkey('KeyT', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/magicmissile.jpg">', () => {
+        handleElfSpellBtnClick('magic_missile');
+      }, () => {
+        const curU = turnOrder[turnIndex];
+        if (!curU || curU.type !== 'elf' || turnAttacked) return false;
+        if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
+        const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+        return units.some(e => {
+          if (e.team === curU.team || e.hp <= 0) return false;
+          const dx = e.grp.position.x - curU.grp.position.x;
+          const dz = e.grp.position.z - curU.grp.position.z;
+          return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+                 hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
+        });
       }, 'action');
     }
   }
@@ -3343,6 +3549,15 @@ function doEndTurn() {
           addLog(`${unitLabel(u)}'s Defensive Stance fades`, 'move');
         }
       }
+      if (u.smokeActive) {
+        u.smokeRoundsLeft--;
+        if (u.smokeRoundsLeft <= 0) {
+          u.smokeActive = false;
+          u.smokeCenter = null;
+          if (u._smokeVFX) { u._smokeVFX.dispose(); u._smokeVFX = null; }
+          addLog(`${unitLabel(u)}'s smoke cloud dissipates`, 'move');
+        }
+      }
     });
     _nudgeRoamers();
     // At round boundary: intercept if player queued a mode switch
@@ -3615,6 +3830,20 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         return;
       }
 
+      // ── Sacred Flame (dwarf, level 3 cantrip, no spell slot) ──────────
+      if (actionVal === 'sacred_flame') {
+        if (u.type !== 'dwarf')          { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'sacred_flame')) { onSkip(); return; }
+        if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+        const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+        const edx = enemyTarget.grp.position.x - u.grp.position.x;
+        const edz = enemyTarget.grp.position.z - u.grp.position.z;
+        if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
+        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        castSacredFlame(u, enemyTarget, onDone);
+        return;
+      }
+
       // ── Mage Armor (elf, main action, uses spell slot, persists until long rest) ─
       if (actionVal === 'mage_armor') {
         if (u.type !== 'elf')            { onSkip(); return; }
@@ -3626,14 +3855,39 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         return;
       }
 
+      // ── Magic Missile (elf, level 3, free once per combat then uses a spell slot) ─
+      if (actionVal === 'magic_missile') {
+        if (u.type !== 'elf')            { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'magic_missile')) { onSkip(); return; }
+        if (u.mmFreeUsed && (u.spellSlots ?? 0) <= 0) { onSkip(); return; }
+        if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+        const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+        const edx = enemyTarget.grp.position.x - u.grp.position.x;
+        const edz = enemyTarget.grp.position.z - u.grp.position.z;
+        if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
+        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        castMagicMissile(u, enemyTarget, onDone);
+        return;
+      }
+
+      // ── Smoke & Mirrors (halfling, level 3, once per combat) ──────────
+      if (actionVal === 'smoke_mirrors') {
+        if (u.type !== 'halfling')       { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'smoke_mirrors')) { onSkip(); return; }
+        if (u.smokeUsed)                 { onSkip(); return; }
+        activateSmokeMirrors();
+        setTimeout(onDone, 600);
+        return;
+      }
+
       // ── Rage (bonus action — hero can still attack after) ────────────
       if (actionVal === 'rage') {
         const rageDef = UNIT_TYPES[u.type]?.rage;
-        if (!rageDef || u.raging || (u.rageUsesLeft ?? rageDef.uses) <= 0) { onSkip(); return; }
-        u.raging       = true;
-        u.rageUsesLeft = (u.rageUsesLeft ?? rageDef.uses) - 1;
+        if (!rageDef || u.raging || (u.rageUses ?? 0) <= 0) { onSkip(); return; }
+        u.raging          = true;
+        u.rageUses--;
         turnBonusActioned = true;
-        addLog(`${unitLabel(u)} enters a RAGE! (${u.rageUsesLeft} uses left)`, 'spell');
+        addLog(`${unitLabel(u)} enters a RAGE! (${u.rageUses} uses left)`, 'spell');
         updateCombatStatus();
         onSkip(); // bonus action; continue to next action in list
         return;
@@ -3659,7 +3913,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         if (u.type !== 'halfling' || turnBonusActioned || u.stealthed || (u.hideCooldown ?? 0) > 0) { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'hide')) { onSkip(); return; }
         const ux = u.grp.position.x, uz = u.grp.position.z;
-        const inEnemyLOS = units.some(e => {
+        // Smoke & Mirrors: cover from his own cloud bypasses the LOS block
+        const inEnemyLOS = !u.smokeActive && units.some(e => {
           if (e.team !== 'red' || e.hp <= 0 || !e.aggro) return false;
           return hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz);
         });
@@ -3773,7 +4028,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         if (i >= list.length) { cb(); return; }
         const action = list[i];
         if (action === 'healing_word' || action === 'ready_action' || action === 'use_potion' ||
-            action === 'bless' || action === 'mage_armor') {
+            action === 'bless' || action === 'mage_armor' || action === 'magic_missile' ||
+            action === 'sacred_flame' || action === 'smoke_mirrors') {
           _tryHeroAction(action, cb, () => tryIdx(i + 1));
           return;
         }

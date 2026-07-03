@@ -6,12 +6,16 @@
 export const SPELLS = {
   // ── Cantrips (level 0) ──────────────────────────────────────────────────────
   sacred_flame: {
-    key:         'sacred_flame',
-    name:        'Sacred Flame',
-    level:       0,
-    actionType:  'action',
-    displayOnly: true,   // not yet implemented in combat
-    desc:        '60 ft · 1d8 radiant · DEX save DC 13',
+    key:        'sacred_flame',
+    name:       'Sacred Flame',
+    level:      0,
+    actionType: 'action',
+    rangeFt:    60,
+    dice:       1,
+    sides:      8,
+    saveType:   'dex',
+    saveDC:     12,
+    desc:       '60 ft · 1d8 radiant · DEX save DC 12 negates',
   },
   healing_word: {
     key:        'healing_word',
@@ -21,7 +25,7 @@ export const SPELLS = {
     rangeFt:    60,
     healDice:   1,
     healSides:  8,
-    imgSrc:     'assets/Spells/Healingword.jpg',
+    imgSrc:     'assets/spells and skills/Healingword.jpg',
     desc:       '60 ft · 1d8+WIS hp restored',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
@@ -42,7 +46,7 @@ export const SPELLS = {
     level:         1,
     actionType:    'action',
     concentration: true,
-    imgSrc:        'assets/Spells/bless.jpg',
+    imgSrc:        'assets/spells and skills/bless.jpg',
     desc:          'Party · all allies · +1d4 to atk & saves · conc',
   },
 };
@@ -83,7 +87,7 @@ export const ELF_SPELLS = {
     name:       'Fire Bolt',
     level:      0,
     actionType: 'action',
-    imgSrc:     'assets/Spells/Firebolt.jpg',
+    imgSrc:     'assets/spells and skills/Firebolt.jpg',
     rangeFt:    120,
     dice:       1,
     sides:      10,
@@ -96,7 +100,7 @@ export const ELF_SPELLS = {
     name:       'Mage Armor',
     level:      1,
     actionType: 'action',
-    imgSrc:     'assets/Spells/magearmor.jpg',
+    imgSrc:     'assets/spells and skills/magearmor.jpg',
     desc:       'Self · +3 AC until long rest · stacks with base AC',
   },
   magic_missile: {
@@ -104,12 +108,13 @@ export const ELF_SPELLS = {
     name:      'Magic Missile',
     level:     1,
     actionType:'action',
+    imgSrc:    'assets/spells and skills/magicmissile.jpg',
     rangeFt:   120,
-    darts:     3,
+    darts:     4,
     dice:      1,
     sides:     4,
     flatBonus: 1,
-    desc:      '120 ft · 3 darts · 1d4+1 each · auto-hit',
+    desc:      '120 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then 1 spell slot',
   },
   burning_hands: {
     key:       'burning_hands',
@@ -135,10 +140,10 @@ export const STARTING_SPELLS = {
 // Values are action/bonus-action keys used by both the tendencies system
 // and _tryHeroAction in combat.js. Add new entries here as heroes gain abilities.
 export const LEVEL_SPELLS = {
-  dwarf:    { 2: ['bless'] },
-  elf:      { 2: ['mage_armor'] },
-  human:    { 2: ['defensive_stance'] },
-  halfling: { 2: ['hide'] },
+  dwarf:    { 2: ['bless'], 3: ['sacred_flame'] },
+  elf:      { 2: ['mage_armor'], 3: ['magic_missile'] },
+  human:    { 3: ['defensive_stance'] },
+  halfling: { 2: ['hide'], 3: ['smoke_mirrors'] },
 };
 
 // Single source of truth for "can this hero use this ability yet" — used by
