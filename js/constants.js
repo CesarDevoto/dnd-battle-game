@@ -872,7 +872,7 @@ export const UNIT_TYPES = {
     unarmoredDefense: true,
     armorProficiency: { armor: ['Light', 'Medium'], shields: true },
     weaponProficiency: { simple: true, martial: true, weapons: [] },
-    startingEquipment: { 'main-hand': 'greataxe', legs: 'loincloth1', 'bag-1': 'bag1' },
+    startingEquipment: { 'main-hand': 'greataxe', legs: 'loincloth1', feet: 'leatherboots2', 'bag-1': 'bag1' },
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 12 },
     attacks: [
       { name: 'Greataxe', type: 'melee',  range: 5,  dice: 1, sides: 12, statMod: 'str' },
@@ -894,7 +894,7 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', 'main-hand': 'sword4', 'off-hand': 'longbow4', 'bag-1': 'bag1' },
+    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'sword4', 'off-hand': 'longbow4', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

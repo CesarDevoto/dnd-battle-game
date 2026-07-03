@@ -2281,11 +2281,10 @@ export const ITEMS = {
   },
   leatherboots2: {
     id:     'leatherboots2',
-    name:   'Leather Boots II',
+    name:   'Simple Leather Boots',
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots2.png',
-    ac:     1,
   },
   leatherboots3: {
     id:     'leatherboots3',

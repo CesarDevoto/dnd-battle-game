@@ -3515,13 +3515,26 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
     // onDone() = action fired and turn is over
     // onSkip() = action not available, try next in list
     function _tryHeroAction(actionVal, onDone, onSkip) {
-      if (turnAttacked && actionVal !== 'rage') { onSkip(); return; }
+      // Rage and Use Healing Potion are bonus actions — having already used
+      // the main action this turn doesn't block them (each still checks
+      // turnBonusActioned itself below).
+      if (turnAttacked && actionVal !== 'rage' && actionVal !== 'use_potion') { onSkip(); return; }
 
       // SPELL ANIMATION RULE: every spell handler below must call its visual
       // effect function (e.g. playHealingWordEffect, playFireboltEffect) and
       // put onDone() inside the impact callback — never call onDone() before
       // the animation fires.  When adding a new spell to combatAutomation.js,
       // add a matching handler here that uses the spell's playXxxEffect import.
+
+      // ── Use Healing Potion (bonus action, any hero, <33% HP) ──────────
+      if (actionVal === 'use_potion') {
+        if (turnBonusActioned) { onSkip(); return; }
+        if ((u.hp / u.maxHp) >= 0.33) { onSkip(); return; }
+        if (!_heroPotion(u)) { onSkip(); return; }
+        _useHealingPotion(u);
+        onDone();
+        return;
+      }
 
       // ── Healing Word ─────────────────────────────────────────────────
       if (actionVal === 'healing_word') {
@@ -3715,7 +3728,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       function tryIdx(i) {
         if (i >= list.length) { cb(); return; }
         const action = list[i];
-        if (action === 'healing_word' || action === 'ready_action') {
+        if (action === 'healing_word' || action === 'ready_action' || action === 'use_potion' ||
+            action === 'bless' || action === 'mage_armor') {
           _tryHeroAction(action, cb, () => tryIdx(i + 1));
           return;
         }

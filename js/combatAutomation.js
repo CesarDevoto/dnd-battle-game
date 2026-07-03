@@ -78,21 +78,26 @@ const CATEGORIES = [
         // Each value maps to a named attack (lowercased, spaces→underscores) or
         // a special action key. Add new abilities here as heroes level up.
         id: 'action_priority_in_range', label: 'Enemy in range', type: 'priority',
-        options: [],
+        options: [
+          { value: 'use_potion', label: 'Use Healing Potion (<33% HP)' },
+        ],
         optionsFor: {
           elf: [
+            { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
             { value: 'mage_armor',    label: 'Mage Armor'    },
             { value: 'fire_bolt',     label: 'Fire Bolt'     },
             { value: 'quarterstaff',  label: 'Quarterstaff'  },
             { value: 'ready_action',  label: 'Ready Action'  },
           ],
           dwarf: [
+            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'warhammer',    label: 'Warhammer'    },
             { value: 'ready_action', label: 'Ready Action' },
           ],
           human: [
+            { value: 'use_potion',        label: 'Use Healing Potion (<33% HP)' },
             { value: 'rage',              label: 'Rage'              },
             { value: 'defensive_stance',  label: 'Defensive Stance'  },
             { value: 'greataxe',          label: 'Greataxe'          },
@@ -100,6 +105,7 @@ const CATEGORIES = [
             { value: 'ready_action',      label: 'Ready Action'      },
           ],
           halfling: [
+            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'hide',         label: 'Hide'         },
             { value: 'sneak_attack', label: 'Sneak Attack' },
             { value: 'shortbow',     label: 'Shortbow'     },
@@ -108,16 +114,17 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['mage_armor', 'fire_bolt', 'quarterstaff'],
-          dwarf:    ['bless', 'healing_word', 'warhammer', 'ready_action'],
-          human:    ['rage', 'defensive_stance', 'greataxe', 'handaxe'],
-          halfling: ['hide', 'sneak_attack', 'shortbow', 'shortsword'],
+          elf:      ['use_potion', 'mage_armor', 'fire_bolt', 'quarterstaff'],
+          dwarf:    ['use_potion', 'bless', 'healing_word', 'warhammer', 'ready_action'],
+          human:    ['use_potion', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
+          halfling: ['use_potion', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
         appliesTo: () => true,
       },
       {
         id: 'action_priority_no_range', label: 'No enemy in range', type: 'priority',
         options: [
+          { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
           { value: 'dodge',        label: 'Dodge'        },
           { value: 'ready_action', label: 'Ready Action' },
           { value: 'end_turn',     label: 'End turn'     },
@@ -125,6 +132,7 @@ const CATEGORIES = [
         ],
         optionsFor: {
           elf: [
+            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'mage_armor',   label: 'Mage Armor'   },
             { value: 'dodge',        label: 'Dodge'        },
             { value: 'ready_action', label: 'Ready Action' },
@@ -132,6 +140,7 @@ const CATEGORIES = [
             { value: 'dash',         label: 'Dash'         },
           ],
           dwarf: [
+            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'dodge',        label: 'Dodge'        },
@@ -140,6 +149,7 @@ const CATEGORIES = [
             { value: 'dash',         label: 'Dash'         },
           ],
           human: [
+            { value: 'use_potion',       label: 'Use Healing Potion (<33% HP)' },
             { value: 'defensive_stance', label: 'Defensive Stance' },
             { value: 'dodge',            label: 'Dodge'            },
             { value: 'ready_action',     label: 'Ready Action'     },
@@ -147,6 +157,7 @@ const CATEGORIES = [
             { value: 'dash',             label: 'Dash'             },
           ],
           halfling: [
+            { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'hide',         label: 'Hide'         },
             { value: 'dodge',        label: 'Dodge'        },
             { value: 'ready_action', label: 'Ready Action' },
@@ -155,10 +166,10 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['mage_armor', 'ready_action', 'dodge', 'end_turn'],
-          dwarf:    ['bless', 'healing_word', 'ready_action', 'dodge', 'end_turn'],
-          human:    ['defensive_stance', 'ready_action', 'dodge', 'end_turn'],
-          halfling: ['hide', 'ready_action', 'dodge', 'end_turn'],
+          elf:      ['use_potion', 'mage_armor', 'ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['use_potion', 'bless', 'healing_word', 'ready_action', 'dodge', 'end_turn'],
+          human:    ['use_potion', 'defensive_stance', 'ready_action', 'dodge', 'end_turn'],
+          halfling: ['use_potion', 'hide', 'ready_action', 'dodge', 'end_turn'],
         },
         appliesTo: () => true,
       },
@@ -191,7 +202,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 6;
+const TENDENCIES_VERSION = 7;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
