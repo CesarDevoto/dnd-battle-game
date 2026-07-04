@@ -23,32 +23,32 @@ const LEVEL_UNLOCKS = {
     ],
     3: [
       { name: 'Sacred Flame',
-        icon: '🔥',
+        imgSrc: 'assets/spells and skills/sacred flame.jpg',
         desc: '60 ft · 1d8 radiant · DEX save DC 12 negates · cantrip, no spell slot cost' },
     ],
   },
   human: {
     2: [
       { name: 'Rage ×2 Uses',
-        icon: '⚔',
+        imgSrc: 'assets/spells and skills/rage.jpg',
         desc: 'Rage now usable twice per combat (up from once)' },
     ],
     3: [
       { name: 'Defensive Stance',
-        icon: '🛡',
+        imgSrc: 'assets/spells and skills/defensive stance.jpg',
         desc: 'Bonus action · +3 AC for 3 rounds · 4-round cooldown' },
     ],
   },
   halfling: {
     2: [
       { name: 'Cunning Action: Hide',
-        icon: '👁',
+        imgSrc: 'assets/spells and skills/hide.jpg',
         desc: 'Bonus action · attempt to hide · Stealth check vs enemy Perception · 2-turn cooldown' },
     ],
     3: [
       { name: 'Smoke & Mirrors',
         imgSrc: 'assets/spells and skills/smoke and mirrors.jpg',
-        desc: 'Action · once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · hide as though in cover · advantage on sneak attacks while inside' },
+        desc: 'Action · once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside' },
     ],
   },
   elf: {

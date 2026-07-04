@@ -550,7 +550,6 @@ function buildActionsPanelHTML(u) {
           <div class="ss-spell-text">
             <div class="ss-spell-top">
               <span class="ss-spell-name">Sneak Attack</span>
-              <span class="ss-spell-type action">ACTION</span>
             </div>
             <div class="ss-spell-desc">+${sneakDef.dice}d${sneakDef.sides} damage on a hit when an ally is adjacent to the target · once per turn</div>
           </div>
@@ -558,8 +557,22 @@ function buildActionsPanelHTML(u) {
         </div>
       </div>
     </div>` : '';
-  const actionsContent = (attacksHTML || sneakHTML)
-    ? `<div class="ss-attacks">${attacksHTML}</div>${sneakHTML}${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
+  const smokeMirrorsHTML = (u.type === 'halfling' && (u.level ?? 1) >= 3) ? `
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">Smoke &amp; Mirrors</span>
+            </div>
+            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside</div>
+          </div>
+          <img src="${ABILITY_META.smoke_mirrors.imgSrc}" class="ss-spell-inline-img" alt="Smoke & Mirrors">
+        </div>
+      </div>
+    </div>` : '';
+  const actionsContent = (attacksHTML || sneakHTML || smokeMirrorsHTML)
+    ? `<div class="ss-attacks">${attacksHTML}</div>${sneakHTML}${smokeMirrorsHTML}${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
     : `<div class="ss-spell-empty">— none —</div>`;
 
   // ── Bonus Actions ──────────────────────────────────────────────────────────
@@ -574,7 +587,6 @@ function buildActionsPanelHTML(u) {
           <div class="ss-spell-text">
             <div class="ss-spell-top">
               <span class="ss-spell-name">Rage</span>
-              <span class="ss-spell-type bonus">BONUS ACT</span>
             </div>
             <div class="ss-spell-desc">+${rageDef.dmgBonus} melee damage · ½ physical damage resistance · lasts full combat, ends if no attack this turn · ×${rageUsesNow} per combat</div>
           </div>
@@ -586,11 +598,16 @@ function buildActionsPanelHTML(u) {
   if (u.type === 'human' && (u.level ?? 1) >= 3) {
     bonusParts.push(`
     <div class="ss-rage">
-      <div class="ss-rage-top">
-        <span class="ss-rage-name">🛡 Defensive Stance</span>
-        <span class="ss-rage-uses">4-round cooldown</span>
+      <div class="ss-spell-inner">
+        <div class="ss-spell-text">
+          <div class="ss-rage-top">
+            <span class="ss-rage-name">Defensive Stance</span>
+          </div>
+          <div class="ss-rage-desc">+3 AC for 3 rounds</div>
+          <div class="ss-rage-desc">4-round cooldown</div>
+        </div>
+        <img src="${ABILITY_META.defensive_stance.imgSrc}" class="ss-spell-inline-img" alt="Defensive Stance">
       </div>
-      <div class="ss-rage-desc">+3 AC for 3 rounds · activate as a bonus action</div>
     </div>`);
   }
   if (u.type === 'halfling' && (u.level ?? 1) >= 2) {
@@ -601,7 +618,6 @@ function buildActionsPanelHTML(u) {
           <div class="ss-spell-text">
             <div class="ss-spell-top">
               <span class="ss-spell-name">Hide</span>
-              <span class="ss-spell-type bonus">BONUS ACT</span>
             </div>
             <div class="ss-spell-desc">Requires no enemy has line of sight · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown</div>
           </div>

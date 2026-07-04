@@ -2893,6 +2893,9 @@ function _openReadyModal(hero) {
       buildTurnList();
       updateCombatStatus();
       _rebuildHotbar(hero);
+      // Arming a ready action ends the hero's main action but not their turn —
+      // they still have to click End Turn themselves to pass to the next unit.
+      endTurnBtn.disabled = false;
     };
   });
   document.getElementById('dam-cancel-btn').onclick = () => { modal.style.display = 'none'; };
@@ -3403,15 +3406,11 @@ function _rebuildHotbar(u) {
   }
   // Q/W/E start empty — abilities only appear there once the player drags
   // them in from the Skills & Spells window (see the custom-slot loop below).
-  // T keeps its hero-ability binding for now (dwarf Sacred Flame lvl3 / elf
-  // Magic Missile lvl3), shared with the Top View permanent hotkey.
-  if (u.type === 'dwarf' && u.level >= 3) {
-    const h = _ABILITY_HANDLERS.sacred_flame;
-    bindHotkey('KeyT', false, hotbarIconHTML('sacred_flame'), h.execute, h.isAvailable, h.actionType);
-  } else if (u.type === 'elf' && u.level >= 3) {
-    const h = _ABILITY_HANDLERS.magic_missile;
-    bindHotkey('KeyT', false, hotbarIconHTML('magic_missile'), h.execute, h.isAvailable, h.actionType);
-  }
+  // T is reserved for the permanent Top View toggle (bound once in main.js) —
+  // never bind an ability there, or it silently and permanently clobbers Top
+  // View for the rest of the session (KeyT survives clearAllHotkeys() as a
+  // "permanent" key, so nothing ever re-establishes the Top View binding
+  // after it's overwritten).
   {
     const armed = _readied.has(u);
     bindHotkey('KeyR', false,

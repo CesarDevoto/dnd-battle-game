@@ -15,6 +15,7 @@ export const SPELLS = {
     sides:      8,
     saveType:   'dex',
     saveDC:     12,
+    imgSrc:     'assets/spells and skills/sacred flame.jpg',
     desc:       '60 ft · 1d8 radiant · DEX save DC 12 negates',
   },
   healing_word: {
