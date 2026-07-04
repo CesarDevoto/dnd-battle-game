@@ -4703,6 +4703,7 @@ td.bst-col-retired { color: #343228 !important; }
   user-select: none;
 }
 .sb-btn {
+  position: relative;
   width: calc(((36vw - 10px) / 13 - 3px) * 0.9375);
   height: 35px;
   background: linear-gradient(180deg, rgba(30, 20, 6, 0.92) 0%, rgba(14, 9, 2, 0.96) 100%);
@@ -4726,12 +4727,22 @@ td.bst-col-retired { color: #343228 !important; }
   text-align: center;
   padding: 2px 3px;
 }
+.sb-btn.sb-unavailable {
+  opacity: 0.35;
+  filter: grayscale(0.9) brightness(0.55);
+  cursor: not-allowed;
+}
 .sb-btn:hover {
   background: linear-gradient(180deg, rgba(55, 38, 8, 0.96) 0%, rgba(28, 18, 4, 0.98) 100%);
   border-color: var(--gold);
   box-shadow:
     inset 0 1px 0 rgba(212, 175, 55, 0.22),
     0 0 12px rgba(212, 175, 55, 0.18);
+}
+.sb-btn.sb-unavailable:hover {
+  background: linear-gradient(180deg, rgba(30, 20, 6, 0.92) 0%, rgba(14, 9, 2, 0.96) 100%);
+  border-color: rgba(212, 175, 55, 0.22);
+  box-shadow: none;
 }
 .sb-btn[data-ability]:not([data-ability=""]) { cursor: grab; }
 

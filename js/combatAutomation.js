@@ -190,7 +190,7 @@ const CATEGORIES = [
         id: 'ready_trigger_priority', label: 'Trigger priority', type: 'priority',
         options: [
           { value: 'enemy_in_los',          label: 'Enemy enters LOS'          },
-          { value: 'enemy_in_ranged_range',  label: 'Enemy enters ranged range' },
+          { value: 'enemy_in_ranged_range',  label: 'Enemy enters spell/ranged range' },
           { value: 'enemy_in_melee_range',   label: 'Enemy enters melee range'  },
           { value: 'ally_loses_hp',          label: 'Ally takes damage'         },
         ],

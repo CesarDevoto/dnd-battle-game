@@ -1144,6 +1144,7 @@ function handleSpellBtnClick(spellKey) {
   }
 
   if (spellKey === 'bless') {
+    if (turnAttacked) return;
     castBless(u);
     return;
   }
@@ -2812,7 +2813,7 @@ const HERO_HUD_NAME_COLORS = {
 const _READY_LABELS = {
   enemy_in_los:          'Enemy enters line of sight',
   enemy_in_melee_range:  'Enemy enters melee range',
-  enemy_in_ranged_range: 'Enemy enters ranged attack range',
+  enemy_in_ranged_range: 'Enemy enters spell or ranged attack range',
   ally_loses_hp:         'Ally loses hit points',
 };
 
@@ -2902,15 +2903,37 @@ function _openReadyModal(hero) {
   modal.style.display = 'flex';
 }
 
-// Helper: returns true if enemy is within ranged range AND has LOS to hero
-function _enemyInHeroLOS(enemy, hero) {
-  const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
+// Longest range (world units) at which this hero threatens an enemy right
+// now — the greater of their ranged weapon (if any) and any offensive
+// cantrip/spell they've unlocked (Fire Bolt, Sacred Flame, Magic Missile,
+// Burning Hands, etc.). Heal/support spells (healing_word, cure_wounds,
+// bless, mage_armor — no rangeFt, or healDice present) don't count, since
+// they don't threaten an enemy. Returns null if the hero has no ranged
+// option at all (pure melee).
+function _heroRangedRangeWU(hero) {
+  const heroAtks  = UNIT_TYPES[hero.type]?.attacks ?? [];
   const rangedAtk = heroAtks.find(a => a.type === 'ranged');
-  if (!rangedAtk) return false;
+  let maxFt = rangedAtk ? (rangedAtk.longRange ?? rangedAtk.range) : 0;
+
+  const pool = hero.type === 'dwarf' ? SPELLS : hero.type === 'elf' ? ELF_SPELLS : null;
+  if (pool) {
+    for (const sp of Object.values(pool)) {
+      if (sp.rangeFt == null || sp.healDice !== undefined) continue;
+      if (!isAbilityUnlocked(hero.type, hero.level, sp.key)) continue;
+      if (sp.rangeFt > maxFt) maxFt = sp.rangeFt;
+    }
+  }
+  return maxFt > 0 ? atkRangeWU(maxFt) : null;
+}
+
+// Helper: returns true if enemy is within ranged/spell range AND has LOS to hero
+function _enemyInHeroLOS(enemy, hero) {
+  const rangeWU = _heroRangedRangeWU(hero);
+  if (rangeWU == null) return false;
   const dx = enemy.grp.position.x - hero.grp.position.x;
   const dz = enemy.grp.position.z - hero.grp.position.z;
   const dist = Math.sqrt(dx * dx + dz * dz);
-  if (dist > atkRangeWU(rangedAtk.longRange ?? rangedAtk.range)) return false;
+  if (dist > rangeWU) return false;
   return hasLineOfSight(
     enemy.grp.position.x, enemy.grp.position.z,
     hero.grp.position.x,  hero.grp.position.z
@@ -2935,8 +2958,8 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
         const atk = heroAtks.find(a => a.type === 'melee');
         if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger });
       } else if (trigger === 'enemy_in_ranged_range') {
-        const rangedAtk = heroAtks.find(a => a.type === 'ranged');
-        if (rangedAtk && dist <= atkRangeWU(rangedAtk.range)) {
+        const rangeWU = _heroRangedRangeWU(hero);
+        if (rangeWU != null && dist <= rangeWU) {
           matches.push({ hero, trigger });
         }
       }
@@ -3314,6 +3337,19 @@ export function executeAbility(abilityKey) {
   _ABILITY_HANDLERS[abilityKey]?.execute();
 }
 
+// Shared by the hotbar (bindHotkey's actionType param) and the Skills &
+// Spells window, so both show the same A/BA/R tag for a given ability.
+export function getAbilityActionType(abilityKey) {
+  return _ABILITY_HANDLERS[abilityKey]?.actionType ?? null;
+}
+
+// Whether an ability could be used right now (turn state, cooldowns, range,
+// etc. — same guard each handler's own execute() re-checks). Used by the
+// Skills & Spells window to grey out boxes for the currently active hero.
+export function isAbilityAvailableNow(abilityKey) {
+  return _ABILITY_HANDLERS[abilityKey]?.isAvailable?.() ?? true;
+}
+
 // Called from the Skills & Spells window's shift-click-drag-drop — assigns
 // (or overwrites) one ability onto one hotbar slot for a specific hero.
 export function assignHotbarSlot(hero, slotKey, abilityKey) {
@@ -3454,6 +3490,11 @@ function _rebuildHotbar(u) {
   for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
+  // clearAllHotkeys() above marks every non-permanent slot hb-disabled; slots
+  // just rebound above (like Digit5/End Turn, which has no rangeFn) never get
+  // that class cleared unless updateHotkeyRanges() runs again here — without
+  // this, they're stuck looking greyed out even though they still work.
+  updateHotkeyRanges();
 }
 
 window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {

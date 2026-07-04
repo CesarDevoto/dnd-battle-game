@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { units, allBarsVisible } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
 import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
-import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget } from './combat.js';
+import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
@@ -710,7 +710,14 @@ function buildSheetHTML(u) {
   `;
 }
 
-let _lastSpellBarUnit = null;
+// Same A/BA/R tag the hotbar shows (hb-action-tag/hb-at-*), reused here so
+// the Skills & Spells window marks every ability's action economy too.
+function _sbActionTagHTML(key) {
+  const type = getAbilityActionType(key);
+  const cls  = { action: 'hb-at-action', bonus: 'hb-at-bonus', reaction: 'hb-at-reaction' }[type];
+  const txt  = { action: 'A',            bonus: 'BA',          reaction: 'R'              }[type];
+  return cls ? `<span class="hb-action-tag ${cls}">${txt}</span>` : '';
+}
 
 function updateSpellBar() {
   // Precombat: prefer selectedTarget (set by the always-on, mesh-raycast
@@ -723,8 +730,11 @@ function updateSpellBar() {
   // elsewhere in the UI.
   const pcHero = (selectedTarget?.team === 'blue' && selectedTarget.hp > 0) ? selectedTarget : getPCSelected();
   const u = combatPhase ? turnOrder[turnIndex] : pcHero;
-  if (u === _lastSpellBarUnit) return;
-  _lastSpellBarUnit = u;
+  // Deliberately no unit-identity caching/early-return here — per-ability
+  // availability (isAbilityAvailableNow) depends on live turn state
+  // (turnAttacked, cooldowns, range to a moving target, etc.), which can
+  // change every frame while the same hero is still active, so this has to
+  // re-run on every call to stay accurate.
 
   const spellBarBtnsEl = document.getElementById('spell-bar-btns');
 
@@ -752,7 +762,8 @@ function updateSpellBar() {
     const key = skills[i];
     btn.dataset.ability = key ?? '';
     btn.title            = key ? (ABILITY_META[key]?.name ?? key) : '';
-    btn.innerHTML        = key ? sbIconHTML(key) : '';
+    btn.innerHTML        = key ? sbIconHTML(key) + _sbActionTagHTML(key) : '';
+    btn.classList.toggle('sb-unavailable', !!key && !isAbilityAvailableNow(key));
   }
 
   if (u.type !== 'dwarf' && u.type !== 'elf') {
@@ -787,7 +798,9 @@ function updateSpellBar() {
       const btnsHTML = Array.from({ length: 5 }, (_, i) => {
         const sp = spells[i];
         const inner = sp ? (sp.imgSrc ? `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">` : sp.name) : '';
-        return `<button class="sb-btn" id="sb-btn-${lvl}-${i}" data-spell="${sp?.key ?? ''}" data-ability="${sp?.key ?? ''}" title="${sp?.name ?? ''}">${inner}</button>`;
+        const tag = sp ? _sbActionTagHTML(sp.key) : '';
+        const unavailCls = sp && !isAbilityAvailableNow(sp.key) ? ' sb-unavailable' : '';
+        return `<button class="sb-btn${unavailCls}" id="sb-btn-${lvl}-${i}" data-spell="${sp?.key ?? ''}" data-ability="${sp?.key ?? ''}" title="${sp?.name ?? ''}">${inner}${tag}</button>`;
       }).join('');
       const slotsCol = lvl === lowestLevel
         ? `<div class="sb-col sb-col-slots"><span class="sb-col-label">Slots</span><span class="sb-slot-pips">${pipsHTML}</span></div>`
@@ -816,10 +829,11 @@ function updateSpellBar() {
     if (!sp) {
       btn.innerHTML = '';
     } else if (sp.imgSrc) {
-      btn.innerHTML = `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">`;
+      btn.innerHTML = `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">` + _sbActionTagHTML(sp.key);
     } else {
-      btn.textContent = sp.name;
+      btn.innerHTML = sp.name + _sbActionTagHTML(sp.key);
     }
+    btn.classList.toggle('sb-unavailable', !!sp && !isAbilityAvailableNow(sp.key));
   }
 }
 
