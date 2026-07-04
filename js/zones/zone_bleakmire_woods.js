@@ -10,6 +10,7 @@ export const ZONE = {
     { x:  1, z: 85, type: 'halfling' },
   ],
   enemies: [
+    { type: 'grassling', x: 6.71, z: 71.66, animOverrides: {idle:0,walk:2} },
     { type: 'kobold', x: -70, z: 47, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:47}] },
     { type: 'kobold', x: -73, z: 43, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:43}] },
     { type: 'kobold', x: -67, z: 44, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:44}] },

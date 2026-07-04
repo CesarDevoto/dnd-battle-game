@@ -167,6 +167,14 @@ export function aiPickAllyDest(u, allies, validTiles) {
 // deliberately isn't in UNIT_TYPES.attacks (e.g. Rasec's Fire Bolt — kept out
 // of attacks[] so it doesn't masquerade as a ranged weapon), the caller can
 // pass an attacks[]-shaped object here so positioning still accounts for it.
+// Cap how far a ranged/kiting hero tries to retreat, independent of their
+// true weapon/spell range. Without this, a long-range caster (e.g. Rasec's
+// Fire Bolt at 120ft vs. Milo's Shortbow at 40ft) treats "maximize distance
+// within range" as license to retreat 3x farther every turn — technically
+// correct positioning, but reads as "running away too much." Their real
+// attack range is unaffected; this only bounds the positioning heuristic.
+const MAX_KITE_RANGE_FT = 50;
+
 export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTriggerWU, atkRangeWU, hasLOS, extraRangedAtk = null) {
   if (!validTiles.size) return null;
   const tx = target.grp.position.x, tz = target.grp.position.z;
@@ -175,7 +183,8 @@ export function aiPickHeroDest(u, target, validTiles, preferredRange, atkTrigger
   const meleeA       = atks.find(a => a.type === 'melee');
   const rangdA       = atks.find(a => a.type === 'ranged') ?? extraRangedAtk;
   const meleeTrigger = meleeA ? atkTriggerWU(meleeA)     : 0;
-  const rangedRange  = rangdA ? atkRangeWU(rangdA.range) : 0;
+  const rawRangedRange = rangdA ? atkRangeWU(rangdA.range) : 0;
+  const rangedRange  = rawRangedRange > 0 ? Math.min(rawRangedRange, atkRangeWU(MAX_KITE_RANGE_FT)) : 0;
 
   // Ranged heroes hold position if already at a comfortable standoff: between
   // 40% and 100% of ranged range, not in melee range, and with clear LOS.
