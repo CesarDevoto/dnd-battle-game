@@ -940,43 +940,57 @@
       <button id="srw-btn">🔥 REST</button>
     </div>
 
-    <!-- Spell bar -->
+    <!-- Skills & Spells bar -->
     <div id="spell-bar">
-      <div id="spell-bar-title">SPELLS <button id="spell-bar-toggle" class="sb-toggle">▼</button></div>
+      <div id="spell-bar-title">SKILLS &amp; SPELLS <button id="spell-bar-toggle" class="sb-toggle">▼</button></div>
       <div id="spell-bar-body">
-      <div id="spell-bar-btns">
-        <span class="sb-lvl-label">1</span>
-        <div class="sb-col">
-          <span class="sb-col-label">Slots</span>
-          <span class="sb-slot-pips">
-            <span class="sb-slot-pip"></span>
-            <span class="sb-slot-pip"></span>
-            <span class="sb-slot-pip"></span>
-            <span class="sb-slot-pip"></span>
-          </span>
+
+      <div class="sb-accordion" data-section="spells">
+        <div class="sb-acc-hdr" data-key="spells">
+          <span class="sb-section-label">Spells</span>
+          <span class="sb-acc-arrow">▼</span>
         </div>
-        <div class="sb-col">
-          <span class="sb-col-label">Prepared</span>
-          <div class="sb-prepared-row">
-            <button class="sb-btn" id="sb-btn-0"></button>
-            <button class="sb-btn" id="sb-btn-1"></button>
-            <button class="sb-btn" id="sb-btn-2"></button>
-            <button class="sb-btn" id="sb-btn-3"></button>
-            <button class="sb-btn" id="sb-btn-4"></button>
+        <div class="sb-acc-body" id="sb-sect-spells">
+          <div id="spell-bar-btns"><!-- rebuilt per-turn by updateSpellBar(): one .sb-lvl-row per prepared spell level, highest level on top --></div>
+        </div>
+      </div>
+
+      <div class="sb-accordion" data-section="cantrips">
+        <div class="sb-acc-hdr" data-key="cantrips">
+          <span class="sb-section-label">Cantrips</span>
+          <span class="sb-acc-arrow">▼</span>
+        </div>
+        <div class="sb-acc-body" id="sb-sect-cantrips">
+          <div id="spell-bar-cantrips">
+            <div class="sb-cantrip-row">
+              <button class="sb-btn" id="sb-cant-0"></button>
+              <button class="sb-btn" id="sb-cant-1"></button>
+              <button class="sb-btn" id="sb-cant-2"></button>
+              <button class="sb-btn" id="sb-cant-3"></button>
+              <button class="sb-btn" id="sb-cant-4"></button>
+            </div>
           </div>
         </div>
       </div>
-      <div class="sb-divider"></div>
-      <div id="spell-bar-cantrips">
-        <span class="sb-section-label">Cantrips</span>
-        <div class="sb-cantrip-row">
-          <button class="sb-btn" id="sb-cant-0"></button>
-          <button class="sb-btn" id="sb-cant-1"></button>
-          <button class="sb-btn" id="sb-cant-2"></button>
-          <button class="sb-btn" id="sb-cant-3"></button>
-          <button class="sb-btn" id="sb-cant-4"></button>
+
+      <div class="sb-accordion" data-section="skills">
+        <div class="sb-acc-hdr" data-key="skills">
+          <span class="sb-section-label">Skills</span>
+          <span class="sb-acc-arrow">▼</span>
+        </div>
+        <div class="sb-acc-body" id="sb-sect-skills">
+          <div id="spell-bar-skills">
+            <div class="sb-skill-row">
+              <button class="sb-btn" id="sb-skill-0"></button>
+              <button class="sb-btn" id="sb-skill-1"></button>
+              <button class="sb-btn" id="sb-skill-2"></button>
+              <button class="sb-btn" id="sb-skill-3"></button>
+              <button class="sb-btn" id="sb-skill-4"></button>
+            </div>
+          </div>
         </div>
       </div>
+
       </div><!-- /#spell-bar-body -->
     </div><!-- /#spell-bar -->
 

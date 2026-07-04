@@ -56,6 +56,27 @@ export function clearAllExclamations() {
   _pending.length      = 0;
 }
 
+// Permanently dismiss one tracked marker by id: removes its mesh and persists
+// "seen" so it does not reappear on a later zone rebuild (e.g. after River Styx).
+// Use this instead of clearAllExclamations() whenever a scripted event is
+// consuming a specific marker rather than tearing down the whole zone.
+export function dismissExclamation(id) {
+  if (!id) return;
+  setMarkerSeen(id);
+  for (let i = _exclamations.length - 1; i >= 0; i--) {
+    if (_exclamations[i].id === id) {
+      scene.remove(_exclamations[i].mesh);
+      _exclamations.splice(i, 1);
+    }
+  }
+  for (let i = _pending.length - 1; i >= 0; i--) {
+    if (_pending[i].id === id) {
+      scene.remove(_pending[i].mesh);
+      _pending.splice(i, 1);
+    }
+  }
+}
+
 // ── Post-combat deferred trigger ──────────────────────────────────────────────
 
 registerPostCombatHandler(3, (ctx, done) => {

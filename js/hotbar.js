@@ -135,6 +135,7 @@ export function initHotbar() {
   for (const k of TOP_KEYS) {
     const btn = document.createElement('button');
     btn.className = 'hb-btn hb-disabled';
+    btn.dataset.hbKey = k.code; // lets other UI (Skills & Spells drag-drop) map DOM → key code
 
     let _typeIcon = '';
     if (k.code === 'Digit2') _typeIcon = '<span class="hb-type-icon hb-melee">⚔</span>';
@@ -158,6 +159,7 @@ export function initHotbar() {
   for (const k of BOTTOM_KEYS) {
     const btn = document.createElement('button');
     btn.className = 'hb-btn hb-disabled';
+    btn.dataset.hbKey = k.code;
 
     btn.innerHTML =
       `<span class="hb-action-tag" style="display:none"></span>` +

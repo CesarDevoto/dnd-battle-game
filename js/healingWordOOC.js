@@ -44,7 +44,7 @@ function _render() {
   bindHotkey('KeyQ', false,
     _picking
       ? '<span class="hb-ready">CHOOSE<br>TARGET</span>'
-      : '<img class="hb-spell-img-fill" src="assets/spells and skills/Healingword.jpg">',
+      : '<img class="hb-spell-img-fill" src="assets/spells and skills/healingword.jpg">',
     () => { _picking ? _stopPicking() : _startPicking(); },
     _canCast,
     'bonus'

@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { units, allBarsVisible } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
 import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
-import { turnOrder, turnIndex, combatPhase, triggerSpellBarAction } from './combat.js';
+import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
+import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { computeAC } from './equipment.js';
 import { getXpProgress } from './progression.js';
 
@@ -541,8 +542,24 @@ function buildActionsPanelHTML(u) {
         ${atk.note ? `<div class="ss-atk-note">${atk.note}</div>` : ''}
       </div>
     </div>`).join('');
-  const actionsContent = attacksHTML
-    ? `<div class="ss-attacks">${attacksHTML}</div>${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
+  const sneakDef = def.sneakAttack;
+  const sneakHTML = sneakDef ? `
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">Sneak Attack</span>
+              <span class="ss-spell-type action">ACTION</span>
+            </div>
+            <div class="ss-spell-desc">+${sneakDef.dice}d${sneakDef.sides} damage on a hit when an ally is adjacent to the target · once per turn</div>
+          </div>
+          <img src="${ABILITY_META.sneak_attack.imgSrc}" class="ss-spell-inline-img" alt="Sneak Attack">
+        </div>
+      </div>
+    </div>` : '';
+  const actionsContent = (attacksHTML || sneakHTML)
+    ? `<div class="ss-attacks">${attacksHTML}</div>${sneakHTML}${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
     : `<div class="ss-spell-empty">— none —</div>`;
 
   // ── Bonus Actions ──────────────────────────────────────────────────────────
@@ -551,16 +568,19 @@ function buildActionsPanelHTML(u) {
   if (rageDef) {
     const rageUsesNow = rageUsesForLevel(u.level);
     bonusParts.push(`
-    <div class="ss-rage">
-      <div class="ss-rage-top">
-        <span class="ss-rage-name">⚔ Rage</span>
-        <span class="ss-rage-uses">×${rageUsesNow} / combat</span>
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">Rage</span>
+              <span class="ss-spell-type bonus">BONUS ACT</span>
+            </div>
+            <div class="ss-spell-desc">+${rageDef.dmgBonus} melee damage · ½ physical damage resistance · lasts full combat, ends if no attack this turn · ×${rageUsesNow} per combat</div>
+          </div>
+          <img src="${ABILITY_META.rage.imgSrc}" class="ss-spell-inline-img" alt="Rage">
+        </div>
       </div>
-      <div class="ss-rage-bonuses">
-        <span class="ss-rage-dmg">+${rageDef.dmgBonus} melee damage</span>
-        <span class="ss-rage-resist">½ physical damage</span>
-      </div>
-      <div class="ss-rage-desc">Lasts full combat · ends if no attack this turn · ${rageUsesNow} use${rageUsesNow === 1 ? '' : 's'} per combat</div>
     </div>`);
   }
   if (u.type === 'human' && (u.level ?? 1) >= 3) {
@@ -571,6 +591,23 @@ function buildActionsPanelHTML(u) {
         <span class="ss-rage-uses">4-round cooldown</span>
       </div>
       <div class="ss-rage-desc">+3 AC for 3 rounds · activate as a bonus action</div>
+    </div>`);
+  }
+  if (u.type === 'halfling' && (u.level ?? 1) >= 2) {
+    bonusParts.push(`
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">Hide</span>
+              <span class="ss-spell-type bonus">BONUS ACT</span>
+            </div>
+            <div class="ss-spell-desc">Requires no enemy has line of sight · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown</div>
+          </div>
+          <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
+        </div>
+      </div>
     </div>`);
   }
   const bonusContent = bonusParts.length ? bonusParts.join('') : `<div class="ss-spell-empty">— none —</div>`;
@@ -660,53 +697,95 @@ function buildSheetHTML(u) {
 let _lastSpellBarUnit = null;
 
 function updateSpellBar() {
-  const u = combatPhase ? turnOrder[turnIndex] : getPCSelected();
+  // Precombat: prefer selectedTarget (set by the always-on, mesh-raycast
+  // "click any unit" handler in combat.js — the same click that shows a
+  // hero's HP bar and the target window) over getPCSelected() (set only by
+  // the precombat move-selection click, which uses a much less forgiving
+  // ground-plane-proximity check and can miss without the player noticing).
+  // Without this, the Skills & Spells window could silently keep showing a
+  // stale hero even though the player's click was clearly acknowledged
+  // elsewhere in the UI.
+  const pcHero = (selectedTarget?.team === 'blue' && selectedTarget.hp > 0) ? selectedTarget : getPCSelected();
+  const u = combatPhase ? turnOrder[turnIndex] : pcHero;
   if (u === _lastSpellBarUnit) return;
   _lastSpellBarUnit = u;
 
+  const spellBarBtnsEl = document.getElementById('spell-bar-btns');
+
   // Clear all buttons when no caster is active
   const clearBtns = () => {
-    for (let i = 0; i < 5; i++) {
-      const b = document.getElementById(`sb-btn-${i}`);
-      if (b)  { b.textContent = ''; b.title = ''; delete b.dataset.spell; }
-    }
+    if (spellBarBtnsEl) spellBarBtnsEl.innerHTML = '';
     for (let i = 0; i < 5; i++) {
       const c = document.getElementById(`sb-cant-${i}`);
-      if (c)  { c.innerHTML = ''; c.title = ''; delete c.dataset.spell; }
+      if (c)  { c.innerHTML = ''; c.title = ''; delete c.dataset.spell; delete c.dataset.ability; }
     }
-    document.querySelectorAll('.sb-slot-pip').forEach((pip, i) => {
-      pip.classList.remove('filled', 'unavailable');
-    });
+    for (let i = 0; i < 5; i++) {
+      const s = document.getElementById(`sb-skill-${i}`);
+      if (s)  { s.innerHTML = ''; s.title = ''; delete s.dataset.ability; }
+    }
   };
 
-  if (!u || (u.type !== 'dwarf' && u.type !== 'elf')) { clearBtns(); return; }
+  if (!u || u.team !== 'blue') { clearBtns(); return; }
+
+  // Skills — every hero type, always populated (dash/dodge plus whatever
+  // hero-specific skills they've unlocked so far).
+  const skills = getAvailableAbilities(u.type, u.level, 'skills');
+  for (let i = 0; i < 5; i++) {
+    const btn = document.getElementById(`sb-skill-${i}`);
+    if (!btn) continue;
+    const key = skills[i];
+    btn.dataset.ability = key ?? '';
+    btn.title            = key ? (ABILITY_META[key]?.name ?? key) : '';
+    btn.innerHTML        = key ? sbIconHTML(key) : '';
+  }
+
+  if (u.type !== 'dwarf' && u.type !== 'elf') {
+    // No spellcasting for this hero type — clear only the spell/cantrip rows.
+    if (spellBarBtnsEl) spellBarBtnsEl.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const c = document.getElementById(`sb-cant-${i}`);
+      if (c)  { c.innerHTML = ''; c.title = ''; delete c.dataset.spell; delete c.dataset.ability; }
+    }
+    return;
+  }
 
   const pool     = u.type === 'dwarf' ? Object.values(SPELLS) : Object.values(ELF_SPELLS);
   const prepared = u.preparedSpells ?? STARTING_SPELLS[u.type] ?? new Set();
 
-  // Slot circles
+  // Slot circles — single pooled resource (not per spell-level), shown once
+  // on the lowest prepared spell-level row.
   const slots    = u.spellSlots    ?? 0;
   const slotsMax = u.spellSlotsMax ?? 2;
-  document.querySelectorAll('.sb-slot-pip').forEach((pip, i) => {
-    pip.classList.toggle('filled',      i < slots);
-    pip.classList.toggle('unavailable', i >= slotsMax);
-  });
+  const pipsHTML = Array.from({ length: 4 }, (_, i) =>
+    `<span class="sb-slot-pip ${i < slots ? 'filled' : ''} ${i >= slotsMax ? 'unavailable' : ''}"></span>`
+  ).join('');
 
-  // Level-1 spell buttons
-  const lvl1 = pool.filter(sp => (sp.level ?? 1) === 1 && prepared.has(sp.key));
-  for (let i = 0; i < 5; i++) {
-    const btn = document.getElementById(`sb-btn-${i}`);
-    if (!btn) continue;
-    const sp = lvl1[i];
-    btn.title         = sp ? sp.name : '';
-    btn.dataset.spell = sp ? sp.key  : '';
-    if (!sp) {
-      btn.innerHTML = '';
-    } else if (sp.imgSrc) {
-      btn.innerHTML = `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">`;
-    } else {
-      btn.textContent = sp.name;
-    }
+  // One row per distinct spell level (1+) present in this hero's spell pool,
+  // stacked highest level on top — mirrors buildSpellPanelHTML's levelRows.
+  const levels = [...new Set(pool.filter(sp => (sp.level ?? 1) >= 1).map(sp => sp.level))].sort((a, b) => b - a);
+  const lowestLevel = levels.length ? Math.min(...levels) : null;
+
+  if (spellBarBtnsEl) {
+    spellBarBtnsEl.innerHTML = levels.map(lvl => {
+      const spells = pool.filter(sp => sp.level === lvl && prepared.has(sp.key));
+      const btnsHTML = Array.from({ length: 5 }, (_, i) => {
+        const sp = spells[i];
+        const inner = sp ? (sp.imgSrc ? `<img src="${sp.imgSrc}" class="sb-spell-img" alt="${sp.name}">` : sp.name) : '';
+        return `<button class="sb-btn" id="sb-btn-${lvl}-${i}" data-spell="${sp?.key ?? ''}" data-ability="${sp?.key ?? ''}" title="${sp?.name ?? ''}">${inner}</button>`;
+      }).join('');
+      const slotsCol = lvl === lowestLevel
+        ? `<div class="sb-col sb-col-slots"><span class="sb-col-label">Slots</span><span class="sb-slot-pips">${pipsHTML}</span></div>`
+        : '';
+      return `
+        <div class="sb-lvl-row">
+          <span class="sb-lvl-label">${lvl}</span>
+          ${slotsCol}
+          <div class="sb-col sb-col-prepared">
+            <span class="sb-col-label">Prepared</span>
+            <div class="sb-prepared-row">${btnsHTML}</div>
+          </div>
+        </div>`;
+    }).join('');
   }
 
   // Cantrip buttons
@@ -715,8 +794,9 @@ function updateSpellBar() {
     const btn = document.getElementById(`sb-cant-${i}`);
     if (!btn) continue;
     const sp = cantrips[i];
-    btn.dataset.spell = sp?.key ?? '';
-    btn.title         = sp?.name ?? '';
+    btn.dataset.spell   = sp?.key ?? '';
+    btn.dataset.ability = sp?.key ?? '';
+    btn.title           = sp?.name ?? '';
     if (!sp) {
       btn.innerHTML = '';
     } else if (sp.imgSrc) {
@@ -820,8 +900,68 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
   });
   body.addEventListener('click', e => {
     const btn = e.target.closest('.sb-btn');
-    if (!btn || !btn.dataset.spell) return;
-    triggerSpellBarAction(btn.dataset.spell);
+    const key = btn?.dataset.ability;
+    if (!btn || !key) return;
+    executeAbility(key);
+  });
+
+  // Per-section accordion — Spells / Cantrips / Skills each expand independently.
+  body.querySelectorAll('.sb-acc-hdr').forEach(hdr => {
+    const section = hdr.closest('.sb-accordion');
+    const acBody  = section?.querySelector('.sb-acc-body');
+    const arrow   = hdr.querySelector('.sb-acc-arrow');
+    if (!acBody || !arrow) return;
+    hdr.addEventListener('click', e => {
+      e.stopPropagation();
+      const collapsed = acBody.classList.toggle('collapsed');
+      arrow.textContent = collapsed ? '▶' : '▼';
+    });
+  });
+
+  // Shift-click-drag: pick up any populated Skills/Cantrips/Spells box and
+  // drop it onto an open hotbar slot to assign it there for this hero.
+  let dragEl = null, dragAbility = null, dragHero = null;
+
+  function _moveGhost(x, y) {
+    if (dragEl) { dragEl.style.left = x + 'px'; dragEl.style.top = y + 'px'; }
+  }
+  function _onDragMove(e) { _moveGhost(e.clientX, e.clientY); }
+
+  function _onDragEnd(e) {
+    document.removeEventListener('mousemove', _onDragMove);
+    if (dragEl) {
+      dragEl.style.display = 'none'; // exclude the ghost from the hit-test below
+      const hbBtn   = document.elementFromPoint(e.clientX, e.clientY)?.closest('.hb-btn');
+      const slotKey = hbBtn?.dataset.hbKey;
+      if (hbBtn && slotKey && dragHero && assignHotbarSlot(dragHero, slotKey, dragAbility)) {
+        hbBtn.classList.add('hb-drop-flash');
+        setTimeout(() => hbBtn.classList.remove('hb-drop-flash'), 400);
+      }
+      dragEl.remove();
+      dragEl = null;
+    }
+    dragAbility = null;
+    dragHero    = null;
+  }
+
+  body.addEventListener('mousedown', e => {
+    if (!e.shiftKey) return;
+    const btn     = e.target.closest('.sb-btn');
+    const ability = btn?.dataset.ability;
+    if (!btn || !ability) return;
+    e.preventDefault();
+
+    dragAbility = ability;
+    dragHero    = combatPhase ? turnOrder[turnIndex] : getPCSelected();
+
+    dragEl = document.createElement('div');
+    dragEl.className = 'sb-drag-ghost';
+    dragEl.innerHTML = btn.innerHTML;
+    document.body.appendChild(dragEl);
+    _moveGhost(e.clientX, e.clientY);
+
+    document.addEventListener('mousemove', _onDragMove);
+    document.addEventListener('mouseup', _onDragEnd, { once: true });
   });
 })();
 

@@ -708,8 +708,12 @@ export function applyUnitAnimOverride(unit, role, clipIdx) {
 }
 
 // ── Stealth appearance ────────────────────────────────────────────────────────
-// Stealthed units remain visible but are rendered at half opacity so the player
-// can see ghostly presences without the unit being clearly readable.
+// Stealthed units remain visible but are rendered low-opacity and darkened so
+// the player can clearly read "ghostly presence in shadow" at a glance rather
+// than needing to look closely for a subtle opacity dip.
+const STEALTH_OPACITY = 0.28;
+const STEALTH_TINT     = 0.32; // fraction of original color kept when stealthed
+
 export function setUnitStealth(unit, stealthed) {
   unit.stealthed = stealthed;
   unit.grp.traverse(o => {
@@ -718,8 +722,19 @@ export function setUnitStealth(unit, stealthed) {
     mats.forEach(m => {
       if (!m) return;
       m.transparent = stealthed;
-      m.opacity     = stealthed ? 0.45 : 1.0;
+      m.opacity     = stealthed ? STEALTH_OPACITY : 1.0;
       m.needsUpdate = true;
+
+      if (m.color) {
+        if (!m.userData._stealthOrigColor) m.userData._stealthOrigColor = m.color.clone();
+        if (stealthed) m.color.copy(m.userData._stealthOrigColor).multiplyScalar(STEALTH_TINT);
+        else            m.color.copy(m.userData._stealthOrigColor);
+      }
+      if (m.emissive) {
+        if (!m.userData._stealthOrigEmissive) m.userData._stealthOrigEmissive = m.emissive.clone();
+        if (stealthed) m.emissive.copy(m.userData._stealthOrigEmissive).multiplyScalar(STEALTH_TINT);
+        else            m.emissive.copy(m.userData._stealthOrigEmissive);
+      }
     });
   });
 }

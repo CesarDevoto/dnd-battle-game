@@ -497,6 +497,17 @@ function _buildTable(overlay) {
                 lbl.className   = 'tend-priority-label';
                 lbl.textContent = opt?.label ?? val;
 
+                const top = document.createElement('button');
+                top.className   = 'tend-priority-btn tend-priority-top';
+                top.textContent = '⤒';
+                top.title       = 'Move to top';
+                top.disabled    = idx === 0;
+                top.addEventListener('click', () => {
+                  const [moved] = order.splice(idx, 1);
+                  order.unshift(moved);
+                  render();
+                });
+
                 const up = document.createElement('button');
                 up.className   = 'tend-priority-btn';
                 up.textContent = '↑';
@@ -515,7 +526,7 @@ function _buildTable(overlay) {
                   render();
                 });
 
-                item.append(num, lbl, up, dn);
+                item.append(num, lbl, top, up, dn);
                 list.appendChild(item);
               });
             };

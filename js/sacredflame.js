@@ -1,6 +1,7 @@
 // js/sacredflame.js — golden radiant flame descending from above for Leugren's Sacred Flame cantrip
 import * as THREE from 'three';
 import { scene } from './scene.js';
+import { playSound } from './audio.js';
 
 // Pre-add permanently at intensity 0 — adding a light mid-scene recompiles
 // every lit material (same shader-cache issue solved in firebolt.js/magicmissile.js).
@@ -18,6 +19,8 @@ const BEAM_H     = 6.2;   // world units the beam spans above the target
 const MAX_PARTS  = 200;
 
 export function playSacredFlameEffect(caster, target, onImpact) {
+  playSound('sacred_flame');
+
   const end = new THREE.Vector3(
     target.grp.position.x,
     target.grp.position.y + 0.05,

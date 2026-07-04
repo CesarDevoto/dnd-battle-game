@@ -4,7 +4,7 @@ import { getTerrainHeight } from './terrain.js';
 import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { clearAllExclamations, trackExclamation, isMarkerSeen } from './exclamationMarkers.js';
+import { dismissExclamation, trackExclamation, isMarkerSeen } from './exclamationMarkers.js';
 import { mkExclamationMarker } from './propBuilders.js';
 import { setQuestFlag, addQuest } from './quests.js';
 
@@ -62,7 +62,7 @@ const _STAR_X = 15.2, _STAR_Z = 10.79;
 
 window.addEventListener('zone:loaded', e => {
   if (e.detail?.id !== 'road_to_phandelver') return;
-  if (isMarkerSeen('horses_road') || _dialogueFired) return;
+  if (isMarkerSeen('horses_road')) return;
   const star = mkExclamationMarker();
   star.position.set(_STAR_X, getTerrainHeight(_STAR_X, _STAR_Z) + 1.2, _STAR_Z);
   scene.add(star);
@@ -70,15 +70,14 @@ window.addEventListener('zone:loaded', e => {
 });
 
 // ── Post-combat handler (priority 30) ────────────────────────────────────────
-// Fires once after the goblin ambush combat ends. Goblins must be dead (hp<=0)
-// in the units array — guards against other combats in the zone triggering it.
-let _dialogueFired = false;
-
+// Fires once after the goblin ambush combat ends. Gated on the durable
+// 'horses_road' marker-seen flag (not an in-memory flag) so it survives zone
+// rebuilds — e.g. a River Styx round trip back through this zone must not
+// replay the aftermath dialogue/quest-offer a second time.
 registerPostCombatHandler(30, (ctx, done) => {
-  if (_dialogueFired) { done(); return; }
+  if (isMarkerSeen('horses_road')) { done(); return; }
   if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
-  _dialogueFired = true;
-  clearAllExclamations();
+  dismissExclamation('horses_road');
   setTimeout(() => showQuickDialogue(_LINES, () => {
     _showFootsteps();
     done();
@@ -308,7 +307,6 @@ export function tickAmbush(dt) {
 // ── Cleanup on zone change ────────────────────────────────────────────────────
 window.addEventListener('zone:loading', () => {
   _hideFootsteps();
-  _dialogueFired  = false;
   _waitingForMove = false;
   _heroPositions  = null;
   _pursuitFired   = false;

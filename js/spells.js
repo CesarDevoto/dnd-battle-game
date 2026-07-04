@@ -25,7 +25,7 @@ export const SPELLS = {
     rangeFt:    60,
     healDice:   1,
     healSides:  8,
-    imgSrc:     'assets/spells and skills/Healingword.jpg',
+    imgSrc:     'assets/spells and skills/healingword.jpg',
     desc:       '60 ft · 1d8+WIS hp restored',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export const ELF_SPELLS = {
     name:       'Fire Bolt',
     level:      0,
     actionType: 'action',
-    imgSrc:     'assets/spells and skills/Firebolt.jpg',
+    imgSrc:     'assets/spells and skills/firebolt.jpg',
     rangeFt:    120,
     dice:       1,
     sides:      10,

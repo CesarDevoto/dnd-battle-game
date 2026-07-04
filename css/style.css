@@ -3021,12 +3021,12 @@ body {
 /* ── Hero portrait bar ───────────────────────────────────────────────── */
 #hero-portrait-bar {
   position: absolute;
-  top: 10px;
+  top: 6px;
   left: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 5px;
+  padding: 5px 8px;
   overflow: visible;
   background:
     repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(212,175,55,0.007) 3px, rgba(212,175,55,0.007) 4px),
@@ -3072,8 +3072,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 6px 6px 4px;
-  gap: 4px;
+  padding: 4px 6px 3px;
+  gap: 3px;
   border-radius: 4px;
   border: 1px solid rgba(90,72,22,0.60);
   background: linear-gradient(180deg, rgba(18,12,3,0.85) 0%, rgba(8,5,1,0.92) 100%);
@@ -4549,6 +4549,11 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #spell-bar-btns {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sb-lvl-row {
+  display: flex;
   align-items: flex-end;
   gap: 6px;
 }
@@ -4567,12 +4572,12 @@ td.bst-col-retired { color: #343228 !important; }
   text-transform: uppercase;
   user-select: none;
 }
-#spell-bar-btns .sb-col:nth-child(2) .sb-col-label {
+.sb-lvl-row .sb-col-slots .sb-col-label {
   position: relative;
   top: -9px;
   font-size: 0.52rem;
 }
-#spell-bar-btns .sb-col:nth-child(3) .sb-col-label {
+.sb-lvl-row .sb-col-prepared .sb-col-label {
   position: relative;
   top: -2px;
   font-size: 0.52rem;
@@ -4588,7 +4593,12 @@ td.bst-col-retired { color: #343228 !important; }
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  margin-top: -2px;
+}
+#spell-bar-skills {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
 .sb-section-label {
   font-family: var(--font-fantasy);
@@ -4602,6 +4612,57 @@ td.bst-col-retired { color: #343228 !important; }
 .sb-cantrip-row {
   display: flex;
   gap: 4px;
+}
+.sb-skill-row {
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Skills & Spells accordion sections ───────────────────────────────── */
+.sb-accordion {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sb-accordion + .sb-accordion {
+  border-top: 1px solid rgba(212, 175, 55, 0.18);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+.sb-acc-hdr {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  padding: 1px 0 3px;
+}
+.sb-acc-hdr:hover .sb-section-label { opacity: 1; }
+.sb-acc-arrow {
+  font-size: 0.44rem;
+  color: var(--gold);
+  opacity: 0.65;
+  line-height: 1;
+}
+.sb-acc-hdr:hover .sb-acc-arrow { opacity: 1; }
+.sb-acc-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  overflow: hidden;
+  max-height: 200px;
+  opacity: 1;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+.sb-acc-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 .sb-prepared-row {
   display: flex;
@@ -4671,6 +4732,41 @@ td.bst-col-retired { color: #343228 !important; }
   box-shadow:
     inset 0 1px 0 rgba(212, 175, 55, 0.22),
     0 0 12px rgba(212, 175, 55, 0.18);
+}
+.sb-btn[data-ability]:not([data-ability=""]) { cursor: grab; }
+
+/* ── Shift-click drag-and-drop: box picked up from Skills & Spells ──────── */
+.sb-drag-ghost {
+  position: fixed;
+  z-index: 10001;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%) scale(1.08);
+  pointer-events: none;
+  opacity: 0.92;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(30, 20, 6, 0.96) 0%, rgba(14, 9, 2, 0.98) 100%);
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.45), 0 4px 14px rgba(0,0,0,0.70);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-fantasy);
+  font-size: 0.46rem;
+  color: var(--gold);
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Flash on a hotbar slot that just received a dropped ability */
+.hb-btn.hb-drop-flash {
+  animation: hb-drop-flash-anim 0.4s ease-out;
+}
+@keyframes hb-drop-flash-anim {
+  0%   { box-shadow: 0 0 0 rgba(212, 175, 55, 0); }
+  30%  { box-shadow: 0 0 18px rgba(212, 175, 55, 0.85); }
+  100% { box-shadow: 0 0 0 rgba(212, 175, 55, 0); }
 }
 .sb-spell-img {
   width: 100%;
@@ -5048,7 +5144,7 @@ td.bst-col-retired { color: #343228 !important; }
   border: 1px solid rgba(212,175,55,0.32);
   border-radius: 6px;
   box-shadow: 0 10px 50px rgba(0,0,0,0.92), 0 0 0 1px rgba(0,0,0,0.80);
-  min-width: 870px;
+  min-width: 950px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -5091,7 +5187,7 @@ td.bst-col-retired { color: #343228 !important; }
 }
 
 .tend-col-label { width: 130px; }
-.tend-col-hero  { width: 182px; }
+.tend-col-hero  { width: 202px; }
 
 .tend-hero-head {
   padding: 10px 8px 8px;
@@ -5219,6 +5315,11 @@ td.bst-col-retired { color: #343228 !important; }
 }
 .tend-priority-btn:hover:not(:disabled) { color: var(--gold); }
 .tend-priority-btn:disabled { color: rgba(212,175,55,0.12); cursor: default; }
+.tend-priority-top {
+  margin-right: 3px;
+  padding-right: 4px;
+  border-right: 1px solid rgba(212,175,55,0.12);
+}
 
 .tend-footer {
   padding: 12px 18px;
@@ -5389,6 +5490,23 @@ td.bst-col-retired { color: #343228 !important; }
 @keyframes ready-arrow-pulse {
   from { opacity: 0.20; }
   to   { opacity: 1.00; }
+}
+
+/* ── Persistent overhead icon while a ready action is armed ─────────────── */
+.unit-ready-icon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #ffdd44;
+  pointer-events: none;
+  text-shadow: 0 0 8px rgba(255,220,50,0.90), 0 0 16px rgba(255,220,50,0.45);
+  animation: ready-icon-pulse 1.1s ease-in-out infinite alternate;
+  z-index: 15;
+}
+@keyframes ready-icon-pulse {
+  from { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
+  to   { opacity: 1.00; transform: translate(-50%, -50%) scale(1.08); }
 }
 
 /* ── Delay trigger floating text ────────────────────────────────────────── */

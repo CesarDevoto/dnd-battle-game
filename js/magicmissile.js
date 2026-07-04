@@ -1,6 +1,7 @@
 // js/magicmissile.js — 4 neon purple magic-missile bolts for Rasec
 import * as THREE from 'three';
 import { scene } from './scene.js';
+import { playSound } from './audio.js';
 
 const MISSILE_COUNT = 4;
 
@@ -18,6 +19,8 @@ const STAGGER_MS    = 420;   // launch delay between successive bolts
 const MAX_PARTS     = 320;   // shared ring-buffer for all trails + impact bursts
 
 export function playMagicMissileEffect(attacker, target, onImpact) {
+  playSound('magic_missile');
+
   const origin = new THREE.Vector3(
     attacker.grp.position.x,
     attacker.grp.position.y + 1.18,

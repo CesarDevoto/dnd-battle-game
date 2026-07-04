@@ -87,6 +87,10 @@ const SOUNDS = {
   range_attack_bow: { src: 'assets/audio/combat/weapon sounds/range attack bow.mp3', category: 'combat' },
   fire_bolt:        { src: 'assets/audio/magic sounds/fire bolt.mp3',                category: 'combat' },
   healing:          { src: 'assets/audio/magic sounds/healing word.mp3',             category: 'combat' },
+  magic_missile:    { src: 'assets/audio/magic sounds/magic missile.mp3',            category: 'combat' },
+  sacred_flame:     { src: 'assets/audio/magic sounds/sacred flame.mp3',             category: 'combat' },
+  fireball:         { src: 'assets/audio/magic sounds/fireball.mp3',                 category: 'combat' },
+  smoke_bomb:       { src: 'assets/audio/magic sounds/smoke bomb.mp3',               category: 'combat' },
   // Combat one-shots (files not yet added — will silently skip)
   sword_hit:     { src: 'assets/audio/combat/sword_hit.mp3',      category: 'combat' },
   arrow_shoot:   { src: 'assets/audio/combat/arrow_shoot.mp3',    category: 'combat' },

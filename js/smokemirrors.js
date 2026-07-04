@@ -20,7 +20,10 @@ export function spawnSmokeCloud(cx, cy, cz, radiusWU) {
 
   for (let i = 0; i < PUFF_COUNT; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const rad = Math.sqrt(Math.random()) * radiusWU * 0.85;
+    // Center-weighted (not area-uniform) radius so puffs cluster around the
+    // hero's actual standing point instead of forming a hollow ring at the
+    // cloud's outer edge — he should read as standing *in* the smoke.
+    const rad = Math.random() * Math.random() * radiusWU * 0.75;
     const mat = new THREE.MeshBasicMaterial({
       color: SMOKE_COLORS[i % SMOKE_COLORS.length],
       transparent: true, opacity: 0.28 + Math.random() * 0.16,

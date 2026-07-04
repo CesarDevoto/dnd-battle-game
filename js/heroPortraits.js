@@ -1,4 +1,4 @@
-import { units } from './units.js';
+import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { combatPhase, turnOrder, turnIndex } from './combat.js';
 import { showSheet } from './ui.js';
@@ -58,7 +58,12 @@ export function buildHeroPortraits() {
     sheetBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 18" width="15" height="19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4L11 4L11 15L3 15Z" fill="currentColor" fill-opacity="0.15" stroke-width="0.9"/><path d="M1.5 4 Q7 1.8 12.5 4 Q7 6.2 1.5 4Z" fill="currentColor" fill-opacity="0.4" stroke-width="0.9"/><path d="M1.5 15 Q7 12.8 12.5 15 Q7 17.2 1.5 15Z" fill="currentColor" fill-opacity="0.4" stroke-width="0.9"/><line x1="4.5" y1="7.5" x2="9.5" y2="7.5" stroke-width="1.1"/><line x1="4.5" y1="10" x2="9.5" y2="10" stroke-width="1.1"/><line x1="4.5" y1="12.5" x2="7.5" y2="12.5" stroke-width="1.1"/></svg>`;
     sheetBtn.addEventListener('click', e => {
       e.stopPropagation();
-      const u = units.find(u => u.team === 'blue' && u.type === type);
+      // heroRoster (not units) — a dead/removed-from-combat hero is still a
+      // real, persistent hero whose equipment/bag must stay editable (e.g.
+      // assigning loot right after they fall). units.find would return
+      // undefined for them and fall back to a disconnected stub with an
+      // empty bag, making just-assigned items appear to vanish.
+      const u = heroRoster.find(u => u.type === type);
       showSheet(u ?? { type, hp: UNIT_TYPES[type].hp });
     });
 

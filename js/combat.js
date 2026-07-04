@@ -18,6 +18,7 @@ import { fireRangedAttack }        from './arrow.js';
 import { fireThrownAxe }           from './thrownAxe.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable } from './hotbar.js';
+import { hotbarIconHTML } from './abilityRegistry.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
          aiGetSpellcasterAttack, aiPickSpellcasterDest,
          aiPickHeroDest, aiPickAllyDest } from './combatAI.js';
@@ -1322,6 +1323,7 @@ function activateSmokeMirrors() {
   u.smokeRoundsLeft = SMOKE_TICKS;
   turnAttacked      = true;
 
+  playSound('smoke_bomb');
   if (u._smokeVFX) u._smokeVFX.dispose();
   const radiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   u._smokeVFX = spawnSmokeCloud(u.grp.position.x, 0, u.grp.position.z, radiusWU);
@@ -2208,7 +2210,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
 
 // ── Target selection overlay ──────────────────────────────────────────────────
 
-let selectedTarget    = null;
+export let selectedTarget = null;
 let selectedTargetAtk = null;
 const _tv               = new THREE.Vector3();
 const targetMarkerEl    = document.getElementById('target-marker');
@@ -2839,6 +2841,44 @@ function _showReadyTriggerFloat(hero) {
   setTimeout(() => el.remove(), 4000);
 }
 
+// ── Persistent overhead icon while a ready action is armed ───────────────────
+// Same ⚡ glyph as the turn-order tag, but rendered above the hero's head in
+// the 3D view for the whole time the readied action is armed (not just a
+// momentary float).
+const _readyIconEls = new Map(); // hero → DOM element
+
+export function updateReadyIcons() {
+  // Sweep entries for units that left the units[] array entirely (e.g. died)
+  // without ever hitting the `!active` branch below.
+  for (const [u, el] of _readyIconEls) {
+    if (!units.includes(u)) { el.remove(); _readyIconEls.delete(u); }
+  }
+
+  for (const u of units) {
+    const active = u.team === 'blue' && (_readied.has(u) || u === _activeReadyHero);
+    let el = _readyIconEls.get(u);
+
+    if (!active) {
+      if (el) { el.remove(); _readyIconEls.delete(u); }
+      continue;
+    }
+
+    if (!el) {
+      el = document.createElement('div');
+      el.className   = 'unit-ready-icon';
+      el.textContent = '⚡';
+      document.getElementById('app').appendChild(el);
+      _readyIconEls.set(u, el);
+    }
+
+    _fv.set(u.anchor.x, u.anchor.y + 1.6, u.anchor.z).project(camera);
+    if (_fv.z > 1) { el.style.display = 'none'; continue; }
+    el.style.display = 'block';
+    el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
+    el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+  }
+}
+
 function _openReadyModal(hero) {
   const modal = document.getElementById('ready-action-modal');
   if (!modal) return;
@@ -3056,6 +3096,244 @@ function _endDelayInterrupt() {
   if (cont) cont();
 }
 
+// ── Ability handler registry ──────────────────────────────────────────────────
+// Single source of truth for every skill/cantrip/spell's execute+availability
+// logic, keyed by the same ability keys used in abilityRegistry.js's
+// HERO_ABILITY_LAYOUT. The fixed hotbar slots that still hardcode a key
+// (Digit2/3/5/6, KeyR, KeyT) call in here too so there's exactly one copy of
+// each ability's logic; player-assigned slots (Q/W/E/4/Y/etc., via the
+// Skills & Spells drag-and-drop) look these up generically.
+const _ABILITY_HANDLERS = {
+  dash: {
+    actionType: 'action',
+    execute: () => doSprint(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
+    },
+  },
+  dodge: {
+    actionType: 'action',
+    execute: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue' || isAnimating || turnAttacked) return;
+      turnAttacked = true;
+      curU.dodging = true;
+      addLog(`${unitLabel(curU)} takes the Dodge action — enemies have disadvantage to hit.`, 'move');
+      updateCombatStatus();
+      _rebuildHotbar(curU);
+    },
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
+    },
+    isActive: u => !!u.dodging,
+  },
+  rage: {
+    actionType: 'bonus',
+    execute: () => handleRageBtnClick(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || !UNIT_TYPES[curU.type]?.rage) return false;
+      return (curU.rageUses ?? 0) > 0 && !curU.raging && !turnBonusActioned;
+    },
+  },
+  sneak_attack: {
+    actionType: 'action',
+    execute: () => handleSneakAttackBtnClick(),
+    isAvailable: () => {
+      if (!selectedTarget || turnAttacked || sneakAttackUsed || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'halfling') return false;
+      const ux = curU.grp.position.x, uz = curU.grp.position.z;
+      const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
+      const ddx = ttx - ux, ddz = ttz - uz;
+      const dst = Math.sqrt(ddx * ddx + ddz * ddz);
+      const _atks   = UNIT_TYPES[curU.type]?.attacks ?? [];
+      const _meleeA  = _atks.find(a => a.type === 'melee');
+      const _rangedA = _atks.find(a => a.type === 'ranged');
+      const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
+                      (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
+                       hasLineOfSight(ux, uz, ttx, ttz));
+      if (!inRange) return false;
+      return _allyAdjacentToTarget(curU, selectedTarget);
+    },
+  },
+  hide: {
+    actionType: 'bonus',
+    execute: () => activateHide(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'halfling' || turnBonusActioned) return false;
+      return (curU.hideCooldown ?? 0) === 0;
+    },
+  },
+  smoke_mirrors: {
+    actionType: 'action',
+    execute: () => activateSmokeMirrors(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'halfling' || turnAttacked) return false;
+      return !curU.smokeUsed;
+    },
+  },
+  defensive_stance: {
+    actionType: 'bonus',
+    execute: () => activateDefensiveStance(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'human' || turnBonusActioned) return false;
+      return !curU.defStanceActive && (curU.defStanceCooldown ?? 0) === 0;
+    },
+  },
+  healing_word: {
+    actionType: 'action',
+    execute: () => triggerSpellBarAction('healing_word'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      const rangeWU = atkRangeWU(SPELLS.healing_word.rangeFt);
+      return units.some(ally => {
+        if (ally.team !== 'blue' || ally.hp <= 0) return false;
+        const dx = ally.grp.position.x - curU.grp.position.x;
+        const dz = ally.grp.position.z - curU.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
+      });
+    },
+  },
+  sacred_flame: {
+    actionType: 'action',
+    execute: () => handleSpellBtnClick('sacred_flame'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+      return units.some(e => {
+        if (e.team === curU.team || e.hp <= 0) return false;
+        const dx = e.grp.position.x - curU.grp.position.x;
+        const dz = e.grp.position.z - curU.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+               hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
+      });
+    },
+  },
+  fire_bolt: {
+    // Fire Bolt is a cantrip spell attack, not a weapon — it has no attacks[]
+    // entry (that slot is reserved for Rasec's Quarterstaff/no-ranged-weapon
+    // status). It reuses performAttack()'s to-hit/damage/VFX machinery via a
+    // synthetic atk object built from ELF_SPELLS.fire_bolt, same shape a real
+    // weapon attack would have, so it's unlimited-use and never costs a spell slot.
+    actionType: 'action',
+    execute: () => {
+      if (!selectedTarget || turnAttacked || isAnimating) return;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue') return;
+      const tgt = selectedTarget;
+      turnAttacked = true;
+      hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
+      performAttack(curU, tgt, _fireBoltAtk());
+      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
+      else { heroMode = null; }
+      updateCombatStatus();
+    },
+    isAvailable: () => {
+      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf') return false;
+      const atk = _fireBoltAtk();
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      return dist <= atkRangeWU(atk.range) &&
+             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
+                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
+    },
+  },
+  bless: {
+    actionType: 'action',
+    execute: () => handleSpellBtnClick('bless'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      return units.some(u => u.team === 'blue' && u.hp > 0);
+    },
+  },
+  mage_armor: {
+    actionType: 'action',
+    execute: () => activateMageArmor(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      return !curU.mageArmored;
+    },
+  },
+  magic_missile: {
+    actionType: 'action',
+    execute: () => handleElfSpellBtnClick('magic_missile'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf' || turnAttacked) return false;
+      if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
+      const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+      return units.some(e => {
+        if (e.team === curU.team || e.hp <= 0) return false;
+        const dx = e.grp.position.x - curU.grp.position.x;
+        const dz = e.grp.position.z - curU.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+               hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
+      });
+    },
+  },
+};
+
+// Slots the player may freely drag-and-drop abilities onto. Everything else
+// (attacks, end turn, ready action, potion, top view) stays fixed.
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'Digit4', 'Tab', 'KeyY']);
+
+// Binds one player-assigned ability onto one hotbar slot for the currently
+// rebuilding hero — shared by the custom-slot loop in _rebuildHotbar.
+function _bindAbilitySlot(slotKey, abilityKey) {
+  const handler = _ABILITY_HANDLERS[abilityKey];
+  if (!handler) return;
+  const btn = bindHotkey(slotKey, false, hotbarIconHTML(abilityKey), handler.execute, handler.isAvailable, handler.actionType);
+  const curU = turnOrder[turnIndex];
+  if (btn && curU && handler.isActive?.(curU)) btn.classList.add('spell-active');
+}
+
+// Runs one ability's handler directly — used by a plain (non-shift) click on
+// a Skills & Spells window box, so clicking there behaves identically to
+// clicking the same ability wherever else it's bound (hotbar/T-key/dragged
+// slot). Each handler's own execute() already re-derives the active hero and
+// re-checks its own guards (isAnimating, turnAttacked, etc.), so this is safe
+// to call unconditionally.
+export function executeAbility(abilityKey) {
+  _ABILITY_HANDLERS[abilityKey]?.execute();
+}
+
+// Called from the Skills & Spells window's shift-click-drag-drop — assigns
+// (or overwrites) one ability onto one hotbar slot for a specific hero.
+export function assignHotbarSlot(hero, slotKey, abilityKey) {
+  if (!hero || !_ASSIGNABLE_SLOTS.has(slotKey) || !_ABILITY_HANDLERS[abilityKey]) return false;
+  if (!hero.hotbarSlots) hero.hotbarSlots = {};
+  hero.hotbarSlots[slotKey] = abilityKey;
+  if (combatPhase && turnOrder[turnIndex] === hero) {
+    // Hero is actively taking their turn — rebuild the whole hotbar so every
+    // slot (attacks, T-key ability, etc.) reflects them, not just this one.
+    _rebuildHotbar(hero);
+  } else {
+    // Precombat (or any other time the hotbar isn't "owned" by this hero) —
+    // only reflect this one slot rather than rebuilding the whole hotbar,
+    // which would incorrectly light up End Turn/attacks/etc. before combat
+    // even starts. Without this, a drop made outside combat wrote the
+    // assignment to hero.hotbarSlots correctly but never showed up on the
+    // hotbar until their next real turn, which looked like the drop failed.
+    _bindAbilitySlot(slotKey, abilityKey);
+  }
+  updateHotkeyRanges(); // refresh greyed/enabled state immediately, same as activateTurn does
+  return true;
+}
+
 function _rebuildHotbar(u) {
   if (!u || u.team !== 'blue') return;
   clearAllHotkeys();
@@ -3123,163 +3401,17 @@ function _rebuildHotbar(u) {
       onSneakBtn:    handleSneakAttackBtnClick,
     });
   }
-  if (u.type === 'human' && u.rageUses !== undefined) {
-    bindHotkey('KeyW', false, '<span class="hb-rage">RAGE</span>', () => {
-      handleRageBtnClick();
-    }, () => {
-      const curU = turnOrder[turnIndex];
-      if (!curU || !UNIT_TYPES[curU.type]?.rage) return false;
-      return (curU.rageUses ?? 0) > 0 && !curU.raging && !turnBonusActioned;
-    }, 'bonus');
-    if (u.level >= 3) {
-      bindHotkey('KeyE', false, '<span class="hb-stance">DEF<br>STANCE</span>', () => {
-        activateDefensiveStance();
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'human' || turnBonusActioned) return false;
-        return !curU.defStanceActive && (curU.defStanceCooldown ?? 0) === 0;
-      }, 'bonus');
-    }
-  } else if (u.type === 'halfling') {
-    bindHotkey('KeyW', false, '<span class="hb-sneak">SNEAK<br>ATTACK</span>', () => {
-      handleSneakAttackBtnClick();
-    }, () => {
-      if (!selectedTarget || turnAttacked || sneakAttackUsed || selectedTarget.hp <= 0) return false;
-      const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'halfling') return false;
-      const ux = curU.grp.position.x, uz = curU.grp.position.z;
-      const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
-      const ddx = ttx - ux, ddz = ttz - uz;
-      const dst = Math.sqrt(ddx * ddx + ddz * ddz);
-      const _atks   = UNIT_TYPES[curU.type]?.attacks ?? [];
-      const _meleeA  = _atks.find(a => a.type === 'melee');
-      const _rangedA = _atks.find(a => a.type === 'ranged');
-      const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
-                      (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
-                       hasLineOfSight(ux, uz, ttx, ttz));
-      if (!inRange) return false;
-      return _allyAdjacentToTarget(curU, selectedTarget);
-    }, 'action');
-    if (u.level >= 2) {
-      bindHotkey('KeyE', false, '<span class="hb-hide">HIDE</span>', () => {
-        activateHide();
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'halfling' || turnBonusActioned) return false;
-        return (curU.hideCooldown ?? 0) === 0;
-      }, 'bonus');
-    }
-    if (u.level >= 3) {
-      bindHotkey('KeyT', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/smoke and mirrors.jpg">', () => {
-        activateSmokeMirrors();
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'halfling' || turnAttacked) return false;
-        return !curU.smokeUsed;
-      }, 'action');
-    }
-  } else if (u.type === 'dwarf') {
-    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/Healingword.jpg">', () => {
-      triggerSpellBarAction('healing_word');
-    }, () => {
-      const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
-      const rangeWU = atkRangeWU(SPELLS.healing_word.rangeFt);
-      return units.some(ally => {
-        if (ally.team !== 'blue' || ally.hp <= 0) return false;
-        const dx = ally.grp.position.x - curU.grp.position.x;
-        const dz = ally.grp.position.z - curU.grp.position.z;
-        return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
-      });
-    }, 'action');
-    if (u.level >= 2) {
-      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/bless.jpg">', () => {
-        handleSpellBtnClick('bless');
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
-        return units.some(u => u.team === 'blue' && u.hp > 0);
-      }, 'action');
-    }
-    if (u.level >= 3) {
-      bindHotkey('KeyT', false, '<span class="hb-hide">SACRED<br>FLAME</span>', () => {
-        handleSpellBtnClick('sacred_flame');
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
-        const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
-        return units.some(e => {
-          if (e.team === curU.team || e.hp <= 0) return false;
-          const dx = e.grp.position.x - curU.grp.position.x;
-          const dz = e.grp.position.z - curU.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-                 hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
-        });
-      }, 'action');
-    }
-  } else if (u.type === 'elf') {
-    // Fire Bolt is a cantrip spell attack, not a weapon — it has no attacks[]
-    // entry (that slot is reserved for Rasec's Quarterstaff/no-ranged-weapon
-    // status). It reuses performAttack()'s to-hit/damage/VFX machinery via a
-    // synthetic atk object built from ELF_SPELLS.fire_bolt, same shape a real
-    // weapon attack would have, so it's unlimited-use and never costs a spell slot.
-    bindHotkey('KeyQ', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/Firebolt.jpg">', () => {
-      if (!selectedTarget || turnAttacked || isAnimating) return;
-      const curU = turnOrder[turnIndex];
-      if (!curU || curU.team !== 'blue') return;
-      const tgt = selectedTarget;
-      turnAttacked = true;
-      hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-      performAttack(curU, tgt, _fireBoltAtk());
-      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
-      if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
-      else { heroMode = null; }
-      updateCombatStatus();
-    }, () => {
-      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
-      const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'elf') return false;
-      const atk = _fireBoltAtk();
-      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
-      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist <= atkRangeWU(atk.range) &&
-             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
-    }, 'action');
-    if (u.level >= 2) {
-      bindHotkey('KeyE', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/magearmor.jpg">', () => {
-        activateMageArmor();
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
-        return !curU.mageArmored;
-      }, 'action');
-    }
-    if (u.level >= 3) {
-      bindHotkey('KeyT', false, '<img class="hb-spell-img-fill" src="assets/spells and skills/magicmissile.jpg">', () => {
-        handleElfSpellBtnClick('magic_missile');
-      }, () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.type !== 'elf' || turnAttacked) return false;
-        if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
-        const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
-        return units.some(e => {
-          if (e.team === curU.team || e.hp <= 0) return false;
-          const dx = e.grp.position.x - curU.grp.position.x;
-          const dz = e.grp.position.z - curU.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-                 hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
-        });
-      }, 'action');
-    }
+  // Q/W/E start empty — abilities only appear there once the player drags
+  // them in from the Skills & Spells window (see the custom-slot loop below).
+  // T keeps its hero-ability binding for now (dwarf Sacred Flame lvl3 / elf
+  // Magic Missile lvl3), shared with the Top View permanent hotkey.
+  if (u.type === 'dwarf' && u.level >= 3) {
+    const h = _ABILITY_HANDLERS.sacred_flame;
+    bindHotkey('KeyT', false, hotbarIconHTML('sacred_flame'), h.execute, h.isAvailable, h.actionType);
+  } else if (u.type === 'elf' && u.level >= 3) {
+    const h = _ABILITY_HANDLERS.magic_missile;
+    bindHotkey('KeyT', false, hotbarIconHTML('magic_missile'), h.execute, h.isAvailable, h.actionType);
   }
-  bindHotkey('Digit4', false, '<span class="hb-sprint">DASH</span>', () => {
-    doSprint();
-  }, () => {
-    const curU = turnOrder[turnIndex];
-    return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
-  }, 'action');
   {
     const armed = _readied.has(u);
     bindHotkey('KeyR', false,
@@ -3315,31 +3447,14 @@ function _rebuildHotbar(u) {
       'bonus'
     );
   }
-  {
-    const dodging = !!u.dodging;
-    const btn = bindHotkey('KeyY', false,
-      '<span class="hb-dodge">DODGE</span>',
-      () => {
-        const curU = turnOrder[turnIndex];
-        if (!curU || curU.team !== 'blue' || isAnimating || turnAttacked) return;
-        turnAttacked = true;
-        curU.dodging = true;
-        addLog(`${unitLabel(curU)} takes the Dodge action — enemies have disadvantage to hit.`, 'move');
-        updateCombatStatus();
-        _rebuildHotbar(curU);
-      },
-      () => {
-        const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !turnAttacked && !isAnimating;
-      },
-      'action'
-    );
-    if (btn && dodging) btn.classList.add('spell-active');
-  }
   bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
     if (isAnimating || endTurnBtn.disabled) return;
     doEndTurn();
   });
+  // Player-assigned abilities — dragged in from the Skills & Spells window.
+  for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
+    _bindAbilitySlot(slotKey, abilityKey);
+  }
 }
 
 window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
