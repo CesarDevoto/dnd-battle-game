@@ -296,13 +296,15 @@ window.addEventListener('postcombat:done', () => {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-  // Escape: deselect
+  // Escape: deselect + close any open hero sheet (main sheet, side panels,
+  // equipment, and bag all close together via hideSheet()).
   if (e.key === 'Escape') {
     if (isPrecombat()) {
       clearMove();
       deselectPCHero();
       window.dispatchEvent(new CustomEvent('pc-hero:deselected'));
     }
+    hideSheet();
   }
 
 });

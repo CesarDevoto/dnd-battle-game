@@ -18,11 +18,12 @@ import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
 import { ZONE as ZONE_MAUSOLEUM } from './zones/zone_mausoleum.js';
 import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
+import { ZONE as ZONE_WARRENS } from './zones/zone_warrens.js';
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const _registry = {};
-const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX];
+const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
 // Kick off parallel GLB fetches for every prop in every zone immediately at
@@ -131,7 +132,7 @@ function _buildExitMarker(exit) {
   const wx    = exit.x + dirX * PUSH + (exit.fogOffsetX ?? 0);
   const wz    = exit.z + dirZ * PUSH + (exit.fogOffsetZ ?? 0);
   const gy    = getTerrainHeight(wx, wz);
-  const BALL_Y = 1.8;   // float above ground
+  const BALL_Y = exit.fogHeight ?? 1.8;   // float above ground
 
   const texBright = _makeFogBallTex(true);
   const texSoft   = _makeFogBallTex(false);
@@ -471,10 +472,47 @@ function _triggerNextZone(targetId, arrivalPos = null) {
   _showSetupAfterTransition();
 }
 
+// Shared by the click-trigger handler and the proximity auto-trigger below.
+// Requires at least one living hero within 1 square of the fog ball center —
+// the ball is pushed fogPush WU past the exit's raw x/z along the exit
+// direction vector, so the check has to use that world position, not the
+// raw exit coordinates. Returns true if the exit fired.
+function _tryActivateExit(exit) {
+  if (!_exitsLive || _transitioning || combatPhase) return false;
+  const eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
+  const push  = exit.fogPush ?? 7.0;
+  const fogX  = exit.x + (exit.x / eDist) * push + (exit.fogOffsetX ?? 0);
+  const fogZ  = exit.z + (exit.z / eDist) * push + (exit.fogOffsetZ ?? 0);
+  const r     = WORLD_UNITS_PER_SQUARE;
+  const nearEnough = units.some(u => {
+    if (u.team !== 'blue' || u.hp <= 0) return false;
+    const dx = u.grp.position.x - fogX;
+    const dz = u.grp.position.z - fogZ;
+    return dx * dx + dz * dz <= r * r;
+  });
+  if (!nearEnough) return false;
+  _transitioning = true;
+  const ap = exit.arrivalX != null ? { x: exit.arrivalX, z: exit.arrivalZ } : null;
+  if (_postCombat) {
+    _showShortRestPanel(exit.targetZone, ap);
+    _transitioning = false; // panel handles its own flow
+  } else {
+    _triggerNextZone(exit.targetZone, ap);
+  }
+  return true;
+}
+
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 
 export function tickZone(dt) {
   _exitT += dt;
+
+  // ── Proximity-triggered exits — fire automatically, no click needed ────────
+  if (_exitsLive && !_transitioning && !combatPhase) {
+    for (const exit of _active?.exits ?? []) {
+      if (exit.proximityTrigger && _tryActivateExit(exit)) break;
+    }
+  }
 
   // ── Exit fog ──────────────────────────────────────────────────────────────
   if (_exitsLive && _exitMeshes.length) {
@@ -546,31 +584,8 @@ export function initZoneUI() {
     const hits = _exitRay.intersectObjects(_exitMeshes.filter(m => m.visible));
     if (!hits.length) return;
     const exit = hits.find(h => h.object.userData.exit)?.object.userData.exit;
-    if (!exit) return;
-    // Require at least one hero within 1 square of the fog ball center.
-    // The ball is pushed fogPush WU along the exit direction — check against
-    // that world position, not the raw exit disc coordinates.
-    const _eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
-    const _push  = exit.fogPush ?? 7.0;
-    const _fogX  = exit.x + (exit.x / _eDist) * _push + (exit.fogOffsetX ?? 0);
-    const _fogZ  = exit.z + (exit.z / _eDist) * _push + (exit.fogOffsetZ ?? 0);
-    const _r     = WORLD_UNITS_PER_SQUARE;
-    const nearEnough = units.some(u => {
-      if (u.team !== 'blue' || u.hp <= 0) return false;
-      const dx = u.grp.position.x - _fogX;
-      const dz = u.grp.position.z - _fogZ;
-      return dx * dx + dz * dz <= _r * _r;
-    });
-    if (!nearEnough) return;
-    e.stopImmediatePropagation();
-    _transitioning = true;
-    const ap = exit.arrivalX != null ? { x: exit.arrivalX, z: exit.arrivalZ } : null;
-    if (_postCombat) {
-      _showShortRestPanel(exit.targetZone, ap);
-      _transitioning = false; // panel handles its own flow
-    } else {
-      _triggerNextZone(exit.targetZone, ap);
-    }
+    if (!exit || exit.proximityTrigger) return; // proximity gates fire on their own, not on click
+    if (_tryActivateExit(exit)) e.stopImmediatePropagation();
   }, true); // capture phase — runs before hero-click handlers
 
   // ── Zone row helpers ────────────────────────────────────────────────────

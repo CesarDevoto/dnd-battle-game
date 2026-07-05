@@ -55,11 +55,15 @@ export const ZONE = {
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'road_to_phandelver', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
     { x: 82, z: -82, targetZone: 'haunted_wood', arrivalX: -82, arrivalZ: 78, label: 'Haunted Wood', fogPush: 14 },
+    { x: -94.83, z: 2.59, targetZone: 'warrens', label: 'The Warrens', proximityTrigger: true, fogPush: 0, fogHeight: 7.8 },
   ],
   terrain: [
     { x: 17, z: 20, h: -3, r: 11, pr: 8 },
     { x: -14.46, z: -20.51, h: 3, r: 16 },
     { x: 17, z: 29, h: -3, r: 11, pr: 8 },
+    { x: -99.56, z: 1.78, h: -9.5, r: 8 },
+    { x: -102.56, z: 1.78, h: -27, r: 8 },
+    { x: -107.56, z: 1.78, h: -52, r: 8 },
   ],
   terrainSeed: { ph: [3.013113,1.97615,3.331062,0.093255,2.362429,4.549572,3.526527,4.697033,3.308581,3.895562,5.733134,4.194688], fx: [1.49538,3.859223,9.819884,14.193138,65.296052,82.322198], fz: [1.133195,3.005258,6.629883,17.300653,28.299326,52.10154], sharpExp: 1.238931, scale: 6.806064 },
   props: [
@@ -192,6 +196,7 @@ export const ZONE = {
     { model: 'rubble', x: -86.09, z: -20.41, y: -0.2, rotY: 0, scale: 1 },
     { model: 'rock', x: -64.3, z: -88.47, y: 0.4768, rotY: 0, scale: 1 },
     { model: 'waystone', x: -14.12, z: 68.14, y: 0, yOff: 0.2, rotY: 0, scale: 1, waystoneId: 'bleakmire_woods', mapTab: 'I' },
+    { model: 'glowmushroom', x: -94.83, z: 2.59, y: 0.3933, rotY: 0, scale: 1 },
   ],
   barriers: [
     { x1: 6.07, z1: 92.64, x2: 5.94, z2: 96.92 },
