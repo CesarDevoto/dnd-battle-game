@@ -710,7 +710,12 @@ window.addEventListener('zone:loading', () => {
   _watchingProximity    = false;
   _flooshQuestPending   = false;
   _arrivalDialogueFired = false;
-  _quickTraveling       = false;
+  // NOT _quickTraveling — loadZone() dispatches 'zone:loading' synchronously
+  // as its first step, i.e. immediately after the quick-travel click sets
+  // this flag true but before 'zone:loaded' ever fires to consume it.
+  // Resetting it here raced against and always lost to that consumption,
+  // silently skipping _placeHeroesNearFloosh() every time. It's already
+  // cleared once read, in the 'zone:loaded' handler below.
   _removeFlooshExcl();
   _removeFlooshQMark();
   _guiding            = false;

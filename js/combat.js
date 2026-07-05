@@ -635,8 +635,22 @@ function _allyAdjacentToTarget(attacker, target) {
   return false;
 }
 
+// True while stealthed AND still standing exactly where the Hide roll
+// succeeded (checked lazily against stored origin coords rather than hooked
+// into every movement path — simpler and can't be missed by a code path that
+// forgets to clear a flag). A stealthed halfling who hasn't moved gets sneak
+// attack on anyone in range, not just targets an ally is adjacent to —
+// mirrors 5e's "hidden attacker" rule. Moving at all forfeits this until
+// they successfully Hide again.
+function _isStationarySinceHide(u) {
+  if (!u.stealthed) return false;
+  const dx = u.grp.position.x - (u.stealthOriginX ?? u.grp.position.x);
+  const dz = u.grp.position.z - (u.stealthOriginZ ?? u.grp.position.z);
+  return dx * dx + dz * dz < 0.0025; // ~0.05 WU tolerance
+}
+
 function hasSneakAttackCondition(attacker, target, atkResult) {
-  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target);
+  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || _isStationarySinceHide(attacker);
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -1311,6 +1325,8 @@ function activateHide() {
   if (stealth >= 10) {
     u.hideRoll = stealth;
     setUnitStealth(u, true);
+    u.stealthOriginX = ux;
+    u.stealthOriginZ = uz;
     addLog(`${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
     showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
   } else {
@@ -3264,7 +3280,7 @@ const _ABILITY_HANDLERS = {
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
                        hasLineOfSight(ux, uz, ttx, ttz));
       if (!inRange) return false;
-      return _allyAdjacentToTarget(curU, selectedTarget);
+      return _allyAdjacentToTarget(curU, selectedTarget) || _isStationarySinceHide(curU);
     },
   },
   hide: {
@@ -4168,6 +4184,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         if (stealth >= 10) {
           u.hideRoll = stealth;
           setUnitStealth(u, true);
+          u.stealthOriginX = ux;
+          u.stealthOriginZ = uz;
           addLog(`${unitLabel(u)} hides! Stealth ${stealth}`, 'move');
           showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
         } else {

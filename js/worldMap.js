@@ -182,7 +182,7 @@ const SUBMAP_WAYPOINTS = {
     { id: 'road',            mapX: 0.839, mapY: 0.912, label: 'Road to Phandalin', zoneId: 'road_to_phandelver',  arrivalX: 20.06, arrivalZ: 22.43 },
     { id: 'bleakmire_woods', mapX: 0.697, mapY: 0.669, label: 'Bleakmire Wood',    zoneId: 'bleakmire_woods',  arrivalX: -14.12, arrivalZ: 68.14 },
     { id: 'haunted_wood',    mapX: 0.651, mapY: 0.469, label: 'Haunted Wood',      zoneId: 'haunted_wood',     arrivalX: -71.41, arrivalZ: 76.16 },
-    { id: 'mausoleum',       mapX: 0.735, mapY: 0.262, label: 'Mausoleum',         zoneId: 'mausoleum',        arrivalX:   1.28, arrivalZ: 33.98 },
+    { id: 'mausoleum',       mapX: 0.735, mapY: 0.262, label: 'Mausoleum',         zoneId: 'mausoleum',        arrivalX:  -4.22, arrivalZ: 18.23 },
   ],
   II:  [],
   III: [],

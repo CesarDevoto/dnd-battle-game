@@ -2,6 +2,36 @@
 import * as THREE from 'three';
 import { scene, camera } from './scene.js';
 
+// Pre-add permanently at intensity 0 — adding a light mid-scene recompiles
+// every lit material (same shader-cache issue solved in firebolt.js/
+// magicmissile.js/sacredflame.js). playGraveCurseBolt previously created a
+// brand-new PointLight per cast, which retriggered that recompile on every
+// single Grave Curse — the multi-second "freeze right as the animation
+// starts" the user kept seeing, even with no pathfinding involved at all.
+// Pooled (not just one) since a multi-target curse staggers several bolts
+// in flight at once — one shared light would visually jump between them.
+const GRAVE_CURSE_LIGHT_POOL = 4;
+const _graveCurseLights = [];
+let _graveCurseLightIdx = 0;
+export function initGraveCurseLight() {
+  for (let i = 0; i < GRAVE_CURSE_LIGHT_POOL; i++) {
+    const light = new THREE.PointLight(0xaa22ee, 0, 9);
+    light.position.set(0, -9999, 0);
+    scene.add(light);
+    _graveCurseLights.push(light);
+  }
+}
+
+// Any in-flight Grave Curse bolt/impact effect registers a cleanup callback
+// here so a zone change mid-effect (e.g. quick-traveling right after landing
+// a hit) tears down its meshes immediately instead of leaving them floating
+// in the new scene forever.
+const _activeCleanups = new Set();
+window.addEventListener('zone:loading', () => {
+  for (const cleanup of _activeCleanups) cleanup();
+  _activeCleanups.clear();
+});
+
 // ── Shared skull canvas texture ───────────────────────────────────────────────
 let _skullTex = null;
 function _getSkullTex() {
@@ -205,9 +235,9 @@ export function playGraveCurseBolt(caster, target, onImpact) {
   haloMesh.position.copy(origin);
   scene.add(haloMesh);
 
-  const light = new THREE.PointLight(0xaa22ee, 2.6, 9);
+  const light = _graveCurseLights[_graveCurseLightIdx++ % GRAVE_CURSE_LIGHT_POOL];
   light.position.copy(origin);
-  scene.add(light);
+  light.intensity = 0;
 
   // ── Trailing wisps ────────────────────────────────────────────────────────────
   const posArr  = new Float32Array(BOLT_MAX_P * 3);
@@ -242,9 +272,28 @@ export function playGraveCurseBolt(caster, target, onImpact) {
     posArr[i * 3 + 2] = pz + (Math.random() - 0.5) * 0.12;
   }
 
-  let t0 = null, prevNow = null, landed = false, doneAt = Infinity;
+  let t0 = null, prevNow = null, landed = false, doneAt = Infinity, cancelled = false;
+
+  // Releases the pooled light and disposes the orb/halo — shared by the
+  // normal landing path and the zone-change cleanup path below.
+  function _releaseTravelMeshes() {
+    scene.remove(orbMesh); orbGeo.dispose(); orbMat.dispose();
+    scene.remove(haloMesh); haloGeo.dispose(); haloMat.dispose();
+    light.intensity = 0;
+    light.position.set(0, -9999, 0);
+  }
+
+  const cleanup = () => {
+    cancelled = true;
+    if (!landed) _releaseTravelMeshes();
+    scene.remove(partPts);
+    partGeo.dispose(); partMat.dispose();
+    _activeCleanups.delete(cleanup);
+  };
+  _activeCleanups.add(cleanup);
 
   function tick(now) {
+    if (cancelled) return;
     if (t0 === null) { t0 = now; prevNow = now; }
     const dt = Math.min((now - prevNow) / 1000, 0.05);
     prevNow = now;
@@ -263,9 +312,7 @@ export function playGraveCurseBolt(caster, target, onImpact) {
 
       if (t >= 1) {
         landed = true;
-        scene.remove(orbMesh); orbGeo.dispose(); orbMat.dispose();
-        scene.remove(haloMesh); haloGeo.dispose(); haloMat.dispose();
-        scene.remove(light);
+        _releaseTravelMeshes();
         doneAt = now + 500;
         onImpact?.();
       }
@@ -291,6 +338,7 @@ export function playGraveCurseBolt(caster, target, onImpact) {
     if (now >= doneAt) {
       scene.remove(partPts);
       partGeo.dispose(); partMat.dispose();
+      _activeCleanups.delete(cleanup);
       return;
     }
     requestAnimationFrame(tick);
@@ -351,8 +399,18 @@ export function playGraveCurseEffect(target) {
   let ringT    = 0;
   const DONE_S = RISE_S + 0.4;
   let   doneAt = Infinity;
+  let   cancelled = false;
+
+  const cleanup = () => {
+    cancelled = true;
+    if (!ringDone) { scene.remove(ringMesh); ringGeo.dispose(); ringMat.dispose(); }
+    for (const s of skulls) { scene.remove(s.mesh); s.geo.dispose(); s.mat.dispose(); }
+    _activeCleanups.delete(cleanup);
+  };
+  _activeCleanups.add(cleanup);
 
   function tick(now) {
+    if (cancelled) return;
     if (prevNow === null) { prevNow = now; startNow = now; doneAt = now + DONE_S * 1000; }
     const dt = Math.min((now - prevNow) / 1000, 0.05);
     prevNow = now;
@@ -392,6 +450,7 @@ export function playGraveCurseEffect(target) {
         scene.remove(s.mesh);
         s.geo.dispose(); s.mat.dispose();
       }
+      _activeCleanups.delete(cleanup);
       return;
     }
     requestAnimationFrame(tick);

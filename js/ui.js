@@ -6,7 +6,7 @@ import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, se
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
-import { computeAC } from './equipment.js';
+import { computeAC, equipItem } from './equipment.js';
 import { getXpProgress } from './progression.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
@@ -361,6 +361,7 @@ function _initEquipmentPanel() {
       el.classList.add('selected');
 
       if (item?.slots) {
+        eqBagContentEl.dataset.bagSlotKey = el.dataset.slot;
         eqBagContentEl.innerHTML = buildBagContentsHTML(item, el.dataset.slot);
         eqBagContentEl.querySelectorAll('[data-bagslot]').forEach(box => {
           box.addEventListener('click', (ev) => {
@@ -378,6 +379,105 @@ function _initEquipmentPanel() {
     });
   });
 }
+
+// Rebuilds the equipment grid after a drag-drop equip/swap and re-opens
+// whatever bag slot the dragged item came from, so its (now-updated)
+// contents are visible without an extra click.
+function _refreshEquipmentPanel(reopenBagKey) {
+  if (!sheetUnit) return;
+  _equipmentPanelHTML = buildEquipmentPanelHTML(sheetUnit);
+  eqContentEl.innerHTML = _equipmentPanelHTML;
+  _initEquipmentPanel();
+  if (reopenBagKey) eqContentEl.querySelector(`[data-slot="${reopenBagKey}"]`)?.click();
+}
+
+// Plain click-drag: pick up an equippable item from an open bag and drop it
+// onto an equipment slot to equip it. If that slot already holds an item,
+// the two trade places (old item goes back into the bag slot just vacated).
+// A movement threshold (not a modifier key) distinguishes a drag from the
+// existing plain click that selects the box and shows its details — the
+// drag only "arms" once the cursor has actually moved past a few pixels,
+// so a real click never accidentally starts one.
+(function() {
+  let dragEl = null, dragItem = null, dragBagKey = null, dragIdx = null;
+  let pending = null; // { box, item, bagKey, idx, startX, startY } — armed on mousedown, promoted to a drag past the threshold
+  let justDragged = false;
+  const DRAG_THRESHOLD = 6; // px
+
+  // ring-l/ring-r and wrist-l/wrist-r are generic catalog slots — any item
+  // whose own .slot is 'ring'/'wrist' fits either box (see equipment.js).
+  const GENERIC_SLOT = { 'ring-l': 'ring', 'ring-r': 'ring', 'wrist-l': 'wrist', 'wrist-r': 'wrist' };
+
+  function _moveGhost(x, y) {
+    if (dragEl) { dragEl.style.left = x + 'px'; dragEl.style.top = y + 'px'; }
+  }
+
+  function _startDrag(x, y) {
+    dragItem   = pending.item;
+    dragBagKey = pending.bagKey;
+    dragIdx    = pending.idx;
+
+    dragEl = document.createElement('div');
+    dragEl.className = 'sb-drag-ghost';
+    dragEl.innerHTML = pending.box.innerHTML;
+    document.body.appendChild(dragEl);
+    _moveGhost(x, y);
+    justDragged = true;
+  }
+
+  function _onDragMove(e) {
+    if (!dragEl) {
+      const dx = e.clientX - pending.startX, dy = e.clientY - pending.startY;
+      if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+      _startDrag(e.clientX, e.clientY);
+    }
+    _moveGhost(e.clientX, e.clientY);
+  }
+
+  function _onDragEnd(e) {
+    document.removeEventListener('mousemove', _onDragMove);
+    if (dragEl) {
+      dragEl.style.display = 'none'; // exclude the ghost from the hit-test below
+      const slotEl        = document.elementFromPoint(e.clientX, e.clientY)?.closest('.eq-slot');
+      const targetSlotKey = slotEl?.dataset.slot;
+      const accepts = targetSlotKey &&
+        (dragItem.slot === targetSlotKey || GENERIC_SLOT[targetSlotKey] === dragItem.slot);
+      if (accepts && sheetUnit) {
+        const hero    = sheetUnit;
+        const oldItem = hero.equipment?.[targetSlotKey] ?? null;
+        equipItem(hero, dragItem, targetSlotKey);
+        const bag = hero.equipment?.[dragBagKey];
+        if (bag?.contents) bag.contents[dragIdx] = oldItem;
+        _refreshEquipmentPanel(dragBagKey);
+      }
+      dragEl.remove();
+      dragEl = null;
+    }
+    dragItem   = null;
+    dragBagKey = null;
+    dragIdx    = null;
+    pending    = null;
+  }
+
+  eqBagContentEl.addEventListener('mousedown', e => {
+    const box = e.target.closest('.eq-bagslot-box');
+    const idx = box ? Number(box.dataset.bagslot) : NaN;
+    if (!box || Number.isNaN(idx)) return;
+    const bagKey = eqBagContentEl.dataset.bagSlotKey;
+    const item   = sheetUnit?.equipment?.[bagKey]?.contents?.[idx];
+    if (!item || !item.slot) return; // only equippable items (have a target slot) can be dragged
+
+    pending = { box, item, bagKey, idx, startX: e.clientX, startY: e.clientY };
+    document.addEventListener('mousemove', _onDragMove);
+    document.addEventListener('mouseup', _onDragEnd, { once: true });
+  });
+
+  // Swallow the click that follows a completed drag so it doesn't also
+  // trigger the box's normal "select item / show details" click handler.
+  eqBagContentEl.addEventListener('click', e => {
+    if (justDragged) { justDragged = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+})();
 
 function buildEquipmentPanelHTML(u) {
   const slot = (id, label) => {
@@ -567,7 +667,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Smoke &amp; Mirrors</span>
             </div>
-            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside</div>
+            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside · combined with Hide, staying put lets you sneak attack anyone in range — moving at all breaks it</div>
           </div>
           <img src="${ABILITY_META.smoke_mirrors.imgSrc}" class="ss-spell-inline-img" alt="Smoke & Mirrors">
         </div>
@@ -621,7 +721,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Hide</span>
             </div>
-            <div class="ss-spell-desc">Requires no enemy has line of sight · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown</div>
+            <div class="ss-spell-desc">Requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden and stationary, sneak attack works on any target in range; moving or attacking breaks stealth</div>
           </div>
           <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
         </div>
