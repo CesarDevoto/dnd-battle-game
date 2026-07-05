@@ -26,6 +26,7 @@ import { initNpcAIEditor } from './npcAIEditor.js';
 import { initSpawnEditor } from './spawnEditor.js';
 import { initTerrainEditor } from './terrainEditor.js';
 import { initBarrierEditor } from './barrierEditor.js';
+import { initTrenchEditor } from './trenchEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickExclamations } from './exclamationMarkers.js';
@@ -160,6 +161,7 @@ if (IS_DEV) {
   initSpawnEditor();
   initTerrainEditor();
   initBarrierEditor();
+  initTrenchEditor();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');

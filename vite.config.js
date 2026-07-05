@@ -401,6 +401,68 @@ function saveZoneBarriersPlugin() {
   };
 }
 
+function saveZoneTrenchesPlugin() {
+  return {
+    name: 'save-zone-trenches',
+    configureServer(server) {
+      server.middlewares.use('/__save_zone_trenches', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, trenches } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath))
+              throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+
+            const r = (n) => Math.round(n * 1e4) / 1e4;
+            const itemLines = trenches.map(t => {
+              const pts = t.points.map(p => `{x:${r(p.x)},z:${r(p.z)}}`).join(', ');
+              let str = `    { points: [${pts}], h: ${r(t.h)}, r: ${r(t.r)}`;
+              if (t.pr) str += `, pr: ${r(t.pr)}`;
+              return str + ' },';
+            });
+            const trenchesBlock = trenches.length
+              ? `  trenches: [\n${itemLines.join('\n')}\n  ],`
+              : `  trenches: [],`;
+
+            if (/[ \t]*trenches\s*:/.test(src)) {
+              // Bracket-count to find true array end (handles nested points:[...])
+              const startIdx = src.search(/[ \t]*trenches\s*:/);
+              const arrStart = src.indexOf('[', startIdx);
+              let depth = 0, arrEnd = -1;
+              for (let i = arrStart; i < src.length; i++) {
+                if (src[i] === '[') depth++;
+                else if (src[i] === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
+              }
+              const afterArr = arrEnd + 1;
+              const trailingComma = src[afterArr] === ',' ? 1 : 0;
+              src = src.slice(0, startIdx) + trenchesBlock + src.slice(afterArr + trailingComma);
+            } else {
+              src = src.replace(/^(\};)/m, `${trenchesBlock}\n$1`);
+            }
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 function saveZoneVisionBlockersPlugin() {
   return {
     name: 'save-zone-vision-blockers',
@@ -527,5 +589,5 @@ function deleteZonePlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
 });

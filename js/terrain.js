@@ -258,6 +258,45 @@ function _controlPointHeight(wx, wz) {
   return best;
 }
 
+// ── Trench control paths — editor-drawn polylines that carve a continuous
+// canyon into the heightfield ─────────────────────────────────────────────────
+// Each path: { points: [{x,z},...], h, r, pr? } — same h/r/pr semantics as a
+// single control point, but height is a function of distance to the nearest
+// point on the whole polyline (via _distSeg above) instead of distance to one
+// center. This is what gives a multi-click trench a continuous, seamless
+// floor and a naturally rounded/beveled cap at each end, with no separate
+// blending or tapering logic needed.
+
+let _trenchPaths = [];
+
+export function setTerrainTrenches(paths) { _trenchPaths = paths ?? []; }
+export function getTerrainTrenches()      { return _trenchPaths; }
+
+function _trenchHeight(wx, wz) {
+  let best = 0;
+  for (const path of _trenchPaths) {
+    const pts = path.points;
+    if (!pts || pts.length < 2) continue;
+    let dist = Infinity;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = _distSeg(wx, wz, pts[i].x, pts[i].z, pts[i + 1].x, pts[i + 1].z);
+      if (d < dist) dist = d;
+    }
+    if (dist >= path.r) continue;
+    const pr = path.pr ?? 0;
+    let contrib;
+    if (dist <= pr) {
+      contrib = path.h;
+    } else {
+      const band = path.r - pr;
+      const t = band > 0 ? 1 - (dist - pr) / band : 0;
+      contrib = path.h * t * t * (3 - 2 * t);   // smoothstep over outer band only
+    }
+    if (Math.abs(contrib) > Math.abs(best)) best = contrib;
+  }
+  return best;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 // Returns positive (hill) or negative (valley) height relative to base level.
@@ -266,7 +305,10 @@ export function getTerrainHeight(wx, wz) {
   const raw    = rawNoise(wx, wz);
   const sharp  = Math.sign(raw) * Math.pow(Math.abs(raw), sharpExp);
   const noiseH = sharp * edgeFade(wx, wz) * scale * biomeAmplitudeScale;
-  return Math.max(noiseH, _rimHeight(wx, wz)) + _controlPointHeight(wx, wz);
+  const base   = Math.max(noiseH, _rimHeight(wx, wz));
+  const cpH    = _controlPointHeight(wx, wz);
+  const trH    = _trenchHeight(wx, wz);
+  return base + (Math.abs(trH) > Math.abs(cpH) ? trH : cpH);
 }
 
 // ── Biome vertex colours ──────────────────────────────────────────────────────

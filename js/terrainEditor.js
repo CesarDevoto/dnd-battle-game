@@ -4,6 +4,7 @@ import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
 import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag } from './barrierEditor.js';
+import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench } from './trenchEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -369,6 +370,7 @@ export function initTerrainEditor() {
     if (panel) panel.style.display = _open ? 'block' : 'none';
     document.getElementById('terrain-editor-btn').classList.toggle('active', _open);
     setBarrierVisualsVisible(_open);
+    setTrenchVisualsVisible(_open);
     if (_open) {
       _setMarkersVisible(_markersVisible);
     } else {
@@ -429,6 +431,16 @@ export function initTerrainEditor() {
       return;
     }
 
+    // Trench draw mode intercepts all terrain clicks
+    if (isTrenchModeActive()) {
+      const pt = _groundPt(e.clientX, e.clientY);
+      if (pt) {
+        handleTrenchClick(pt, { h: _defaultH, r: _defaultR, pr: _defaultPR });
+        _lineUndoStack.push('trench');
+      }
+      return;
+    }
+
     // Shift+click: start dragging a barrier dot if one is under cursor
     if (e.shiftKey && pickBarrierDotAt(e.clientX, e.clientY)) return;
 
@@ -454,6 +466,7 @@ export function initTerrainEditor() {
       e.preventDefault();
       const last = _lineUndoStack[_lineUndoStack.length - 1];
       if (last === 'barrier') { _lineUndoStack.pop(); undoLastBarrier(); return; }
+      if (last === 'trench')  { _lineUndoStack.pop(); undoLastTrench();  return; }
       _undo();
       return;
     }

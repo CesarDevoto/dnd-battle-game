@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
+import { loadTrenchVisuals } from './trenchEditor.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
@@ -304,6 +305,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Apply terrain control points, seed, and gate notches before biome switch
   // so they're all baked into the terrain rebuild.
   setTerrainControlPoints(zone.terrain ?? []);
+  setTerrainTrenches(zone.trenches ?? []);
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
   setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: 2 })));
 
@@ -318,6 +320,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
+  loadTrenchVisuals(zone.trenches ?? []);
 
 
   _postCombat = false;
