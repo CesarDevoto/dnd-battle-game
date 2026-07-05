@@ -243,6 +243,17 @@ renderer.domElement.addEventListener('wheel', e => {
 
 export function isTopViewActive() { return _topViewActive; }
 
+// ── Camera flip (180° around the target, same height/distance) ──────────────
+
+export function flipCamera() {
+  const offset = camera.position.clone().sub(controls.target);
+  offset.x = -offset.x;
+  offset.z = -offset.z;
+  camera.position.copy(controls.target).add(offset);
+  camera.lookAt(controls.target);
+  controls.update();
+}
+
 export function toggleTopView() {
   _topViewActive = !_topViewActive;
   if (_topViewActive) {

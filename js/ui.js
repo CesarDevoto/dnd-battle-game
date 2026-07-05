@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { units, allBarsVisible } from './units.js';
+import { units } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
 import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow } from './combat.js';
@@ -24,7 +24,6 @@ _occluder.firstHitOnly = true;
 //     encounter (turnOrder), so a distant/non-aggroed enemy stays hidden.
 //   • barForced = true    → unit is selected or currently taking its combat turn (extra force-show)
 //   • now < barShowUntil  → unit was damaged recently (3-second flash)
-//   • allBarsVisible      → player's manual "show all bars" toggle (Backquote) overrides everything
 // Occlusion (terrain ray) is only tested for bars that would otherwise be shown.
 
 export function updateHUD() {
@@ -52,7 +51,7 @@ export function updateHUD() {
 
     // Is this bar supposed to be visible at all?
     const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
-    const shouldShow    = u.team === 'blue' || engagedEnemy || u.barForced || now < u.barShowUntil || allBarsVisible;
+    const shouldShow    = u.team === 'blue' || engagedEnemy || u.barForced || now < u.barShowUntil;
     if (!shouldShow) {
       u.barEl.style.opacity = '0';
       return;

@@ -3224,8 +3224,8 @@ function _endDelayInterrupt() {
 // Single source of truth for every skill/cantrip/spell's execute+availability
 // logic, keyed by the same ability keys used in abilityRegistry.js's
 // HERO_ABILITY_LAYOUT. The fixed hotbar slots that still hardcode a key
-// (Digit2/3/5/6, KeyR, KeyT) call in here too so there's exactly one copy of
-// each ability's logic; player-assigned slots (Q/W/E/4/Y/etc., via the
+// (Digit2/3/5/6, KeyR) call in here too so there's exactly one copy of
+// each ability's logic; player-assigned slots (Q/W/E/T/4/Y/etc., via the
 // Skills & Spells drag-and-drop) look these up generically.
 const _ABILITY_HANDLERS = {
   dash: {
@@ -3331,14 +3331,13 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      if (!selectedTarget || selectedTarget.hp <= 0) return false;
       const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
-      return units.some(e => {
-        if (e.team === curU.team || e.hp <= 0) return false;
-        const dx = e.grp.position.x - curU.grp.position.x;
-        const dz = e.grp.position.z - curU.grp.position.z;
-        return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-               hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
-      });
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
+                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
     },
   },
   fire_bolt: {
@@ -3399,21 +3398,20 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf' || turnAttacked) return false;
       if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
+      if (!selectedTarget || selectedTarget.hp <= 0) return false;
       const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
-      return units.some(e => {
-        if (e.team === curU.team || e.hp <= 0) return false;
-        const dx = e.grp.position.x - curU.grp.position.x;
-        const dz = e.grp.position.z - curU.grp.position.z;
-        return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-               hasLineOfSight(curU.grp.position.x, curU.grp.position.z, e.grp.position.x, e.grp.position.z);
-      });
+      const dx = selectedTarget.grp.position.x - curU.grp.position.x;
+      const dz = selectedTarget.grp.position.z - curU.grp.position.z;
+      return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
+             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
+                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
     },
   },
 };
 
 // Slots the player may freely drag-and-drop abilities onto. Everything else
 // (attacks, end turn, ready action, potion, top view) stays fixed.
-const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'Digit4', 'Tab', 'KeyY']);
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'Digit4', 'Tab', 'KeyY', 'KeyT']);
 
 // Binds one player-assigned ability onto one hotbar slot for the currently
 // rebuilding hero — shared by the custom-slot loop in _rebuildHotbar.
@@ -3538,13 +3536,8 @@ function _rebuildHotbar(u) {
       onSneakBtn:    handleSneakAttackBtnClick,
     });
   }
-  // Q/W/E start empty — abilities only appear there once the player drags
+  // Q/W/E/T start empty — abilities only appear there once the player drags
   // them in from the Skills & Spells window (see the custom-slot loop below).
-  // T is reserved for the permanent Top View toggle (bound once in main.js) —
-  // never bind an ability there, or it silently and permanently clobbers Top
-  // View for the rest of the session (KeyT survives clearAllHotkeys() as a
-  // "permanent" key, so nothing ever re-establishes the Top View binding
-  // after it's overwritten).
   {
     const armed = _readied.has(u);
     bindHotkey('KeyR', false,

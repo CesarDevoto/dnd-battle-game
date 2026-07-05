@@ -50,6 +50,7 @@
       <button id="audio-mixer-btn">AUDIO</button>
       <button id="quest-log-btn">QUESTS</button>
       <button id="map-btn">MAP</button>
+      <button id="keybinds-btn">KEYBINDS</button>
       <button id="grid-toggle-btn">Grid Off</button>
     </div>
     <div id="dlg-log-panel" class="dev-only" style="display:none">
@@ -451,6 +452,31 @@
               <tr class="xp-milestone xp-band xp-cap"><td>100</td><td>500,000</td><td>~12,000 / level</td><td>—</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keybinds overlay -->
+    <div id="keybinds-overlay">
+      <div id="keybinds-modal">
+        <div id="keybinds-header">
+          <div id="keybinds-title">KEYBINDS</div>
+          <div id="keybinds-subtitle">Camera &amp; Hotbar Controls</div>
+          <button id="keybinds-close">✕</button>
+        </div>
+        <div id="keybinds-body">
+
+          <div class="sxp-section-hdr">CAMERA</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">F</span><span class="sxp-val">Flip camera 180° — same height and angle, opposite side</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">G</span><span class="sxp-val">Toggle top-down view</span></div>
+          </div>
+
+          <div class="sxp-section-hdr">HOTBAR</div>
+          <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">Shift + Left Click</span><span class="sxp-val">Drag a spell or skill from the Skills &amp; Spells window onto an empty hotbar slot</span></div>
+          </div>
+
         </div>
       </div>
     </div>

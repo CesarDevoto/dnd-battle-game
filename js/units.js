@@ -12,9 +12,6 @@ export const units      = [];
 export const corpses    = [];  // animated units that have died — kept for mixer updates
 export const heroRoster = [];  // all 4 hero unit objects, never cleared on death
 
-export let allBarsVisible = false;
-export function toggleAllBars()    { allBarsVisible = !allBarsVisible; }
-export function getAllBarsVisible() { return allBarsVisible; }
 const hud = document.getElementById('hud');
 
 // ── Model loading ─────────────────────────────────────────────────────────────

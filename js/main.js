@@ -1,4 +1,4 @@
-import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, isTopViewActive } from './scene.js';
+import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera } from './scene.js';
 import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
@@ -14,7 +14,6 @@ import { initBestiary } from './bestiary.js';
 import { initSpellbook } from './spellbook.js';
 import { initHotbar, bindPermanentHotkey } from './hotbar.js';
 import { cycleHero, removeUnits } from './army.js';
-import { toggleAllBars, getAllBarsVisible } from './units.js';
 import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
@@ -124,6 +123,19 @@ initDevLevelTool();
     document.addEventListener('keydown', e => { if (e.key === 'Escape') sspOverlay.classList.remove('show'); });
   }
 }
+
+// Keybinds overlay
+{
+  const kbBtn     = document.getElementById('keybinds-btn');
+  const kbOverlay = document.getElementById('keybinds-overlay');
+  const kbClose   = document.getElementById('keybinds-close');
+  if (kbBtn && kbOverlay) {
+    kbBtn.addEventListener('click', () => kbOverlay.classList.toggle('show'));
+    kbClose.addEventListener('click', () => kbOverlay.classList.remove('show'));
+    kbOverlay.addEventListener('click', e => { if (e.target === kbOverlay) kbOverlay.classList.remove('show'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') kbOverlay.classList.remove('show'); });
+  }
+}
 initHotbar();
 initZoneUI();
 initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat: forceCombatExitWithLoot, getActiveZone });
@@ -207,10 +219,16 @@ if (IS_DEV) {
   };
 }
 
-bindPermanentHotkey('KeyT',     'TOP<br>VIEW',      toggleTopView,  isTopViewActive);
-bindPermanentHotkey('Digit1',   'TOGGLE<br>HEROES', cycleHero,      null);
+bindPermanentHotkey('Backquote','TOGGLE<br>HEROES', cycleHero,      null);
 bindPermanentHotkey('Tab',      'NEXT<br>TARGET',   () => {},       null);
-bindPermanentHotkey('Backquote','HEALTH<br>BARS',   toggleAllBars,  getAllBarsVisible);
+
+// ── F / G — camera flip and top-view toggle (no hotbar buttons; keyboard-only) ──
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'KeyF') flipCamera();
+  if (e.code === 'KeyG') toggleTopView();
+});
 
 // ── A / D — rotate active hero's facing direction ─────────────────────────────
 const _rotKeys = { left: false, right: false };
