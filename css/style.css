@@ -742,11 +742,19 @@ body {
 
 /* ── Cutscenes button ────────────────────────────────────────────────────── */
 /* ── Top button bar ──────────────────────────────────────────────────────── */
+/* Two stacked rows (dev tools, player tools) instead of one — a single row of
+   all buttons overflowed off the left edge of the screen. */
 #top-btn-bar {
   position: absolute;
   top: 14px;
   right: 14px;
   z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.top-btn-row {
   display: flex;
   border-radius: 3px;
   overflow: hidden;
@@ -768,7 +776,7 @@ body {
   transition: color 0.15s, border-color 0.15s, background 0.15s, text-shadow 0.15s;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.40);
 }
-#top-btn-bar button + button { margin-left: -1px; }
+.top-btn-row button + button { margin-left: -1px; }
 
 /* Gold — ZONES, CUTSCENES */
 #zones-btn, #cutscenes-btn {
@@ -1813,6 +1821,24 @@ body {
   color: #44ff88;
   text-shadow: 0 0 8px rgba(68,255,136,0.60), 2px 2px 4px rgba(0,0,0,0.95);
   pointer-events: none;
+}
+#soul-shard-dismiss-btn {
+  display: block;
+  margin: 8px auto 0;
+  pointer-events: auto;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  letter-spacing: 0.5px;
+  color: rgba(200,205,210,0.45);
+  cursor: pointer;
+  padding: 2px 6px;
+  transition: color 0.12s;
+}
+#soul-shard-dismiss-btn:hover {
+  color: rgba(230,235,240,0.85);
+  text-decoration: underline;
 }
 
 /* ── Shake Awake button ──────────────────────────────────────────────── */

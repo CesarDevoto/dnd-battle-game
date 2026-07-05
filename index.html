@@ -30,28 +30,32 @@
 
     <!-- Top button bar — all top-row buttons in one touching group, right-justified -->
     <div id="top-btn-bar">
-      <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
-      <button id="smart-xp-btn"        class="dev-only">SMART XP</button>
-      <button id="dev-level-btn"      class="dev-only">SET LEVEL</button>
-      <button id="smart-aggro-btn"     class="dev-only">SMART AGGRO</button>
-      <button id="biomes-btn"         class="dev-only">BIOMES</button>
-      <button id="prop-editor-btn"    class="dev-only">PROPS</button>
-      <button id="spawn-editor-btn"   class="dev-only">WAVES</button>
-      <button id="npc-editor-btn"     class="dev-only">NPCS</button>
-      <button id="npc-ai-editor-btn"  class="dev-only">NPC AI</button>
-      <button id="zones-btn"          class="dev-only">ZONES</button>
-      <button id="cutscenes-btn"      class="dev-only">CUTSCENES</button>
-      <button id="dlg-log-btn"        class="dev-only">DIALOGUE</button>
-      <button id="spellbook-btn">SPELLS</button>
-      <button id="bestiary-btn">BESTIARY</button>
-      <button id="xp-table-btn">XP TABLE</button>
-      <button id="smart-hit-btn">SMART HIT %</button>
-      <button id="smart-save-btn">SMART SAVE %</button>
-      <button id="audio-mixer-btn">AUDIO</button>
-      <button id="quest-log-btn">QUESTS</button>
-      <button id="map-btn">MAP</button>
-      <button id="keybinds-btn">KEYBINDS</button>
-      <button id="grid-toggle-btn">Grid Off</button>
+      <div class="top-btn-row">
+        <button id="terrain-editor-btn" class="dev-only">TERRAIN</button>
+        <button id="smart-xp-btn"        class="dev-only">SMART XP</button>
+        <button id="dev-level-btn"      class="dev-only">SET LEVEL</button>
+        <button id="smart-aggro-btn"     class="dev-only">SMART AGGRO</button>
+        <button id="biomes-btn"         class="dev-only">BIOMES</button>
+        <button id="prop-editor-btn"    class="dev-only">PROPS</button>
+        <button id="spawn-editor-btn"   class="dev-only">WAVES</button>
+        <button id="npc-editor-btn"     class="dev-only">NPCS</button>
+        <button id="npc-ai-editor-btn"  class="dev-only">NPC AI</button>
+        <button id="zones-btn"          class="dev-only">ZONES</button>
+        <button id="cutscenes-btn"      class="dev-only">CUTSCENES</button>
+        <button id="dlg-log-btn"        class="dev-only">DIALOGUE</button>
+      </div>
+      <div class="top-btn-row">
+        <button id="spellbook-btn">SPELLS</button>
+        <button id="bestiary-btn">BESTIARY</button>
+        <button id="xp-table-btn">XP TABLE</button>
+        <button id="smart-hit-btn">SMART HIT %</button>
+        <button id="smart-save-btn">SMART SAVE %</button>
+        <button id="audio-mixer-btn">AUDIO</button>
+        <button id="quest-log-btn">QUESTS</button>
+        <button id="map-btn">MAP</button>
+        <button id="keybinds-btn">KEYBINDS</button>
+        <button id="grid-toggle-btn">Grid Off</button>
+      </div>
     </div>
     <div id="dlg-log-panel" class="dev-only" style="display:none">
       <div id="dlg-log-header">
@@ -474,6 +478,8 @@
 
           <div class="sxp-section-hdr">HOTBAR</div>
           <div class="sxp-formula-block">
+            <div class="sxp-formula-row"><span class="sxp-label">S</span><span class="sxp-val">Toggle the Skills &amp; Spells window open/closed</span></div>
+            <div class="sxp-formula-row"><span class="sxp-label">I</span><span class="sxp-val">Open the equipment/inventory panel for the active hero (in combat) or the targeted/selected hero (out of combat)</span></div>
             <div class="sxp-formula-row"><span class="sxp-label">Shift + Left Click</span><span class="sxp-val">Drag a spell or skill from the Skills &amp; Spells window onto an empty hotbar slot</span></div>
           </div>
 
@@ -649,6 +655,7 @@
         <img src="assets/items/jewelry/necklace10.png" alt="Soul Shard Amulet">
       </button>
       <div id="soul-shard-prompt-label">Absorb Soul Shard</div>
+      <button id="soul-shard-dismiss-btn" title="Save your reaction — don't absorb this one">Dismiss</button>
     </div>
 
     <!-- Zone transition button — shown after zone victory -->

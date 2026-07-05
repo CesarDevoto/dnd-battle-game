@@ -1673,6 +1673,8 @@ function updateCombatStatus() {
       if (actBox) actBox.classList.toggle('act-used', !!turnAttacked);
       const bonBox = document.getElementById('act-bonus-box');
       if (bonBox) bonBox.classList.toggle('act-used', !!turnBonusActioned);
+      const reactBox = document.getElementById('act-react-box');
+      if (reactBox) reactBox.classList.toggle('act-used', !!turnReactionUsed);
     } else {
       tracker.style.display = 'none';
     }
@@ -2282,6 +2284,7 @@ const castConfirmWrap   = document.getElementById('cast-confirm-wrap');
 const castConfirmBtn    = document.getElementById('cast-confirm-btn');
 const soulShardPromptWrap = document.getElementById('soul-shard-prompt-wrap');
 const soulShardPromptBtn  = document.getElementById('soul-shard-prompt-btn');
+const soulShardDismissBtn = document.getElementById('soul-shard-dismiss-btn');
 
 let _pendingSpellCast = null;  // { castFn, spellName } | null
 
@@ -2307,6 +2310,14 @@ soulShardPromptBtn?.addEventListener('click', () => {
   turnReactionUsed = true;
   showFloatingDamage(hero, `+${healed}`, '#44ff88');
   addLog(`${unitLabel(hero)} absorbs a fragment of undead life force (Soul Shard Amulet) — regains ${healed} hp`, 'heal');
+  hideSoulShardPrompt();
+  updateCombatStatus();
+});
+
+// Decline the prompt — hides it without spending the reaction, so the hero
+// can save it (e.g. for a Ready Action trigger) instead of being forced to use it.
+soulShardDismissBtn?.addEventListener('click', () => {
+  if (_soulShardHero) addLog(`${unitLabel(_soulShardHero)} lets the fragment fade, saving their reaction.`, 'move');
   hideSoulShardPrompt();
 });
 
@@ -2970,11 +2981,15 @@ export function updateReadyIcons() {
       _readyIconEls.set(u, el);
     }
 
-    _fv.set(u.anchor.x, u.anchor.y + 1.6, u.anchor.z).project(camera);
+    // Same 3D anchor the health bar projects from (not a taller world-space
+    // offset) — the bar itself only nudges by a few CSS px (see ui.js), so
+    // matching that anchor and nudging further in screen space keeps the
+    // icon pinned just above the bar regardless of camera distance.
+    _fv.set(u.anchor.x, u.anchor.y, u.anchor.z).project(camera);
     if (_fv.z > 1) { el.style.display = 'none'; continue; }
     el.style.display = 'block';
     el.style.left = ((_fv.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
-    el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+    el.style.top  = ((-_fv.y * 0.5 + 0.5) * renderer.domElement.clientHeight - 22) + 'px';
   }
 }
 

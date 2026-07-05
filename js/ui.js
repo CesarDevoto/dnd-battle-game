@@ -133,6 +133,20 @@ document.getElementById('ss-btn-spellbook')?.addEventListener('click',  () => _t
 document.getElementById('ss-btn-traits')?.addEventListener('click',     () => _toggleSidePanel('ss-btn-traits'));
 document.getElementById('ss-btn-equipment')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-equipment'));
 
+// I — open the equipment/inventory panel for the active hero during combat,
+// or the targeted/selected hero out of combat. Same hero-resolution rule
+// updateSpellBar() below already uses for the Skills & Spells window.
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code !== 'KeyI') return;
+  const pcHero = (selectedTarget?.team === 'blue' && selectedTarget.hp > 0) ? selectedTarget : getPCSelected();
+  const u = combatPhase ? turnOrder[turnIndex] : pcHero;
+  if (!u || u.team !== 'blue' || u.hp <= 0) return;
+  showSheet(u);
+  _toggleSidePanel('ss-btn-equipment');
+});
+
 export let sheetUnit = null;
 
 function abMod(score) {
@@ -1025,11 +1039,24 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
   if (!body || !toggle) return;
   body.classList.add('collapsed');
   toggle.textContent = '▲';
-  toggle.addEventListener('click', e => {
-    e.stopPropagation();
+
+  function _toggleSpellBar() {
     const collapsed = body.classList.toggle('collapsed');
     toggle.textContent = collapsed ? '▲' : '▼';
+  }
+
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    _toggleSpellBar();
   });
+
+  // S — toggle the Skills & Spells window open/closed, same as clicking its arrow.
+  document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.code === 'KeyS') _toggleSpellBar();
+  });
+
   body.addEventListener('click', e => {
     const btn = e.target.closest('.sb-btn');
     const key = btn?.dataset.ability;

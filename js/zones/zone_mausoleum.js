@@ -19,6 +19,8 @@ export const ZONE = {
     { type: 'morvath', x: 35.99, z: -31.64, animOverrides: {idle:1,walk:4,run:3,attack:2,rangedAttack:5,spellCast:5,death:0} },
     { type: 'shadow', x: 18.78, z: 10.76, yOff: -1, scale: 1.771, detectRange: 11, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
     { type: 'ghoul', x: 37.91, z: -23.23 },
+    { type: 'giant_rat', x: 4.41, z: 10.86 },
+    { type: 'giant_rat', x: 4.7, z: 9.16 },
   ],
   exits: [
     { x: 0, z: 36, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },

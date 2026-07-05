@@ -3,7 +3,9 @@ import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
 import { initEngagementLines, updateEngagementLines } from './engagementLines.js';
-import { updateHUD, trackSheet } from './ui.js';
+import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
+import { equipItem } from './equipment.js';
+import { getItem } from './items.js';
 import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
@@ -216,6 +218,19 @@ if (IS_DEV) {
       }, 300);
     }
     console.log(`[DEV] Heroes set to level ${target}`);
+  };
+
+  // Force-equip an item onto a hero by type ('elf'/'dwarf'/'human'/'halfling')
+  // and item id (see items.js). Refreshes the character sheet immediately if
+  // that hero's sheet is already open, since it otherwise only rebuilds on open.
+  window.devEquipItem = (heroType, itemId) => {
+    const hero = units.find(u => u.team === 'blue' && u.type === heroType);
+    if (!hero) { console.warn(`[DEV] No hero of type "${heroType}" found`); return; }
+    const item = getItem(itemId);
+    if (!item) { console.warn(`[DEV] No item "${itemId}" found`); return; }
+    equipItem(hero, item);
+    if (sheetUnit === hero) showSheet(hero);
+    console.log(`[DEV] Equipped ${item.name} on ${UNIT_TYPES[heroType]?.name ?? heroType}`, hero.equipment);
   };
 }
 
