@@ -25,20 +25,38 @@ const _GUIDE_WAYPOINTS = [
   { x: 76,  z: -45 },
   { x: 82,  z: -78 },
 ];
+
+// Second journey — after the heroes return from Morvath, Floosh leads them to
+// the middle of Bleakmire's western wall (where a waygate to a new zone is
+// planned). Estimated path, same as the first — not yet visually verified;
+// adjust in dev mode (waypoint spheres) once the wall/gate actually exists.
+const _WEST_WALL_WAYPOINTS = [
+  { x: -5,  z: 55 },
+  { x: -25, z: 38 },
+  { x: -45, z: 20 },
+  { x: -60, z:  8 },
+  { x: -70, z:  2 },
+  { x: -76, z:  0 },
+];
+
 let _waypointMarkers = [];
 
 function _spawnWaypointMarkers() {
   _clearWaypointMarkers();
   const geo = new THREE.SphereGeometry(0.35, 8, 8);
-  _GUIDE_WAYPOINTS.forEach((wp, i) => {
-    const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0x00ffff : 0xff6600, wireframe: false });
-    const m   = new THREE.Mesh(geo, mat);
-    m.position.set(wp.x, getTerrainHeight(wp.x, wp.z) + 0.5, wp.z);
-    m.frustumCulled = false;
-    m.visible = isDevMode();
-    scene.add(m);
-    _waypointMarkers.push(m);
-  });
+  const addSet = (waypoints, startColor, color) => {
+    waypoints.forEach((wp, i) => {
+      const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? startColor : color, wireframe: false });
+      const m   = new THREE.Mesh(geo, mat);
+      m.position.set(wp.x, getTerrainHeight(wp.x, wp.z) + 0.5, wp.z);
+      m.frustumCulled = false;
+      m.visible = isDevMode();
+      scene.add(m);
+      _waypointMarkers.push(m);
+    });
+  };
+  addSet(_GUIDE_WAYPOINTS, 0x00ffff, 0xff6600);
+  addSet(_WEST_WALL_WAYPOINTS, 0x00ff88, 0xcc44ff);
 }
 
 export function setWaypointMarkersVisible(v) {
@@ -59,13 +77,17 @@ let _guideWpIdx       = 0;
 let _flooshUnit       = null;
 let _guidePaused      = false;
 let _watchingGuideStart = false; // true when quest accepted but guide not yet running
+let _guideWaypoints   = _GUIDE_WAYPOINTS;  // active path for the current journey
+let _onGuideArrive    = _fireArrivalDialogue; // called once the active path completes
 
 function _getFloosh() {
   if (!_flooshUnit) _flooshUnit = units.find(u => u.type === 'grassling' && u.team === 'npc');
   return _flooshUnit;
 }
 
-function _startGuide() {
+// waypoints/onArrive let this same walk-and-pause logic drive more than one
+// journey (haunted_wood the first time, the west wall the second time).
+function _startGuide(waypoints = _GUIDE_WAYPOINTS, onArrive = _fireArrivalDialogue) {
   const f = _getFloosh();
   if (!f) return;
   _guiding            = true;
@@ -73,6 +95,8 @@ function _startGuide() {
   _guideWpIdx         = 0;
   _guidePaused        = false;
   _watchingGuideStart = false;
+  _guideWaypoints     = waypoints;
+  _onGuideArrive      = onArrive;
 }
 
 function _tickGuide(dt) {
@@ -105,15 +129,15 @@ function _tickGuide(dt) {
   _guidePaused = false;
 
   // Reached all waypoints
-  if (_guideWpIdx >= _GUIDE_WAYPOINTS.length) {
+  if (_guideWpIdx >= _guideWaypoints.length) {
     _guideDone = true;
     setUnitWalking(f, false);
-    _fireArrivalDialogue();
+    _onGuideArrive?.();
     return;
   }
 
   // Move toward next waypoint
-  const wp  = _GUIDE_WAYPOINTS[_guideWpIdx];
+  const wp  = _guideWaypoints[_guideWpIdx];
   const dx  = wp.x - gx;
   const dz  = wp.z - gz;
   const len = Math.sqrt(dx * dx + dz * dz);
@@ -163,6 +187,20 @@ function _placeHeroesNearFloosh() {
     snapCameraToUnit(leader);
     setFollowUnit(leader);
   }
+
+  // Floosh spent the intervening time at the far end of his guide path
+  // (_GUIDE_WAYPOINTS) — snap him back to his original spot by the waystone
+  // and re-arm his "!" so the reunion plays out there instead of wherever
+  // the guide sequence left him.
+  const f = _getFloosh();
+  if (f) {
+    const fy = getTerrainHeight(_FLOOSH_X, _FLOOSH_Z);
+    f.grp.position.set(_FLOOSH_X, fy, _FLOOSH_Z);
+    f.grp.rotation.y = _FLOOSH_WELCOME_ROT_Y;
+    if (f.anchor) { f.anchor.x = _FLOOSH_X; f.anchor.y = fy; f.anchor.z = _FLOOSH_Z; }
+  }
+  _spawnFlooshExcl();
+  _watchingWelcomeBack = true;
 }
 
 function _armReturnButton() {
@@ -195,8 +233,10 @@ registerPostCombatHandler(15, (ctx, done) => {
 const _FLOOSH_X  = 6.71;
 const _FLOOSH_Z  = 71.66;
 const _PROX_SQ   = 36;    // 15 ft = 6 WU  →  6² = 36
+const _FLOOSH_WELCOME_ROT_Y = 0; // facing the heroes' quick-travel arrival point — adjust in dev mode if it looks off
 
 let _watchingProximity    = false;
+let _watchingWelcomeBack  = false;  // set on quick-travel return from Morvath — Floosh reset to his spot, waiting for heroes to approach
 let _flooshQuestPending   = false;  // true if proximity triggered during combat
 let _arrivalDialogueFired = false;
 let _flooshExcl           = null;   // "!" sprite above Floosh
@@ -238,6 +278,19 @@ function _fireArrivalDialogue() {
   try { localStorage.setItem(_KEY_ARRIVAL, '1'); } catch {}
   showQuickDialogue(_ARRIVAL_LINES);
 }
+
+// ── Morvath's death taunt — one-shot, fires the instant he dies in combat ────
+const _MORVATH_DEATH_LINES = [
+  { s: 'Morvath', t: "Fools... You think slaying this withered husk ends anything? Oblivion's tide raises a shadow that will blot out your sun and your gods. All of you will kneel, broken and remade, marching in its legion of death at my side..." },
+];
+registerDialogueScene({ id: 'dlg_morvath_death', name: 'Morvath — Death Taunt', lines: _MORVATH_DEATH_LINES });
+
+let _morvathDeathShown = false;
+window.addEventListener('unit:defeated', e => {
+  if (e.detail?.type !== 'morvath' || _morvathDeathShown) return;
+  _morvathDeathShown = true;
+  showQuickDialogue(_MORVATH_DEATH_LINES);
+});
 
 function _spawnFlooshExcl() {
   if (_flooshExcl) return;
@@ -341,6 +394,28 @@ function _startQuestDialogue(onDone = null) {
     ]);
   });
 }
+
+// ── Welcome back — heroes quick-travel to Floosh after defeating Morvath ─────
+const _WELCOME_BACK_LINES = [
+  { s: 'Floosh', t: "You return! And the taint upon our woods... I feel it, it is lifted! Rest now, friends of the wild — you have more than earned my guidance." },
+  { s: 'Floosh', t: "And as token of gratitude, I bestow upon thee this fine dung from the sacred mounds of our realm. Take it to any alchemist in the towns of men, and from it shall be wrought two potent draughts of healing." },
+  { s: 'Floosh', t: "Onwards then, to the goblin warrens. The foul creatures have grown bold of late, and their tracks mar our borders. Hail the heroes! Hail the saviors of the green!" },
+];
+registerDialogueScene({ id: 'dlg_floosh_welcome_back', name: 'Floosh — Welcome Back', lines: _WELCOME_BACK_LINES });
+
+function _startWelcomeBackDialogue() {
+  _watchingWelcomeBack = false;
+  _removeFlooshExcl();
+  showQuickDialogue(_WELCOME_BACK_LINES, () => {
+    showChoiceUI([
+      { label: 'To the Goblins', onPick: () => _startGuide(_WEST_WALL_WAYPOINTS, _onReachWestWall) },
+    ]);
+  });
+}
+
+// Arrival hook for the second journey — no dialogue specified yet; Floosh
+// just stops and waits here, ready for the future west-wall waygate feature.
+function _onReachWestWall() {}
 
 // ── Post-combat deferred quest trigger ────────────────────────────────────────
 // If a hero was already within 15 ft of Floosh when combat started, the ! stays
@@ -567,6 +642,20 @@ export function tickBleakmireWoods(dt) {
       }
     }
   }
+
+  // Welcome-back proximity trigger — armed by _placeHeroesNearFloosh() right
+  // after the quick-travel-from-Morvath zone load.
+  if (_watchingWelcomeBack) {
+    for (const u of units) {
+      if (u.team !== 'blue' || u.hp <= 0) continue;
+      const dx = u.grp.position.x - _FLOOSH_X;
+      const dz = u.grp.position.z - _FLOOSH_Z;
+      if (dx * dx + dz * dz <= _PROX_SQ) {
+        _startWelcomeBackDialogue();
+        break;
+      }
+    }
+  }
 }
 
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
@@ -586,9 +675,14 @@ window.addEventListener('zone:loaded', e => {
   // Footsteps only if heroes chose to follow the goblin tracks
   if (getQuestFlag('goblin_pursuit')) _showFootsteps();
 
-  // Floosh triggers independently — not gated on any prior quest
+  // Floosh's intro (incl. Milo's "lost the tracks" line) only makes narrative
+  // sense if the heroes actually chose to follow the goblin tracks in the
+  // road zone — gate it on that flag so jumping straight here (e.g. via the
+  // dev Zones panel) doesn't play a line referencing tracks they never
+  // followed. _KEY_INTRO is left unset if the flag is missing, so the intro
+  // still fires correctly (once) the first time both conditions are true.
   try {
-    if (!localStorage.getItem(_KEY_INTRO)) {
+    if (getQuestFlag('goblin_pursuit') && !localStorage.getItem(_KEY_INTRO)) {
       localStorage.setItem(_KEY_INTRO, '1');
       setTimeout(() => {
         showQuickDialogue(_INTRO_LINES, () => {

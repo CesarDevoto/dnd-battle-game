@@ -6,7 +6,7 @@ import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { dismissExclamation, trackExclamation, isMarkerSeen } from './exclamationMarkers.js';
 import { mkExclamationMarker } from './propBuilders.js';
-import { setQuestFlag, addQuest } from './quests.js';
+import { setQuestFlag, getQuestFlag, addQuest } from './quests.js';
 
 // ── Injected to avoid circular dep (zoneLoader → combat → ambushEvent → zoneLoader) ──
 let _getActiveZoneIdFn = null;
@@ -44,11 +44,32 @@ function _buildChoices() {
         setQuestFlag('goblin_pursuit');
         addQuest('goblin_pursuit', 'Follow the Goblin Tracks',
           "Track the goblins north to rescue Gundren Rockseeker and Sildar Hallwinter.");
+      } else {
+        // Lets Milo bring the choice back up on a later return to this zone
+        // (see the reconsider-prompt listener below) — not set until now
+        // since declining wasn't previously tracked at all.
+        setQuestFlag('goblin_pursuit_declined');
       }
       showQuickDialogue(ch.lines);
     },
   }));
 }
+
+// ── Reconsider prompt — Milo re-offers the pursuit choice on a later return ──
+// visit to this zone, for as long as the player keeps declining. Only makes
+// sense after they've been through the choice at least once and picked
+// "Head to Phandalin" (goblin_pursuit_declined) without ever having since
+// picked "Follow the tracks" (goblin_pursuit).
+const _RECONSIDER_LINES = [
+  { s: 'Milo', t: "I wonder if the tracks of those goblins yet remain to be seen... or if the wilds have swallowed them whole." },
+];
+registerDialogueScene({ id: 'dlg_pursuit_reconsider', name: 'Goblin Ambush — Reconsider Pursuit', lines: _RECONSIDER_LINES, onDone: () => showChoiceUI(_buildChoices()) });
+
+window.addEventListener('zone:loaded', e => {
+  if (e.detail?.id !== 'road_to_phandelver') return;
+  if (!getQuestFlag('goblin_pursuit_declined') || getQuestFlag('goblin_pursuit')) return;
+  setTimeout(() => showQuickDialogue(_RECONSIDER_LINES, () => showChoiceUI(_buildChoices())), 900);
+});
 
 registerDialogueScene({
   id: 'dlg_pursuit',
@@ -66,7 +87,14 @@ window.addEventListener('zone:loaded', e => {
   const star = mkExclamationMarker();
   star.position.set(_STAR_X, getTerrainHeight(_STAR_X, _STAR_Z) + 1.2, _STAR_Z);
   scene.add(star);
-  trackExclamation(star, _STAR_X, _STAR_Z, { id: 'horses_road' });
+  // skipAutoConsume: this marker is dismissed exclusively by the priority-30
+  // post-combat handler below (dismissExclamation + the victory dialogue),
+  // not by walking up to it. Without this, a hero wandering near the horses
+  // during the ambush fight itself (very likely, since that's where combat
+  // happens) would get silently consumed by the generic mid-combat
+  // "defer to _pending, mark seen" system (priority 3) before this event's
+  // own handler ever ran — skipping the dialogue and footstep trail entirely.
+  trackExclamation(star, _STAR_X, _STAR_Z, { id: 'horses_road', skipAutoConsume: true });
 });
 
 // ── Post-combat handler (priority 30) ────────────────────────────────────────

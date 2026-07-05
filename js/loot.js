@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getPotion } from './potions.js';
+import { getItem } from './items.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -105,6 +106,17 @@ function _markRoadGoblinPotionDropped() {
   try { localStorage.setItem(_ROAD_GOBLIN_POTION_KEY, '1'); } catch {}
 }
 
+// ── Soul Shard Amulet — guaranteed one-time drop from Morvath ────────────────
+const SOUL_SHARD_AMULET = getItem('soul_shard_amulet');
+const _MORVATH_AMULET_KEY = 'dnd_morvath_amulet_dropped';
+
+function _morvathAmuletAlreadyDropped() {
+  try { return localStorage.getItem(_MORVATH_AMULET_KEY) === '1'; } catch { return false; }
+}
+function _markMorvathAmuletDropped() {
+  try { localStorage.setItem(_MORVATH_AMULET_KEY, '1'); } catch {}
+}
+
 // ── Public: roll loot for one enemy ──────────────────────────────────────────
 // type/zoneId are optional — pass them to enable the one-time guaranteed drop.
 export function rollLoot(cr, type = null, zoneId = null) {
@@ -120,6 +132,11 @@ export function rollLoot(cr, type = null, zoneId = null) {
     _markRoadGoblinPotionDropped();
   } else if (Math.random() < LESSER_HEALING_CHANCE) {
     items.push({ ...LESSER_HEALING_POTION });
+  }
+
+  if (type === 'morvath' && !_morvathAmuletAlreadyDropped()) {
+    items.push({ ...SOUL_SHARD_AMULET });
+    _markMorvathAmuletDropped();
   }
 
   return { coins, items };

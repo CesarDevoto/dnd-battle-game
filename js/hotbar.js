@@ -52,13 +52,16 @@ function _setActionTag(el, type) {
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 // actionType: 'action' | 'bonus' | 'reaction' | null
-export function bindHotkey(code, shift, label, fn, rangeFn = null, actionType = null) {
+// title: optional hover tooltip (e.g. the ability's display name) — hotbar
+// slots otherwise have no tooltip at all, unlike their Skills & Spells boxes.
+export function bindHotkey(code, shift, label, fn, rangeFn = null, actionType = null, title = null) {
   const k = _key(code, shift);
   _reg[k] = { label, fn, rangeFn };
   const btn = _btns[k];
   if (btn) {
     btn.querySelector('.hb-label').innerHTML = label;
     _setActionTag(btn.querySelector('.hb-action-tag'), actionType);
+    if (title) btn.title = title; else btn.removeAttribute('title');
   }
 }
 

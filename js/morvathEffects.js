@@ -167,6 +167,138 @@ export function playInflictWoundsEffect(target) {
   requestAnimationFrame(tick);
 }
 
+// ── Grave Curse bolt (travel phase) ────────────────────────────────────────────
+// Pink/purple curse orb + trailing wisps, travels from Morvath to one target
+// before the ground-ring/skull impact (playGraveCurseEffect) plays.
+const BOLT_TRAVEL_MS = 420;
+const BOLT_MAX_P     = 90;
+
+export function playGraveCurseBolt(caster, target, onImpact) {
+  const origin = new THREE.Vector3(
+    caster.grp.position.x,
+    caster.grp.position.y + 1.3,
+    caster.grp.position.z,
+  );
+  const dest = new THREE.Vector3(
+    target.grp.position.x,
+    target.grp.position.y + 0.9,
+    target.grp.position.z,
+  );
+
+  const orbGeo = new THREE.SphereGeometry(0.16, 12, 10);
+  const orbMat = new THREE.MeshBasicMaterial({
+    color: 0xdd44ff, transparent: true, opacity: 0.85,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const orbMesh = new THREE.Mesh(orbGeo, orbMat);
+  orbMesh.frustumCulled = false;
+  orbMesh.position.copy(origin);
+  scene.add(orbMesh);
+
+  const haloGeo = new THREE.SphereGeometry(0.30, 10, 8);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0x9911dd, transparent: true, opacity: 0.35,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+  haloMesh.frustumCulled = false;
+  haloMesh.position.copy(origin);
+  scene.add(haloMesh);
+
+  const light = new THREE.PointLight(0xaa22ee, 2.6, 9);
+  light.position.copy(origin);
+  scene.add(light);
+
+  // ── Trailing wisps ────────────────────────────────────────────────────────────
+  const posArr  = new Float32Array(BOLT_MAX_P * 3);
+  const colArr  = new Float32Array(BOLT_MAX_P * 3);
+  const vX      = new Float32Array(BOLT_MAX_P);
+  const vY      = new Float32Array(BOLT_MAX_P);
+  const vZ      = new Float32Array(BOLT_MAX_P);
+  const life    = new Float32Array(BOLT_MAX_P);
+  const maxLife = new Float32Array(BOLT_MAX_P);
+  let   pHead   = 0;
+
+  const partGeo = new THREE.BufferGeometry();
+  partGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage));
+  partGeo.setAttribute('color',    new THREE.BufferAttribute(colArr, 3).setUsage(THREE.DynamicDrawUsage));
+  partGeo.setDrawRange(0, 0);
+  const partMat = new THREE.PointsMaterial({
+    size: 0.15, vertexColors: true, transparent: true, opacity: 1.0,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  });
+  const partPts = new THREE.Points(partGeo, partMat);
+  partPts.frustumCulled = false;
+  scene.add(partPts);
+
+  function emitTrail(px, py, pz) {
+    const i = pHead++ % BOLT_MAX_P;
+    vX[i] = (Math.random() - 0.5) * 0.018;
+    vY[i] = 0.006 + Math.random() * 0.012;
+    vZ[i] = (Math.random() - 0.5) * 0.018;
+    life[i] = maxLife[i] = 0.20 + Math.random() * 0.18;
+    posArr[i * 3]     = px + (Math.random() - 0.5) * 0.12;
+    posArr[i * 3 + 1] = py + (Math.random() - 0.5) * 0.12;
+    posArr[i * 3 + 2] = pz + (Math.random() - 0.5) * 0.12;
+  }
+
+  let t0 = null, prevNow = null, landed = false, doneAt = Infinity;
+
+  function tick(now) {
+    if (t0 === null) { t0 = now; prevNow = now; }
+    const dt = Math.min((now - prevNow) / 1000, 0.05);
+    prevNow = now;
+
+    if (!landed) {
+      const t = Math.min(1, (now - t0) / BOLT_TRAVEL_MS);
+      orbMesh.position.lerpVectors(origin, dest, t);
+      orbMesh.position.y += Math.sin(t * Math.PI) * 0.35;
+      haloMesh.position.copy(orbMesh.position);
+      const pulse = 1 + 0.15 * Math.sin(now * 0.03);
+      orbMesh.scale.setScalar(pulse);
+      haloMesh.scale.setScalar(pulse);
+      light.position.copy(orbMesh.position);
+      light.intensity = 2.6 + 0.6 * Math.sin(now * 0.025);
+      if (Math.random() < 0.75) emitTrail(orbMesh.position.x, orbMesh.position.y, orbMesh.position.z);
+
+      if (t >= 1) {
+        landed = true;
+        scene.remove(orbMesh); orbGeo.dispose(); orbMat.dispose();
+        scene.remove(haloMesh); haloGeo.dispose(); haloMat.dispose();
+        scene.remove(light);
+        doneAt = now + 500;
+        onImpact?.();
+      }
+    }
+
+    const cnt = Math.min(pHead, BOLT_MAX_P);
+    for (let i = 0; i < cnt; i++) {
+      if (life[i] <= 0) { colArr[i * 3] = colArr[i * 3 + 1] = colArr[i * 3 + 2] = 0; continue; }
+      life[i] -= dt;
+      posArr[i * 3]     += vX[i];
+      posArr[i * 3 + 1] += vY[i];
+      posArr[i * 3 + 2] += vZ[i];
+      vY[i] -= 0.0009;
+      const f = Math.max(0, life[i] / maxLife[i]);
+      colArr[i * 3]     = 0.55 + f * 0.35;   // R
+      colArr[i * 3 + 1] = f * 0.08;          // G
+      colArr[i * 3 + 2] = 0.65 + f * 0.35;   // B
+    }
+    partGeo.attributes.position.needsUpdate = true;
+    partGeo.attributes.color.needsUpdate    = true;
+    partGeo.setDrawRange(0, cnt);
+
+    if (now >= doneAt) {
+      scene.remove(partPts);
+      partGeo.dispose(); partMat.dispose();
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
 // ── Grave Curse ───────────────────────────────────────────────────────────────
 // Per affected hero: purple ground ring pulse + skull billboards rising with sway
 export function playGraveCurseEffect(target) {

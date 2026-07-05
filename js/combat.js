@@ -13,12 +13,12 @@ import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighl
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
-import { playInflictWoundsEffect, playGraveCurseEffect } from './morvathEffects.js';
+import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
 import { fireThrownAxe }           from './thrownAxe.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable } from './hotbar.js';
-import { hotbarIconHTML } from './abilityRegistry.js';
+import { hotbarIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
          aiGetSpellcasterAttack, aiPickSpellcasterDest,
          aiPickHeroDest, aiPickAllyDest } from './combatAI.js';
@@ -501,6 +501,7 @@ const _dungeonAwareEnemies = new Set();
 let heroMode     = null; // null | 'move' | 'elfatk_*' | 'spell_*'
 export let isAnimating = false;
 let turnBonusActioned = false;  // bonus action used this turn (e.g. Healing Word)
+let turnReactionUsed  = false;  // reaction used this turn (e.g. Soul Shard Amulet)
 let sneakAttackUsed  = false;   // halfling sneak attack — once per turn
 let prevMoveState = null; // { x, z, movedFt } saved just before a move for undo
 
@@ -681,9 +682,13 @@ function findPath(sx, sz, tx, tz) {
   ];
   const parent = new Map([[key(sx, sz), null]]);
   const queue  = [{ x: sx, z: sz }];
+  let head = 0; // index-based dequeue — queue.shift() is O(n) per call, which
+                // turns a long/failed search (e.g. no path yet to a target
+                // still outside the room) into O(n²) and can freeze for
+                // several seconds in a zone with many barrier segments.
 
-  while (queue.length) {
-    const { x, z } = queue.shift();
+  while (head < queue.length) {
+    const { x, z } = queue[head++];
     if (x === tx && z === tz) break;
     for (const [dx, dz] of dirs) {
       const nx = x + dx, nz = z + dz;
@@ -805,8 +810,9 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit) {
   const dist   = new Map([[key(ux, uz), 0]]);
   const queue  = [{ x: ux, z: uz, d: 0 }];
   const result = new Set();
-  while (queue.length) {
-    const { x, z, d } = queue.shift();
+  let head = 0; // index-based dequeue — see findPath() for why .shift() is avoided here
+  while (head < queue.length) {
+    const { x, z, d } = queue[head++];
     for (const [dx, dz] of dirs) {
       const nx = x + dx, nz = z + dz;
       const nd = d + Math.sqrt(dx * dx + dz * dz);
@@ -1057,7 +1063,7 @@ function castSacredFlame(caster, target, onDone) {
       target.barShowUntil = Date.now() + 5000;
       showFloatingDamage(target, `-${dmg}`, '#ffcc44');
       addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: FAILS (${saveBreakdown(saveResult, 'dex')}) — ${dmg} radiant dmg`, 'spell');
-      if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target), 400);
+      if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target, caster), 400);
     } else {
       showFloatingDamage(target, 'SAVE', '#88ccff');
       addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: SAVES (${saveBreakdown(saveResult, 'dex')}) — no damage`, 'spell');
@@ -1161,10 +1167,17 @@ function handleSpellBtnClick(spellKey) {
       updateCombatStatus();
       return;
     }
-    heroMode = 'dwarfatk_sacred_flame';
     hideMoveRange();
     hideHealTargets();
     showSacredFlameTargets(u);
+
+    // If a valid target is already selected, cast immediately.
+    if (selectedTarget && atkTargets.has(selectedTarget)) {
+      castSacredFlame(u, selectedTarget);
+      return;
+    }
+
+    heroMode = 'dwarfatk_sacred_flame';
     showSpellRangeRing(u, SPELLS.sacred_flame.rangeFt);
     updateCombatStatus();
     return;
@@ -1467,7 +1480,7 @@ function castMagicMissile(caster, target, onDone) {
     const dartStr = darts.map(r => r.total).join('+');
     showFloatingDamage(target, `-${totalDmg}`, '#aa66ff');
     addLog(`${unitLabel(caster)} casts Magic Missile${freeUse ? ' (free cast)' : ''} → ${unitLabel(target)}: ${dartStr} = ${totalDmg} force dmg`, 'spell');
-    if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target), 400);
+    if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target, caster), 400);
     onDone?.();
   });
 
@@ -1560,7 +1573,7 @@ function castBurningHands(caster) {
         target.barShowUntil = Date.now() + 5000;
         showFloatingDamage(target, `-${dmg}${saved ? ' ½' : ''}`, '#ff6622');
         addLog(`  ${unitLabel(target)}: ${saved ? 'saves' : 'fails'} DEX → ${dmg} fire dmg`, 'spell');
-        if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target), 400);
+        if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target, caster), 400);
       }, i * 700 + 1000);
     });
   }
@@ -1588,13 +1601,20 @@ function handleElfSpellBtnClick(spellKey) {
       updateCombatStatus();
       return;
     }
-    heroMode = 'elfatk_magic_missile';
     hideMoveRange();
     hideHealTargets();
     showMagicMissileTargets(u);
+
+    // If a valid target is already selected, cast immediately.
+    if (selectedTarget && atkTargets.has(selectedTarget)) {
+      castMagicMissile(u, selectedTarget);
+      return;
+    }
+
+    heroMode = 'elfatk_magic_missile';
     showSpellRangeRing(u, ELF_SPELLS.magic_missile.rangeFt);
     updateCombatStatus();
-  
+
   } else if (spellKey === 'sleep') {
     castSleep(u);
   } else if (spellKey === 'burning_hands') {
@@ -1699,6 +1719,14 @@ function _teardownCombat() {
   isAnimating = false;
   setFollowUnit(null);
   clearBless();
+  // A readied action that never fired (its trigger never happened before the
+  // fight ended) otherwise leaves the overhead "⚡" icon (updateReadyIcons)
+  // stuck on that hero until their next combat turn activates and clears it.
+  _readied.clear();
+  _readiedAutomated.clear();
+  _readiedBonusActioned.clear();
+  _activeReadyHero = null;
+  hideSoulShardPrompt();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
   units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; });
@@ -1752,7 +1780,7 @@ function endBattle(outcome) {
   window.dispatchEvent(new CustomEvent('zone:defeat'));
 }
 
-function removeDefeatedUnit(u) {
+function removeDefeatedUnit(u, attacker = null) {
   if (u === selectedTarget) hideTargetMarker();
   // Clean up sleep state if the unit dies while sleeping
   if (sleepingUnits.has(u)) {
@@ -1765,12 +1793,19 @@ function removeDefeatedUnit(u) {
     const reward = UNIT_TYPES[u.type]?.xpReward ?? 0;
     if (reward > 0) awardXP(reward, addLog);
     onEnemyKilled(u);
+    // Event-based, not a direct import — bleakmireWoodsEvent.js listens for
+    // this. combat.js already avoids importing zoneLoader.js for the same
+    // reason (see _activeZoneId comment above): a direct import here would
+    // create combat.js → bleakmireWoodsEvent.js → exclamationMarkers.js →
+    // combat.js, a circular dependency that breaks module init order.
+    window.dispatchEvent(new CustomEvent('unit:defeated', { detail: { type: u.type } }));
     const cr   = ENEMY_CR[u.type] ?? 0;
     const loot = rollLoot(cr, u.type, _activeZoneId);
     spawnLootLabels(u.grp.position, loot);
     window.dispatchEvent(new CustomEvent('enemy:looted', {
       detail: { enemyName: UNIT_TYPES[u.type]?.name ?? u.type, coins: loot.coins, items: loot.items },
     }));
+    _checkSoulShardProc(attacker, u);
   }
   if (u.team === 'blue') onHeroDied(u);
   if (u.mixer) {
@@ -1913,7 +1948,13 @@ function performAttack(attacker, target, atk, onSettled = null) {
     attacker.spellSlots = Math.max(0, attacker.spellSlots - atk.spellSlotCost);
   }
   if (atk.type === 'aoe_save') {
-    playUnitAttackAnim(attacker, 'spell', () => _executeAoeSave(attacker, target, atk, onSettled));
+    // Don't gate on the animation's own "finished" event — Morvath's cast
+    // clip (auto-detected, unpinned) runs ~3.3s, far longer than his other
+    // clips, and waiting for it to fully play out reads as the game hanging.
+    // Same approach as Sacred Flame: fire the animation and drive timing off
+    // a short fixed delay instead, independent of the raw clip length.
+    playUnitAttackAnim(attacker, 'spell');
+    setTimeout(() => _executeAoeSave(attacker, target, atk, onSettled), 700);
     return;
   }
   if (atk.type === 'ranged') {
@@ -2135,7 +2176,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   if (willDie) {
-    setTimeout(() => removeDefeatedUnit(target), hpUpdateDelay + RESULT_PAUSE + 400);
+    setTimeout(() => removeDefeatedUnit(target, attacker), hpUpdateDelay + RESULT_PAUSE + 400);
   }
 
   // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable)
@@ -2177,34 +2218,36 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
 
   targets.forEach((hero, idx) => {
     setTimeout(() => {
-      const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
-      const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
-      const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 4 }).total : 0;
-      const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
-      const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
-      const tLabel        = unitLabel(hero);
-      const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
-      const saveWord      = saveResult.isSave ? 'SAVES' : 'FAILS';
+      playGraveCurseBolt(attacker, hero, () => {
+        const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
+        const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
+        const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 4 }).total : 0;
+        const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
+        const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+        const tLabel        = unitLabel(hero);
+        const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
+        const saveWord      = saveResult.isSave ? 'SAVES' : 'FAILS';
 
-      const saveLabel = `${tLabel} · ${saveType.toUpperCase()} Save` + (blessSaveBonus > 0 ? `  ✦+${blessSaveBonus}` : '');
-      showRoll(saveLabel, saveResult, { autoDismiss: false });
+        const saveLabel = `${tLabel} · ${saveType.toUpperCase()} Save` + (blessSaveBonus > 0 ? `  ✦+${blessSaveBonus}` : '');
+        showRoll(saveLabel, saveResult, { autoDismiss: false });
 
-      const willDie = hero.hp <= finalDmg;
-      hero.aggro = true;
-      hero.hp = Math.max(0, hero.hp - finalDmg);
-      hero.barShowUntil = Date.now() + 5000;
-      buildTurnList();
-      if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
-      _checkConcentration(hero, finalDmg, willDie);
+        const willDie = hero.hp <= finalDmg;
+        hero.aggro = true;
+        hero.hp = Math.max(0, hero.hp - finalDmg);
+        hero.barShowUntil = Date.now() + 5000;
+        buildTurnList();
+        if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
+        _checkConcentration(hero, finalDmg, willDie);
 
-      const blessTag = blessSaveBonus > 0 ? ` ✦+${blessSaveBonus}` : '';
-      addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}${blessTag}) — ${finalDmg} dmg [${outcome}]`,
-             saveResult.isSave ? 'hit' : 'dmg');
-      showFloatingDamage(hero, `-${finalDmg}`, '#9922cc');
-      playGraveCurseEffect(hero);
+        const blessTag = blessSaveBonus > 0 ? ` ✦+${blessSaveBonus}` : '';
+        addLog(`  ${tLabel} ${saveWord} (${saveBreakdown(saveResult, saveType)}${blessTag}) — ${finalDmg} dmg [${outcome}]`,
+               saveResult.isSave ? 'hit' : 'dmg');
+        showFloatingDamage(hero, `-${finalDmg}`, '#9922cc');
+        playGraveCurseEffect(hero);
 
-      if (willDie) setTimeout(() => removeDefeatedUnit(hero), 400);
-      setTimeout(() => checkDone(), willDie ? 450 : 50);
+        if (willDie) setTimeout(() => removeDefeatedUnit(hero), 400);
+        setTimeout(() => checkDone(), willDie ? 450 : 50);
+      });
     }, idx * 250);
   });
 }
@@ -2221,8 +2264,47 @@ const attackConfirmBtn  = document.getElementById('attack-confirm-btn');
 const shakeAwakeBtn     = document.getElementById('shake-awake-btn');
 const castConfirmWrap   = document.getElementById('cast-confirm-wrap');
 const castConfirmBtn    = document.getElementById('cast-confirm-btn');
+const soulShardPromptWrap = document.getElementById('soul-shard-prompt-wrap');
+const soulShardPromptBtn  = document.getElementById('soul-shard-prompt-btn');
 
 let _pendingSpellCast = null;  // { castFn, spellName } | null
+
+// ── Soul Shard Amulet — reaction prompt after killing an undead ─────────────
+let _soulShardHero = null;
+
+function showSoulShardPrompt(hero) {
+  _soulShardHero = hero;
+  soulShardPromptWrap?.classList.add('show');
+}
+
+function hideSoulShardPrompt() {
+  _soulShardHero = null;
+  soulShardPromptWrap?.classList.remove('show');
+}
+
+soulShardPromptBtn?.addEventListener('click', () => {
+  const hero = _soulShardHero;
+  if (!hero || !units.includes(hero) || hero.hp <= 0) { hideSoulShardPrompt(); return; }
+  const healed = roll({ sides: 4, count: 1 }).total;
+  hero.hp = Math.min(hero.maxHp, hero.hp + healed);
+  hero.barShowUntil = Date.now() + 5000;
+  turnReactionUsed = true;
+  showFloatingDamage(hero, `+${healed}`, '#44ff88');
+  addLog(`${unitLabel(hero)} absorbs a fragment of undead life force (Soul Shard Amulet) — regains ${healed} hp`, 'heal');
+  hideSoulShardPrompt();
+});
+
+// Only offers the prompt if the killer is a living hero wearing the amulet,
+// the fallen enemy is undead, the reaction hasn't been spent this turn, and
+// the hero is actually missing HP (nothing to gain otherwise).
+function _checkSoulShardProc(attacker, target) {
+  if (!attacker || attacker.team !== 'blue' || attacker.hp <= 0) return;
+  if (!UNIT_TYPES[target.type]?.undead) return;
+  if (attacker.equipment?.neck?.id !== 'soul_shard_amulet') return;
+  if (turnReactionUsed) return;
+  if (attacker.hp >= attacker.maxHp) return;
+  showSoulShardPrompt(attacker);
+}
 
 
 function showTargetMarker(enemy) {
@@ -3322,7 +3404,7 @@ const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE'
 function _bindAbilitySlot(slotKey, abilityKey) {
   const handler = _ABILITY_HANDLERS[abilityKey];
   if (!handler) return;
-  const btn = bindHotkey(slotKey, false, hotbarIconHTML(abilityKey), handler.execute, handler.isAvailable, handler.actionType);
+  const btn = bindHotkey(slotKey, false, hotbarIconHTML(abilityKey), handler.execute, handler.isAvailable, handler.actionType, ABILITY_META[abilityKey]?.name);
   const curU = turnOrder[turnIndex];
   if (btn && curU && handler.isActive?.(curU)) btn.classList.add('spell-active');
 }
@@ -3547,8 +3629,10 @@ export function activateTurn(index) {
     showSelectionHighlight(u);
     turnMovedFt     = 0;
     turnAttacked    = false;
+    turnReactionUsed = false;
     sneakAttackUsed = false;
     u.dodging       = false;
+    hideSoulShardPrompt();
     // If this hero's delayed action never fired, it expires at turn start
     if (u.team === 'blue' && _readied.has(u)) {
       addLog(`${unitLabel(u)}'s ready action expires (trigger never fired).`, 'ready');
@@ -4212,7 +4296,21 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
     let dest = null;
     if (!noMove && preferRange !== 'stay' && movTarget) {
       const _remFt = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
-      const _movFt = (preferRange === 'ranged' || preferRange === 'kite') ? _remFt / 2 : undefined;
+      // Only halve movement once already within striking range — caps how far
+      // a kiting hero retreats each turn without also crippling their ability
+      // to close the gap on a retreating enemy (e.g. Morvath) from far away,
+      // which previously left them stuck repeatedly readying an action
+      // instead of ever getting close enough to attack.
+      let _movFt;
+      if (preferRange === 'ranged' || preferRange === 'kite') {
+        const _atks    = UNIT_TYPES[u.type]?.attacks ?? [];
+        const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
+        const _rangeWU = _rangedA ? atkRangeWU(_rangedA.range) : 0;
+        const _tdx = movTarget.grp.position.x - u.grp.position.x;
+        const _tdz = movTarget.grp.position.z - u.grp.position.z;
+        const _tDist = Math.sqrt(_tdx * _tdx + _tdz * _tdz);
+        _movFt = (_rangeWU > 0 && _tDist <= _rangeWU) ? _remFt / 2 : undefined;
+      }
       showMoveRange(u, _movFt);
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);

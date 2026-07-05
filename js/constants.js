@@ -615,7 +615,7 @@ export const UNIT_TYPES = {
   },
 
   ghoul: {
-    name: 'Ghoul', team: 'red',
+    name: 'Ghoul', team: 'red', undead: true,
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
     hp: 22, ac: 12, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 13, dex: 15, con: 10, int: 7, wis: 10, cha: 6 },
@@ -627,7 +627,7 @@ export const UNIT_TYPES = {
   },
 
   zombie: {
-    name: 'Zombie', team: 'red',
+    name: 'Zombie', team: 'red', undead: true,
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     hp: 22, ac: 8, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
@@ -638,7 +638,7 @@ export const UNIT_TYPES = {
   },
 
   skeleton: {
-    name: 'Skeleton', team: 'red',
+    name: 'Skeleton', team: 'red', undead: true,
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     hp: 13, ac: 13, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
     abilities: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
@@ -650,7 +650,7 @@ export const UNIT_TYPES = {
   },
 
   shadow: {
-    name: 'Shadow', team: 'red',
+    name: 'Shadow', team: 'red', undead: true,
     scale: [1.771, 1.771, 1.771], anchorY: 3.54, hoverY: -1,
     hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
@@ -801,6 +801,7 @@ export const UNIT_TYPES = {
   morvath: {
     name: 'Morvath',
     team: 'red',
+    undead: true,
     aiStyle: 'spellcaster',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     hp: 52, ac: 14, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,

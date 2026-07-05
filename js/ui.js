@@ -18,9 +18,13 @@ const _rayDir   = new THREE.Vector3();
 _occluder.firstHitOnly = true;
 
 // ── HUD: project each unit's 3D anchor to screen coords ──────────────────────
-// Health bars are hidden by default and only shown when:
-//   • barForced = true  → unit is selected or currently taking its combat turn
-//   • now < barShowUntil → unit was damaged recently (3-second flash)
+// Health bar visibility defaults:
+//   • Heroes (blue)  → always shown.
+//   • Enemies        → shown only while aggroed and part of the active
+//     encounter (turnOrder), so a distant/non-aggroed enemy stays hidden.
+//   • barForced = true    → unit is selected or currently taking its combat turn (extra force-show)
+//   • now < barShowUntil  → unit was damaged recently (3-second flash)
+//   • allBarsVisible      → player's manual "show all bars" toggle (Backquote) overrides everything
 // Occlusion (terrain ray) is only tested for bars that would otherwise be shown.
 
 export function updateHUD() {
@@ -47,10 +51,8 @@ export function updateHUD() {
     u.fill.style.width    = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
 
     // Is this bar supposed to be visible at all?
-    // Red units only show bars once aggroed — non-aggroed far enemies stay hidden.
-    const inCombat   = !combatPhase || (turnOrder.includes(u) && (u.team !== 'red' || u.aggro));
-    const barsOk     = allBarsVisible && (combatPhase || u.team === 'blue');
-    const shouldShow = inCombat && (u.barForced || now < u.barShowUntil || barsOk);
+    const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
+    const shouldShow    = u.team === 'blue' || engagedEnemy || u.barForced || now < u.barShowUntil || allBarsVisible;
     if (!shouldShow) {
       u.barEl.style.opacity = '0';
       return;

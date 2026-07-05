@@ -10,7 +10,21 @@ export const ZONE = {
     { x:  1, z: 85, type: 'halfling' },
   ],
   enemies: [
-    { type: 'grassling', x: 6.71, z: 71.66, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 6.71, z: 71.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    // Floosh's kin — a small huddle behind him, all facing the same way he
+    // does (rotY matches _FLOOSH_WELCOME_ROT_Y in bleakmireWoodsEvent.js).
+    // Positions/facing are a first pass — nudge in dev mode if they clip
+    // into each other or look off.
+    { type: 'grassling', x: 0.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 2.71,  z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 4.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 8.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 10.71, z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 12.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 1.71,  z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 4.71,  z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 8.71,  z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 11.71, z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
     { type: 'kobold', x: -70, z: 47, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:47}] },
     { type: 'kobold', x: -73, z: 43, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:43}] },
     { type: 'kobold', x: -67, z: 44, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:44}] },

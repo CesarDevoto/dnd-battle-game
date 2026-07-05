@@ -1865,6 +1865,15 @@ export const ITEMS = {
     rarity: 'grey',
     icon:   'assets/items/jewelry/necklace10.png',
   },
+  soul_shard_amulet: {
+    id:     'soul_shard_amulet',
+    name:   'Soul Shard Amulet',
+    slot:   'neck',
+    rarity: 'green',
+    icon:   'assets/items/jewelry/necklace10.png',
+    undeadReactionHeal: '1d4',
+    description: "When you kill an undead creature, you may use your reaction to absorb a tiny fragment of its undead life force and regain 1d4 hit points.",
+  },
   necklace11: {
     id:     'necklace11',
     name:   'Necklace XI',

@@ -146,8 +146,12 @@ const ANIM_CLIP_NAMES = {
   twig_blight: {
     idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
+  // No dedicated archery clip in this export (verified: Dead, Idle_8,
+  // Right_Hand_Sword_Slash, Running, Unsteady_Walk, Walking — same gap as
+  // dwarf.glb) — without rangedAttack:null, autoMapAnimClips grabs Walking
+  // for it, so a Shortbow shot plays a walk cycle while standing still.
   skeleton: {
-    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
   },
   // Slow_Orc_Walk used for patrol/normal movement; Running for combat charge; Walking unused
   ghoul: {

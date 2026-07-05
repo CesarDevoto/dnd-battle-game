@@ -33,15 +33,22 @@ const TRIGGER_RADIUS = 2.0;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// cfg: { id?, onTrigger? }
+// cfg: { id?, onTrigger?, skipAutoConsume? }
 // id — if provided and already seen, mesh is not added to scene and marker is not tracked
 // onTrigger — callback fired when hero walks into range
+// skipAutoConsume — opt out of the generic mid-combat "hero got close → defer
+// to _pending → mark seen post-combat" behavior below. Use this when a caller
+// manages its own dismissExclamation()/isMarkerSeen() timing via a dedicated
+// post-combat handler (e.g. ambushEvent.js) — without it, a marker sitting
+// right where combat happens can get silently marked "seen" by this generic
+// system (with no onTrigger to show for it) before the caller's own handler
+// ever runs, since this module's post-combat handler defaults to priority 3.
 export function trackExclamation(mesh, x, z, cfg = {}) {
   if (cfg.id && isMarkerSeen(cfg.id)) {
     mesh.parent?.removeChild(mesh);
     return;
   }
-  _exclamations.push({ mesh, x, z, t: Math.random() * Math.PI * 2, id: cfg.id, onTrigger: cfg.onTrigger });
+  _exclamations.push({ mesh, x, z, t: Math.random() * Math.PI * 2, id: cfg.id, onTrigger: cfg.onTrigger, skipAutoConsume: !!cfg.skipAutoConsume });
 }
 
 export function untrackExclamation(mesh) {
@@ -114,6 +121,8 @@ export function tickExclamations(dt) {
     }
 
     if (helperMesh) helperMesh.visible = dev;
+
+    if (e.skipAutoConsume) continue;
 
     for (const hero of heroes) {
       const dx = hero.grp.position.x - e.x;
