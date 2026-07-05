@@ -663,10 +663,16 @@ window.addEventListener('zone:loaded', e => {
   // Re-arm return button on any zone load if still pending (quest panel is global)
   try { if (localStorage.getItem(_KEY_RETURN)) _armReturnButton(); } catch {}
 
-  // Position heroes near Floosh after quick travel
+  // Position heroes near Floosh after quick travel — done synchronously (not
+  // deferred) so heroes never render/tick a single frame at their stale
+  // pre-travel position. Everything this needs (Floosh's fixed coordinates,
+  // his unit object, and the new zone's terrain heights) is already in place
+  // by the time 'zone:loaded' fires. A prior setTimeout(250) here left heroes
+  // sitting at their old position long enough for nearby enemies' proximity
+  // aggro to trigger before the correction landed.
   if (e.detail?.id === 'bleakmire_woods' && _quickTraveling) {
     _quickTraveling = false;
-    setTimeout(_placeHeroesNearFloosh, 250);
+    _placeHeroesNearFloosh();
   }
 
   if (e.detail?.id !== 'bleakmire_woods') return;

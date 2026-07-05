@@ -465,6 +465,7 @@ function _refreshEquipmentPanel(reopenBagKey) {
     const bagKey = eqBagContentEl.dataset.bagSlotKey;
     const item   = sheetUnit?.equipment?.[bagKey]?.contents?.[idx];
     if (!item || !item.slot) return; // only equippable items (have a target slot) can be dragged
+    e.preventDefault(); // stop the browser's native text/element selection drag
 
     pending = { box, item, bagKey, idx, startX: e.clientX, startY: e.clientY };
     document.addEventListener('mousemove', _onDragMove);
