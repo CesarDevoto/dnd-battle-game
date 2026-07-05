@@ -103,7 +103,7 @@ export const ZONE = {
     { model: 'gravemound', x: -1.12, z: -6.69, y: -0.2, rotY: 1.571, scale: 1 },
     { model: 'gravemound', x: 14.48, z: -8.18, y: -0.2, rotY: 0.131, scale: 1 },
     { model: 'gravemound', x: 22, z: -8.25, y: -0.2, rotY: 2.618, scale: 1 },
-    { model: 'gravemound', x: 17.72, z: 7.51, y: -0.2, rotY: 0, scale: 1 },
+    { model: 'gravemound', x: 16.72, z: 11.76, y: -0.2, rotY: 0, scale: 1 },
     { model: 'gravemound', x: 26.02, z: 7.85, y: -0.2, rotY: 0.131, scale: 1 },
     { model: 'darknessplane', x: 36.3, z: 5.55, y: 0.6, yOff: 0.8, rotY: 2.094, scale: 4.627 },
     { model: 'darknessplane', x: 43.18, z: 4.05, y: 0.6, yOff: 0.8, rotY: 2.487, scale: 7.452 },
