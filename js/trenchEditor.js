@@ -3,8 +3,6 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, getTerrainTrenches, setTerrainTrenches, rebuildTerrainGeometry } from './terrain.js';
 import { isBarrierModeActive } from './barrierEditor.js';
 import { IS_DEV } from './devConfig.js';
-import { refreshTunnelGeometry } from './tunnelGeometry.js';
-import { MIN_TUNNEL_PR } from './terrain.js';
 
 let _drawMode      = false;
 let _currentPath   = null;   // the in-progress path object — already live in getTerrainTrenches()
@@ -149,10 +147,9 @@ function _refreshTerrain() {
 export function isTrenchModeActive() { return _drawMode; }
 
 export function getCurrentTrenches() {
-  return getTerrainTrenches().map(({ points, r, pr, tunnel }) => {
+  return getTerrainTrenches().map(({ points, r, pr }) => {
     const out = { points: points.map(p => ({ x: p.x, z: p.z, h: p.h })), r };
     if (pr) out.pr = pr;
-    if (tunnel) out.tunnel = true;
     return out;
   });
 }
@@ -164,7 +161,6 @@ function _finalizeCurrentPath() {
     setTerrainTrenches(getTerrainTrenches().filter(p => p !== _currentPath));
     _disposePathVisual(_currentPath);
     _refreshTerrain();
-    refreshTunnelGeometry();
   }
   _currentPath = null;
 }
@@ -191,13 +187,11 @@ export function handleTrenchClick(pt, defaults) {
   if (!_currentPath) {
     _currentPath = { points: [{ x, z, h: defaults.h }], r: defaults.r };
     if (defaults.pr > 0) _currentPath.pr = defaults.pr;
-    if (defaults.tunnel) _currentPath.tunnel = true;
     setTerrainTrenches([...getTerrainTrenches(), _currentPath]);
   } else {
     _currentPath.points.push({ x, z, h: defaults.h });
   }
   _refreshTerrain();
-  refreshTunnelGeometry();
   _rebuildPathVisual(_currentPath);
   _updateStatus();
   _updateCounter();
@@ -223,7 +217,6 @@ export function undoLastTrench() {
       _rebuildPathVisual(_currentPath);
     }
     _refreshTerrain();
-    refreshTunnelGeometry();
     _updateStatus();
     _updateCounter();
     return;
@@ -234,7 +227,6 @@ export function undoLastTrench() {
   setTerrainTrenches(paths.slice(0, -1));
   _disposePathVisual(last);
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateCounter();
 }
 
@@ -245,7 +237,6 @@ function _clearAll() {
   setTerrainTrenches([]);
   clearTrenchSelection();
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateStatus();
   _updateCounter();
 }
@@ -302,7 +293,6 @@ export function nudgeSelectedTrenchPoint(dx, dz) {
   p.z = +(p.z + dz).toFixed(2);
   _rebuildPathVisual(_selPath);
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateStatus();
 }
 
@@ -313,7 +303,6 @@ export function adjustSelectedTrenchPointH(delta) {
   p.h = +(base + delta).toFixed(2);
   _rebuildPathVisual(_selPath);
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateStatus();
 }
 
@@ -321,7 +310,6 @@ export function adjustSelectedTrenchR(delta) {
   if (!_selPath) return;
   _selPath.r = Math.max(1, +(_selPath.r + delta).toFixed(2));
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateStatus();
 }
 
@@ -330,14 +318,6 @@ export function adjustSelectedTrenchPR(delta) {
   const newPR = Math.max(0, +((_selPath.pr ?? 0) + delta).toFixed(2));
   if (newPR > 0) _selPath.pr = newPR; else delete _selPath.pr;
   _refreshTerrain();
-  refreshTunnelGeometry();
-  _updateStatus();
-}
-
-export function toggleSelectedTrenchTunnel() {
-  if (!_selPath) return;
-  _selPath.tunnel = !_selPath.tunnel;
-  refreshTunnelGeometry();
   _updateStatus();
 }
 
@@ -353,7 +333,6 @@ export function deleteSelectedTrenchPoint() {
   }
   clearTrenchSelection();
   _refreshTerrain();
-  refreshTunnelGeometry();
   _updateCounter();
 }
 
@@ -367,7 +346,6 @@ export function loadTrenchVisuals(arr) {
   clearTrenchSelection();
   setTerrainTrenches(arr ?? []);
   for (const path of getTerrainTrenches()) _rebuildPathVisual(path);
-  refreshTunnelGeometry();
   _updateStatus();
   _updateCounter();
 }
@@ -403,11 +381,8 @@ function _updateStatus() {
   if (hasSelectedTrenchPoint()) {
     const p = _selPath.points[_selIdx];
     el.innerHTML =
-      `<b>Trench point</b> h:${(p.h ?? _selPath.h ?? 0).toFixed(2)} &nbsp; path r:${_selPath.r.toFixed(2)} &nbsp; path pr:${(_selPath.pr ?? 0).toFixed(2)} &nbsp; tunnel:${_selPath.tunnel ? 'on' : 'off'}<br>` +
-      `←→↑↓ move &nbsp; [/] h &nbsp; -/= path r &nbsp; ,/. path pr &nbsp; T tunnel &nbsp; Del removes point` +
-      (_selPath.tunnel && !((_selPath.pr ?? 0) >= MIN_TUNNEL_PR)
-        ? `<br><span class="te-status-warn">tunnel width clamped to a ${MIN_TUNNEL_PR}-unit minimum (pr is below it)</span>`
-        : '');
+      `<b>Trench point</b> h:${(p.h ?? _selPath.h ?? 0).toFixed(2)} &nbsp; path r:${_selPath.r.toFixed(2)} &nbsp; path pr:${(_selPath.pr ?? 0).toFixed(2)}<br>` +
+      `←→↑↓ move &nbsp; [/] h &nbsp; -/= path r &nbsp; ,/. path pr &nbsp; Del removes point`;
     return;
   }
   if (!_drawMode)         el.textContent = 'Click DRAW TRENCH, then click a chain of points — or click an existing point to edit it';
@@ -508,7 +483,6 @@ export function initTrenchEditor() {
       case '=': case '+':           adjustSelectedTrenchR( RSTEP);     break;
       case ',':                     adjustSelectedTrenchPR(-PRSTEP);   break;
       case '.':                     adjustSelectedTrenchPR( PRSTEP);   break;
-      case 't': case 'T':           toggleSelectedTrenchTunnel();      break;
       case 'Delete': case 'Backspace': deleteSelectedTrenchPoint();    break;
     }
   });

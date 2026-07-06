@@ -15,7 +15,6 @@ let _markersVisible = true;
 let _defaultH      = 3.0;
 let _defaultR      = 8.0;
 let _defaultPR     = 0.0;
-let _defaultTunnel = false;  // trench-only: extrude real walls/ceiling along the path
 
 // ── Undo history ──────────────────────────────────────────────────────────────
 const _history      = [];
@@ -409,9 +408,6 @@ export function initTerrainEditor() {
   document.getElementById('te-default-pr')?.addEventListener('input', e => {
     _defaultPR = Math.max(0, parseFloat(e.target.value) || 0);
   });
-  document.getElementById('te-default-tunnel')?.addEventListener('change', e => {
-    _defaultTunnel = !!e.target.checked;
-  });
 
   // Capture-phase click
   renderer.domElement.addEventListener('click', e => {
@@ -439,7 +435,7 @@ export function initTerrainEditor() {
     if (isTrenchModeActive()) {
       const pt = _groundPt(e.clientX, e.clientY);
       if (pt) {
-        handleTrenchClick(pt, { h: _defaultH, r: _defaultR, pr: _defaultPR, tunnel: _defaultTunnel });
+        handleTrenchClick(pt, { h: _defaultH, r: _defaultR, pr: _defaultPR });
         _lineUndoStack.push('trench');
       }
       return;
