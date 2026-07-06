@@ -61,6 +61,7 @@ const MODEL_PATHS = {
   abyssal_chicken:  'assets/models/abyssalchicken.glb',
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
+  solrac:    'assets/models/solrac.glb',
   // Swamp monsters — proxied to closest existing GLB until dedicated models are added
   giant_frog:        'assets/models/goblin.glb',
   bullywug:          'assets/models/goblin.glb',
@@ -134,6 +135,11 @@ const ANIM_CLIP_NAMES = {
   // null in attack slot explicitly clears the mis-detected slot.
   grassling: {
     idle: 'Idle_03', walk: 'Walking', run: 'Running', attack: null,
+  },
+  // solrac.glb has no standing idle — only a seated pose plus loco clips.
+  // Use the cross-legged sit as the resting idle; pin loco to the .001 variants.
+  solrac: {
+    idle: 'Sit_Cross_Legged_on_Floor', walk: 'Walking.001', run: 'Running.001', attack: null,
   },
   // Archery_Shot_1 (rangeY 8.6) beats Walking (7.0) on the loco tiebreak since both are 1.0s;
   // pin the two swapped slots to fix it.

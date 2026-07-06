@@ -911,6 +911,18 @@ export const UNIT_TYPES = {
     anchorY:    0.3,
     modelRotY:  -Math.PI / 4,
   },
+
+  // Humanoid NPC. Rigged GLB (~1.66 units tall in bind pose); scale ~1.27 puts it
+  // at ~2.1 world units, matching the elf/dwarf heroes. Origin sits at the head
+  // (mesh min y ≈ -1.54), so yOffset lifts the feet to ground level.
+  // Grounding is bbox-derived and unverified in-game — nudge with [ / ] if it floats/sinks.
+  solrac: {
+    name: 'Solrac',
+    team: 'npc',
+    scale:      [1.27, 1.27, 1.27],
+    yOffset:    1.96,
+    anchorY:    2.0,
+  },
 };
 
 // Convenience lists
