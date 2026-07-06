@@ -136,6 +136,11 @@ const ANIM_CLIP_NAMES = {
   grassling: {
     idle: 'Idle_03', walk: 'Walking', run: 'Running', attack: null,
   },
+  // Clean clip names; per design the rat lunges on attack, so map attack → Jump
+  // (the Bite clip is left unused). Pin all roles explicitly for stability.
+  giant_rat: {
+    idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Jump', death: 'Death',
+  },
   // solrac.glb has no standing idle — only a seated pose plus loco clips.
   // Use the cross-legged sit as the resting idle; pin loco to the .001 variants.
   solrac: {

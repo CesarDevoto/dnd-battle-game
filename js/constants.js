@@ -289,7 +289,9 @@ export const UNIT_TYPES = {
 
   giant_rat: {
     name: 'Giant Rat', team: 'red',
-    scale: [0.65, 0.65, 0.65], anchorY: 0.9,
+    // Model origin is centered (mesh min y ≈ -1.0), so feet sit below origin;
+    // yOffset lifts them to ground. Grounding is bbox-derived — nudge with [ / ] if off.
+    scale: [0.65, 0.65, 0.65], yOffset: 0.65, anchorY: 0.9,
     hp: 7, ac: 12, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 7, dex: 15, con: 11, int: 2, wis: 10, cha: 4 },
     attacks: [
