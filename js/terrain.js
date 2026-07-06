@@ -260,41 +260,140 @@ function _controlPointHeight(wx, wz) {
 
 // ── Trench control paths — editor-drawn polylines that carve a continuous
 // canyon into the heightfield ─────────────────────────────────────────────────
-// Each path: { points: [{x,z},...], h, r, pr? } — same h/r/pr semantics as a
-// single control point, but height is a function of distance to the nearest
-// point on the whole polyline (via _distSeg above) instead of distance to one
-// center. This is what gives a multi-click trench a continuous, seamless
-// floor and a naturally rounded/beveled cap at each end, with no separate
-// blending or tapering logic needed.
+// Each path: { points: [{x,z,h},...], r, pr? } — same r/pr semantics as a
+// single control point (shared for the whole path), but each point carries
+// its own h, so a trench can rise or fall from one end to the other. Height
+// at any world position is interpolated along whichever segment is nearest
+// (via distSegT below) instead of using one constant depth for the whole
+// polyline. Legacy paths saved with a path-level h (no per-point h) still
+// work — see the `pt.h ?? path.h ?? 0` fallback below.
 
 let _trenchPaths = [];
 
 export function setTerrainTrenches(paths) { _trenchPaths = paths ?? []; }
 export function getTerrainTrenches()      { return _trenchPaths; }
 
-function _trenchHeight(wx, wz) {
-  let best = 0;
+// Wall rise is a fixed WU band near-vertical at mesh resolution — same
+// treatment as tunnel mode's T_RISE_WU above — rather than spreading the
+// smoothstep across the whole r-pr band. This is what makes a trench read as
+// a tunnel with a flat floor and steep sides instead of a wide shallow dish;
+// r still bounds how far the falloff is even considered (early-out below).
+const TRENCH_RISE_WU = 1.5;
+
+// Minimum half-width for any `tunnel: true` path, regardless of authored
+// `pr`. A plain (non-tunnel) trench legitimately allows pr=0 — a sharp
+// V-shaped canyon floor. But for a tunnel, pr=0 means zero-width walls, so
+// tunnelGeometry.js would build nothing at all and silently leave open sky.
+// Applying this floor everywhere pr is read (terrain carve, camera check,
+// wall/ceiling mesh) means a tunnel-flagged path always gets real geometry.
+export const MIN_TUNNEL_PR = 2.0;
+
+function _effectivePR(path) {
+  const pr = path.pr ?? 0;
+  return path.tunnel ? Math.max(pr, MIN_TUNNEL_PR) : pr;
+}
+
+// Like _distSeg but also returns the clamped projection parameter t (0 at a,
+// 1 at b), so the caller can lerp a per-endpoint value (here: height) across
+// the segment instead of just measuring distance. Exported so tunnelGeometry.js
+// can reuse the same nearest-segment math instead of duplicating it.
+export function distSegT(px, pz, ax, az, bx, bz) {
+  const dx = bx - ax, dz = bz - az;
+  const len2 = dx * dx + dz * dz;
+  if (len2 === 0) return { dist: Math.hypot(px - ax, pz - az), t: 0 };
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2));
+  return { dist: Math.hypot(px - (ax + t * dx), pz - (az + t * dz)), t };
+}
+
+// `surroundingH` is the terrain height that would apply here with no trench
+// at all (noise/rim base + control points) — a trench's `h` is an ABSOLUTE
+// floor height that overrides that surrounding terrain within its plateau
+// (pr) and blends back into it across the near-vertical rise, rather than
+// being added on top of it. Additive would mean carving "through" a tall
+// rim/wall never reaches a walkable floor — the wall's own height simply
+// dominates the sum. Returns null when no path affects this point at all.
+// Nearest-segment distance + interpolated floor height for one path, or
+// null if the path doesn't reach this point at all.
+function _nearestOnPath(wx, wz, path) {
+  const pts = path.points;
+  if (!pts || pts.length < 2) return null;
+  let dist = Infinity, segH = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const { dist: d, t } = distSegT(wx, wz, a.x, a.z, b.x, b.z);
+    if (d < dist) {
+      dist = d;
+      const ha = a.h ?? path.h ?? 0, hb = b.h ?? path.h ?? 0;
+      segH = ha + (hb - ha) * t;
+    }
+  }
+  if (dist >= path.r) return null;
+  return { dist, segH, pr: _effectivePR(path) };
+}
+
+function _trenchHeight(wx, wz, surroundingH, excludePath) {
+  // Pick the dominant path at this point. A tunnel-flagged path always beats
+  // a plain one that's also active here — a "closest centerline wins" rule
+  // alone breaks down where a tunnel crosses a wider/taller wall path: the
+  // wall's centerline runs the length of the wall, so it can read as
+  // "closer" across a whole strip of the tunnel's own width, not just at
+  // their one true intersection point, causing the wall to win outright
+  // (no blend at all) partway through what should be a walkable tunnel.
+  // Among same-priority paths, closest centerline wins; ties prefer the
+  // narrower (smaller r) path, since that's the more locally-specific one.
+  const EPS = 1e-6;
+  let winner = null, bestDist = Infinity, bestR = Infinity, bestIsTunnel = false;
   for (const path of _trenchPaths) {
+    if (path === excludePath) continue;
+    const hit = _nearestOnPath(wx, wz, path);
+    if (!hit) continue;
+    const isTunnel = !!path.tunnel;
+    const better = !winner
+      || (isTunnel && !bestIsTunnel)
+      || (isTunnel === bestIsTunnel &&
+          (hit.dist < bestDist - EPS || (Math.abs(hit.dist - bestDist) <= EPS && path.r < bestR)));
+    if (better) { winner = { path, ...hit }; bestDist = hit.dist; bestR = path.r; bestIsTunnel = isTunnel; }
+  }
+  if (!winner) return null;
+
+  if (winner.dist <= winner.pr) return winner.segH;
+
+  // In the falloff band, blend toward whatever terrain is actually here
+  // WITHOUT this path — which may be another trench/wall, not just the raw
+  // noise/rim/control-point base — so a tunnel's own rising wall meets the
+  // real surrounding rock instead of fading toward unrelated ambient terrain.
+  const band = Math.min(TRENCH_RISE_WU, winner.path.r - winner.pr);
+  const t = band > 0 ? Math.max(0, 1 - (winner.dist - winner.pr) / band) : 0;
+  const eased = t * t * (3 - 2 * t);
+  const without = _trenchHeight(wx, wz, surroundingH, winner.path);
+  const blendTarget = without !== null ? without : surroundingH;
+  return winner.segH * eased + blendTarget * (1 - eased);
+}
+
+// Wall height above the floor for any trench path opted into real geometry
+// via `tunnel: true` (see tunnelGeometry.js). Fixed for v1 — TUNNEL_CAM_MAX_DIST
+// in scene.js assumes this clearance when clamping the play-mode camera.
+export const TUNNEL_CLEARANCE = 8.0;
+
+// Returns { floorH, ceilH } if (wx,wz) is within a tunnel path's half-width
+// (pr), else null. Used by scene.js to clamp the play-mode camera and
+// disable top-view while a hero is inside real tunnel geometry.
+export function getTunnelClearanceAt(wx, wz) {
+  let inside = false, bestDist = Infinity;
+  for (const path of _trenchPaths) {
+    if (!path.tunnel) continue;
+    const pr = _effectivePR(path);
     const pts = path.points;
     if (!pts || pts.length < 2) continue;
-    let dist = Infinity;
     for (let i = 0; i < pts.length - 1; i++) {
-      const d = _distSeg(wx, wz, pts[i].x, pts[i].z, pts[i + 1].x, pts[i + 1].z);
-      if (d < dist) dist = d;
+      const a = pts[i], b = pts[i + 1];
+      const { dist } = distSegT(wx, wz, a.x, a.z, b.x, b.z);
+      if (dist <= pr && dist < bestDist) { bestDist = dist; inside = true; }
     }
-    if (dist >= path.r) continue;
-    const pr = path.pr ?? 0;
-    let contrib;
-    if (dist <= pr) {
-      contrib = path.h;
-    } else {
-      const band = path.r - pr;
-      const t = band > 0 ? 1 - (dist - pr) / band : 0;
-      contrib = path.h * t * t * (3 - 2 * t);   // smoothstep over outer band only
-    }
-    if (Math.abs(contrib) > Math.abs(best)) best = contrib;
   }
-  return best;
+  if (!inside) return null;
+  const floorH = getTerrainHeight(wx, wz);
+  return { floorH, ceilH: floorH + TUNNEL_CLEARANCE };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -307,8 +406,25 @@ export function getTerrainHeight(wx, wz) {
   const noiseH = sharp * edgeFade(wx, wz) * scale * biomeAmplitudeScale;
   const base   = Math.max(noiseH, _rimHeight(wx, wz));
   const cpH    = _controlPointHeight(wx, wz);
-  const trH    = _trenchHeight(wx, wz);
-  return base + (Math.abs(trH) > Math.abs(cpH) ? trH : cpH);
+  const surrounding = base + cpH;
+  const trH    = _trenchHeight(wx, wz, surrounding);
+  return trH !== null ? trH : surrounding;
+}
+
+// What the terrain height at (wx,wz) would be if `excludePath` (a specific
+// trench path object) didn't exist — i.e. every other trench/wall/rim/hill
+// still applies. Used by tunnelGeometry.js to size a tunnel's ceiling up to
+// whatever height it actually removed (a wall, the rim, a hill), instead of
+// a flat clearance that leaves open sky above anything taller than that.
+export function getSurroundingHeightExcluding(wx, wz, excludePath) {
+  const raw    = rawNoise(wx, wz);
+  const sharp  = Math.sign(raw) * Math.pow(Math.abs(raw), sharpExp);
+  const noiseH = sharp * edgeFade(wx, wz) * scale * biomeAmplitudeScale;
+  const base   = Math.max(noiseH, _rimHeight(wx, wz));
+  const cpH    = _controlPointHeight(wx, wz);
+  const surrounding = base + cpH;
+  const trH = _trenchHeight(wx, wz, surrounding, excludePath);
+  return trH !== null ? trH : surrounding;
 }
 
 // ── Biome vertex colours ──────────────────────────────────────────────────────

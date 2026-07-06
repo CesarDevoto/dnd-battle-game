@@ -4,7 +4,8 @@ import { COLORS, SCENE, GROUND_SIZE, GRID_DIVISIONS, WORLD_UNITS_PER_SQUARE } fr
 
 let _sceneGS = GROUND_SIZE;
 export function setSceneGroundSize(s) { _sceneGS = s; }
-import { buildTerrainMesh, getTerrainHeight } from './terrain.js';
+import { buildTerrainMesh, getTerrainHeight, getTunnelClearanceAt } from './terrain.js';
+import { isEditModeActive } from './devConfig.js';
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(COLORS.sceneBackground);
@@ -217,6 +218,12 @@ const REG_ZOOM_MAX       = 6;
 const REG_ZOOM_ORBIT     = 1;    // WU closer per notch
 const REG_ZOOM_FOV       = 2;    // degrees narrower per notch
 
+// Play-mode camera clamp while the followed hero is inside real tunnel
+// geometry (see tunnelGeometry.js) — the orbit camera would otherwise rise
+// above the solid ceiling (TUNNEL_CLEARANCE in terrain.js). Dev mode is
+// untouched since it never sets _followUnit (devMode.js clears it on entry).
+const TUNNEL_CAM_MAX_DIST = 14;
+
 let _topViewY    = TOP_VIEW_Y_DEFAULT;
 let _topViewActive  = false;
 let _topViewSavedPos = null;
@@ -224,6 +231,10 @@ let _topViewSavedTgt = null;
 let _regZoom     = 0;   // 0 = default, REG_ZOOM_MAX = most zoomed in
 
 renderer.domElement.addEventListener('wheel', e => {
+  // Dev/edit mode uses OrbitControls' own free dolly (see devMode.js) — this
+  // handler's notch-based min/maxDistance snapping is for play view only and
+  // would otherwise clamp every scroll tick back down to ~20 WU.
+  if (isEditModeActive()) return;
   e.preventDefault();
   const inward = e.deltaY < 0;
   if (_topViewActive) {
@@ -255,6 +266,9 @@ export function flipCamera() {
 }
 
 export function toggleTopView() {
+  // Can't enter a straight-down view while inside a real tunnel — the solid
+  // ceiling would be between the camera and the ground.
+  if (!_topViewActive && _followUnit && getTunnelClearanceAt(_followUnit.grp.position.x, _followUnit.grp.position.z)) return;
   _topViewActive = !_topViewActive;
   if (_topViewActive) {
     _topViewSavedPos = camera.position.clone();
@@ -286,6 +300,12 @@ const _prevTarget = new THREE.Vector3();
 
 export function updateCameraFocus() {
   if (_topViewActive) {
+    // A hero can walk into a tunnel while already in top-view — force it off
+    // rather than let the ceiling clip through a straight-down look.
+    if (_followUnit && getTunnelClearanceAt(_followUnit.grp.position.x, _followUnit.grp.position.z)) {
+      toggleTopView();
+      return;
+    }
     // Keep camera pinned above follow unit at the scroll-adjusted height.
     // Set min/max distance so controls.update() (called in main.js) positions
     // the camera at exactly _topViewY above the target — no direct position set
@@ -301,6 +321,9 @@ export function updateCameraFocus() {
     const p = _followUnit.grp.position;
     _camFocusLook.set(p.x, p.y + 1, p.z - 3);
     _camFocusActive = true;
+    if (getTunnelClearanceAt(p.x, p.z)) {
+      controls.maxDistance = Math.min(controls.maxDistance, TUNNEL_CAM_MAX_DIST);
+    }
   }
   if (!_camFocusActive) return;
 

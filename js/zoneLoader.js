@@ -320,6 +320,11 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
+  // loadTrenchVisuals (below) also rebuilds real tunnel wall/ceiling geometry
+  // via refreshTunnelGeometry() — must come after loadBarrierVisuals and
+  // setEnv/setEnvSkipProps above, since those reset barrierSegments and
+  // losBlockerMeshes respectively; by this point both are already fresh for
+  // the new zone, so appending tunnel-derived entries here is safe.
   loadTrenchVisuals(zone.trenches ?? []);
 
 

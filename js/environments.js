@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { scene, ground, grid, ambient, moon, fire, camera, rebuildGrid } from './scene.js';
 import { playAmbient } from './audio.js';
-import { ENVS, ANIM, COLORS, HERO_ZONE } from './constants.js';
+import { ENVS, ANIM, COLORS, HERO_ZONE, SCENE } from './constants.js';
 import { getTerrainHeight, rebuildTerrain, isOnTunnelFloor, setTerrainAmplitudeScale, setTerrainProfile } from './terrain.js';
 import { clearLootLabels } from './loot.js';
 import {
@@ -1605,6 +1605,17 @@ function makeGroundTexture(name) {
 // ── Environment switcher ──────────────────────────────────────────────────────
 export let activeEnv = null;
 
+// Dev mode zooms out much further than play view, at which point each biome's
+// normal fog density would fully occlude the terrain long before the camera's
+// max distance. devMode.js dials this multiplier down while dev mode is on
+// (and back to 1 on exit) so far zoom is actually usable.
+let _baseFogDensity   = SCENE.fogDensity;
+let _fogDensityMult   = 1;
+export function setFogDensityMultiplier(m) {
+  _fogDensityMult = m;
+  scene.fog.density = _baseFogDensity * _fogDensityMult;
+}
+
 export function setEnv(name, ambientKey) {
   _clearDungeonHeroLights();
   const e = ENVS[name];
@@ -1639,7 +1650,8 @@ export function setEnv(name, ambientKey) {
     _bgEl.classList.remove('forest', 'tundra', 'swamp', 'desert', 'savanna', 'graveyard', 'dungeon', 'active');
   }
   scene.fog.color.set(e.fog);
-  scene.fog.density = e.density;
+  _baseFogDensity = e.density;
+  scene.fog.density = _baseFogDensity * _fogDensityMult;
   ambient.color.set(e.ambColor);
   ambient.intensity = e.ambInt;
   moon.color.set(e.moonColor);

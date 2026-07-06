@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera } from './scene.js';
 import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
@@ -10,7 +11,7 @@ import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, 
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
-import { getTerrainHeight } from './terrain.js';
+import { getTerrainHeight, getTerrainTrenches } from './terrain.js';
 import { buildHeroPortraits, updateHeroUI } from './heroPortraits.js';
 import { initBestiary } from './bestiary.js';
 import { initSpellbook } from './spellbook.js';
@@ -221,6 +222,23 @@ if (IS_DEV) {
       }, 300);
     }
     console.log(`[DEV] Heroes set to level ${target}`);
+  };
+
+  // TEMP diagnostic for the tunnel-geometry feature — run debugTunnels() in
+  // the browser console to dump live trench data + any built wall/ceiling
+  // mesh bounding boxes. Safe to remove once the feature is confirmed working.
+  window.debugTunnels = () => {
+    console.log('trenches:\n' + JSON.stringify(getTerrainTrenches(), null, 2));
+    const TUNNEL_COLORS = new Set(['1e1e2a', '1c1c26']);
+    const found = [];
+    scene.traverse(o => {
+      if (o.isMesh && o.material?.color && TUNNEL_COLORS.has(o.material.color.getHexString())) found.push(o);
+    });
+    console.log(`tunnel wall/ceiling meshes in scene: ${found.length}`);
+    found.forEach((m, i) => {
+      const box = new THREE.Box3().setFromObject(m);
+      console.log(`  [${i}] color=${m.material.color.getHexString()} x:[${box.min.x.toFixed(1)},${box.max.x.toFixed(1)}] y:[${box.min.y.toFixed(1)},${box.max.y.toFixed(1)}] z:[${box.min.z.toFixed(1)},${box.max.z.toFixed(1)}]`);
+    });
   };
 
   // Force-equip an item onto a hero by type ('elf'/'dwarf'/'human'/'halfling')

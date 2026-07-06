@@ -4,7 +4,7 @@ import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
 import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag } from './barrierEditor.js';
-import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench } from './trenchEditor.js';
+import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench, selectTrenchPointAt, clearTrenchSelection } from './trenchEditor.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -12,9 +12,10 @@ let _activeZoneId   = null;
 let _markersVisible = true;
 
 // Defaults for newly placed points
-let _defaultH   = 3.0;
-let _defaultR   = 8.0;
-let _defaultPR  = 0.0;
+let _defaultH      = 3.0;
+let _defaultR      = 8.0;
+let _defaultPR     = 0.0;
+let _defaultTunnel = false;  // trench-only: extrude real walls/ceiling along the path
 
 // ── Undo history ──────────────────────────────────────────────────────────────
 const _history      = [];
@@ -408,6 +409,9 @@ export function initTerrainEditor() {
   document.getElementById('te-default-pr')?.addEventListener('input', e => {
     _defaultPR = Math.max(0, parseFloat(e.target.value) || 0);
   });
+  document.getElementById('te-default-tunnel')?.addEventListener('change', e => {
+    _defaultTunnel = !!e.target.checked;
+  });
 
   // Capture-phase click
   renderer.domElement.addEventListener('click', e => {
@@ -435,11 +439,22 @@ export function initTerrainEditor() {
     if (isTrenchModeActive()) {
       const pt = _groundPt(e.clientX, e.clientY);
       if (pt) {
-        handleTrenchClick(pt, { h: _defaultH, r: _defaultR, pr: _defaultPR });
+        handleTrenchClick(pt, { h: _defaultH, r: _defaultR, pr: _defaultPR, tunnel: _defaultTunnel });
         _lineUndoStack.push('trench');
       }
       return;
     }
+
+    // Selecting an existing trench point for editing (outside draw mode) —
+    // mutually exclusive with control-point selection below, so clear that
+    // whenever a trench point is hit, and clear the trench selection on any
+    // other click so key handling never targets both at once.
+    if (!e.shiftKey && selectTrenchPointAt(e.clientX, e.clientY)) {
+      _selectedIdx = -1;
+      _selRing.visible = false;
+      return;
+    }
+    clearTrenchSelection();
 
     // Shift+click: start dragging a barrier dot if one is under cursor
     if (e.shiftKey && pickBarrierDotAt(e.clientX, e.clientY)) return;

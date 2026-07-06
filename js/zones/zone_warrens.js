@@ -15,4 +15,8 @@ export const ZONE = {
   props: [],
   barriers: [],
   visionBlockers: [],
+  trenches: [
+    { points: [{x:-30,z:-24.9,h:30}, {x:40.44,z:-25.77,h:30}], r: 8, pr: 8 },
+    { points: [{x:-0.17,z:-12.29,h:1}, {x:-0.54,z:-37.72,h:1}], r: 4, tunnel: true },
+  ],
 };

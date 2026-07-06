@@ -6639,7 +6639,7 @@ td.bst-col-retired { color: #343228 !important; }
 #terrain-editor-panel {
   position: fixed;
   bottom: 220px;
-  right: 440px;
+  right: 160px;
   z-index: 200;
   width: 250px;
   background: var(--panel-bg);
@@ -6761,6 +6761,8 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #te-save-status.te-save-status-ok    { color: #88ff66; }
 #te-save-status.te-save-status-error { color: #ff6644; }
+
+.te-status-warn { color: #ff6644; }
 
 .te-section-divider {
   font-size: 0.60rem;

@@ -4,9 +4,9 @@ import { SCENE, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { units, setUnitStealth } from './units.js';
 import { getMarkersVisible, setMarkersVisible } from './terrainEditor.js';
-import { setPointLightOrbsVisible } from './environments.js';
+import { setPointLightOrbsVisible, setFogDensityMultiplier } from './environments.js';
 import { isAIPanelOpen } from './npcAIEditor.js';
-import { IS_DEV } from './devConfig.js';
+import { IS_DEV, setEditModeActive } from './devConfig.js';
 import { setWaypointMarkersVisible } from './bleakmireWoodsEvent.js';
 
 let _dev = IS_DEV;
@@ -214,6 +214,7 @@ export function initDevMode() {
 // ── Toggle ────────────────────────────────────────────────────────────────────
 function _toggle() {
   _dev = !_dev;
+  setEditModeActive(_dev);
 
   if (!_dev) {
     // Entering play mode — remember which editors were open, then close them
@@ -260,8 +261,9 @@ function _applyCamera() {
     controls.enableZoom    = true;
     controls.enablePan     = true;
     controls.minDistance   = 0.3;
-    controls.maxDistance   = 400;
+    controls.maxDistance   = 1200;
     controls.zoomSpeed     = 4.0;
+    setFogDensityMultiplier(0.15);   // far zoom would otherwise fog out well before maxDistance
     controls.panSpeed      = 1.2;
     controls.rotateSpeed   = 0.7;
     controls.mouseButtons  = {
@@ -280,6 +282,7 @@ function _applyCamera() {
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT:  THREE.MOUSE.PAN,
     };
+    setFogDensityMultiplier(1);
     // Only snap to the default play-mode position when not mid-combat following a unit
     if (!getFollowUnit()) {
       camera.position.set(...SCENE.cameraPos);

@@ -65,7 +65,7 @@ export const SCENE = {
   fogDensity:        0.015,
   cameraFov:         55,
   cameraNear:        0.1,
-  cameraFar:         500,
+  cameraFar:         1500,
   cameraPos:         [0, 14.2, 50.1],
   cameraPlayTarget:  29,
   orbitMinDist:      10,

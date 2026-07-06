@@ -423,9 +423,10 @@ function saveZoneTrenchesPlugin() {
 
             const r = (n) => Math.round(n * 1e4) / 1e4;
             const itemLines = trenches.map(t => {
-              const pts = t.points.map(p => `{x:${r(p.x)},z:${r(p.z)}}`).join(', ');
-              let str = `    { points: [${pts}], h: ${r(t.h)}, r: ${r(t.r)}`;
+              const pts = t.points.map(p => `{x:${r(p.x)},z:${r(p.z)},h:${r(p.h)}}`).join(', ');
+              let str = `    { points: [${pts}], r: ${r(t.r)}`;
               if (t.pr) str += `, pr: ${r(t.pr)}`;
+              if (t.tunnel) str += `, tunnel: true`;
               return str + ' },';
             });
             const trenchesBlock = trenches.length
