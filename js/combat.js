@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
-import { units, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
+import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar } from './familiar.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE, rageUsesForLevel } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
@@ -10,14 +11,14 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
 import { fireThrownAxe }           from './thrownAxe.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
-import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable } from './hotbar.js';
+import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable, setSlotIcon } from './hotbar.js';
 import { hotbarIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { aiPickTarget, aiGetAttack, aiPickDest, aiPickDestTowardMelee,
          aiGetSpellcasterAttack, aiPickSpellcasterDest,
@@ -484,6 +485,12 @@ function hideTargetingLine() {
 export let turnOrder   = [];
 export let turnIndex   = 0;
 export let round       = 1;
+
+// ── Owl familiar Help ─────────────────────────────────────────────────────────
+// The enemy the owl distracted (Rasec has advantage against it until the end of
+// his next turn), and whether the owl's turn is currently picking that target.
+let _owlHelpTarget  = null;
+let _owlHelpPicking = false;
 export let combatPhase = false;
 
 // Callback registered by zoneLoader to block premature victory while spawns are pending.
@@ -740,6 +747,9 @@ function animatePath(unit, path, onComplete) {
   isAnimating = true;
   setUnitWalking(unit, true, true);
   playUnitMoveSound(unit.type);
+  // Flying familiars keep their hover height while moving instead of skimming
+  // the ground (their turn-to-turn height is terrain + hoverY).
+  const flyY = unit.familiar ? (unit.hoverY ?? 0) : 0;
 
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
@@ -763,7 +773,7 @@ function animatePath(unit, path, onComplete) {
 
     unit.grp.position.x = startX + dx * t;
     unit.grp.position.z = startZ + dz * t;
-    unit.grp.position.y = startY + (endY - startY) * t;
+    unit.grp.position.y = startY + (endY - startY) * t + flyY;
     unit.anchor.x = unit.grp.position.x;
     unit.anchor.z = unit.grp.position.z;
     unit.anchor.y = unit.grp.position.y + unit.anchorY;
@@ -773,9 +783,9 @@ function animatePath(unit, path, onComplete) {
 
     if (t >= 1) {
       // Snap to exact grid position
-      unit.grp.position.set(target.x, endY, target.z);
+      unit.grp.position.set(target.x, endY + flyY, target.z);
       unit.anchor.x = target.x;
-      unit.anchor.y = endY + unit.anchorY;
+      unit.anchor.y = endY + flyY + unit.anchorY;
       unit.anchor.z = target.z;
       stepIdx++;
 
@@ -1826,7 +1836,10 @@ function removeDefeatedUnit(u, attacker = null) {
     _checkSoulShardProc(attacker, u);
   }
   if (u.team === 'blue') onHeroDied(u);
-  if (u.mixer) {
+  if (u === _owlHelpTarget) _clearOwlHelp();  // distracted enemy died — advantage gone
+  if (u.familiar) {
+    startFamiliarDeath();  // owl flies straight up and vanishes; handles its own scene removal
+  } else if (u.mixer) {
     playUnitDeathAnim(u);  // animated units leave a corpse; death anim plays and holds last frame
   } else {
     scene.remove(u.grp);   // non-animated units vanish as before
@@ -1862,6 +1875,137 @@ export function unitLabel(u) {
   const num   = peers.indexOf(u) + 1;
   const name  = UNIT_TYPES[u.type]?.name ?? u.type;
   return peers.length > 1 ? `${name} ${num}` : name;
+}
+
+// ── Owl familiar Help action ──────────────────────────────────────────────────
+// A lavender "distracted" mark (Iffir's colour) tracked over the target's head
+// for as long as Rasec holds the advantage. Inline-styled so it needs no CSS.
+const _owlHelpMarkerEl = document.createElement('div');
+_owlHelpMarkerEl.textContent = '✖';
+Object.assign(_owlHelpMarkerEl.style, {
+  position: 'absolute', transform: 'translate(-50%,-50%)', pointerEvents: 'none',
+  color: '#c9a0e6', font: '700 22px sans-serif', textShadow: '0 0 6px #000, 0 0 3px #000',
+  zIndex: 40, display: 'none',
+});
+document.getElementById('hud')?.appendChild(_owlHelpMarkerEl);
+const _owlMarkVec = new THREE.Vector3();
+
+// Called each frame from the main tick.
+export function updateFamiliarHelpMarker() {
+  if (!_owlHelpTarget || _owlHelpTarget.hp <= 0 || !units.includes(_owlHelpTarget)) {
+    _owlHelpMarkerEl.style.display = 'none';
+    return;
+  }
+  const a = _owlHelpTarget.anchor;
+  _owlMarkVec.set(a.x, a.y + 0.6, a.z).project(camera);
+  if (_owlMarkVec.z >= 1) { _owlHelpMarkerEl.style.display = 'none'; return; }
+  _owlHelpMarkerEl.style.display = 'block';
+  _owlHelpMarkerEl.style.left = ((_owlMarkVec.x * 0.5 + 0.5) * renderer.domElement.clientWidth)  + 'px';
+  _owlHelpMarkerEl.style.top  = ((-_owlMarkVec.y * 0.5 + 0.5) * renderer.domElement.clientHeight) + 'px';
+}
+
+function _clearOwlHelp() {
+  _owlHelpTarget  = null;
+  _owlHelpPicking = false;
+  _owlHelpMarkerEl.style.display = 'none';
+}
+
+// Owl hotbar "Help" button. Works both orders: if an enemy is already selected
+// (target-first), Help it immediately; otherwise enter pick-mode and wait for the
+// player to click an enemy (Help-first). selectedTarget is cleared at turn start,
+// so this only ever fires on a target chosen during the owl's own turn.
+function _beginOwlHelp() {
+  const owlU = getFamiliar();
+  if (!owlU || turnOrder[turnIndex] !== owlU || turnAttacked || isAnimating) return;
+  if (selectedTarget && selectedTarget.team === 'red' && selectedTarget.hp > 0) {
+    _applyOwlHelp(selectedTarget);
+    return;
+  }
+  _owlHelpPicking = true;
+  addLog('Choose an enemy for the owl to distract.', 'move');
+  updateCombatStatus();
+}
+
+// Apply Help to the chosen enemy: the owl flies over to the target, swoops up,
+// then the mark + advantage land. Leftover fly speed stays available afterward so
+// the player can reposition it.
+function _applyOwlHelp(target) {
+  _owlHelpPicking = false;
+  const owlU = getFamiliar();
+  if (!owlU || turnOrder[turnIndex] !== owlU || turnAttacked) return;
+  turnAttacked = true;
+  hideTargetMarker();
+  hideMoveRange();
+  heroMode = null;
+  // Fly over to the target first, then do the distract swoop + mark.
+  _familiarMoveToward(owlU, target.grp.position, () => {
+    familiarHelpGesture(() => {
+      _owlHelpTarget = target;
+      addLog(`${unitLabel(owlU)} distracts ${unitLabel(target)} — Rasec has advantage against it until the end of his next turn!`, 'move');
+    });
+    const rem = (UNIT_TYPES.owl?.speed ?? 60) - turnMovedFt;
+    if (rem > 0) { heroMode = 'move'; showMoveRange(owlU); } else { heroMode = null; }
+    updateCombatStatus();
+  });
+}
+
+// Owl hotbar "Return" button → spend whatever fly speed is left flying back
+// toward Rasec (as far as it can reach), then re-open its move range for any
+// remaining steps. Mirrors the retreat leg of the automated owl turn.
+function _owlReturnToOwner() {
+  const owlU = getFamiliar();
+  if (!owlU || turnOrder[turnIndex] !== owlU || isAnimating) return;
+  const ownerU = owlU.owner;
+  if (!ownerU) return;
+  if ((UNIT_TYPES.owl?.speed ?? 60) - turnMovedFt <= 0) return;
+  hideMoveRange();
+  heroMode = null;
+  _familiarMoveToward(owlU, ownerU.grp.position, () => {
+    const rem = (UNIT_TYPES.owl?.speed ?? 60) - turnMovedFt;
+    if (rem > 0) { heroMode = 'move'; showMoveRange(owlU); } else { heroMode = null; }
+    updateCombatStatus();
+  });
+}
+
+// When Find Familiar is cast DURING combat, drop the owl in beside Rasec and
+// splice it into the initiative order so it takes turns this fight (out of
+// combat it just perches; the combat:start handler drops it in for the next one).
+function _insertFamiliarIntoCombat(owlU) {
+  owlU.bound     = false;
+  owlU._arriving = false;
+  _placeFamiliarForCombat(owlU);
+  const def    = UNIT_TYPES.owl ?? {};
+  const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+  owlU.initiative = roll({ sides: 20, modifier: (def.initiative ?? 0) + dexMod }).total;
+  if (!turnOrder.includes(owlU)) {
+    let idx = turnOrder.length;
+    for (let i = turnIndex + 1; i < turnOrder.length; i++) {
+      if (owlU.initiative > turnOrder[i].initiative) { idx = i; break; }
+    }
+    turnOrder.splice(idx, 0, owlU);
+    if (idx <= turnIndex) turnIndex++;
+  }
+  buildTurnList();
+}
+
+// Drop the owl onto a free GRID tile beside Rasec. Critical: the move system
+// only accepts grid-aligned destinations, so an off-grid owl can never move.
+function _placeFamiliarForCombat(owlU) {
+  const ownerU = owlU.owner;
+  const S    = WORLD_UNITS_PER_SQUARE;
+  const snap = v => Math.round((v - 1) / 2) * 2 + 1;   // nearest grid-tile center
+  const bx = snap((ownerU ?? owlU).grp.position.x);
+  const bz = snap((ownerU ?? owlU).grp.position.z);
+  const cand = [[S, 0], [-S, 0], [0, S], [0, -S], [S, S], [S, -S], [-S, S], [-S, -S], [0, 0]];
+  let px = bx + S, pz = bz;
+  for (const [dx, dz] of cand) {
+    const nx = bx + dx, nz = bz + dz;
+    if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
+    if (!isOccupied(nx, nz, owlU) && !hasPropClash(nx, nz)) { px = nx; pz = nz; break; }
+  }
+  const ty = getTerrainHeight(px, pz);
+  owlU.grp.position.set(px, ty + (owlU.hoverY ?? 0), pz);
+  owlU.anchor.set(px, ty + owlU.anchorY + (owlU.hoverY ?? 0), pz);
 }
 
 const _HERO_COLORS = { Rasec: '#cc55ee', Leugren: '#c8860a', Gobo: '#5577ee', Milo: '#44dd66' };
@@ -2077,6 +2221,10 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // Smoke & Mirrors: Milo gets advantage on attacks that already qualify for
   // Sneak Attack (ally adjacent to target) while he's inside his own smoke cloud.
   if (attacker.type === 'halfling' && attacker.smokeActive && _allyAdjacentToTarget(attacker, target)) {
+    hasAdvantage = true;
+  }
+  // Owl's Help: Rasec has advantage against the enemy his familiar distracted.
+  if (_owlHelpTarget && target === _owlHelpTarget && attacker.type === 'elf') {
     hasAdvantage = true;
   }
   if (atk.type === 'ranged' && atk.longRange) {
@@ -2643,7 +2791,7 @@ renderer.domElement.addEventListener('click', e => {
     // No unit hit — left-click on ground moves the active hero when in move mode
     if (combatPhase && heroMode === 'move' && pt) {
       const curU = turnOrder[turnIndex];
-      if (curU && curU.team === 'blue') {
+      if (curU && (curU.team === 'blue' || curU.familiar)) {
         const large = UNIT_TYPES[curU.type]?.large ?? false;
         const tx = large ? Math.round(pt.x / 2) * 2 : Math.round((pt.x - 1) / 2) * 2 + 1;
         const tz = large ? Math.round(pt.z / 2) * 2 : Math.round((pt.z - 1) / 2) * 2 + 1;
@@ -2680,6 +2828,11 @@ renderer.domElement.addEventListener('click', e => {
   }
 
   clearHoverPulseUnit();
+  // Owl Help targeting — only honored while it's actually the owl's turn.
+  if (_owlHelpPicking) {
+    if (turnOrder[turnIndex]?.familiar && hit.team === 'red' && hit.hp > 0) { _applyOwlHelp(hit); return; }
+    _owlHelpPicking = false;  // stale pick or non-enemy click cancels it
+  }
   if (hit.team === 'red') {
     showTargetMarker(hit);
   } else {
@@ -2704,7 +2857,7 @@ renderer.domElement.addEventListener('mousemove', e => {
     return;
   }
   const u = turnOrder[turnIndex];
-  if (!u || u.team !== 'blue') {
+  if (!u || (u.team !== 'blue' && !u.familiar)) {
     _ringHoverActive = false;
     moveDistEl.style.display = 'none';
     return;
@@ -2853,6 +3006,9 @@ export function rollInitiative() {
   );
   turnIndex = 0;
   round     = 1;
+  _clearOwlHelp();          // no stale distract-mark carried in from a prior fight
+  enterCombatFamiliar();    // owl leaves the shoulder to become a combatant
+  { const _owl = getFamiliar(); if (_owl) _placeFamiliarForCombat(_owl); }
   buildTurnList();
   activateTurn(0);
   playSound('combat_start');
@@ -2877,18 +3033,19 @@ export function buildTurnList() {
       const key    = u.team + u.type;
       counter[key] = (counter[key] || 0) + 1;
       const baseName = UNIT_TYPES[u.type]?.name ?? u.type;
-      const label    = u.team === 'blue' ? baseName : baseName + ' ' + counter[key];
+      const label    = (u.team === 'blue' || u.familiar) ? baseName : baseName + ' ' + counter[key];
       return { u, i, label };
     })
     .filter(Boolean)
     .sort((a, b) => b.u.initiative - a.u.initiative);
 
   entries.forEach(({ u, i, label }) => {
+    const OWL_TURN_COLOR = '#c9a0e6';  // friendly lavender — reads as Rasec's familiar, not an enemy
     const color = u.team === 'blue'
       ? '#' + (HERO_RING_COLORS[u.type] ?? 0x4488ff).toString(16).padStart(6, '0')
-      : '';
+      : u.familiar ? OWL_TURN_COLOR : '';
     const hpPct    = Math.round(Math.max(0, u.hp) / Math.max(1, u.maxHp) * 100);
-    const barColor = u.team === 'blue' ? (color || '#4488ff') : '#cc3333';
+    const barColor = u.team === 'blue' ? (color || '#4488ff') : u.familiar ? OWL_TURN_COLOR : '#cc3333';
 
     const el      = document.createElement('div');
     el.className  = 'turn-entry';
@@ -2904,7 +3061,7 @@ export function buildTurnList() {
       `<span class="turn-init">${u.initiative}</span>`;
     el.addEventListener('click', () => {
       if (u.team === 'red' && u.hp > 0) showTargetMarker(u);
-      else if (u.team === 'blue')        setFollowUnit(u);
+      else if (u.team === 'blue' || u.familiar) setFollowUnit(u);
     });
     list.appendChild(el);
   });
@@ -3422,6 +3579,36 @@ const _ABILITY_HANDLERS = {
                             selectedTarget.grp.position.x, selectedTarget.grp.position.z);
     },
   },
+  // Find Familiar — ritual summon, castable BOTH out of combat (from the Skills &
+  // Spells window / an assigned hotbar slot while exploring) and in combat (as
+  // Rasec's action on his turn). Rasec is the only elf, so the caster is resolved
+  // from the roster directly rather than from turn state, which lets the same
+  // handler serve the exploration click and the in-combat turn. One-shot: greys
+  // out once the owl is already summoned.
+  find_familiar: {
+    actionType: 'action',
+    execute: () => {
+      const caster = heroRoster.find(u => u.type === 'elf' && u.hp > 0);
+      if (!caster || isFamiliarSummoned() || (caster.level ?? 1) < 4) return;
+      if (combatPhase) {
+        if (turnOrder[turnIndex] !== caster || turnAttacked || isAnimating) return;
+        turnAttacked = true;
+      }
+      summonFamiliar(caster);
+      if (combatPhase) {
+        const owlU = getFamiliar();
+        if (owlU) _insertFamiliarIntoCombat(owlU);
+      }
+      addLog(`${unitLabel(caster)} casts Find Familiar — an owl spirit descends to fight at his side.`, 'heal');
+      if (combatPhase) { updateCombatStatus(); _rebuildHotbar(caster); }
+    },
+    isAvailable: () => {
+      const caster = heroRoster.find(u => u.type === 'elf' && u.hp > 0);
+      if (!caster || isFamiliarSummoned() || (caster.level ?? 1) < 4) return false;
+      if (combatPhase) return turnOrder[turnIndex] === caster && !turnAttacked && !isAnimating;
+      return true;  // out of combat: always castable until summoned
+    },
+  },
 };
 
 // Slots the player may freely drag-and-drop abilities onto. Everything else
@@ -3484,9 +3671,50 @@ export function assignHotbarSlot(hero, slotKey, abilityKey) {
   return true;
 }
 
-function _rebuildHotbar(u) {
-  if (!u || u.team !== 'blue') return;
+// The owl's turn gets a small text hotbar: Help (wired), Scout & Touch Spell
+// (present but disabled placeholders), and End Turn. Movement is click-to-move
+// like any hero.
+function _rebuildFamiliarHotbar(u) {
   clearAllHotkeys();
+  // The owl's slots 2/3 are Help/Return, not melee/ranged — hide the baked-in
+  // weapon glyphs so they don't read as attacks.
+  setSlotIcon('Digit2', false);
+  setSlotIcon('Digit3', false);
+  bindHotkey('Digit2', false, '<span class="hb-ready">HELP</span>',
+    () => _beginOwlHelp(),
+    () => {
+      const curU = turnOrder[turnIndex];
+      return !!curU && curU.familiar && !turnAttacked && !isAnimating;
+    },
+    'action');
+  // Return — fly back toward Rasec with leftover movement (needs move left + an owner).
+  bindHotkey('Digit3', false, '<span class="hb-ready">RETURN</span>',
+    () => _owlReturnToOwner(),
+    () => {
+      const curU = turnOrder[turnIndex];
+      return !!curU && curU.familiar && !!curU.owner && !isAnimating &&
+             (UNIT_TYPES.owl?.speed ?? 60) - turnMovedFt > 0;
+    });
+  // Scout — present but not implemented yet (no scouting system).
+  bindHotkey('Digit4', false, '<span class="hb-ready">SCOUT</span>', () => {}, () => false, 'action');
+  bindHotkey('Digit5', false, '<span class="hb-end-turn">END<br>TURN</span>', () => {
+    if (isAnimating || endTurnBtn.disabled) return;
+    doEndTurn();
+  });
+  // Touch Spell — disabled placeholder (Rasec has no touch spell yet). Parked on
+  // the QWERTY row so it doesn't crowd the owl's active number-row actions.
+  bindHotkey('KeyQ', false, '<span class="hb-ready">TOUCH<br>SPELL</span>', () => {}, () => false, 'action');
+  updateHotkeyRanges();
+}
+
+function _rebuildHotbar(u) {
+  if (!u) return;
+  if (u.familiar) { _rebuildFamiliarHotbar(u); return; }
+  if (u.team !== 'blue') return;
+  clearAllHotkeys();
+  // Restore the melee/ranged weapon glyphs on slots 2/3 (the owl hotbar hides them).
+  setSlotIcon('Digit2', true);
+  setSlotIcon('Digit3', true);
   const _attacks    = UNIT_TYPES[u.type]?.attacks ?? [];
   const firstMelee  = _attacks.find(a => a.type === 'melee');
   const firstRanged = _attacks.find(a => a.type === 'ranged');
@@ -3607,7 +3835,10 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
   // Add any spells that unlock at this exact level
   const unlocks = LEVEL_SPELLS[hero.type] ?? {};
   if (unlocks[newLevel]) {
-    if (!hero.preparedSpells) hero.preparedSpells = new Set();
+    // Seed with the hero's starting spells so leveling up doesn't wipe out
+    // spells they already knew (e.g. Rasec's Fire Bolt cantrip) before the
+    // next combat's initSpellSlots re-seeds the set.
+    if (!hero.preparedSpells) hero.preparedSpells = new Set(STARTING_SPELLS[hero.type] ?? []);
     unlocks[newLevel].forEach(k => hero.preparedSpells.add(k));
   }
   // Grant additional spell slots when leveling up
@@ -3644,11 +3875,11 @@ export function activateTurn(index) {
       (activeEnv === 'dungeon' && !_dungeonAwareEnemies.has(u)) ||
       u.aggro === false
     );
-    if (u.team === 'blue' && !unawareEnemy) setFollowUnit(u);
-    if (u.team === 'blue') u.barForced = true;
+    if ((u.team === 'blue' || u.familiar) && !unawareEnemy) setFollowUnit(u);
+    if (u.team === 'blue' || u.familiar) u.barForced = true;
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
     activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
-    activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));
+    activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : u.familiar ? 0xc9a0e6 : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));
     activeRing.visible    = !unawareEnemy;
     showSelectionHighlight(u);
     turnMovedFt     = 0;
@@ -3711,6 +3942,15 @@ export function activateTurn(index) {
           setTimeout(() => doEndTurn(), 60);
         } else {
           runAITurn(u);
+        }
+      } else if (u.familiar) {
+        // The owl: automated → its own simple AI; manual → player flies it.
+        if (isAutomated()) {
+          _runAutomatedFamiliarTurn(u);
+        } else {
+          endTurnBtn.disabled = false;
+          heroMode = 'move';
+          showMoveRange(u);
         }
       } else if (isAutomated()) {
         _runAutomatedHeroTurn(u);
@@ -3798,6 +4038,9 @@ function doEndTurn() {
     cur.raging = false;
     addLog(`${unitLabel(cur)}'s Rage ends (no attack)`, 'dmg');
   }
+  // Owl's Help advantage lasts until the end of Rasec's next turn.
+  if (cur && cur.type === 'elf' && _owlHelpTarget) _clearOwlHelp();
+  if (_owlHelpPicking) _owlHelpPicking = false;  // never carry a half-made pick past a turn
 
   turnIndex++;
   if (turnIndex >= turnOrder.length) {
@@ -3985,6 +4228,64 @@ function _runRoamTurn(u) {
 
 // ── Automated hero turn ───────────────────────────────────────────────────────
 const _readiedAutomated = new Set(); // heroes whose delay was set in automated mode
+
+// Fly `u` as far toward `destPos` as its remaining movement allows, then onDone.
+function _familiarMoveToward(u, destPos, onDone) {
+  const remFt = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  if (remFt <= 0) { onDone(); return; }
+  const maxDist = (remFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const ux = u.grp.position.x, uz = u.grp.position.z;
+  const reach = _bfsReachable(ux, uz, maxDist, u);
+  if (!reach.size) { onDone(); return; }
+  let best = null, bestD = Infinity;
+  for (const k of reach) {
+    const [kx, kz] = k.split(',').map(Number);
+    const dx = destPos.x - kx, dz = destPos.z - kz, d = dx * dx + dz * dz;
+    if (d < bestD) { bestD = d; best = { x: kx, z: kz }; }
+  }
+  if (!best) { onDone(); return; }
+  const path = findPath(ux, uz, best.x, best.z);
+  if (!path.length) { onDone(); return; }
+  const mdx = best.x - ux, mdz = best.z - uz;
+  const movedFt = Math.round(Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE) * GRID_SQUARE_FEET;
+  animatePath(u, path, () => { turnMovedFt += movedFt; onDone(); });
+}
+
+// Automated owl turn: fly to the enemy nearest Rasec and Help it, then fly back
+// toward Rasec with whatever movement is left.
+function _runAutomatedFamiliarTurn(u) {
+  endTurnBtn.disabled = true;
+  const STEP_MS = 140;
+  setTimeout(() => {
+    if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+    const ownerU  = getFamiliar()?.owner ?? null;
+    const ref     = ownerU ?? u;
+    const enemies = units.filter(e => e.team === 'red' && e.hp > 0);
+    const target  = enemies.reduce((best, e) => {
+      const dx = e.grp.position.x - ref.grp.position.x, dz = e.grp.position.z - ref.grp.position.z;
+      const d = dx * dx + dz * dz;
+      return (!best || d < best.d) ? { e, d } : best;
+    }, null)?.e ?? null;
+
+    if (!target) { setTimeout(doEndTurn, STEP_MS); return; }
+
+    // 1) Approach the target, then Help it.
+    _familiarMoveToward(u, target.grp.position, () => {
+      if (!turnAttacked && units.includes(target) && target.hp > 0) {
+        turnAttacked = true;
+        familiarHelpGesture(() => {
+          _owlHelpTarget = target;
+          addLog(`${unitLabel(u)} distracts ${unitLabel(target)} — Rasec has advantage against it!`, 'move');
+        });
+      }
+      // 2) Retreat back toward Rasec with any leftover movement, then end turn.
+      setTimeout(() => {
+        if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+        _familiarMoveToward(u, (ownerU ?? u).grp.position, () => setTimeout(doEndTurn, STEP_MS));
+      }, 700);
+    });
+  }, STEP_MS);
+}
 
 function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
   endTurnBtn.disabled = true;

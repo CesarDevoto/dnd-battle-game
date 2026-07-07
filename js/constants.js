@@ -925,6 +925,42 @@ export const UNIT_TYPES = {
     yOffset:    1.96,
     anchorY:    2.0,
   },
+
+  // Flying familiar (Rasec's owl). Rigged GLB, bbox ~1.57 wide × 0.75 tall in
+  // bind pose; at scale 0.66 it reads as a small bird (~0.5 units tall, ~1 unit
+  // wingspan). Mesh origin sits mid-body (feet ≈ -0.22 local), so yOffset lifts
+  // the talons to the group origin and hoverY floats it off the ground like a
+  // bird in flight. NPC for now (no combat/familiar logic yet) — placeable via
+  // the NPC editor. Grounding/hover are bbox-derived and unverified in-game;
+  // nudge with [ / ] if it floats or sinks.
+  owl: {
+    name: 'Iffir',
+    team: 'familiar',                  // its own faction: friendly, takes a turn, but never counted as a hero
+    familiar: true,
+    scale:   [0.44, 0.44, 0.44],
+    yOffset: 0.15,
+    hoverY:  1.5,   // combat flight height ≈ where it perched on Rasec's shoulder
+    anchorY: 1.5,
+    // ── D&D familiar stat block (inert while team:'npc' — wired up in Phase 2) ──
+    // Tiny beast. Speed 5 ft / fly 60 ft — uses the fly speed for movement.
+    hp: 1, ac: 11, speed: 60, profBonus: 2,
+    // Initiative is DEX-driven like everyone else: bonus = initiative + DEX mod,
+    // so with DEX 13 the owl rolls at +1.
+    initiative: 0,
+    abilities: { str: 3, dex: 13, con: 8, int: 2, wis: 12, cha: 7 },
+    skills: { perception: 3, stealth: 3 },
+    passivePerception: 13,
+    // Traits: Flyby (no opportunity attacks when flying out of reach — already
+    // free since combat has no OA system); Keen Hearing & Sight (advantage on
+    // sight/hearing Perception — flavor until a perception-check system exists).
+    flyby: true,
+    keenSenses: true,
+    // Familiar actions on its own turn (Phase 2): Help (grant Rasec advantage vs
+    // the distracted target), Deliver Touch Spells (reaction — cast Rasec's touch
+    // spell through the owl), and Scout/Spy (Hide, Search, Dash, Disengage).
+    familiarActions: ['help', 'deliver_touch', 'hide', 'search', 'dash', 'disengage'],
+    attacks: [],                       // familiars don't make attacks
+  },
 };
 
 // Convenience lists

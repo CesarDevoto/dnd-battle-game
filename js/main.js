@@ -6,7 +6,7 @@ import { initEngagementLines, updateEngagementLines } from './engagementLines.js
 import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
 import { equipItem } from './equipment.js';
 import { getItem } from './items.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -45,6 +45,7 @@ import { tickLoot } from './loot.js';
 import { initLootPanel } from './lootPanel.js';
 import { initShortRest } from './shortRest.js';
 import { initHealingWordOOC } from './healingWordOOC.js';
+import { updateFamiliar } from './familiar.js';
 import { tickBleakmireWoods } from './bleakmireWoodsEvent.js';
 import './mausoleumEvent.js';
 import { tickWarrens } from './warrensEvent.js';
@@ -287,8 +288,10 @@ let _prevNow = 0;
 
     // Hovering units descend diagonally as they close to melee range.
     // Lerp effective hover from full height (12+ WU away) down to 0 (≤5 WU away).
+    // Familiars (the owl) are exempt — they hold a constant height above terrain,
+    // adapting to slope but never diving toward enemies.
     let effectiveHoverY = baseHoverY;
-    if (baseHoverY > 0) {
+    if (baseHoverY > 0 && !u.familiar) {
       const foeTeam = u.team === 'red' ? 'blue' : 'red';
       let minDist = Infinity;
       for (const other of units) {
@@ -314,6 +317,10 @@ let _prevNow = 0;
       u.anchor.y = terrainY + u.anchorY + effectiveHoverY + bob;
     }
   });
+
+  // Familiar rides its owner's shoulder — override its position after the
+  // generic per-unit placement above so it snaps to the live bone this frame.
+  updateFamiliar(dt);
 
   // A / D — rotate active hero while it is a blue team's turn
   if (combatPhase && (_rotKeys.left || _rotKeys.right)) {
@@ -366,6 +373,7 @@ let _prevNow = 0;
   updateParticles();
   updateWind(t);
   updateHUD();
+  updateFamiliarHelpMarker();
   updateReadyIcons();
   updateMixers(dt);
   tickZone(dt);

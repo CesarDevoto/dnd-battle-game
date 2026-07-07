@@ -4,7 +4,12 @@ import { UNIT_TYPES } from './constants.js';
 // runAITurn() remains in combat.js as the orchestrator that wires state in.
 
 export function aiPickTarget(u, units, hasLineOfSight) {
-  const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+  // Familiars (Rasec's owl) are valid targets but VASTLY de-prioritized, so
+  // enemies only rarely bother with the fragile 1-HP owl. A real hero is almost
+  // always preferred; the owl only gets picked on unlucky rolls or when it's the
+  // sole option. FAMILIAR_AGGRO is the score multiplier (lower = rarer).
+  const FAMILIAR_AGGRO = 0.03;
+  const heroes = units.filter(h => (h.team === 'blue' || h.familiar) && h.hp > 0);
   if (!heroes.length) return null;
   if (heroes.length === 1) return heroes[0];
 
@@ -16,7 +21,8 @@ export function aiPickTarget(u, units, hasLineOfSight) {
     const distScore = 1 / ((dist + 1) * (dist + 1));
     const losBonus = hasLineOfSight(ux, uz, h.grp.position.x, h.grp.position.z) ? 1.5 : 1.0;
     const jitter = 0.90 + Math.random() * 0.20;
-    return { h, score: distScore * losBonus * jitter };
+    const familiarPen = h.familiar ? FAMILIAR_AGGRO : 1;
+    return { h, score: distScore * losBonus * jitter * familiarPen };
   });
 
   const total = scored.reduce((s, e) => s + e.score, 0);

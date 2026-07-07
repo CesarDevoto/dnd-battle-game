@@ -129,6 +129,20 @@ export const ELF_SPELLS = {
     saveDC:    13,
     desc:      '15 ft cone · 3d6 fire · DEX DC 13 for half',
   },
+  // Conjuration ritual — castable both in and out of combat via the
+  // find_familiar ability handler (combat.js _ABILITY_HANDLERS). Gated to L4 via
+  // LEVEL_SPELLS (below) so it appears in the level-up window, Skills & Spells
+  // window, and character sheet as a prepared L1 spell.
+  find_familiar: {
+    key:        'find_familiar',
+    name:       'Find Familiar',
+    level:      1,
+    actionType: 'action',
+    ritual:     true,
+    minLevel:   4,
+    imgSrc:     'assets/spells and skills/find familiar.jpg',
+    desc:       'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target',
+  },
 };
 
 // Spells available from level 1
@@ -142,7 +156,7 @@ export const STARTING_SPELLS = {
 // and _tryHeroAction in combat.js. Add new entries here as heroes gain abilities.
 export const LEVEL_SPELLS = {
   dwarf:    { 2: ['bless'], 3: ['sacred_flame'] },
-  elf:      { 2: ['mage_armor'], 3: ['magic_missile'] },
+  elf:      { 2: ['mage_armor'], 3: ['magic_missile'], 4: ['find_familiar'] },
   human:    { 3: ['defensive_stance'] },
   halfling: { 2: ['hide'], 3: ['smoke_mirrors'] },
 };

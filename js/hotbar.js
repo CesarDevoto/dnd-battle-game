@@ -74,6 +74,15 @@ export function updateHotkeyRanges() {
   }
 }
 
+// Show/hide a slot's baked-in type icon (the ⚔ on slot 2, 🏹 on slot 3). These
+// are permanent decorations for the hero melee/ranged slots, but meaningless on
+// re-purposed slots (e.g. the owl's Help/Scout), where the big weapon glyph
+// otherwise reads as "melee attack." Hidden state is restored per hotbar rebuild.
+export function setSlotIcon(code, visible) {
+  const icon = _btns[code]?.querySelector('.hb-type-icon');
+  if (icon) icon.style.display = visible ? '' : 'none';
+}
+
 // Grey out a slot with no functional binding (e.g. a hero with no ranged attack).
 export function markHotkeyUnavailable(code, shift = false) {
   const k = _key(code, shift);

@@ -65,6 +65,11 @@ const LEVEL_UNLOCKS = {
         imgSrc: 'assets/spells and skills/magicmissile.jpg',
         desc: '120 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then costs 1 spell slot' },
     ],
+    4: [
+      { name: 'Find Familiar',
+        imgSrc: 'assets/spells and skills/find familiar.jpg',
+        desc: 'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target' },
+    ],
   },
 };
 

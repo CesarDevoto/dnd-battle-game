@@ -20,6 +20,7 @@ export const ABILITY_META = {
   bless:            { name: 'Bless',            imgSrc: 'assets/spells and skills/bless.jpg' },
   mage_armor:       { name: 'Mage Armor',       imgSrc: 'assets/spells and skills/magearmor.jpg' },
   magic_missile:    { name: 'Magic Missile',    imgSrc: 'assets/spells and skills/magicmissile.jpg' },
+  find_familiar:    { name: 'Find Familiar',    imgSrc: 'assets/spells and skills/find familiar.jpg' },
 };
 
 // HTML for a fixed hotbar (.hb-btn) slot — absolutely-positioned image fill,

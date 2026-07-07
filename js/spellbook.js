@@ -82,6 +82,17 @@ const SPELL_DATA = [
     desc: 'Three glowing darts of magical force unerringly strike one or more targets. Each dart deals 1d4 + 1 force damage. All three can be directed at the same creature.',
   },
   {
+    name:       'Find Familiar',
+    level:      1,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      '10 ft',
+    effect:     'Summon owl familiar',
+    effectNote: 'ritual · rides your shoulder',
+    conc:       false,
+    desc: 'You summon a loyal otherworldly spirit that takes the form of an owl. It rests on your shoulder out of combat and acts on its own initiative in battle — it can scout, take the Help action to grant you advantage, and moves with a 60 ft fly speed. Its Flyby means it never provokes opportunity attacks.',
+  },
+  {
     name:       'Sleep',
     level:      1,
     spellClass: 'Wizard',

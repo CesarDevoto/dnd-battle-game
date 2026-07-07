@@ -62,6 +62,7 @@ const MODEL_PATHS = {
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
   solrac:    'assets/models/solrac.glb',
+  owl:       'assets/models/owl.glb',
   // Swamp monsters — proxied to closest existing GLB until dedicated models are added
   giant_frog:        'assets/models/goblin.glb',
   bullywug:          'assets/models/goblin.glb',
@@ -113,6 +114,14 @@ const ANIM_CLIP_NAMES = {
   dwarf: {
     idle: 'Idle_5', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
     rangedAttack: null, spellCast: 'mage_soell_cast_7', death: 'Dead',
+  },
+  // Non-humanoid flying rig — three clips (verified in GLB): "Flap", "Idle",
+  // "Rest Pose" (exact casing matters — clip lookup is c.name === name). Idle is
+  // the perched/shoulder-rest animation used when standing still; Flap drives all
+  // movement/attack; Rest Pose is the neutral bind pose, reused for death since
+  // there's no dedicated death clip.
+  owl: {
+    idle: 'Idle', walk: 'Flap', run: 'Flap', attack: 'Flap', death: 'Rest Pose',
   },
   // Non-humanoid rig — no Hips/Pelvis bone; pin clips by name directly
   giant_spider: {
@@ -276,9 +285,10 @@ export const modelsReady = Promise.all(Object.keys(MODEL_PATHS).map(loadOne));
 // ── Team colour tint ──────────────────────────────────────────────────────────
 
 const TEAM_TINT = {
-  red:  new THREE.Color(0x220808),
-  blue: new THREE.Color(0x080822),
-  npc:  new THREE.Color(0x000000),
+  red:      new THREE.Color(0x220808),
+  blue:     new THREE.Color(0x080822),
+  npc:      new THREE.Color(0x000000),
+  familiar: new THREE.Color(0x000000),
 };
 
 // ── Unit builder ──────────────────────────────────────────────────────────────
@@ -475,6 +485,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     : Math.random();
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
+              familiar: def.familiar ?? false,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               spellSlots: def.spellSlots,
               _animPhaseOffset: _phaseOff,
@@ -561,7 +572,7 @@ export function setUnitWalking(unit, walking, run = false) {
     // (e.g. LoopOnce clip that slipped through, or external stopAllAction).
     if (!action.isRunning()) {
       action.reset().setEffectiveWeight(1);
-      if (walking) action.time = unit._animPhaseOffset ?? 0;
+      if (walking) action.time = _phaseTime(unit, action);
       action.play();
     }
     return;
@@ -571,8 +582,19 @@ export function setUnitWalking(unit, walking, run = false) {
   unit._runMode  = run;
   unit.mixer.stopAllAction();
   action.reset().setEffectiveWeight(1);
-  if (walking) action.time = unit._animPhaseOffset ?? 0;
+  if (walking) action.time = _phaseTime(unit, action);
   action.play();
+}
+
+// Desync identical loops between units by starting each at its own phase offset.
+// Must wrap the offset by the clip duration: a phase offset past the clip's end
+// (common on short clips — e.g. the owl's 0.625s Flap) starts the action beyond
+// its length, so it finishes instantly and freezes on the last frame instead of
+// looping. Modulo keeps it a valid in-clip start time.
+function _phaseTime(unit, action) {
+  const dur = action.getClip()?.duration ?? 0;
+  const off = unit._animPhaseOffset ?? 0;
+  return dur > 0 ? off % dur : 0;
 }
 
 export function playUnitAttackAnim(unit, type = 'melee', onComplete = null) {

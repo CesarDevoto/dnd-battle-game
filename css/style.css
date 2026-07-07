@@ -206,6 +206,7 @@ body {
 }
 .hp-fill.red      { background: linear-gradient(90deg, #5a0000, #cc2000); }
 .hp-fill.blue     { background: linear-gradient(90deg, #00007a, #0055dd); }
+.hp-fill.familiar { background: linear-gradient(90deg, #5a3a7a, #c9a0e6); }
 .hp-fill.elf      { background: linear-gradient(90deg, #4a007a, #aa22ee); }
 .hp-fill.halfling { background: linear-gradient(90deg, #0a5a0a, #22cc44); }
 .hp-fill.dwarf    { background: linear-gradient(90deg, #5a3800, #c8860a); }

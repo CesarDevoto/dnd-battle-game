@@ -4,7 +4,7 @@ import { camera, renderer, _vec, ground } from './scene.js';
 import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow } from './combat.js';
 import { getPCSelected } from './precombat.js';
-import { SPELLS, ELF_SPELLS, STARTING_SPELLS } from './spells.js';
+import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { computeAC, equipItem } from './equipment.js';
 import { getXpProgress } from './progression.js';
@@ -51,7 +51,7 @@ export function updateHUD() {
 
     // Is this bar supposed to be visible at all?
     const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
-    const shouldShow    = u.team === 'blue' || engagedEnemy || u.barForced || now < u.barShowUntil;
+    const shouldShow    = u.team === 'blue' || u.familiar || engagedEnemy || u.barForced || now < u.barShowUntil;
     if (!shouldShow) {
       u.barEl.style.opacity = '0';
       return;
@@ -231,8 +231,9 @@ function buildSpellPanelHTML(u) {
       </div>`;
   };
 
-  const cantrips     = spellPool.filter(sp => (sp.level ?? 1) === 0);
-  const prepCantrips = cantrips.filter(sp => prepared.has(sp.key));
+  // Cantrips are always known once unlocked — they never need preparing, so
+  // list them straight from the full pool by unlock level (not preparedSpells).
+  const cantrips = fullPool.filter(sp => (sp.level ?? 1) === 0 && isAbilityUnlocked(u.type, u.level, sp.key));
 
   const levelRows = [1, 2, 3, 4, 5].map(lvl => {
     const spells    = spellPool.filter(sp => (sp.level ?? 1) === lvl);
@@ -934,7 +935,7 @@ function updateSpellBar() {
   }
 
   // Cantrip buttons
-  const cantrips = pool.filter(sp => (sp.level ?? 1) === 0 && prepared.has(sp.key));
+  const cantrips = pool.filter(sp => (sp.level ?? 1) === 0 && isAbilityUnlocked(u.type, u.level, sp.key));
   for (let i = 0; i < 5; i++) {
     const btn = document.getElementById(`sb-cant-${i}`);
     if (!btn) continue;
