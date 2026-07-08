@@ -392,7 +392,9 @@ function showRangeRings(u) {
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = def.attacks ?? [];
   const meleeA = atks.find(a => a.type === 'melee');
-  const rangdA = atks.find(a => a.type === 'ranged');
+  // Rasec has no ranged weapon in attacks[] — Fire Bolt (90 ft) is his ranged
+  // attack via the synthetic _fireBoltAtk, so fall back to it for the ring.
+  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   if (meleeA) {

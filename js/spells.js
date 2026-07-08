@@ -90,11 +90,11 @@ export const ELF_SPELLS = {
     level:      0,
     actionType: 'action',
     imgSrc:     'assets/spells and skills/firebolt.jpg',
-    rangeFt:    120,
+    rangeFt:    90,
     dice:       1,
     sides:      10,
     statMod:    'int',
-    desc:       '120 ft · 1d10+INT fire · INT to hit',
+    desc:       '90 ft · to hit INT+prof · 1d10+INT fire dmg',
   },
   // ── Level 1 ─────────────────────────────────────────────────────────────────
   mage_armor: {
@@ -111,12 +111,12 @@ export const ELF_SPELLS = {
     level:     1,
     actionType:'action',
     imgSrc:    'assets/spells and skills/magicmissile.jpg',
-    rangeFt:   120,
+    rangeFt:   90,
     darts:     4,
     dice:      1,
     sides:     4,
     flatBonus: 1,
-    desc:      '120 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then 1 spell slot',
+    desc:      '90 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then 1 spell slot',
   },
   burning_hands: {
     key:       'burning_hands',
@@ -145,6 +145,19 @@ export const ELF_SPELLS = {
     desc:       'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target',
   },
 };
+
+// House rule: no spell reaches farther than 90 ft. Clamp every spell's range
+// once, here, so any future spell defined with a larger rangeFt is capped
+// automatically — no need to touch the many call sites that read spell.rangeFt.
+// (Remember to write "90 ft" in the spell's desc string too; those are manual.)
+export const MAX_SPELL_RANGE_FT = 90;
+for (const _pool of [SPELLS, ELF_SPELLS]) {
+  for (const _sp of Object.values(_pool)) {
+    if (typeof _sp.rangeFt === 'number' && _sp.rangeFt > MAX_SPELL_RANGE_FT) {
+      _sp.rangeFt = MAX_SPELL_RANGE_FT;
+    }
+  }
+}
 
 // Spells available from level 1
 export const STARTING_SPELLS = {

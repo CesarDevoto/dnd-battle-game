@@ -5,6 +5,14 @@ import { playCombatMusic, stopCombatMusic } from './audio.js';
 const _ORDER    = [CUTSCENE_INTRO, CUTSCENE_STYX_VICTORY];
 const _registry = Object.fromEntries(_ORDER.map(c => [c.id, c]));
 
+// Warm the browser cache for the opening cutscene's first image so it's decoded
+// and ready by the time game_start fires — its first-load otherwise competes
+// with the game's 3D asset loading, delaying the reveal.
+(() => {
+  const first = CUTSCENE_INTRO.slides.find(s => s.img);
+  if (first) { const im = new Image(); im.src = first.img; }
+})();
+
 // ── seen tracking ─────────────────────────────────────────────────────────────
 const _seenKey  = id => `cs_seen_${id}`;
 const _wasSeen  = id => { try { return !!localStorage.getItem(_seenKey(id)); } catch { return false; } };
@@ -70,14 +78,17 @@ function _loadSlide(idx) {
   _locked = true;
 
   // Reveal image + text together once the image has loaded (or immediately if cached/no image).
+  let _revealed = false;
   const _reveal = () => {
-    _fadeEl.classList.remove('cs-fade-on');        // black fades out (0.42s)
+    if (_revealed) return;                           // onload + fallback timer both call this
+    _revealed = true;
+    _fadeEl.classList.remove('cs-fade-on');          // black fades out (0.42s)
     requestAnimationFrame(() => {
-      _textEl.classList.add('cs-text-in');          // text fades in simultaneously
+      _textEl.classList.add('cs-text-in');           // text fades in simultaneously
       setTimeout(() => {
         _promptEl.classList.add('cs-prompt-in');
         _locked = false;
-      }, 600);
+      }, 250);
     });
   };
 
@@ -90,6 +101,10 @@ function _loadSlide(idx) {
     } else {
       _img.onload = _reveal;
       _img.src = slide.img;
+      // Don't let a slow first-load image (it competes with the game's own asset
+      // loading at game_start) hold the Continue button hostage — reveal after a
+      // short cap; the image fades in on its own onload when ready.
+      setTimeout(_reveal, 450);
     }
   } else {
     setTimeout(_reveal, 120);

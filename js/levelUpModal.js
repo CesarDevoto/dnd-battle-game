@@ -83,7 +83,7 @@ const LEVEL_UNLOCKS = {
     3: [
       { name: 'Magic Missile',
         imgSrc: 'assets/spells and skills/magicmissile.jpg',
-        desc: '120 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then costs 1 spell slot' },
+        desc: '90 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then costs 1 spell slot' },
     ],
     4: [
       { name: 'Find Familiar',
