@@ -1,25 +1,29 @@
-// js/shortRest.js — short rest widget: 2 uses per level, reset on level-up
+// js/shortRest.js — short rest widget: one rest available between combats,
+// refreshed after every battle.
 
 import { heroRoster, reviveUnit } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { combatPhase, showFloatingDamage } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
 
-const SR_MAX = 2;
+const SR_MAX = 1;
 const LS_KEY = 'dnd_sr_used';
 
 let _used = 0;
 
 export function initShortRest() {
   _used = Math.min(SR_MAX, parseInt(localStorage.getItem(LS_KEY) ?? '0', 10));
+  // Only one rest now — hide the second pip if it's in the markup.
+  const pip1 = document.getElementById('srw-pip-1');
+  if (pip1) pip1.style.display = 'none';
   _render();
   document.getElementById('srw-btn')?.addEventListener('click', _executeRest);
   window.addEventListener('combat:start',  _render);
-  window.addEventListener('combat:ended',  _render);
-  window.addEventListener('hero:levelup',  _onLevelup);
+  // A fresh short rest becomes available after every combat.
+  window.addEventListener('combat:ended',  _refresh);
 }
 
-function _onLevelup() {
+function _refresh() {
   _used = 0;
   localStorage.setItem(LS_KEY, '0');
   _render();
@@ -28,19 +32,17 @@ function _onLevelup() {
 function _render() {
   const btn  = document.getElementById('srw-btn');
   const pip0 = document.getElementById('srw-pip-0');
-  const pip1 = document.getElementById('srw-pip-1');
   if (!btn) return;
 
-  const remaining  = SR_MAX - _used;
-  btn.disabled     = combatPhase || remaining <= 0;
-  btn.title        = 'Two short rests per level. ' + (
-                       remaining <= 0  ? 'No short rests remaining — refresh on level-up'
-                     : combatPhase     ? 'Cannot rest during combat'
-                     : `Heroes gain 1dHP+Con hit points and added spell slots per short rest. (${remaining} remaining)`
-                     );
+  const available = _used < SR_MAX;
+  btn.disabled    = combatPhase || !available;
+  btn.title       = 'One short rest between combats. ' + (
+                      combatPhase   ? 'Cannot rest during combat'
+                    : !available    ? 'Already rested — a new one is available after the next combat'
+                    : 'Revives fallen heroes, heals 1dHP+Con, and restores spell slots.'
+                    );
 
   if (pip0) pip0.classList.toggle('used', _used >= 1);
-  if (pip1) pip1.classList.toggle('used', _used >= 2);
 }
 
 function _executeRest() {

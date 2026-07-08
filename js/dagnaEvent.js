@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit, setGridVisible } from './scene.js';
 import { units, corpses, heroRoster } from './units.js';
 import { getTerrainHeight } from './terrain.js';
-import { registerPostCombatHandler } from './postCombat.js';
 import { updateXPBar } from './progression.js';
 import { triggerCutscene } from './cutsceneManager.js';
 
@@ -30,9 +29,7 @@ export function initDagna({ removeUnits, loadZone, setPrecombatFrozen, endCombat
   _buildDlgPanel();
 }
 
-// ── One-time state ────────────────────────────────────────────────────────────
-let _heroDiedThisCombat = false;
-let _dagnaSeen          = false;   // intro sequence played once per session
+// ── State ─────────────────────────────────────────────────────────────────────
 let _leugrenLastPos      = new THREE.Vector3(0, 0, 20);
 
 let _inStyxZone      = false;
@@ -86,30 +83,17 @@ let _killsEl = null;
 export function onHeroDied(u) {
   if (u.team !== 'blue') return;
   if (u.type === 'dwarf') _leugrenLastPos.copy(u.grp.position);
-  if (!_dagnaSeen) _heroDiedThisCombat = true;
 }
 
-// Called from endBattle() (party wipe) — Dagna still appears on full defeat.
+// Called from endBattle() — its ONLY caller, which fires on a total party kill
+// (no blue heroes left on the field). Dagna now appears on EVERY wipe (no longer
+// one-shot, and no longer on a won battle with a fallen hero): she takes the
+// fallen party to River Styx, where a victory revives them all. Individual
+// deaths are recovered with a short rest instead.
 export function onCombatEnd() {
-  if (!_heroDiedThisCombat || _dagnaSeen) return;
-  _dagnaSeen = true;
-  _heroDiedThisCombat = false;
   _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
   setTimeout(_startIntroA, 800);
 }
-
-// Post-combat handler (priority 20): fires after loot panel on victory only.
-// When Dagna fires she unregisters herself — this intro happens exactly once.
-// After that, no post-combat slot is consumed for this in future combats.
-// Intentionally does NOT call done() when firing — zone change is terminal.
-const _unregisterDagnaIntro = registerPostCombatHandler(20, (ctx, done) => {
-  if (!_heroDiedThisCombat || _dagnaSeen) { done(); return; }
-  _dagnaSeen = true;
-  _heroDiedThisCombat = false;
-  _unregisterDagnaIntro(); // one-shot: remove from hierarchy permanently
-  _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
-  setTimeout(_startIntroA, 800);
-});
 
 // Stops combat and starts the outro the instant the 6th kill lands — even if
 // other enemies are still up — so heroes aren't forced to fight the rest out.
@@ -714,7 +698,12 @@ function _doStyxTransition() {
     u.hpFrac = p.hpFrac;
   });
   updateXPBar();
-  _inStyxZone = true;
+  // Reset the Styx mission each entry — Dagna fires on every TPK now, so a
+  // repeat visit must start its kill count fresh (otherwise _styxMissionDone
+  // stays true from a prior visit and the outro never triggers).
+  _inStyxZone      = true;
+  _styxKillCount   = 0;
+  _styxMissionDone = false;
   _freezePrecombatFn?.(true);  // hold all enemy movement until dialogue B ends
 
   // Brief wait for terrain/props/heroes to settle, then part B
