@@ -926,6 +926,17 @@ export const UNIT_TYPES = {
     anchorY:    2.0,
   },
 
+  // Townsfolk dwarf NPC. Rigged GLB. Scale/grounding are a first guess based on
+  // the hero dwarf (scale ~0.99) — the model's bind-pose height and origin are
+  // unverified in-game, so nudge scale/yOffset with [ / ] and the dev tools if
+  // it floats, sinks, or reads too big/small.
+  npc_dwarf: {
+    name: 'Dwarf',
+    team: 'npc',
+    scale:      [0.99, 0.99, 0.99],
+    anchorY:    1.45,
+  },
+
   // Flying familiar (Rasec's owl). Rigged GLB, bbox ~1.57 wide × 0.75 tall in
   // bind pose; at scale 0.66 it reads as a small bird (~0.5 units tall, ~1 unit
   // wingspan). Mesh origin sits mid-body (feet ≈ -0.22 local), so yOffset lifts

@@ -62,6 +62,7 @@ const MODEL_PATHS = {
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
   solrac:    'assets/models/solrac.glb',
+  npc_dwarf: 'assets/models/npc dwarf.glb',
   owl:       'assets/models/owl.glb',
   // Swamp monsters — proxied to closest existing GLB until dedicated models are added
   giant_frog:        'assets/models/goblin.glb',

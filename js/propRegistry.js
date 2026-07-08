@@ -38,6 +38,14 @@ export const PROP_MODELS = {
   fancychair:   { label: 'Fancy Chair', path: 'assets/environment/fancy chair.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   pileofbones:  { label: 'Pile of Bones', path: 'assets/environment/pile of bones.glb',  defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   woodchair:    { label: 'Wood Chair',  path: 'assets/environment/wood chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
+  inn:          { label: 'Inn',         path: 'assets/environment/inn.glb',              defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  bigbuilding1: { label: 'Big Building 1', path: 'assets/environment/big building 1.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },
+  building2:    { label: 'Building 2',  path: 'assets/environment/building 2.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building3:    { label: 'Building 3',  path: 'assets/environment/building 3.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building4:    { label: 'Building 4',  path: 'assets/environment/building 4.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building5:    { label: 'Building 5',  path: 'assets/environment/building 5.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building6:    { label: 'Building 6',  path: 'assets/environment/building 6.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building7:    { label: 'Building 7',  path: 'assets/environment/building 7.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
