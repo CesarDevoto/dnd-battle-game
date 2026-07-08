@@ -15,6 +15,7 @@ export const ABILITY_META = {
   defensive_stance: { name: 'Defensive Stance', imgSrc: 'assets/spells and skills/defensive stance.jpg' },
   smoke_mirrors:    { name: 'Smoke & Mirrors',  imgSrc: 'assets/spells and skills/smoke and mirrors.jpg' },
   healing_word:     { name: 'Healing Word',     imgSrc: 'assets/spells and skills/healingword.jpg' },
+  cure_wounds:      { name: 'Cure Wounds',      imgSrc: 'assets/spells and skills/cure wounds.jpg' },
   sacred_flame:     { name: 'Sacred Flame',     imgSrc: 'assets/spells and skills/sacred flame.jpg' },
   fire_bolt:        { name: 'Fire Bolt',        imgSrc: 'assets/spells and skills/firebolt.jpg' },
   bless:            { name: 'Bless',            imgSrc: 'assets/spells and skills/bless.jpg' },
@@ -46,7 +47,7 @@ export function sbIconHTML(key) {
 // their current level (isAbilityUnlocked — abilities not gated in
 // LEVEL_SPELLS default to available from level 1, e.g. dash/dodge/rage).
 const HERO_ABILITY_LAYOUT = {
-  dwarf:    { skills: ['dash', 'dodge'],                                       cantrips: ['healing_word', 'sacred_flame'], spells: ['bless'] },
+  dwarf:    { skills: ['dash', 'dodge'],                                       cantrips: ['healing_word', 'sacred_flame'], spells: ['bless', 'cure_wounds'] },
   human:    { skills: ['dash', 'dodge', 'rage', 'defensive_stance'],           cantrips: [],                               spells: [] },
   elf:      { skills: ['dash', 'dodge'],                                       cantrips: ['fire_bolt'],                    spells: ['mage_armor', 'magic_missile'] },
   halfling: { skills: ['dash', 'dodge', 'sneak_attack', 'hide', 'smoke_mirrors'], cantrips: [],                             spells: [] },

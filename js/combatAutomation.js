@@ -93,6 +93,7 @@ const CATEGORIES = [
           dwarf: [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
+            { value: 'cure_wounds',  label: 'Cure Wounds (ally <33% HP)' },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'warhammer',    label: 'Warhammer'    },
@@ -118,7 +119,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff'],
-          dwarf:    ['use_potion', 'bless', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
+          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
           human:    ['use_potion', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
@@ -146,6 +147,7 @@ const CATEGORIES = [
           dwarf: [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
+            { value: 'cure_wounds',  label: 'Cure Wounds (ally <33% HP)' },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'dodge',        label: 'Dodge'        },
@@ -173,7 +175,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['use_potion', 'mage_armor', 'magic_missile', 'ready_action', 'dodge', 'end_turn'],
-          dwarf:    ['use_potion', 'bless', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
           human:    ['use_potion', 'defensive_stance', 'ready_action', 'dodge', 'end_turn'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'ready_action', 'dodge', 'end_turn'],
         },
@@ -208,7 +210,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 10;
+const TENDENCIES_VERSION = 11;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

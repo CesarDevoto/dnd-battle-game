@@ -32,10 +32,10 @@ const SPELL_DATA = [
     spellClass: 'Cleric',
     actionType: 'Action',
     range:      '30 ft',
-    effect:     '+1d4 atk & saves',
+    effect:     '+1d2 atk & saves',
     effectNote: 'up to 3 allies · 10 rounds',
     conc:       true,
-    desc: 'You bless up to 3 creatures within range. Each blessed target adds 1d4 to every attack roll and saving throw for the duration. Requires concentration, up to 1 minute.',
+    desc: 'You bless up to 3 creatures within range. Each blessed target adds 1d2 to every attack roll and saving throw for the duration. Requires concentration, up to 1 minute.',
   },
   {
     name:       'Cure Wounds',

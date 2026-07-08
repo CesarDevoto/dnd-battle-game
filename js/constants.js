@@ -1050,9 +1050,31 @@ export const COMBAT = {
   defaultDamage:     { dice: 1, sides: 6, bonus: 0 },
 };
 
-// Gobo's Rage uses per combat — 1 at level 1, 2 from level 2 onward.
+// Gobo's Rage progression — all benefits scale with his level.
+//   L1: 1 use,  no damage mitigation, +2 melee dmg
+//   L2: 10% damage mitigation while raging
+//   L3: 2 uses per combat
+//   L4: +1% chance to hit (permanent passive, applies always — not just while raging)
 export function rageUsesForLevel(level) {
-  return (level ?? 1) >= 2 ? 2 : 1;
+  return (level ?? 1) >= 3 ? 2 : 1;
+}
+
+// Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off).
+export function rageMitigationForLevel(level) {
+  return (level ?? 1) >= 2 ? 0.10 : 0;
+}
+
+// Out-of-combat: while Milo is Hidden, every enemy's detection radius vs him
+// shrinks to this fraction of normal (0.5 = 50% reduction). Lets him scout
+// solo without triggering aggro, and no per-move perception rolls needed.
+export const MILO_HIDE_DETECT_MULT = 0.5;
+
+// Precision — flat percentage points added to hit chance, a permanent passive
+// earned at L4+ by the martial heroes (Gobo the barbarian, Milo the rogue).
+// Applies on every attack, independent of Rage/Hide.
+export function precisionHitBonusForLevel(type, level) {
+  if (type !== 'human' && type !== 'halfling') return 0;
+  return (level ?? 1) >= 4 ? 1 : 0;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -1,5 +1,5 @@
 import { units, setUnitWalking } from './units.js';
-import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
+import { UNIT_TYPES, GROUND_SIZE, MILO_HIDE_DETECT_MULT } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
 import { getActiveZone } from './zoneLoader.js';
@@ -186,11 +186,18 @@ function _checkAggro() {
   const heroes  = units.filter(u => u.team === 'blue' && u.hp > 0);
   const enemies = units.filter(u => u.team === 'red'  && u.hp > 0);
   for (const enemy of enemies) {
-    const range = enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? DETECT_DEFAULT;
+    const baseRange = enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? DETECT_DEFAULT;
     for (const hero of heroes) {
+      // Milo's out-of-combat Hide: his stealth shrinks this enemy's detection
+      // radius vs him by 50%; while standing in his own smoke cloud he can't be
+      // detected at all. Applies only to Milo — the rest of the party is normal.
+      const hidden = !!hero.stealthedOOC;
+      if (hidden && hero.smokeActive) continue;
+      const range = hidden ? baseRange * MILO_HIDE_DETECT_MULT : baseRange;
       const dx = hero.grp.position.x - enemy.grp.position.x;
       const dz = hero.grp.position.z - enemy.grp.position.z;
       if (dx * dx + dz * dz <= range * range) {
+        if (hidden) window.dispatchEvent(new CustomEvent('milo:spotted', { detail: { hero } }));
         _triggerAggro(enemy);
         return;
       }

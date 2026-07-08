@@ -210,6 +210,10 @@ body {
 .hp-fill.elf      { background: linear-gradient(90deg, #4a007a, #aa22ee); }
 .hp-fill.halfling { background: linear-gradient(90deg, #0a5a0a, #22cc44); }
 .hp-fill.dwarf    { background: linear-gradient(90deg, #5a3800, #c8860a); }
+/* Milo while hidden (in-combat stealth or out-of-combat scouting) — black→grey
+   so his floating bar reads as "hiding" at a glance. Placed after the per-type
+   rules so it wins on source order (equal specificity). */
+.hp-fill.hp-hidden { background: linear-gradient(90deg, #050505, #6b6b6b); }
 
 /* ── Environment selector ───────────────────────────────────────────── */
 #env-selector {

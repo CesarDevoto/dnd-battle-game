@@ -39,6 +39,7 @@ export const SPELLS = {
     healDice:   1,
     healSides:  8,
     healMod:    2,
+    imgSrc:     'assets/spells and skills/cure wounds.jpg',
     desc:       'Touch · 1d8+2 hp restored',
   },
   bless: {
@@ -48,7 +49,7 @@ export const SPELLS = {
     actionType:    'action',
     concentration: true,
     imgSrc:        'assets/spells and skills/bless.jpg',
-    desc:          'Party · all allies · +1d4 to atk & saves · conc',
+    desc:          'Party · all allies · +1d2 to atk & saves · conc',
   },
 };
 
@@ -155,9 +156,9 @@ export const STARTING_SPELLS = {
 // Values are action/bonus-action keys used by both the tendencies system
 // and _tryHeroAction in combat.js. Add new entries here as heroes gain abilities.
 export const LEVEL_SPELLS = {
-  dwarf:    { 2: ['bless'], 3: ['sacred_flame'] },
+  dwarf:    { 2: ['bless'], 3: ['sacred_flame'], 4: ['cure_wounds'] },
   elf:      { 2: ['mage_armor'], 3: ['magic_missile'], 4: ['find_familiar'] },
-  human:    { 3: ['defensive_stance'] },
+  human:    { 5: ['defensive_stance'] },
   halfling: { 2: ['hide'], 3: ['smoke_mirrors'] },
 };
 

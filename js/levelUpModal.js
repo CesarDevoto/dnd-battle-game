@@ -16,7 +16,7 @@ const LEVEL_UNLOCKS = {
     2: [
       { name: 'Bless',
         imgSrc: 'assets/spells and skills/bless.jpg',
-        desc: 'Target all allies · +1d4 to attack rolls & saving throws · Concentration · costs 1 spell slot' },
+        desc: 'Target all allies · +1d2 to attack rolls & saving throws · Concentration · costs 1 spell slot' },
       { name: 'Spell Slots ×2',
         icon: '◈',
         desc: '2 level-1 spell slots per combat · replenish on long rest' },
@@ -26,14 +26,29 @@ const LEVEL_UNLOCKS = {
         imgSrc: 'assets/spells and skills/sacred flame.jpg',
         desc: '60 ft · 1d8 radiant · DEX save DC 12 negates · cantrip, no spell slot cost' },
     ],
+    4: [
+      { name: 'Cure Wounds',
+        imgSrc: 'assets/spells and skills/cure wounds.jpg',
+        desc: 'Touch · 1d8+2 HP restored · costs 1 spell slot' },
+    ],
   },
   human: {
     2: [
+      { name: 'Rage: Damage Resistance',
+        imgSrc: 'assets/spells and skills/rage.jpg',
+        desc: 'Rage now negates 10% of incoming damage (up from none)' },
+    ],
+    3: [
       { name: 'Rage ×2 Uses',
         imgSrc: 'assets/spells and skills/rage.jpg',
         desc: 'Rage now usable twice per combat (up from once)' },
     ],
-    3: [
+    4: [
+      { name: 'Precision',
+        icon: '◎',
+        desc: 'Passive · +1% chance to hit on all attacks · always active' },
+    ],
+    5: [
       { name: 'Defensive Stance',
         imgSrc: 'assets/spells and skills/defensive stance.jpg',
         desc: 'Bonus action · +3 AC for 3 rounds · 4-round cooldown' },
@@ -43,12 +58,17 @@ const LEVEL_UNLOCKS = {
     2: [
       { name: 'Cunning Action: Hide',
         imgSrc: 'assets/spells and skills/hide.jpg',
-        desc: 'Bonus action · attempt to hide · Stealth check vs enemy Perception · 2-turn cooldown' },
+        desc: 'Bonus action in combat · Stealth check · 2-turn cooldown. Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% so Milo can move solo without aggroing' },
     ],
     3: [
       { name: 'Smoke & Mirrors',
         imgSrc: 'assets/spells and skills/smoke and mirrors.jpg',
         desc: 'Action · once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside' },
+    ],
+    4: [
+      { name: 'Precision',
+        icon: '◎',
+        desc: 'Passive · +1% chance to hit on all attacks · always active' },
     ],
   },
   elf: {

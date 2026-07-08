@@ -91,6 +91,7 @@ const SOUNDS = {
   sacred_flame:     { src: 'assets/audio/magic sounds/sacred flame.mp3',             category: 'combat' },
   fireball:         { src: 'assets/audio/magic sounds/fireball.mp3',                 category: 'combat' },
   smoke_bomb:       { src: 'assets/audio/magic sounds/smoke bomb.mp3',               category: 'combat' },
+  hide:             { src: 'assets/audio/magic sounds/hide.mp3',                     category: 'combat' },
   find_familiar:    { src: 'assets/audio/magic sounds/find familiar.mp3',            category: 'combat' },
   owl:              { src: 'assets/audio/combat/owl.mp3',                            category: 'combat' },
   // Combat one-shots (files not yet added — will silently skip)

@@ -33,6 +33,7 @@ controls.minDistance    = SCENE.orbitMaxDist;   // locked — no zoom
 controls.maxDistance    = SCENE.orbitMaxDist;
 controls.enableRotate   = false;
 controls.enableZoom     = false;
+controls.enablePan      = false;   // play mode: right-mouse is our custom camera swivel, not pan
 controls.target.set(0, 0, 29);
 
 export const ambient = new THREE.AmbientLight(COLORS.ambient, SCENE.ambientIntensity);
@@ -318,3 +319,39 @@ export function updateCameraFocus() {
     _camFocusActive = false;
   }
 }
+
+// ── Right-mouse swivel — orbit the camera horizontally around the follow unit ──
+// Play mode only (in edit mode OrbitControls owns the right button for free
+// rotate, so we bail when enableRotate is on). The camera keeps its distance and
+// height and stays pointed at the unit; only the azimuth changes. Dragging RIGHT
+// swings the camera counter-clockwise around the unit (e.g. 6 o'clock → 3
+// o'clock, to look "west"); dragging LEFT swings it clockwise (→ 9 o'clock, to
+// look "east"). The per-frame follow (updateCameraFocus) only translates the
+// camera with the target, so the swivel angle persists once set.
+const _SWIVEL_SPEED = 0.006;                 // radians per pixel of horizontal drag
+const _SWIVEL_UP    = new THREE.Vector3(0, 1, 0);
+const _swivelOffset = new THREE.Vector3();
+let _swivelActive   = false;
+let _swivelLastX    = 0;
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.button !== 2) return;                // right button only
+  if (controls.enableRotate) return;         // edit mode → let OrbitControls handle it
+  _swivelActive = true;
+  _swivelLastX  = e.clientX;
+});
+window.addEventListener('pointermove', e => {
+  if (!_swivelActive) return;
+  const dx = e.clientX - _swivelLastX;
+  if (dx === 0) return;
+  _swivelLastX = e.clientX;
+  // Drag right (dx > 0) → +angle about +Y → offset swings 6→3 o'clock (CCW from above).
+  _swivelOffset.copy(camera.position).sub(controls.target);
+  _swivelOffset.applyAxisAngle(_SWIVEL_UP, dx * _SWIVEL_SPEED);
+  camera.position.copy(controls.target).add(_swivelOffset);
+});
+function _endSwivel() { _swivelActive = false; }
+window.addEventListener('pointerup',     e => { if (e.button === 2) _endSwivel(); });
+window.addEventListener('pointercancel', _endSwivel);
+window.addEventListener('blur',          _endSwivel);
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());

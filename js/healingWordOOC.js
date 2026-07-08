@@ -31,6 +31,15 @@ function _canCast() {
   return !combatPhase && !_used && !!_selected && _selected.type === 'dwarf' && _selected.hp > 0;
 }
 
+// Exposed so the Skills & Spells window's Healing Word button (a plain click,
+// via combat.js's `healing_word` ability handler) behaves identically to the
+// hotbar KeyQ binding when out of combat.
+export function canHealingWordOOC() { return _canCast(); }
+export function triggerHealingWordOOC() {
+  if (!_canCast()) return;
+  _picking ? _stopPicking() : _startPicking();
+}
+
 function _render() {
   // combat.js's own _rebuildHotbar owns KeyQ during actual turns (it's
   // Leugren's in-combat Healing Word slot too) — never touch it once a

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { units } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
-import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel } from './constants.js';
+import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked } from './spells.js';
@@ -31,6 +31,13 @@ export function updateHUD() {
   const H   = renderer.domElement.clientHeight;
   const now = Date.now();
 
+  // controls.update() (called just before this in the main loop) moves the
+  // camera but doesn't refresh its world matrix — that only happens inside
+  // renderer.render() at the end of the frame. Project against a stale matrix
+  // and the floating HP bars lag the camera by a frame (visible as them drifting
+  // during a swivel, then snapping when it stops). Refresh it here first.
+  camera.updateMatrixWorld();
+
   units.forEach(u => {
     if (!u.barEl) return;  // NPCs have no hp bar
     _vec.copy(u.anchor).project(camera);
@@ -48,6 +55,8 @@ export function updateHUD() {
     u.barEl.style.left    = sx + 'px';
     u.barEl.style.top     = (sy - 4) + 'px';
     u.fill.style.width    = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
+    // Milo hiding (in-combat stealth or out-of-combat scouting) → black→grey bar
+    u.fill.classList.toggle('hp-hidden', u.team === 'blue' && (!!u.stealthed || !!u.stealthedOOC));
 
     // Is this bar supposed to be visible at all?
     const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
@@ -181,7 +190,7 @@ function buildSpellPanelHTML(u) {
   if (u.type !== 'dwarf' && u.type !== 'elf') return '';
   _spellSections = {};
 
-  const spellSlots    = u.spellSlots    ?? 2;
+  const spellSlots    = u.spellSlots    ?? 0;   // undefined (pre-combat, L1) → 0 filled → empty circles, matching the Skills & Spells window
   const spellSlotsMax = u.spellSlotsMax ?? 2;
   const slotPips = Array.from({ length: spellSlotsMax }, (_, i) =>
     `<span class="ss-slot-pip${i < spellSlots ? ' filled' : ''}"></span>`
@@ -697,6 +706,10 @@ function buildActionsPanelHTML(u) {
   const bonusParts = [];
   if (rageDef) {
     const rageUsesNow = rageUsesForLevel(u.level);
+    const rageMit     = rageMitigationForLevel(u.level);
+    const mitTxt      = rageMit > 0
+      ? `${Math.round(rageMit * 100)}% physical damage resistance`
+      : 'no damage resistance (unlocks at L2)';
     bonusParts.push(`
     <div class="ss-spell-row">
       <div class="ss-spell">
@@ -705,14 +718,29 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Rage</span>
             </div>
-            <div class="ss-spell-desc">+${rageDef.dmgBonus} melee damage · ½ physical damage resistance · lasts full combat, ends if no attack this turn · ×${rageUsesNow} per combat</div>
+            <div class="ss-spell-desc">+${rageDef.dmgBonus} melee damage · ${mitTxt} · lasts full combat, ends if no attack this turn · ×${rageUsesNow} per combat</div>
           </div>
           <img src="${ABILITY_META.rage.imgSrc}" class="ss-spell-inline-img" alt="Rage">
         </div>
       </div>
     </div>`);
   }
-  if (u.type === 'human' && (u.level ?? 1) >= 3) {
+  if (precisionHitBonusForLevel(u.type, u.level) > 0) {
+    bonusParts.push(`
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">Precision <span style="opacity:.55;font-weight:400">(Passive)</span></span>
+            </div>
+            <div class="ss-spell-desc">+${precisionHitBonusForLevel(u.type, u.level)}% chance to hit on all attacks · always active</div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  }
+  if (u.type === 'human' && (u.level ?? 1) >= 5) {
     bonusParts.push(`
     <div class="ss-rage">
       <div class="ss-spell-inner">
@@ -736,7 +764,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Hide</span>
             </div>
-            <div class="ss-spell-desc">Requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden and stationary, sneak attack works on any target in range; moving or attacking breaks stealth</div>
+            <div class="ss-spell-desc">In combat: requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden and stationary, sneak attack works on any target in range; moving or attacking breaks stealth. Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% (shown as rings) so he can move solo without aggroing; toggle off with the same button, breaks if an enemy still spots him.</div>
           </div>
           <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
         </div>

@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar } from './familiar.js';
+import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
+import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
-         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE, rageUsesForLevel } from './constants.js';
+         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE,
+         rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
@@ -606,7 +609,7 @@ function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
   return false;
 }
 
-function hasLineOfSight(ax, az, tx, tz) {
+export function hasLineOfSight(ax, az, tx, tz) {
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
 
@@ -1331,6 +1334,7 @@ function activateHide() {
 
   turnBonusActioned = true;
   u.hideCooldown    = 2;
+  playSound('hide');
 
   if (stealth >= 10) {
     u.hideRoll = stealth;
@@ -1434,7 +1438,10 @@ function activateRage(u) {
   turnBonusActioned = true;
   playSound('berserker_rage');
   showFloatingDamage(u, '⚔ RAGE!', '#ff6622');
-  addLog(`${unitLabel(u)} enters RAGE! (+2 melee dmg · resist phys dmg)`, 'spell');
+  const _bits = [`+${UNIT_TYPES[u.type]?.rage?.dmgBonus ?? 2} melee dmg`];
+  const _mit  = rageMitigationForLevel(u.level);
+  if (_mit > 0) _bits.push(`resist ${Math.round(_mit * 100)}% dmg`);
+  addLog(`${unitLabel(u)} enters RAGE! (${_bits.join(' · ')})`, 'spell');
   const rem = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
   if (rem > 0) { heroMode = 'move'; showMoveRange(u); } else { heroMode = null; }
   updateCombatStatus();
@@ -2044,8 +2051,8 @@ function unitCombatLevel(u) {
 //   Level term: hero power tier (1 tier per 5 levels) vs enemy tier (profBonus); ±3% per tier gap.
 //   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
 //   Advantage: keep higher die. Disadvantage: keep lower die.
-function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal') {
-  const rawPct    = ((atkBonus + 20 - defAC) / 20) * 100 + (((atkLvl / 5) + 1) - defLvl) * 3;
+function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal', hitPctBonus = 0) {
+  const rawPct    = ((atkBonus + 20 - defAC) / 20) * 100 + (((atkLvl / 5) + 1) - defLvl) * 3 + hitPctBonus;
   const hitChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold = 100 - hitChance;
 
@@ -2210,9 +2217,12 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const rageDmgBonus = (attacker.raging && atk.type === 'melee' && UNIT_TYPES[attacker.type]?.rage)
     ? (UNIT_TYPES[attacker.type].rage.dmgBonus ?? 0) : 0;
   const dmgMod  = baseDmgMod + rageDmgBonus;
+  // Precision passive (Gobo & Milo, L4+): flat % points added to hit chance on
+  // every attack — always active, independent of Rage/Hide.
+  const precisionBonus = precisionHitBonusForLevel(attacker.type, attacker.level);
   const atkMod  = statMod + (def.profBonus ?? 0);
 
-  const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 4 }).total : 0;
+  const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to attack rolls
 
   // Long-range shot: beyond normal range but within longRange → disadvantage
   let hasAdvantage    = false;
@@ -2239,7 +2249,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const _acBonus   = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
   const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
   const targetAC   = targetBase + _acBonus;
-  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode);
+  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, precisionBonus);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   const D            = 0;
@@ -2284,8 +2294,9 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const dmg      = Math.max(1, dmgResult.total);
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
   const totalRaw = dmg + sneakDmg;
-  const resisted = !!(target.raging && UNIT_TYPES[target.type]?.rage);
-  const finalDmg = resisted ? Math.max(1, Math.floor(totalRaw / 2)) : totalRaw;
+  const rageMit  = (target.raging && UNIT_TYPES[target.type]?.rage) ? rageMitigationForLevel(target.level) : 0;
+  const resisted = rageMit > 0;
+  const finalDmg = resisted ? Math.max(1, Math.round(totalRaw * (1 - rageMit))) : totalRaw;
 
   // When the damage-roll dice settle and display their number on screen.
   // If a sneak roll follows, the dmg roll plays fast; otherwise it is last (slow).
@@ -2335,9 +2346,10 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   if (resisted) {
+    const _mitPct = Math.round(rageMit * 100);
     setTimeout(() => {
-      showFloatingDamage(target, `⚔ RAGE ½`, '#ff8844');
-      addLog(`  ⚔ Rage resistance: ${totalRaw} → ${finalDmg}`, 'dmg');
+      showFloatingDamage(target, `⚔ RAGE -${_mitPct}%`, '#ff8844');
+      addLog(`  ⚔ Rage resistance (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
     }, hpUpdateDelay + RESULT_PAUSE + 500);
   }
 
@@ -2387,7 +2399,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
       playGraveCurseBolt(attacker, hero, () => {
         const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
         const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
-        const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 4 }).total : 0;
+        const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to saving throws
         const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
         const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
         const tLabel        = unitLabel(hero);
@@ -3457,8 +3469,11 @@ const _ABILITY_HANDLERS = {
   },
   hide: {
     actionType: 'bonus',
-    execute: () => activateHide(),
+    // In combat: normal Hide bonus action. Out of combat: toggle Milo's scouting
+    // Hide (semi-transparent, shrinks enemy detection radius by 50%).
+    execute: () => { if (combatPhase) activateHide(); else toggleMiloHideOOC(); },
     isAvailable: () => {
+      if (!combatPhase) return canMiloHideOOC();
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'halfling' || turnBonusActioned) return false;
       return (curU.hideCooldown ?? 0) === 0;
@@ -3479,16 +3494,37 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'human' || turnBonusActioned) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'defensive_stance')) return false;
       return !curU.defStanceActive && (curU.defStanceCooldown ?? 0) === 0;
     },
   },
   healing_word: {
     actionType: 'action',
-    execute: () => triggerSpellBarAction('healing_word'),
+    // In combat: normal Healing Word. Out of combat: Leugren's once-between-combats
+    // heal, so the S&S window button works on click, not just the KeyQ hotkey.
+    execute: () => { if (combatPhase) triggerSpellBarAction('healing_word'); else triggerHealingWordOOC(); },
     isAvailable: () => {
+      if (!combatPhase) return canHealingWordOOC();
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
       const rangeWU = atkRangeWU(SPELLS.healing_word.rangeFt);
+      return units.some(ally => {
+        if (ally.team !== 'blue' || ally.hp <= 0) return false;
+        const dx = ally.grp.position.x - curU.grp.position.x;
+        const dz = ally.grp.position.z - curU.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
+      });
+    },
+  },
+  cure_wounds: {
+    actionType: 'action',
+    execute: () => triggerSpellBarAction('cure_wounds'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'cure_wounds')) return false;
+      if ((curU.spellSlots ?? 0) <= 0) return false;
+      const rangeWU = atkRangeWU(SPELLS.cure_wounds.rangeFt);
       return units.some(ally => {
         if (ally.team !== 'blue' || ally.hp <= 0) return false;
         const dx = ally.grp.position.x - curU.grp.position.x;
@@ -4386,6 +4422,36 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         return;
       }
 
+      // ── Cure Wounds (dwarf, level 4, main action, uses spell slot, ally <33% HP) ─
+      if (actionVal === 'cure_wounds') {
+        if (u.type !== 'dwarf')          { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'cure_wounds')) { onSkip(); return; }
+        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        // Only fire for a critically wounded ally (<33% HP) — otherwise fall
+        // through to Healing Word for lighter, slot-free healing.
+        const critAlly = units
+          .filter(a => a.team === 'blue' && a.hp > 0 && a.hp <= a.maxHp * 0.33)
+          .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
+        if (!critAlly) { onSkip(); return; }
+        turnAttacked = true;
+        u.spellSlots--;
+        const cw       = SPELLS.cure_wounds;
+        const healRoll = Math.ceil(Math.random() * (cw.healSides ?? 8)) + (cw.healMod ?? 2); // 1d8+2
+        const before   = critAlly.hp;
+        critAlly.hp    = Math.min(critAlly.hp + healRoll, critAlly.maxHp);
+        const healed   = critAlly.hp - before;
+        critAlly.barShowUntil = Date.now() + 4000;
+        hideUndoBtn();
+        updateCombatStatus();
+        playHealingWordEffect(u, critAlly, () => {
+          showFloatingDamage(critAlly, `+${healed}`, '#44ff88');
+          addLog(`${unitLabel(u)} casts Cure Wounds on ${unitLabel(critAlly)}, restoring ${healed} HP`, 'heal');
+          buildTurnList();
+          onDone();
+        });
+        return;
+      }
+
       // ── Bless (dwarf, main action, uses spell slot) ──────────────────
       if (actionVal === 'bless') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
@@ -4490,6 +4556,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         const stealth = Math.floor(Math.random() * 20) + 1 + dexMod;
         u.hideCooldown    = 2;
         turnBonusActioned = true;
+        playSound('hide');
         if (stealth >= 10) {
           u.hideRoll = stealth;
           setUnitStealth(u, true);

@@ -21,7 +21,9 @@ const BOTTOM_KEYS = [
 ];
 
 const MOUSE_SLOTS_TOP    = [{ code: 'MouseMiddle', label: 'MMB', button: 1 }];
-const MOUSE_SLOTS_BOTTOM = [{ code: 'MouseLeft',   label: 'LMB', button: 0 }];
+// Right mouse button — permanently the camera pan/swivel (handled in scene.js),
+// so this slot is a fixed legend reading RMB · PAN, not a bindable ability slot.
+const MOUSE_SLOTS_BOTTOM = [{ code: 'MouseRight',  label: 'RMB', button: 2 }];
 
 const ALL_KEYBOARD_KEYS = [...TOP_KEYS, ...BOTTOM_KEYS];
 
@@ -197,14 +199,13 @@ export function initHotbar() {
     _btns[ms.code] = btn;
   }
 
-  // Bottom row — LMB slot (right of Y)
+  // Bottom row — RMB slot (right of Y). Permanent camera pan/swivel legend.
   for (const ms of MOUSE_SLOTS_BOTTOM) {
     const btn = document.createElement('button');
-    btn.className = 'hb-btn hb-mouse-btn hb-disabled';
+    btn.className = 'hb-btn hb-mouse-btn hb-permanent';
     btn.innerHTML =
       `<span class="hb-key">${ms.label}</span>` +
-      `<span class="hb-label"></span>`;
-    btn.addEventListener('click', () => { _flash(btn); _fire(ms.code); });
+      `<span class="hb-label">PAN</span>`;
     shiftRow.appendChild(btn);
     _btns[ms.code] = btn;
   }
