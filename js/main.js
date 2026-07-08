@@ -27,6 +27,7 @@ import { initSpawnEditor } from './spawnEditor.js';
 import { initTerrainEditor } from './terrainEditor.js';
 import { initBarrierEditor } from './barrierEditor.js';
 import { initTerrainPaint } from './terrainPaint.js';
+import { initReferenceOverlay } from './referenceOverlay.js';
 import { initTrenchEditor } from './trenchEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
@@ -167,6 +168,7 @@ if (IS_DEV) {
   initTerrainEditor();
   initBarrierEditor();
   initTerrainPaint();
+  initReferenceOverlay();
   initTrenchEditor();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────

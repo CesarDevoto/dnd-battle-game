@@ -801,6 +801,29 @@
           <button id="tp-save-btn">SAVE PAINT</button>
         </div>
         <div id="tp-save-status"></div>
+        <div class="te-section-divider">── REFERENCE IMAGE ──</div>
+        <div id="ri-status" class="te-status-small">Import an image to use as a build guide</div>
+        <div id="te-btn-row">
+          <label id="ri-file-lbl" class="s-btn" style="cursor:pointer">IMPORT IMAGE<input id="ri-file" type="file" accept="image/*" style="display:none"></label>
+        </div>
+        <div id="te-defaults-row">
+          <label class="te-input-lbl">opacity<input id="ri-opacity" type="range" min="0" max="1" step="0.05" value="0.6"></label>
+        </div>
+        <div id="te-defaults-row">
+          <label class="te-input-lbl">width<input id="ri-width" type="range" min="1" max="1200" step="1" value="216"></label>
+          <label class="te-input-lbl">height<input id="ri-height" type="range" min="1" max="1200" step="1" value="216"></label>
+        </div>
+        <div id="te-defaults-row">
+          <label class="te-input-lbl">rotate<input id="ri-rot" type="range" min="0" max="360" step="1" value="0"></label>
+        </div>
+        <div id="te-btn-row">
+          <button id="ri-move-btn">MOVE IMAGE</button>
+          <button id="ri-fit-btn">FIT ZONE</button>
+        </div>
+        <div id="te-btn-row">
+          <button id="ri-show-btn">HIDE</button>
+          <button id="ri-clear-btn">CLEAR</button>
+        </div>
       </div>
     </div>
 
