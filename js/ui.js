@@ -708,7 +708,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Smoke &amp; Mirrors</span>
             </div>
-            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside · combined with Hide, staying put lets you sneak attack anyone in range — moving at all breaks it</div>
+            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside · Hide auto-succeeds while standing still in the cloud</div>
           </div>
           <img src="${ABILITY_META.smoke_mirrors.imgSrc}" class="ss-spell-inline-img" alt="Smoke & Mirrors">
         </div>

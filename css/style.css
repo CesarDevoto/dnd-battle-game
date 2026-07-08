@@ -6198,6 +6198,14 @@ td.bst-col-retired { color: #343228 !important; }
   gap: 6px;
   margin-bottom: 3px;
 }
+.lp-item-icon {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  align-self: center;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
 .lp-item-rarity {
   font-family: var(--font-fantasy);
   font-size: 0.46rem;

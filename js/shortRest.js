@@ -51,13 +51,13 @@ function _executeRest() {
 
   for (const h of heroRoster) {
     if (h.hp <= 0) {
-      // Leugren falling triggers the Dagna sequence (deferred); other dead heroes
-      // revive at 1 HP immediately — pulled out of their corpse pose and back
-      // into the live unit list so they show up correctly without a zone reload.
-      if (h.type !== 'dwarf') {
-        h.hp = 1;
-        reviveUnit(h);
-      }
+      // Any dead hero revives at 1 HP on a short rest — pulled out of their
+      // corpse pose and back into the live unit list so they show up correctly
+      // without a zone reload. (The one-shot Dagna sequence that fires on the
+      // first-ever hero death handles its own full-party revive, so there's no
+      // need to special-case Leugren here — doing so left him stranded dead.)
+      h.hp = 1;
+      reviveUnit(h);
       continue;
     }
     if (h.hp >= h.maxHp) continue;

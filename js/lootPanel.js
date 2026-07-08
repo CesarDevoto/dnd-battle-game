@@ -60,8 +60,38 @@ function _onDefeat() {
   clearLootLabels();
 }
 
+// ── Reusable reward window (non-combat gifts, e.g. Floosh's dung) ─────────────
+// Shows the same assign-to-hero panel for a handed-out reward instead of combat
+// drops: no coins, can't be declined, and onDone fires when the player collects.
+function _setChrome({ title, sub, coins, skip, collect }) {
+  const q = sel => _panelEl?.querySelector(sel);
+  if (q('#lp-title'))          q('#lp-title').textContent   = title;
+  if (q('#lp-sub'))            q('#lp-sub').textContent     = sub;
+  if (q('#lp-coins-section'))  q('#lp-coins-section').style.display = coins ? '' : 'none';
+  if (q('#lp-skip-btn'))       q('#lp-skip-btn').style.display      = skip ? '' : 'none';
+  if (q('#lp-collect-btn'))    q('#lp-collect-btn').textContent     = collect;
+}
+function _restoreCombatChrome() {
+  _setChrome({ title: 'LOOT', sub: 'The battle is won. Claim your spoils.', coins: true, skip: true, collect: 'Collect Loot' });
+}
+
+export function showLootReward(items, onDone, { title = 'REWARD', sub = '' } = {}) {
+  if (!_panelEl) { onDone?.(); return; }
+  _drops    = [];
+  _heroes   = units.filter(u => u.team === 'blue' && u.hp > 0);
+  _allItems = items.map(it => ({ ...it, assignedTo: null }));
+  _total    = { cp: 0, sp: 0, gp: 0, pp: 0 };
+  _split    = { per: { cp: 0, sp: 0, gp: 0, pp: 0 }, rem: { cp: 0, sp: 0, gp: 0, pp: 0 } };
+  _done     = onDone ?? null;
+  _setChrome({ title, sub, coins: false, skip: false, collect: 'Take It' });
+  _renderItems();
+  _updateCollectBtnState();
+  _panelEl.style.display = 'flex';
+}
+
 // ── Build panel DOM ───────────────────────────────────────────────────────────
 function _buildPanel() {
+  _restoreCombatChrome();
   _heroes   = units.filter(u => u.team === 'blue' && u.hp > 0);
   _allItems = _drops.flatMap(d => d.items.map(it => ({ ...it, assignedTo: null })));
 
@@ -142,6 +172,7 @@ function _renderItems() {
 
     card.innerHTML = `
       <div class="lp-item-header">
+        ${item.icon ? `<img class="lp-item-icon" src="${item.icon}" alt="${item.name}">` : ''}
         <span class="lp-item-rarity">${_rarityLabel(item.rarity)}</span>
         <span class="lp-item-name">${item.name}</span>
         ${item.value ? `<span class="lp-item-value">${item.value.toLocaleString()} gp</span>` : ''}

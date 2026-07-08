@@ -1327,18 +1327,23 @@ function activateHide() {
 
   const def    = UNIT_TYPES[u.type] ?? {};
   const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
-  const stealth = Math.floor(Math.random() * 20) + 1 + dexMod;
+  // Auto-success: standing still inside his own Smoke & Mirrors cloud, the
+  // heavy obscurement fully conceals him — Hide succeeds with no roll.
+  const autoHide = !!u.smokeActive && turnMovedFt === 0;
+  const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
 
   turnBonusActioned = true;
   u.hideCooldown    = 2;
   playSound('hide');
 
-  if (stealth >= 10) {
+  if (autoHide || stealth >= 10) {
     u.hideRoll = stealth;
     setUnitStealth(u, true);
     u.stealthOriginX = ux;
     u.stealthOriginZ = uz;
-    addLog(`${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
+    addLog(autoHide
+      ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
+      : `${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
     showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
   } else {
     addLog(`${unitLabel(u)}: Hide failed! (Stealth ${stealth} vs DC 10)`, 'dmg');
@@ -2114,6 +2119,7 @@ function performAttack(attacker, target, atk, onSettled = null) {
     attacker.spellSlots = Math.max(0, attacker.spellSlots - atk.spellSlotCost);
   }
   if (atk.type === 'aoe_save') {
+    if (atk.name === 'Grave Curse') playSound('grave_curse');
     // Don't gate on the animation's own "finished" event — Morvath's cast
     // clip (auto-detected, unpinned) runs ~3.3s, far longer than his other
     // clips, and waiting for it to fully play out reads as the game hanging.
@@ -4559,16 +4565,20 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
         });
         if (inEnemyLOS) { onSkip(); return; }
         const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
-        const stealth = Math.floor(Math.random() * 20) + 1 + dexMod;
+        // Auto-success while standing still in his own smoke cloud.
+        const autoHide = !!u.smokeActive && turnMovedFt === 0;
+        const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
         u.hideCooldown    = 2;
         turnBonusActioned = true;
         playSound('hide');
-        if (stealth >= 10) {
+        if (autoHide || stealth >= 10) {
           u.hideRoll = stealth;
           setUnitStealth(u, true);
           u.stealthOriginX = ux;
           u.stealthOriginZ = uz;
-          addLog(`${unitLabel(u)} hides! Stealth ${stealth}`, 'move');
+          addLog(autoHide
+            ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
+            : `${unitLabel(u)} hides! Stealth ${stealth}`, 'move');
           showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
         } else {
           addLog(`${unitLabel(u)} tries to hide but fails (${stealth})`, 'move');

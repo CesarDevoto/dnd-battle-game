@@ -2798,6 +2798,17 @@ export const ITEMS = {
     rarity: 'grey',
     icon:   'assets/items/armor/leathergloves8.png',
   },
+
+  // ── Alchemy materials (bag items, not equippable) ──────────────────────────
+  grassling_dung: {
+    id:          'grassling_dung',
+    name:        'Grassling Dung',
+    rarity:      'green',
+    icon:        'assets/items/materials/grassling dung.png',
+    material:    true,
+    value:       25,
+    description: 'Sacred dung from the grassling mounds. Bring it to an alchemist in the towns of men to render it into 2 Potions of Lesser Healing.',
+  },
 };
 
 export function getItem(id) {

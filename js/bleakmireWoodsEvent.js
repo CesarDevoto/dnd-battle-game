@@ -11,6 +11,11 @@ import { isMarkerSeen, setMarkerSeen } from './exclamationMarkers.js';
 import { isPrecombat } from './precombat.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { isDevMode } from './devMode.js';
+import { showLootReward } from './lootPanel.js';
+import { getItem } from './items.js';
+
+// One-shot guard so Floosh's Grassling Dung reward is granted only once.
+const _KEY_DUNG_REWARD = 'dnd-floosh-dung-reward';
 
 // ── Floosh guide system ───────────────────────────────────────────────────────
 // After quest accepted, Floosh walks NE toward the haunted_wood portal (82, -82).
@@ -398,7 +403,7 @@ function _startQuestDialogue(onDone = null) {
 // ── Welcome back — heroes quick-travel to Floosh after defeating Morvath ─────
 const _WELCOME_BACK_LINES = [
   { s: 'Floosh', t: "You return! And the taint upon our woods... I feel it, it is lifted! Rest now, friends of the wild — you have more than earned my guidance." },
-  { s: 'Floosh', t: "And as token of gratitude, I bestow upon thee this fine dung from the sacred mounds of our realm. Take it to any alchemist in the towns of men, and from it shall be wrought two potent draughts of healing." },
+  { s: 'Floosh', t: "As a token of gratitude, I bestow upon thee this fine dung from the sacred mounds of our realm. Take it to any alchemist in the towns of men, and from it shall be wrought two potent draughts of healing." },
   { s: 'Floosh', t: "Onwards then, to the goblin warrens. The foul creatures have grown bold of late, and their tracks mar our borders. Hail the heroes! Hail the saviors of the green!" },
 ];
 registerDialogueScene({ id: 'dlg_floosh_welcome_back', name: 'Floosh — Welcome Back', lines: _WELCOME_BACK_LINES });
@@ -407,9 +412,20 @@ function _startWelcomeBackDialogue() {
   _watchingWelcomeBack = false;
   _removeFlooshExcl();
   showQuickDialogue(_WELCOME_BACK_LINES, () => {
-    showChoiceUI([
+    const _toGoblins = () => showChoiceUI([
       { label: 'To the Goblins', onPick: () => _startGuide(_WEST_WALL_WAYPOINTS, _onReachWestWall) },
     ]);
+    // Floosh's gift: pop the loot window to assign Grassling Dung to a hero,
+    // then continue. Granted once (guarded), so replaying the dialogue won't
+    // hand out a second one.
+    let alreadyGiven = false;
+    try { alreadyGiven = !!localStorage.getItem(_KEY_DUNG_REWARD); } catch {}
+    const dung = getItem('grassling_dung');
+    if (alreadyGiven || !dung) { _toGoblins(); return; }
+    showLootReward([dung], () => {
+      try { localStorage.setItem(_KEY_DUNG_REWARD, '1'); } catch {}
+      _toGoblins();
+    }, { title: "FLOOSH'S GIFT", sub: 'A token of gratitude from Floosh.' });
   });
 }
 
