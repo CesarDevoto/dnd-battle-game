@@ -56,7 +56,7 @@ function _render() {
       : '<img class="hb-spell-img-fill" src="assets/spells and skills/healingword.jpg">',
     () => { _picking ? _stopPicking() : _startPicking(); },
     _canCast,
-    'bonus'
+    'action'
   );
   updateHotkeyRanges();
 }
