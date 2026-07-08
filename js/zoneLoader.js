@@ -8,6 +8,7 @@ import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
+import { loadPaint } from './terrainPaint.js';
 import { loadTrenchVisuals } from './trenchEditor.js';
 import { getTerrainHeight } from './terrain.js';
 import { renderHeroPortrait } from './heroPortraits.js';
@@ -322,6 +323,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
   loadTrenchVisuals(zone.trenches ?? []);
+
+  // Rasterize painted terrain strokes into the splatmap
+  loadPaint(zone.paint ?? [], zone.paintTint ?? null);
 
 
   _postCombat = false;

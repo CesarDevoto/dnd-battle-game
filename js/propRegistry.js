@@ -48,6 +48,8 @@ export const PROP_MODELS = {
   building7:    { label: 'Building 7',  path: 'assets/environment/building 7.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   building8:    { label: 'Building 8',  path: 'assets/environment/building 8.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   building9:    { label: 'Building 9',  path: 'assets/environment/building 9.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building10:   { label: 'Building 10', path: 'assets/environment/building 10.glb',      defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  buildingruinedlarge: { label: 'Ruined Building (Large)', path: 'assets/environment/building ruined large.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },

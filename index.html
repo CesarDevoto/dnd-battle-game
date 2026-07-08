@@ -775,6 +775,32 @@
           <button id="te-trench-save-btn">SAVE TRENCHES</button>
         </div>
         <div id="te-trench-save-status"></div>
+        <div class="te-section-divider">── PAINT ──</div>
+        <div id="tp-status" class="te-status-small">Click PAINT MODE, then drag on the terrain</div>
+        <div id="tp-counter" class="te-counter">Strokes: 0</div>
+        <div id="te-btn-row">
+          <button class="tp-ch-btn active" data-ch="road">ROAD</button>
+          <button class="tp-ch-btn" data-ch="dirt">DIRT</button>
+          <button class="tp-ch-btn" data-ch="tint">TINT</button>
+          <button class="tp-ch-btn" data-ch="erase">ERASE</button>
+        </div>
+        <div id="te-defaults-row">
+          <label class="te-input-lbl">brush<input id="tp-brush" class="te-num" type="number" value="4" step="0.5" min="0.5"></label>
+          <label class="te-input-lbl">tint<input id="tp-tint" type="color" value="#6aa84f"></label>
+        </div>
+        <div id="te-btn-row">
+          <button class="tp-tint-swatch" data-color="#6aa84f" title="Grass">GRASS</button>
+          <button class="tp-tint-swatch" data-color="#d8c184" title="Sand">SAND</button>
+          <button class="tp-tint-swatch" data-color="#e8eef5" title="Snow">SNOW</button>
+        </div>
+        <div id="te-btn-row">
+          <button id="tp-paint-btn">PAINT MODE</button>
+          <button id="tp-clear-btn">CLEAR</button>
+        </div>
+        <div id="te-btn-row">
+          <button id="tp-save-btn">SAVE PAINT</button>
+        </div>
+        <div id="tp-save-status"></div>
       </div>
     </div>
 

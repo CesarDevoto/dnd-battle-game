@@ -1609,7 +1609,7 @@ export function _makeMapleLeafGeo() {
 
 // ── Road / water builders ─────────────────────────────────────────────────────
 
-function makeRoadTexture(repU, repV) {
+export function makeRoadTexture(repU, repV) {
   const S = 512;
   const cv = document.createElement('canvas');
   cv.width = cv.height = S;

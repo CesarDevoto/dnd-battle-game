@@ -5,6 +5,7 @@ import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
 import { activeEnv } from './environments.js';
 import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag } from './barrierEditor.js';
 import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench, selectTrenchPointAt, clearTrenchSelection } from './trenchEditor.js';
+import { isPaintModeActive } from './terrainPaint.js';
 
 let _open           = false;
 let _selectedIdx    = -1;
@@ -413,6 +414,9 @@ export function initTerrainEditor() {
   renderer.domElement.addEventListener('click', e => {
     if (!_open) return;
     e.stopImmediatePropagation();
+
+    // Paint mode owns terrain drags — never place control points while painting
+    if (isPaintModeActive()) return;
 
     // Finalize barrier dot drag on any click
     if (isDraggingBarrierDot()) {

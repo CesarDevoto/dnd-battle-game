@@ -26,6 +26,7 @@ import { initNpcAIEditor } from './npcAIEditor.js';
 import { initSpawnEditor } from './spawnEditor.js';
 import { initTerrainEditor } from './terrainEditor.js';
 import { initBarrierEditor } from './barrierEditor.js';
+import { initTerrainPaint } from './terrainPaint.js';
 import { initTrenchEditor } from './trenchEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
@@ -165,6 +166,7 @@ if (IS_DEV) {
   initSpawnEditor();
   initTerrainEditor();
   initBarrierEditor();
+  initTerrainPaint();
   initTrenchEditor();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────

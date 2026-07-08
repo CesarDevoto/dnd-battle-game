@@ -401,6 +401,65 @@ function saveZoneBarriersPlugin() {
   };
 }
 
+function saveZonePaintPlugin() {
+  return {
+    name: 'save-zone-paint',
+    configureServer(server) {
+      server.middlewares.use('/__save_zone_paint', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, paint, paintTint } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath))
+              throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+
+            const r = (n) => Math.round(n * 10) / 10;
+            const itemLines = (paint ?? []).map(p =>
+              `    { x: ${r(p.x)}, z: ${r(p.z)}, r: ${r(p.r)}, ch: '${p.ch}' },`
+            );
+            const paintBlock = (paint ?? []).length
+              ? `  paint: [\n${itemLines.join('\n')}\n  ],`
+              : `  paint: [],`;
+
+            if (/[ \t]*paint\s*:/.test(src)) {
+              src = src.replace(/[ \t]*paint\s*:[\s\S]*?\],?/, paintBlock);
+            } else {
+              src = src.replace(/^(\};)/m, `${paintBlock}\n$1`);
+            }
+
+            // paintTint (single string field)
+            if (paintTint) {
+              const tintLine = `  paintTint: '${paintTint}',`;
+              if (/[ \t]*paintTint\s*:/.test(src)) {
+                src = src.replace(/[ \t]*paintTint\s*:\s*'[^']*',?/, tintLine);
+              } else {
+                src = src.replace(/^(\};)/m, `${tintLine}\n$1`);
+              }
+            }
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 function saveZoneTrenchesPlugin() {
   return {
     name: 'save-zone-trenches',
@@ -590,5 +649,5 @@ function deleteZonePlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
 });
