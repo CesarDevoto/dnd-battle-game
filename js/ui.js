@@ -142,6 +142,23 @@ document.getElementById('ss-btn-spellbook')?.addEventListener('click',  () => _t
 document.getElementById('ss-btn-traits')?.addEventListener('click',     () => _toggleSidePanel('ss-btn-traits'));
 document.getElementById('ss-btn-equipment')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-equipment'));
 
+// If a hero levels up (commonly mid-combat) while their own character sheet is
+// open, the sheet's panels are cached strings built at open time and would show
+// stale spells/slots/HP until closed+reopened. Rebuild them in place, and
+// re-inject whichever side panel is currently showing.
+window.addEventListener('hero:levelup', ({ detail: { hero } }) => {
+  if (!sheetUnit || sheetUnit !== hero) return;
+  sheetBody.innerHTML = buildSheetHTML(hero);
+  _spellPanelHTML     = buildSpellPanelHTML(hero);
+  _actionsPanelHTML   = buildActionsPanelHTML(hero);
+  _traitsPanelHTML    = buildTraitsPanelHTML(hero);
+  _equipmentPanelHTML = buildEquipmentPanelHTML(hero);
+  if      (_activeSideBtn === 'ss-btn-spellbook') { sideContentEl.innerHTML = _spellPanelHTML;   _initSpellAccordions(); }
+  else if (_activeSideBtn === 'ss-btn-abilities') { sideContentEl.innerHTML = _actionsPanelHTML; _initActionAccordions(); }
+  else if (_activeSideBtn === 'ss-btn-traits')    { sideContentEl.innerHTML = _traitsPanelHTML; }
+  else if (_activeSideBtn === 'ss-btn-equipment') { eqContentEl.innerHTML   = _equipmentPanelHTML; _initEquipmentPanel(); }
+});
+
 // I — open the equipment/inventory panel for the active hero during combat,
 // or the targeted/selected hero out of combat. Same hero-resolution rule
 // updateSpellBar() below already uses for the Skills & Spells window.
@@ -764,7 +781,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Hide</span>
             </div>
-            <div class="ss-spell-desc">In combat: requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden and stationary, sneak attack works on any target in range; moving or attacking breaks stealth. Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% (shown as rings) so he can move solo without aggroing; toggle off with the same button, breaks if an enemy still spots him.</div>
+            <div class="ss-spell-desc">In combat: requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden, sneak attack works on any target in range; attacking breaks stealth (moving keeps stealth unless an enemy's Perception spots you). Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% (shown as rings) so he can move solo without aggroing; toggle off with the same button, breaks if an enemy still spots him.</div>
           </div>
           <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
         </div>

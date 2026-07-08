@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit, setGridVisible } from './scene.js';
-import { units, corpses } from './units.js';
+import { units, corpses, heroRoster } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { updateXPBar } from './progression.js';
@@ -684,9 +684,12 @@ function _doStyxTransition() {
   _removeDagna();
   _removePortal();
 
-  // Save hero progression before the rebuild so XP/level survive the zone transition
+  // Save hero progression before the rebuild so XP/level survive the zone
+  // transition. Snapshot from heroRoster (all 4 heroes, never cleared on death),
+  // NOT units — a hero who died this combat was spliced out of units, and
+  // snapshotting from units would drop their XP/level, rebuilding them at level 1.
   const _savedProg = {};
-  units.filter(u => u.team === 'blue').forEach(u => {
+  heroRoster.forEach(u => {
     _savedProg[u.type] = { xp: u.xp ?? 0, level: u.level ?? 1, hpFrac: u.hpFrac ?? 0 };
   });
 

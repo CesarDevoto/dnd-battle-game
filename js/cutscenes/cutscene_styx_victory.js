@@ -9,7 +9,7 @@ export const CUTSCENE = {
       img:    'assets/Pictures%20Cutscenes%20Icons/Moradin%20and%20disciple.jpg',
       pan:    'zoom',
       objPos: 'center 18%',
-      text:   'Moradin: "Steel is born in fire. So shall thee be. Rise."',
+      text:   'Moradin: "Steel is born in fire. Rise."',
     },
   ],
 };

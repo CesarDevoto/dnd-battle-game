@@ -647,22 +647,17 @@ function _allyAdjacentToTarget(attacker, target) {
   return false;
 }
 
-// True while stealthed AND still standing exactly where the Hide roll
-// succeeded (checked lazily against stored origin coords rather than hooked
-// into every movement path — simpler and can't be missed by a code path that
-// forgets to clear a flag). A stealthed halfling who hasn't moved gets sneak
-// attack on anyone in range, not just targets an ally is adjacent to —
-// mirrors 5e's "hidden attacker" rule. Moving at all forfeits this until
-// they successfully Hide again.
-function _isStationarySinceHide(u) {
-  if (!u.stealthed) return false;
-  const dx = u.grp.position.x - (u.stealthOriginX ?? u.grp.position.x);
-  const dz = u.grp.position.z - (u.stealthOriginZ ?? u.grp.position.z);
-  return dx * dx + dz * dz < 0.0025; // ~0.05 WU tolerance
+// A hidden (stealthed) halfling is an unseen attacker: he gets Sneak Attack on
+// ANY target in range, not just ones an ally is adjacent to — mirrors 5e's
+// "unseen attacker → advantage" rule. Movement doesn't forfeit it (he stays
+// hidden while moving unless an enemy's Perception spots him, see
+// _checkHidePerception); making the attack itself is what breaks stealth.
+function _isHiddenForSneak(u) {
+  return !!u.stealthed;
 }
 
 function hasSneakAttackCondition(attacker, target, atkResult) {
-  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || _isStationarySinceHide(attacker);
+  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || _isHiddenForSneak(attacker);
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -3237,14 +3232,14 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       const dist = Math.sqrt(dx * dx + dz * dz);
 
       if (trigger === 'enemy_in_los' && _enemyInHeroLOS(enemy, hero)) {
-        matches.push({ hero, trigger });
+        matches.push({ hero, trigger, enemy });
       } else if (trigger === 'enemy_in_melee_range') {
         const atk = heroAtks.find(a => a.type === 'melee');
-        if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger });
+        if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger, enemy });
       } else if (trigger === 'enemy_in_ranged_range') {
         const rangeWU = _heroRangedRangeWU(hero);
         if (rangeWU != null && dist <= rangeWU) {
-          matches.push({ hero, trigger });
+          matches.push({ hero, trigger, enemy });
         }
       }
     }
@@ -3280,7 +3275,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
   _fireNext(0);
 }
 
-function _showDelayInterrupt({ hero, trigger }) {
+function _showDelayInterrupt({ hero, trigger, enemy }) {
   if (!_readyCtx) return;
   const heroIdx = turnOrder.indexOf(hero);
   if (heroIdx < 0) {
@@ -3332,7 +3327,11 @@ function _showDelayInterrupt({ hero, trigger }) {
   // Temporarily make this hero the active unit so all hotbar callbacks work naturally
   turnIndex         = heroIdx;
   turnAttacked      = false;
-  turnMovedFt       = 0;   // delay action has no movement
+  // A readied action is a reaction — it grants NO movement (only an action/bonus/
+  // reaction). Max out turnMovedFt so every "remaining movement" calc
+  // (postAtkRemaining = speed - turnMovedFt, and the equivalent in spell handlers)
+  // resolves to 0, keeping the hero out of move mode after they act.
+  turnMovedFt       = UNIT_TYPES[hero.type]?.speed ?? 30;
   turnBonusActioned = _readiedBonusActioned.get(hero) ?? false;
   _readiedBonusActioned.delete(hero);
   heroMode          = null;
@@ -3353,6 +3352,11 @@ function _showDelayInterrupt({ hero, trigger }) {
   setFollowUnit(hero);
   showRangeRings(hero);
   showAttackTargets(hero);
+  // Auto-select the enemy that tripped the trigger so the readied attack button
+  // is immediately usable (it's in range by definition — that's why it fired).
+  // Without this, selectedTarget is stale/null and the attack shows greyed even
+  // though the enemy is right there in range.
+  if (enemy && units.includes(enemy) && enemy.hp > 0) showTargetMarker(enemy);
   _rebuildHotbar(hero);
 
   // Remove DASH (no movement) and replace End Turn with Skip
@@ -3466,7 +3470,7 @@ const _ABILITY_HANDLERS = {
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
                        hasLineOfSight(ux, uz, ttx, ttz));
       if (!inRange) return false;
-      return _allyAdjacentToTarget(curU, selectedTarget) || _isStationarySinceHide(curU);
+      return _allyAdjacentToTarget(curU, selectedTarget) || _isHiddenForSneak(curU);
     },
   },
   hide: {
