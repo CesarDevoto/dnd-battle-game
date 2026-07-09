@@ -606,20 +606,58 @@ function _updateStatus() {
   }
 }
 
+// Prop picker categories (accordion sections). Keys are matched against
+// PROP_MODELS; any registered prop not listed here lands in a trailing "Other"
+// section, so adding a new prop never makes it vanish from the picker.
+const PROP_CATEGORIES = [
+  { label: 'Buildings',       keys: ['inn','hut1','bigbuilding1','building2','building3','building4','building5','building6','building7','building8','building9','building10','building11','building12','buildingruinedlarge'] },
+  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','stonesteps','widestonesteps'] },
+  { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom'] },
+  { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
+  { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair'] },
+  { label: 'Terrain Surfaces',keys: ['road','roadcurve30','water','bloodpool'] },
+  { label: 'Effects & Markers',keys:['fogpatch','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
+];
+
 function _buildPanel() {
   const listEl = document.getElementById('pe-model-list');
   if (!listEl) return;
-  const all = Object.entries(PROP_MODELS);
-  const collision   = all.filter(([, d]) => d.clashR > 0);
-  const passable    = all.filter(([, d]) => !(d.clashR > 0));
-  const mkBtn = ([key, def]) =>
-    `<button class="pe-model-btn${key === _selectedModel ? ' active' : ''}" data-model="${key}">${def.label}</button>`;
-  listEl.innerHTML =
-    `<div class="pe-section-header">Collision</div>` +
-    collision.map(mkBtn).join('') +
-    `<div class="pe-section-header pe-section-header--passable">No Collision</div>` +
-    passable.map(mkBtn).join('');
-  listEl.addEventListener('click', e => {
+
+  const used = new Set();
+  const mkBtn = (key) => {
+    const def = PROP_MODELS[key];
+    if (!def) return '';
+    used.add(key);
+    const coll = def.clashR > 0 ? ' pe-collision' : '';
+    const act  = key === _selectedModel ? ' active' : '';
+    return `<button class="pe-model-btn${coll}${act}" data-model="${key}">${def.label}</button>`;
+  };
+  const mkSection = (label, keys) => {
+    const present = keys.filter(k => PROP_MODELS[k]);
+    if (!present.length) return '';
+    const btns = present.map(mkBtn).join('');
+    return `<div class="pe-cat">` +
+      `<button class="pe-cat-header" type="button"><span class="pe-caret">▸</span>` +
+      `<span class="pe-cat-label">${label}</span><span class="pe-cat-count">${present.length}</span></button>` +
+      `<div class="pe-cat-body collapsed">${btns}</div></div>`;
+  };
+
+  let html = PROP_CATEGORIES.map(c => mkSection(c.label, c.keys)).join('');
+  const others = Object.keys(PROP_MODELS).filter(k => !used.has(k));
+  if (others.length) html += mkSection('Other', others);
+  listEl.innerHTML = html;
+
+  // Delegated click: accordion headers toggle their section; model buttons select.
+  listEl.onclick = (e) => {
+    const header = e.target.closest('.pe-cat-header');
+    if (header) {
+      const body = header.nextElementSibling;
+      const collapsed = body.classList.toggle('collapsed');
+      const caret = header.querySelector('.pe-caret');
+      if (caret) caret.textContent = collapsed ? '▸' : '▾';
+      return;
+    }
     const btn = e.target.closest('.pe-model-btn');
     if (!btn) return;
     // Clicking the active model deselects it — gives an empty cursor for picking existing props
@@ -628,13 +666,33 @@ function _buildPanel() {
     _selRing.visible = false;
     _updateModelButtons();
     _updateStatus();
-  });
+  };
 }
 
 function _applySearch(q) {
-  const lq = q.toLowerCase();
-  document.querySelectorAll('.pe-model-btn').forEach(btn => {
-    btn.style.display = btn.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  const lq = q.trim().toLowerCase();
+  const searching = lq.length > 0;
+  document.querySelectorAll('.pe-cat').forEach(cat => {
+    const body   = cat.querySelector('.pe-cat-body');
+    const caret  = cat.querySelector('.pe-caret');
+    let anyVisible = false;
+    cat.querySelectorAll('.pe-model-btn').forEach(btn => {
+      const match = !searching || btn.textContent.toLowerCase().includes(lq);
+      btn.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+    if (searching) {
+      // Auto-expand sections with a hit; hide sections with none.
+      body.classList.remove('collapsed');
+      if (caret) caret.textContent = '▾';
+      cat.style.display = anyVisible ? '' : 'none';
+    } else {
+      // Reset to the collapsed default with everything shown.
+      cat.style.display = '';
+      body.classList.add('collapsed');
+      if (caret) caret.textContent = '▸';
+      cat.querySelectorAll('.pe-model-btn').forEach(btn => { btn.style.display = ''; });
+    }
   });
 }
 

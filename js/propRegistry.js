@@ -48,7 +48,10 @@ export const PROP_MODELS = {
   building7:    { label: 'Building 7',  path: 'assets/environment/building 7.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   building8:    { label: 'Building 8',  path: 'assets/environment/building 8.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   building9:    { label: 'Building 9',  path: 'assets/environment/building 9.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
-  building10:   { label: 'Building 10', path: 'assets/environment/building 10.glb',      defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building10:   { label: 'Building 10', path: 'assets/environment/building10.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building11:   { label: 'Building 11', path: 'assets/environment/building11.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building12:   { label: 'Building 12', path: 'assets/environment/building12.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  hut1:         { label: 'Hut 1',       path: 'assets/environment/hut1.glb',             defaultScale: 4.0, blocksLOS: true,  clashR: 2.5  },
   buildingruinedlarge: { label: 'Ruined Building (Large)', path: 'assets/environment/building ruined large.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────

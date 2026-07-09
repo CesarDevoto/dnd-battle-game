@@ -6392,18 +6392,39 @@ td.bst-col-retired { color: #343228 !important; }
   flex-wrap: wrap;
   gap: 3px;
 }
-.pe-section-header {
+/* ── Prop picker accordion ─────────────────────────────────────────── */
+.pe-cat { width: 100%; }
+.pe-cat-header {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-fantasy);
   font-size: 0.5rem;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: #c8a84a;
+  background: rgba(200,168,74,0.06);
+  border: none;
   border-bottom: 1px solid #c8a84a55;
-  padding-bottom: 2px;
+  padding: 4px 4px 3px;
   margin-top: 4px;
+  cursor: pointer;
+  text-align: left;
 }
-.pe-section-header--passable { color: #c8a84a; border-bottom-color: #c8a84a55; }
+.pe-cat-header:hover { color: var(--gold); background: rgba(200,168,74,0.12); }
+.pe-caret { display: inline-block; width: 0.6em; font-size: 0.55rem; }
+.pe-cat-label { flex: 1; }
+.pe-cat-count { color: #7a6a3a; font-size: 0.45rem; }
+.pe-cat-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding-top: 3px;
+}
+.pe-cat-body.collapsed { display: none; }
+/* subtle marker so collision props are still recognizable across categories */
+.pe-model-btn.pe-collision { border-left: 2px solid #b5533f; }
 .pe-model-btn {
   font-family: var(--font-fantasy);
   font-size: 0.48rem;
