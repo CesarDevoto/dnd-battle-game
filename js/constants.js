@@ -185,8 +185,8 @@ export const UNIT_TYPES = {
     race: 'goblin',
     dark: 0x0f2800, mid: 0x1e5000, bright: 0x33880a, emissive: 0x001100,
     legH: 0.40, torsoW: 0.58, headS: 0.38, wpnH: 0.90, wpnColor: 0x556644,
-    scale: [0.65, 0.65, 0.65],
-    anchorY: 1.1,
+    scale: [0.5, 0.5, 0.5],
+    anchorY: 0.85,
     // CR 0 — Commoner-tier (no XP)
     detect: 20,
     hp: 4, ac: 10, speed: 30, initiative: 0, xpReward: 0,

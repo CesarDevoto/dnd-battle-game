@@ -237,6 +237,15 @@ export const ZONE = {
     { model: 'rock', x: -93.42, z: 45.12, y: -0.2, rotY: 0, scale: 1 },
     { model: 'rock', x: -119.81, z: 65.52, y: -0.2, rotY: 0, scale: 1 },
     { model: 'rock', x: -121.88, z: 65.83, y: -0.2, rotY: 0, scale: 1 },
+    { model: 'building15', x: 17.21, z: 2.64, y: 0, rotY: 3.011, scale: 7.086 },
+    { model: 'building15', x: -83.84, z: 84.95, y: 0, rotY: 0, scale: 7.086 },
+    { model: 'building16', x: -127.17, z: 40.06, y: 0, rotY: 0.654, scale: 5.324 },
+    { model: 'building16', x: -154.54, z: 90.1, y: 0, rotY: 1.702, scale: 5.324 },
+    { model: 'building16', x: -11.46, z: -117.01, y: 0, rotY: 3.927, scale: 5.324 },
+    { model: 'building14', x: -83.2, z: 67.77, y: 0, rotY: 3.142, scale: 7.795 },
+    { model: 'building11', x: -128.19, z: 98, y: 0, rotY: 0.524, scale: 5.324 },
+    { model: 'building16', x: -108.64, z: -54.47, y: 0, rotY: 0.262, scale: 5.324 },
+    { model: 'building7', x: -103.78, z: -81.2, y: 0.079, rotY: 6.676, scale: 5.856 },
   ],          // place buildings/props in the prop editor, then save
   barriers: [],       // drawn in the terrain editor
   paint: [
