@@ -994,6 +994,39 @@ export const UNIT_TYPES = {
     anchorY: 1.9,
   },
 
+  // ── Townsfolk NPCs (assets/models/npcs/) ────────────────────────────────────
+  // Rigged town characters, all team:'npc' (decorative — idle/walk only). Scale/
+  // grounding start from the peasant defaults (0.9 / yOffset 0.9) and are UNVERIFIED
+  // in-game — shorter races (gnomes/halflings) and different mesh origins will need
+  // per-type tuning; nudge scale/yOffset with [ / ] in the NPC editor. Animations
+  // auto-map (idle/walk/run) via autoMapAnimClips; fix any mis-slot in the editor.
+  bard1:              { name: 'Bard',                team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  barmaid1:           { name: 'Barmaid',             team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  barmaid2:           { name: 'Barmaid 2',           team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  darkelf1:           { name: 'Dark Elf',            team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  dwarf2:             { name: 'Dwarf (Townsfolk)',   team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  dwarfwarrior:       { name: 'Dwarf Warrior',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  elf2:               { name: 'Elf',                 team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  elffemale1:         { name: 'Elf Woman',           team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  elffemale2:         { name: 'Elf Woman 2',         team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  elfmonk:            { name: 'Elf Monk',            team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  gnome1:             { name: 'Gnome',               team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  gnomemonk:          { name: 'Gnome Monk',          team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  gnomewarrior:       { name: 'Gnome Warrior',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  gnomewizard:        { name: 'Gnome Wizard',        team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halfling2:          { name: 'Halfling',            team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halflingadventurer: { name: 'Halfling Adventurer', team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halflingarcher:     { name: 'Halfling Archer',     team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halflingbarbarian:  { name: 'Halfling Barbarian',  team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halflingbard:       { name: 'Halfling Bard',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  halflingrogue:      { name: 'Halfling Rogue',      team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  humanpeasant1:      { name: 'Human Peasant',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  humanpeasant2:      { name: 'Human Peasant 2',     team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  humanwarrior1:      { name: 'Human Warrior',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  orcbarmaid:         { name: 'Orc Barmaid',         team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  tiefling_bard:      { name: 'Tiefling Bard',       team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+  waitress1:          { name: 'Waitress',            team: 'npc', scale: [0.9, 0.9, 0.9], yOffset: 0.9, anchorY: 1.9 },
+
   // Flying familiar (Rasec's owl). Rigged GLB, bbox ~1.57 wide × 0.75 tall in
   // bind pose; at scale 0.66 it reads as a small bird (~0.5 units tall, ~1 unit
   // wingspan). Mesh origin sits mid-body (feet ≈ -0.22 local), so yOffset lifts
