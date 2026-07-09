@@ -48,6 +48,7 @@ const MODEL_PATHS = {
   gnoll_fang:     'assets/models/gnoll.glb',
   giant_rat:      'assets/models/giantrat.glb',
   hobgoblin:      'assets/models/hobgoblin.glb',
+  goblin2:        'assets/models/goblin2.glb',
   owlbear:        'assets/models/owlbear.glb',
   troglodyte:     'assets/models/troglodyte.glb',
   ghoul:          'assets/models/ghoul.glb',
@@ -65,6 +66,7 @@ const MODEL_PATHS = {
   grassling: 'assets/models/grassling.glb',
   solrac:    'assets/models/solrac.glb',
   npc_dwarf: 'assets/models/npc dwarf.glb',
+  peasant:   'assets/models/peasant1.glb',
   owl:       'assets/models/owl.glb',
   // Swamp monsters — proxied to closest existing GLB until dedicated models are added
   giant_frog:        'assets/models/goblin.glb',
@@ -95,6 +97,13 @@ const ANIM_CLIP_NAMES = {
   // new GLB has clean names; pin explicitly so Skill_03/Sword_Parry_Backward_5 don't displace slots
   ogre: {
     idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
+  },
+  // New rigged Meshy goblin (goblin2.glb). Clips: Dead, Idle_02,
+  // Right_Hand_Sword_Slash, Running, Walking — melee-only (no archery clip),
+  // so rangedAttack is pinned null. Same slash clip as the dwarf hero export.
+  goblin2: {
+    idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: null, death: 'Dead',
   },
   // New barbarian GLB (Jul 2026, 3rd export) — clip set changed again. This export has
   // a clip literally named "Attack" but user directed Skill_03 for the real melee swing

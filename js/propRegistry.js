@@ -58,6 +58,16 @@ export const PROP_MODELS = {
   building13:   { label: 'Building 13', path: 'assets/environment/building13.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   hut1:         { label: 'Hut 1',       path: 'assets/environment/hut1.glb',             defaultScale: 4.0, blocksLOS: true,  clashR: 2.5  },
   buildingruinedlarge: { label: 'Ruined Building (Large)', path: 'assets/environment/building ruined large.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },
+  building14:   { label: 'Building 14', path: 'assets/environment/building14.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building15:   { label: 'Building 15', path: 'assets/environment/building15.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  building16:   { label: 'Building 16', path: 'assets/environment/building16.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
+  woodwall1:    { label: 'Wood Wall 1', path: 'assets/environment/woodwall1.glb',        defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
+  plant1:       { label: 'Plant 1',     path: 'assets/environment/plant1.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
+  plant2:       { label: 'Plant 2',     path: 'assets/environment/plant2.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
+  plant3:       { label: 'Plant 3',     path: 'assets/environment/plant3.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
+  plant4:       { label: 'Plant 4',     path: 'assets/environment/plant4.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
+  bench1:       { label: 'Bench 1',     path: 'assets/environment/bench1.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
+  barstand2:    { label: 'Bar Stand 2', path: 'assets/environment/barstand2.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },

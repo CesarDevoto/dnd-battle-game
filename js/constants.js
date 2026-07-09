@@ -174,6 +174,27 @@ export const UNIT_TYPES = {
     ],
   },
 
+  // New rigged Meshy goblin (goblin2.glb) — a melee brute variant of the goblin.
+  // Only a sword-slash clip (no bow), so it's melee-only. Scale/anchorY mirror the
+  // base goblin: both GLBs report the same near-zero skinned bbox, so they render
+  // at matching size — grounding is unverified in-game, nudge with [ / ] if needed.
+  goblin2: {
+    name: 'Goblin Warrior',
+    team: 'red',
+    dark: 0x0f2800, mid: 0x1e5000, bright: 0x33880a, emissive: 0x001100,
+    legH: 0.40, torsoW: 0.58, headS: 0.38, wpnH: 0.90, wpnColor: 0x556644,
+    scale: [0.85, 0.85, 0.85],
+    anchorY: 1.4,
+    // CR 1/4 — Easy
+    detect: 20,
+    hp: 9, ac: 15, speed: 30, initiative: 0, xpReward: 15,
+    profBonus: 2,
+    abilities: { str: 12, dex: 14, con: 12, int: 10, wis: 8, cha: 8 },
+    attacks: [
+      { name: 'Scimitar', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
+    ],
+  },
+
   orc: {
     name: 'Orc',
     team: 'red',
@@ -937,6 +958,19 @@ export const UNIT_TYPES = {
     anchorY:    1.45,
   },
 
+  // Townsfolk peasant NPC. Static-posed rigged GLB (peasant1.glb — no animation
+  // clips, so it stands still). Bbox is center-origin, ~2 units tall raw; at scale
+  // 0.9 it reads ~1.8 units (human height) and yOffset lifts the centered mesh so
+  // its feet meet the ground. Grounding is bbox-derived and unverified in-game —
+  // nudge scale/yOffset with [ / ] in the NPC editor if it floats or sinks.
+  peasant: {
+    name: 'Peasant',
+    team: 'npc',
+    scale:   [0.9, 0.9, 0.9],
+    yOffset: 0.9,
+    anchorY: 1.9,
+  },
+
   // Flying familiar (Rasec's owl). Rigged GLB, bbox ~1.57 wide × 0.75 tall in
   // bind pose; at scale 0.66 it reads as a small bird (~0.5 units tall, ~1 unit
   // wingspan). Mesh origin sits mid-body (feet ≈ -0.22 local), so yOffset lifts
@@ -991,6 +1025,7 @@ export const ENEMY_CR = {
   abyssal_chicken:  0.125,
   // ── CR 1/4 ──────────────────────────────────────────────────────
   goblin:           0.25,
+  goblin2:          0.25,
   wolf:             0.25,
   troglodyte:       0.25,
   constrictor_snake: 0.25,
