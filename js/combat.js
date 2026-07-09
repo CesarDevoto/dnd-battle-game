@@ -3365,7 +3365,8 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   if (enemy && units.includes(enemy) && enemy.hp > 0) showTargetMarker(enemy);
   _rebuildHotbar(hero);
 
-  // Remove DASH (no movement) and replace End Turn with Skip
+  // Remove Ready Action (can't ready during a readied-action interrupt) and
+  // replace End Turn with Skip
   unbindHotkey('Digit4', false);
   bindHotkey('Digit5', false, '<span class="hb-end-turn">SKIP<br>ACTION</span>', () => _endDelayInterrupt());
 
@@ -3420,9 +3421,10 @@ function _endDelayInterrupt() {
 // Single source of truth for every skill/cantrip/spell's execute+availability
 // logic, keyed by the same ability keys used in abilityRegistry.js's
 // HERO_ABILITY_LAYOUT. The fixed hotbar slots that still hardcode a key
-// (Digit2/3/5/6, KeyR) call in here too so there's exactly one copy of
-// each ability's logic; player-assigned slots (Q/W/E/T/4/Y/etc., via the
-// Skills & Spells drag-and-drop) look these up generically.
+// (Digit2/3/4/5/6 — attacks, ready action, end turn, potion) call in here too
+// so there's exactly one copy of each ability's logic; player-assigned and
+// auto-filled QWERTY slots (Q/W/E/R/T/Y, via drag-and-drop or
+// autoAssignHotbarSlots) look these up generically.
 const _ABILITY_HANDLERS = {
   dash: {
     actionType: 'action',
@@ -3660,8 +3662,58 @@ const _ABILITY_HANDLERS = {
 };
 
 // Slots the player may freely drag-and-drop abilities onto. Everything else
-// (attacks, end turn, ready action, potion, top view) stays fixed.
-const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'Digit4', 'Tab', 'KeyY', 'KeyT']);
+// (attacks, end turn, ready action, potion, top view) stays fixed. The QWERTY
+// letter row (KeyQ..KeyY) is also where autoAssignHotbarSlots seeds each hero's
+// signature abilities on level-up — Ready Action was moved off KeyR to Digit4
+// so R can join the auto-fill order.
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT']);
+
+// The QWERTY letter-row slots the auto-assigner fills, in order (Q→W→E→R→T→Y).
+const AUTO_FILL_SLOTS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY'];
+
+// Level-1 signature ability for martial heroes that have no starting cantrip in
+// STARTING_SPELLS (casters get theirs from there — dwarf/elf). Rage/Sneak Attack
+// aren't level-gated spells, so they're named explicitly here.
+const _SIGNATURE_L1 = { human: 'rage', halfling: 'sneak_attack' };
+
+// A hero type's signature abilities in unlock order: the level-1 cantrip/skill
+// first, then each level's newly learned spell/ability in ascending level order.
+// Generic skills (Dash/Dodge) are intentionally excluded — only progression
+// abilities auto-fill the bar.
+function _autoAbilityOrder(type) {
+  const order = [];
+  // STARTING_SPELLS values are Sets — spread to index the first (only) cantrip.
+  const start = [...(STARTING_SPELLS[type] ?? [])][0] ?? _SIGNATURE_L1[type];
+  if (start) order.push(start);
+  const byLevel = LEVEL_SPELLS[type] ?? {};
+  Object.keys(byLevel).map(Number).sort((a, b) => a - b)
+    .forEach(lv => byLevel[lv].forEach(k => order.push(k)));
+  return order;
+}
+
+// Seeds a hero's unlocked signature abilities into empty QWERTY slots in order
+// (Q→W→E→R→T→Y). Idempotent and non-destructive: only fills empty slots and
+// never places an ability already sitting in another slot, so any manual
+// arrangement the player has made is preserved. Once the six slots are full,
+// further abilities stay in the Skills & Spells window for manual placement.
+// Called at combat turn start (_rebuildHotbar), on level-up, and on OOC hero
+// selection, so newly unlocked abilities appear the next time the hero's bar
+// is shown.
+export function autoAssignHotbarSlots(hero) {
+  if (!hero) return;
+  if (!hero.hotbarSlots) hero.hotbarSlots = {};
+  const slots = hero.hotbarSlots;
+  const taken = new Set(Object.values(slots));   // abilities already placed anywhere
+  for (const key of _autoAbilityOrder(hero.type)) {
+    if (taken.has(key)) continue;                             // already on the bar
+    if (!_ABILITY_HANDLERS[key]) continue;                    // must be bindable
+    if (!isAbilityUnlocked(hero.type, hero.level ?? 1, key)) continue; // not unlocked yet
+    const free = AUTO_FILL_SLOTS.find(s => !slots[s]);        // next empty QWERTY slot
+    if (!free) break;                                         // bar full — stop
+    slots[free] = key;
+    taken.add(key);
+  }
+}
 
 // Binds one player-assigned ability onto one hotbar slot for the currently
 // rebuilding hero — shared by the custom-slot loop in _rebuildHotbar.
@@ -3827,11 +3879,11 @@ function _rebuildHotbar(u) {
       onSneakBtn:    handleSneakAttackBtnClick,
     });
   }
-  // Q/W/E/T start empty — abilities only appear there once the player drags
-  // them in from the Skills & Spells window (see the custom-slot loop below).
+  // Ready Action lives on Digit4 (moved off KeyR so R can join the QWERTY
+  // ability auto-fill row — see autoAssignHotbarSlots / the custom-slot loop below).
   {
     const armed = _readied.has(u);
-    bindHotkey('KeyR', false,
+    bindHotkey('Digit4', false,
       armed
         ? '<span class="hb-ready hb-ready-armed">READY ✓</span>'
         : '<span class="hb-ready">READY<br>ACTION</span>',
@@ -3868,7 +3920,11 @@ function _rebuildHotbar(u) {
     if (isAnimating || endTurnBtn.disabled) return;
     doEndTurn();
   });
-  // Player-assigned abilities — dragged in from the Skills & Spells window.
+  // Auto-seed this hero's unlocked signature abilities into empty QWERTY slots
+  // (fire_bolt→Q, then each level's new spell/ability), then bind every slot —
+  // both the auto-seeded ones and any the player dragged in from the Skills &
+  // Spells window. autoAssign is non-destructive, so manual arrangements stay put.
+  autoAssignHotbarSlots(u);
   for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
@@ -3889,6 +3945,9 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
     if (!hero.preparedSpells) hero.preparedSpells = new Set(STARTING_SPELLS[hero.type] ?? []);
     unlocks[newLevel].forEach(k => hero.preparedSpells.add(k));
   }
+  // Seed any freshly-unlocked signature ability into the next empty QWERTY slot
+  // so it's on the bar even for a hero who isn't the active unit right now.
+  autoAssignHotbarSlots(hero);
   // Grant additional spell slots when leveling up
   if (hero.type === 'dwarf') {
     const clericSlots = newLevel >= 3 ? 3 : newLevel >= 2 ? 2 : 0;
@@ -3904,6 +3963,23 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
   if (!combatPhase) return;
   const curU = turnOrder[turnIndex];
   if (curU && curU === hero && curU.team === 'blue') _rebuildHotbar(curU);
+});
+
+// Out of combat, the hotbar is shared (there's no per-turn _rebuildHotbar), so
+// reflect the newly-selected hero's ability slots here: seed their auto-assigned
+// QWERTY abilities and rebind the letter row to this hero. Only the six auto-fill
+// slots are cleared/rebound — the permanent Backquote/Tab and the number-row
+// combat slots are left untouched. Combat drives its own rebuilds, so this is a
+// no-op during combat.
+window.addEventListener('pc-hero:selected', ({ detail }) => {
+  const hero = detail?.hero;
+  if (!hero || hero.team !== 'blue' || combatPhase) return;
+  autoAssignHotbarSlots(hero);
+  for (const slot of AUTO_FILL_SLOTS) unbindHotkey(slot, false);
+  for (const [slotKey, abilityKey] of Object.entries(hero.hotbarSlots ?? {})) {
+    _bindAbilitySlot(slotKey, abilityKey);
+  }
+  updateHotkeyRanges();
 });
 
 export function activateTurn(index) {
