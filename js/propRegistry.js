@@ -41,6 +41,8 @@ export const PROP_MODELS = {
   barstand:     { label: 'Bar Stand',   path: 'assets/environment/bar stand.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   flooring1:    { label: 'Flooring 1',  path: 'assets/environment/flooring1.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
   flooring2:    { label: 'Flooring 2',  path: 'assets/environment/flooring2.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
+  rug1:         { label: 'Rug 1',       path: 'assets/environment/rug1.glb',             defaultScale: 2.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
+  platform1:    { label: 'Platform 1',  path: 'assets/environment/platform1.glb',        defaultScale: 2.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
   inn:          { label: 'Inn',         path: 'assets/environment/inn.glb',              defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   inn2:         { label: 'Inn 2',       path: 'assets/environment/inn2.glb',             defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   bigbuilding1: { label: 'Big Building 1', path: 'assets/environment/big building 1.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },

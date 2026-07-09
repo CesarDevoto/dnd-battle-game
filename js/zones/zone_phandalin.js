@@ -246,11 +246,12 @@ export const ZONE = {
     { model: 'building11', x: -128.19, z: 98, y: 0, rotY: 0.524, scale: 5.324 },
     { model: 'building16', x: -108.64, z: -54.47, y: 0, rotY: 0.262, scale: 5.324 },
     { model: 'building7', x: -103.78, z: -81.2, y: 0.079, rotY: 6.676, scale: 5.856 },
-    { model: 'barstand', x: -52.77, z: -28.08, y: 0, rotY: 0.916, scale: 1.611 },
-    { model: 'barstand', x: -50.41, z: -26.33, y: 0, rotY: 0.916, scale: 1.611 },
     { model: 'bench1', x: -55.72, z: -26.04, y: 0, rotY: 0, scale: 1.1 },
     { model: 'bench1', x: -58.25, z: -23.02, y: 0, rotY: 0, scale: 1.1 },
     { model: 'bench1', x: -54.71, z: -22.63, y: 0, rotY: 0.654, scale: 1.1 },
+    { model: 'barloaded', x: -58.37, z: -34.26, y: 0, rotY: 5.629, scale: 2.594 },
+    { model: 'barloaded', x: -50.28, z: -28.01, y: 0, rotY: 5.629, scale: 2.594 },
+    { model: 'bench1', x: -59.32, z: -26.04, y: 0, rotY: 1.963, scale: 1.1 },
   ],          // place buildings/props in the prop editor, then save
   barriers: [],       // drawn in the terrain editor
   paint: [
