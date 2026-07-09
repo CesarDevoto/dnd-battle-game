@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { scene, camera, renderer, ground } from './scene.js';
 import { activeProps, propPositions, losBlockerMeshes, activeEnv } from './environments.js';
 import { getTerrainHeight } from './terrain.js';
@@ -22,6 +23,7 @@ export const isPropEditorOpen = () => _open;
 // ── GLB cache ─────────────────────────────────────────────────────────────────
 
 const _loader      = new GLTFLoader();
+_loader.setMeshoptDecoder(MeshoptDecoder);   // decode meshopt-compressed GLBs
 const _glbCache    = {};
 
 function _loadGLB(modelKey) {

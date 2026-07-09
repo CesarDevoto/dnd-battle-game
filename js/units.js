@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
@@ -17,6 +18,7 @@ const hud = document.getElementById('hud');
 // ── Model loading ─────────────────────────────────────────────────────────────
 
 const loader     = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);   // decode meshopt-compressed GLBs
 const modelCache = {};
 
 const MODEL_PATHS = {
