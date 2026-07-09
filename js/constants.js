@@ -174,24 +174,47 @@ export const UNIT_TYPES = {
     ],
   },
 
-  // New rigged Meshy goblin (goblin2.glb) — a melee brute variant of the goblin.
-  // Only a sword-slash clip (no bow), so it's melee-only. Scale/anchorY mirror the
-  // base goblin: both GLBs report the same near-zero skinned bbox, so they render
-  // at matching size — grounding is unverified in-game, nudge with [ / ] if needed.
+  // Rigged Meshy goblin (goblin2.glb) — "Young Goblin": Commoner stat block (CR 0,
+  // no XP) but a Claw attack (1d4 slashing) instead of a club. Small goblin, so it's
+  // scaled down from the base goblin; scale/anchorY are unverified in-game — nudge
+  // with [ / ] if it floats/sinks or reads too big.
   goblin2: {
-    name: 'Goblin Warrior',
+    name: 'Young Goblin',
     team: 'red',
+    size: 'small',
+    race: 'goblin',
     dark: 0x0f2800, mid: 0x1e5000, bright: 0x33880a, emissive: 0x001100,
     legH: 0.40, torsoW: 0.58, headS: 0.38, wpnH: 0.90, wpnColor: 0x556644,
-    scale: [0.85, 0.85, 0.85],
-    anchorY: 1.4,
-    // CR 1/4 — Easy
+    scale: [0.65, 0.65, 0.65],
+    anchorY: 1.1,
+    // CR 0 — Commoner-tier (no XP)
     detect: 20,
-    hp: 9, ac: 15, speed: 30, initiative: 0, xpReward: 15,
+    hp: 4, ac: 10, speed: 30, initiative: 0, xpReward: 0,
     profBonus: 2,
-    abilities: { str: 12, dex: 14, con: 12, int: 10, wis: 8, cha: 8 },
+    passivePerception: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     attacks: [
-      { name: 'Scimitar', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
+      { name: 'Claw', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'str', damageType: 'slashing' },
+    ],
+  },
+
+  // Standard D&D Commoner (CR 0, no XP). team:'red' so it appears in the bestiary and
+  // can be placed as a (harmless) combatant. Reuses the peasant model (static pose);
+  // Club, 1d4 bludgeoning. Medium humanoid.
+  commoner: {
+    name: 'Commoner',
+    team: 'red',
+    size: 'medium',
+    scale:   [0.9, 0.9, 0.9],
+    yOffset: 0.9,
+    anchorY: 1.9,
+    detect: 20,
+    hp: 4, ac: 10, speed: 30, initiative: 0, xpReward: 0,
+    profBonus: 2,
+    passivePerception: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    attacks: [
+      { name: 'Club', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'str', damageType: 'bludgeoning' },
     ],
   },
 
@@ -1016,6 +1039,10 @@ export const HERO_TYPES  = ['dwarf', 'human', 'elf', 'halfling'];
 // Stored as decimals so Math.ceil() works correctly (0.25 → ceil → 1, 2 → 2, etc.).
 // All CRs < 1 produce tier 1; CR 2 → tier 2; CR 3 → tier 3; etc.
 export const ENEMY_CR = {
+  // ── CR 0 ────────────────────────────────────────────────────────
+  // Math.max(1, Math.ceil(0)) → tier 1, same as CR 1/8, so combat math is safe.
+  commoner:         0,
+  goblin2:          0,
   // ── CR 1/8 ──────────────────────────────────────────────────────
   kobold:           0.125,
   twig_blight:      0.125,
@@ -1025,7 +1052,6 @@ export const ENEMY_CR = {
   abyssal_chicken:  0.125,
   // ── CR 1/4 ──────────────────────────────────────────────────────
   goblin:           0.25,
-  goblin2:          0.25,
   wolf:             0.25,
   troglodyte:       0.25,
   constrictor_snake: 0.25,

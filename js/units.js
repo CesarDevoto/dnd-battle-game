@@ -49,6 +49,7 @@ const MODEL_PATHS = {
   giant_rat:      'assets/models/giantrat.glb',
   hobgoblin:      'assets/models/hobgoblin.glb',
   goblin2:        'assets/models/goblin2.glb',
+  commoner:       'assets/models/peasant1.glb',   // reuse the peasant model (static pose)
   owlbear:        'assets/models/owlbear.glb',
   troglodyte:     'assets/models/troglodyte.glb',
   ghoul:          'assets/models/ghoul.glb',
