@@ -1,6 +1,6 @@
 export const ZONE = {
   id:        'road_to_phandelver',
-  name:      'Road to Phandelver',
+  name:      'Road to Phandalin',
   biome: 'forest',
   ambient: 'goblin_ambush',
   heroEntry: [
@@ -22,6 +22,10 @@ export const ZONE = {
   ],
   exits: [
     { x: -48.43, z: -16.52, targetZone: 'bleakmire_woods', arrivalX: 3, arrivalZ: 85, label: 'Bleakmire Woods', fogOffsetX: 10, clickScale: 2 },
+    // Forward exit at the SE corner. Destination set to 'phandalin' as a placeholder
+    // (this is the Road to Phandalin; Bleakmire is the backward exit) — change targetZone
+    // once decided. Fog auto-builds here; offsets pull the ball back into the corner opening.
+    { x: 48, z: -48, targetZone: 'phandalin', label: 'Phandalin', fogOffsetX: -7, fogOffsetZ: 7, clickScale: 2 },
   ],
   terrain: [
     { x: 9.31, z: 15.7, h: -1.5, r: 11 },
@@ -187,8 +191,8 @@ export const ZONE = {
     { x1: -8.66, z1: 47.09, x2: -47.5, z2: 47.24 },
     { x1: -47.5, z1: 47.24, x2: -47.49, z2: -16.73 },
     { x1: -47.15, z1: -20.03, x2: -46.81, z2: -46.13 },
-    { x1: -46.81, z1: -46.13, x2: 47.33, z2: -46.69 },
-    { x1: 47.33, z1: -46.69, x2: 46.45, z2: 31.62 },
+    { x1: -46.81, z1: -46.13, x2: 44, z2: -46.67 },     // south wall — pulled back from SE corner (new exit gap)
+    { x1: 47.29, z1: -43, x2: 46.45, z2: 31.62 },        // east wall — pulled back from SE corner (new exit gap at the corner)
     { x1: 46.45, z1: 31.62, x2: 46.07, z2: 46.32 },
     { x1: 46.07, z1: 46.32, x2: -2.52, z2: 47.24 },
     { x1: 12.16, z1: 0.78, x2: 11.05, z2: -1.28 },

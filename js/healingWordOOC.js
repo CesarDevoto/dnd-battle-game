@@ -14,7 +14,7 @@ import {
   startOOCHealTargeting, cancelOOCHealTargeting,
 } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
-import { bindHotkey, unbindHotkey, updateHotkeyRanges } from './hotbar.js';
+import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
 
 let _used     = false;
 let _selected = null;   // currently PC-selected hero (from pc-hero:selected)
@@ -45,11 +45,20 @@ function _render() {
   // Leugren's in-combat Healing Word slot too) — never touch it once a
   // fight is live, only manage it for the precombat/exploration phase.
   if (combatPhase) return;
+  // Out of combat, combat.js's OOC hotbar system auto-fills KeyQ for EVERY
+  // hero (fire_bolt for Rasec, rage for Gobo, etc.). Only Leugren's Q is
+  // Healing Word, so this module only manages it for the dwarf — and it must
+  // never unbind KeyQ, or another hero's auto-assigned ability gets wiped
+  // (that's the bug where only Leugren's Q showed out of combat).
+  if (_selected?.type !== 'dwarf') return;
   if (!_canCast()) {
-    unbindHotkey('KeyQ', false);
+    // Used up (or Leugren's down) — leave combat.js's auto-assigned Healing
+    // Word in place and just refresh its greyed state rather than blanking Q.
     updateHotkeyRanges();
     return;
   }
+  // Castable: override with the picking-aware binding (adds the CHOOSE TARGET
+  // label and the click-to-toggle-rings flow on top of the base handler).
   bindHotkey('KeyQ', false,
     _picking
       ? '<span class="hb-ready">CHOOSE<br>TARGET</span>'

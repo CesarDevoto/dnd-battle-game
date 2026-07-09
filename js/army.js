@@ -162,12 +162,75 @@ renderer.domElement.addEventListener('mousemove', e => {
   distLabel.style.display = 'none';
 });
 
+// ── Dev coordinate marker ─────────────────────────────────────────────────────
+// Alt+click the ground to drop a labelled pin and read its world (x, z); the
+// running list shows in a top-left panel. Alt+Shift+click clears all marks.
+// Handy for telling Claude "move the opening from mark 1 to mark 2".
+const _COORD_COLORS = [0xffd400, 0x33ccff, 0xff5588, 0x66ff66, 0xffffff, 0xff9900];
+let _coordMarks = [];
+let _coordPanel = null;
+
+function _renderCoordPanel() {
+  if (!_coordPanel) {
+    _coordPanel = document.createElement('div');
+    _coordPanel.id = 'coord-mark-panel';
+    _coordPanel.style.cssText =
+      'position:fixed;top:70px;left:12px;z-index:9999;font:12px/1.55 monospace;' +
+      'background:rgba(8,6,2,.9);border:1px solid rgba(212,175,55,.45);border-radius:6px;' +
+      'padding:8px 11px;color:#f0e0b0;pointer-events:none;max-width:260px;';
+    document.body.appendChild(_coordPanel);
+  }
+  const rows = _coordMarks.map((m, i) => {
+    const c = '#' + _COORD_COLORS[i % _COORD_COLORS.length].toString(16).padStart(6, '0');
+    return `<div style="color:${c}">${i + 1}: x ${m.x.toFixed(2)}, z ${m.z.toFixed(2)}</div>`;
+  }).join('');
+  _coordPanel.innerHTML =
+    '<b>Coord marks</b> · Alt+click ground<br>' +
+    '<span style="opacity:.55">Alt+Shift+click to clear</span>' + rows;
+}
+
+function _clearCoordMarks() {
+  _coordMarks.forEach(m => {
+    scene.remove(m.grp);
+    m.grp.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+  });
+  _coordMarks = [];
+  _renderCoordPanel();
+}
+
+function _dropCoordMark(x, y, z) {
+  const idx   = _coordMarks.length;
+  const color = _COORD_COLORS[idx % _COORD_COLORS.length];
+  const mat   = new THREE.MeshBasicMaterial({ color, depthTest: false });
+  const grp   = new THREE.Group();
+  const pole  = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6, 8), mat);
+  pole.position.y = 3;
+  const ball  = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), mat);
+  ball.position.y = 6;
+  grp.add(pole, ball);
+  grp.position.set(x, y, z);
+  grp.renderOrder = 999;   // draw on top so the pin is always visible
+  grp.traverse(o => { o.renderOrder = 999; });
+  scene.add(grp);
+  _coordMarks.push({ x, z, grp });
+  _renderCoordPanel();
+  console.log(`[coord-mark ${idx + 1}] x: ${x.toFixed(2)}, z: ${z.toFixed(2)}`);
+}
+
 // ── Click: select / reposition ────────────────────────────────────────────────
 
 renderer.domElement.addEventListener('click', e => {
   // Leugren's out-of-combat Healing Word is picking a target this click —
   // combat.js's own listener owns it entirely, don't also reselect a hero.
   if (isOOCHealPicking()) return;
+
+  // ── Dev: Alt+click drops a coordinate marker (Alt+Shift+click clears them) ──
+  if (e.altKey) {
+    if (e.shiftKey) { _clearCoordMarks(); return; }
+    const pt = groundHit(e.clientX, e.clientY);
+    if (pt) _dropCoordMark(pt.x, pt.y, pt.z);
+    return;
+  }
 
   // ── Waystone click: open associated map (works in precombat and combat) ──
   {

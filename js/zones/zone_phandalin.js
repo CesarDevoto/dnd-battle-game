@@ -15,7 +15,7 @@ export const ZONE = {
   // Placeholder positions — retune in the prop/NPC editor once buildings are placed.
   enemies: [],
   exits: [
-    // { x: 0, z: 0, targetZone: 'road_to_phandelver', arrivalX: 0, arrivalZ: 0, label: 'Road to Phandelver' }
+    // { x: 0, z: 0, targetZone: 'road_to_phandelver', arrivalX: 0, arrivalZ: 0, label: 'Road to Phandalin' }
   ],
   terrain: [
     { x: -136.14, z: -115.82, h: 10, r: 50 },

@@ -92,7 +92,7 @@ const _CHANCES = [
 ];
 
 // ── Lesser Healing Potion ──────────────────────────────────────────────────────
-// Flat 4% drop chance for any kill. Goblins in the Road to Phandelver zone are
+// Flat 4% drop chance for any kill. Goblins in the Road to Phandalin zone are
 // guaranteed to drop one the very first time (a scripted introduction to the
 // item), tracked via localStorage so it never repeats.
 const LESSER_HEALING_POTION = getPotion('potion5');
