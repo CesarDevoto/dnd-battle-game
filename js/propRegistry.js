@@ -62,6 +62,7 @@ export const PROP_MODELS = {
   building15:   { label: 'Building 15', path: 'assets/environment/building15.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   building16:   { label: 'Building 16', path: 'assets/environment/building16.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   woodwall1:    { label: 'Wood Wall 1', path: 'assets/environment/woodwall1.glb',        defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
+  woodwall2:    { label: 'Wood Wall 2', path: 'assets/environment/woodwall2.glb',        defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
   plant1:       { label: 'Plant 1',     path: 'assets/environment/plant1.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
   plant2:       { label: 'Plant 2',     path: 'assets/environment/plant2.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
   plant3:       { label: 'Plant 3',     path: 'assets/environment/plant3.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },

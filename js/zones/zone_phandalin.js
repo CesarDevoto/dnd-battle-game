@@ -90,7 +90,7 @@ export const ZONE = {
     { model: 'flooring1', x: -62.87, z: -27.39, y: -0.075, yOff: -0.075, rotY: 0.916, scale: 4.84 },
     { model: 'flooring1', x: -56.02, z: -22.18, y: -0.075, yOff: -0.075, rotY: 10.341, scale: 4.84 },
     { model: 'flooring1', x: -57.36, z: -34.61, y: -0.075, yOff: -0.075, rotY: 4.058, scale: 4.84 },
-    { model: 'inn2', x: -56.92, z: -27.6, y: -0.375, yOff: -0.375, rotY: 5.629, scale: 13.809 },
+    { model: 'inn2', x: -81.17, z: -27.6, y: -0.375, yOff: -0.375, rotY: 5.629, scale: 13.809 },
     { model: 'bush', x: -45.54, z: -27.6, y: -0.2, rotY: 0, scale: 1 },
     { model: 'bush', x: -44.89, z: -29.94, y: -0.2, rotY: 0, scale: 1 },
     { model: 'bush', x: -44.33, z: -28.75, y: -0.2, rotY: 0, scale: 1 },
@@ -134,7 +134,7 @@ export const ZONE = {
     { model: 'foresttree', x: 106.16, z: -8.97, y: 0, rotY: 0, scale: 10 },
     { model: 'foresttree', x: 69.17, z: -37.4, y: 0, rotY: 0, scale: 10 },
     { model: 'foresttree', x: -31.38, z: -31.08, y: 0, rotY: 0, scale: 10 },
-    { model: 'foresttree', x: -90.56, z: -124.65, y: 0.1458, rotY: 0, scale: 10 },
+    { model: 'foresttree', x: -90.56, z: -124.65, y: 0.1459, rotY: 0, scale: 10 },
     { model: 'foresttree', x: 123.57, z: -71.92, y: 0, rotY: 0, scale: 10 },
     { model: 'savannahtree', x: 104.28, z: -80.32, y: 4.25, yOff: 4.25, rotY: 0, scale: 7.4 },
     { model: 'savannahtree', x: 104.28, z: -64.17, y: 4.25, yOff: 4.25, rotY: 1.963, scale: 7.4 },
@@ -246,6 +246,11 @@ export const ZONE = {
     { model: 'building11', x: -128.19, z: 98, y: 0, rotY: 0.524, scale: 5.324 },
     { model: 'building16', x: -108.64, z: -54.47, y: 0, rotY: 0.262, scale: 5.324 },
     { model: 'building7', x: -103.78, z: -81.2, y: 0.079, rotY: 6.676, scale: 5.856 },
+    { model: 'barstand', x: -52.77, z: -28.08, y: 0, rotY: 0.916, scale: 1.611 },
+    { model: 'barstand', x: -50.41, z: -26.33, y: 0, rotY: 0.916, scale: 1.611 },
+    { model: 'bench1', x: -55.72, z: -26.04, y: 0, rotY: 0, scale: 1.1 },
+    { model: 'bench1', x: -58.25, z: -23.02, y: 0, rotY: 0, scale: 1.1 },
+    { model: 'bench1', x: -54.71, z: -22.63, y: 0, rotY: 0.654, scale: 1.1 },
   ],          // place buildings/props in the prop editor, then save
   barriers: [],       // drawn in the terrain editor
   paint: [
