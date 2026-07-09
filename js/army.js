@@ -294,6 +294,71 @@ renderer.domElement.addEventListener('click', e => {
   }
 });
 
+// ── Hold-left-to-move: continuous cursor-follow movement (exploration) ─────────
+// Diablo/PoE style — hold the left button and the selected hero walks toward the
+// ground point under the cursor, re-evaluated every frame (the camera follows the
+// hero, so a stationary cursor still maps to a moving ground point). With group
+// move on, the rest of the party follows in the formation offsets captured when
+// the hold began. The movement engine is already target-based (movePCHeroTo sets
+// hero._pcTarget, walked by tickPrecombat), so this just keeps overwriting it.
+let _holdMoving    = false;
+let _holdPointer   = { x: 0, y: 0 };
+let _holdFollowers = null;   // [{ unit, ox, oz }] — captured formation offsets (group move only)
+
+function _stopHoldMove() { _holdMoving = false; _holdFollowers = null; }
+
+function _issueHoldMove(x, z, sel) {
+  movePCHeroTo(sel, x, z);
+  if (_holdFollowers) {
+    for (const f of _holdFollowers) movePCHeroTo(f.unit, x + f.ox, z + f.oz);
+  }
+}
+
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button !== 0 || !isPrecombat() || isOOCHealPicking()) return;
+  const pt = groundHit(e.clientX, e.clientY);
+  if (!pt) return;
+  // Pressing on a hero selects it (handled by the 'click' listener) — not a move.
+  const onHero = units.some(u => u.team === 'blue' && u.hp > 0 &&
+    (u.grp.position.x - pt.x) ** 2 + (u.grp.position.z - pt.z) ** 2 < INTERACTION.pickRadiusSq);
+  if (onHero) return;
+  const sel = getPCSelected();
+  if (!sel) return;
+  _holdMoving  = true;
+  _holdPointer = { x: e.clientX, y: e.clientY };
+  // Capture each follower's offset from the leader now, so the formation is held
+  // as the whole party trails the cursor.
+  _holdFollowers = isGroupMove()
+    ? units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0)
+        .map(o => ({ unit: o, ox: o.grp.position.x - sel.grp.position.x, oz: o.grp.position.z - sel.grp.position.z }))
+    : null;
+  _issueHoldMove(pt.x, pt.z, sel);
+});
+
+// Track the cursor while held; the per-frame tick re-raycasts from this position.
+renderer.domElement.addEventListener('mousemove', e => {
+  if (_holdMoving) { _holdPointer.x = e.clientX; _holdPointer.y = e.clientY; }
+});
+
+// Releasing anywhere — or the cursor leaving the canvas — ends the hold.
+window.addEventListener('mouseup', e => { if (e.button === 0) _stopHoldMove(); });
+renderer.domElement.addEventListener('mouseleave', _stopHoldMove);
+
+// Called every frame from the main render loop (after tickPrecombat).
+export function tickHoldMove() {
+  if (!_holdMoving) return;
+  if (!isPrecombat()) { _stopHoldMove(); return; }
+  const sel = getPCSelected();
+  if (!sel || sel.hp <= 0) { _stopHoldMove(); return; }
+  const pt = groundHit(_holdPointer.x, _holdPointer.y);
+  if (!pt) return;
+  // Stop re-issuing once the leader is basically at the cursor, so the walk
+  // animation doesn't flicker on/off at the destination.
+  const dx = pt.x - sel.grp.position.x, dz = pt.z - sel.grp.position.z;
+  if (dx * dx + dz * dz < 0.36) return;
+  _issueHoldMove(pt.x, pt.z, sel);
+}
+
 
 // ── Start Battle ──────────────────────────────────────────────────────────────
 

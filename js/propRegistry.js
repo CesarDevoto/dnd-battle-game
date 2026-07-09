@@ -69,6 +69,7 @@ export const PROP_MODELS = {
   plant4:       { label: 'Plant 4',     path: 'assets/environment/plant4.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
   bench1:       { label: 'Bench 1',     path: 'assets/environment/bench1.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   barstand2:    { label: 'Bar Stand 2', path: 'assets/environment/barstand2.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
+  barloaded:    { label: 'Loaded Bar',  path: 'assets/environment/barloaded.glb',        defaultScale: 1.0, blocksLOS: true,  clashR: 2.0  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
