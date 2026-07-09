@@ -38,6 +38,7 @@ export const PROP_MODELS = {
   fancychair:   { label: 'Fancy Chair', path: 'assets/environment/fancy chair.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   pileofbones:  { label: 'Pile of Bones', path: 'assets/environment/pile of bones.glb',  defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   woodchair:    { label: 'Wood Chair',  path: 'assets/environment/wood chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
+  barstand:     { label: 'Bar Stand',   path: 'assets/environment/bar stand.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   inn:          { label: 'Inn',         path: 'assets/environment/inn.glb',              defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   bigbuilding1: { label: 'Big Building 1', path: 'assets/environment/big building 1.glb', defaultScale: 4.0, blocksLOS: true,  clashR: 3.5  },
   building2:    { label: 'Building 2',  path: 'assets/environment/building 2.glb',       defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },

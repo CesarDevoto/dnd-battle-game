@@ -615,7 +615,7 @@ const PROP_CATEGORIES = [
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse'] },
-  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand'] },
   { label: 'Terrain Surfaces',keys: ['road','roadcurve30','water','bloodpool'] },
   { label: 'Effects & Markers',keys:['fogpatch','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];
