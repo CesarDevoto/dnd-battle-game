@@ -16,24 +16,24 @@ function _updateUI() {
   document.getElementById('gm-solo-btn')?.classList.toggle('active', !_active);
 }
 
-function _rallyToLeugren() {
+function _rallyToBox() {
   if (!isPrecombat()) return;
-  const leugren = units.find(u => u.team === 'blue' && u.type === 'dwarf' && u.hp > 0);
-  if (!leugren) return;
-  const { x, z } = leugren.grp.position;
-  const WU = 2; // 1 grid square = 2 world units
-  const offsets = [[-WU, 0], [WU, 0], [0, WU]]; // W, E, S
-  units
-    .filter(u => u.team === 'blue' && u.type !== 'dwarf' && u.hp > 0)
-    .forEach((hero, i) => {
-      const [dx, dz] = offsets[i];
-      movePCHeroTo(hero, x + dx, z + dz);
-    });
+  const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
+  if (!heroes.length) return;
+  // Reform into the same tight 2×2 box used at zone start (one hero per adjacent
+  // grid square, 2 WU apart), centred on Leugren (or the first hero if he's down).
+  const leader = heroes.find(u => u.type === 'dwarf') ?? heroes[0];
+  const cx = leader.grp.position.x, cz = leader.grp.position.z;
+  const BOX = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  heroes.forEach((hero, i) => {
+    const [ox, oz] = BOX[i % BOX.length];
+    movePCHeroTo(hero, cx + ox, cz + oz);
+  });
 }
 
 export function initGroupMove() {
   document.getElementById('gm-group-btn').addEventListener('click', () => setGroupMove(true));
   document.getElementById('gm-solo-btn').addEventListener('click',  () => setGroupMove(false));
-  document.getElementById('gm-rally-btn').addEventListener('click', _rallyToLeugren);
+  document.getElementById('gm-rally-btn').addEventListener('click', _rallyToBox);
   _updateUI();
 }

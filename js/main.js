@@ -1,4 +1,4 @@
-import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera } from './scene.js';
+import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera, ceiling } from './scene.js';
 import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
@@ -10,7 +10,8 @@ import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, 
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
-import { getTerrainHeight } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, resolveCaveLayer } from './terrain.js';
+import { tickCaveReveal } from './caveReveal.js';
 import { buildHeroPortraits, updateHeroUI } from './heroPortraits.js';
 import { initBestiary } from './bestiary.js';
 import { initSpellbook } from './spellbook.js';
@@ -29,6 +30,7 @@ import { initBarrierEditor } from './barrierEditor.js';
 import { initTerrainPaint } from './terrainPaint.js';
 import { initReferenceOverlay } from './referenceOverlay.js';
 import { initTrenchEditor } from './trenchEditor.js';
+import { initCaveEntranceEditor } from './caveEntranceEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickExclamations } from './exclamationMarkers.js';
@@ -99,6 +101,16 @@ initDevLevelTool();
     document.addEventListener('keydown', e => { if (e.key === 'Escape') sxpOverlay.classList.remove('show'); });
   }
 }
+
+// Cave ceiling toggle (K) — hide the roof so the top-down follow-cam isn't
+// occluded while playing a tunnel zone; press again to inspect the ceiling.
+document.addEventListener('keydown', e => {
+  if ((e.key === 'k' || e.key === 'K') && !e.repeat) {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    ceiling.visible = !ceiling.visible;
+  }
+});
 
 // Smart Aggro overlay (dev-only)
 {
@@ -176,6 +188,7 @@ if (IS_DEV) {
   initTerrainPaint();
   initReferenceOverlay();
   initTrenchEditor();
+  initCaveEntranceEditor();
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
@@ -296,7 +309,11 @@ let _prevNow = 0;
   t += ANIM.timeStep;
 
   units.forEach((u, i) => {
-    const terrainY   = getTerrainHeight(u.grp.position.x, u.grp.position.z);
+    // Cave zones: pick the walkable surface (hill top vs tunnel floor) for this
+    // unit, transitioning at the mouth. No-op in non-cave zones. Familiars hover,
+    // so they skip the layer swap.
+    if (!u.familiar) u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', u.grp.position.x, u.grp.position.z);
+    const terrainY   = getGroundHeight(u.grp.position.x, u.grp.position.z, u.caveLayer);
     const baseHoverY = u.hoverY ?? 0;
 
     // Hovering units descend diagonally as they close to melee range.
@@ -330,6 +347,9 @@ let _prevNow = 0;
       u.anchor.y = terrainY + u.anchorY + effectiveHoverY + bob;
     }
   });
+
+  // Fade the cave roof open around any hero who has gone under it.
+  tickCaveReveal(units, camera);
 
   // Familiar rides its owner's shoulder — override its position after the
   // generic per-unit placement above so it snaps to the live bone this frame.

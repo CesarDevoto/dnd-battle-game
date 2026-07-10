@@ -87,6 +87,11 @@ export function buildTunnelPaths() {
 
 export function setTunnelMode(active) { _tunnelMode = active; }
 
+// Authored tunnel paths (deterministic) — used by zones that define their own
+// carved layout instead of the random buildTunnelPaths() generator.
+// Each path: { points:[{x,z},...], hw:number }.
+export function setTunnelPaths(paths) { _tunnelPaths = paths ?? []; }
+
 // Returns true if (wx, wz) lies within any path's floor zone
 export function isOnTunnelFloor(wx, wz) {
   if (!_tunnelMode) return true;
@@ -317,13 +322,13 @@ function _nearestOnPath(wx, wz, path) {
   return { dist, segH, pr: path.pr ?? 0 };
 }
 
-function _trenchHeight(wx, wz, surroundingH, excludePath) {
+function _trenchHeight(wx, wz, surroundingH, excluded) {
   // Pick the dominant path at this point: closest centerline wins; ties prefer
   // the narrower (smaller r) path, since that's the more locally-specific one.
   const EPS = 1e-6;
   let winner = null, bestDist = Infinity, bestR = Infinity;
   for (const path of _trenchPaths) {
-    if (path === excludePath) continue;
+    if (excluded && excluded.has(path)) continue;
     const hit = _nearestOnPath(wx, wz, path);
     if (!hit) continue;
     const better = !winner
@@ -342,23 +347,34 @@ function _trenchHeight(wx, wz, surroundingH, excludePath) {
   const band = Math.min(TRENCH_RISE_WU, winner.path.r - winner.pr);
   const t = band > 0 ? Math.max(0, 1 - (winner.dist - winner.pr) / band) : 0;
   const eased = t * t * (3 - 2 * t);
-  const without = _trenchHeight(wx, wz, surroundingH, winner.path);
+  // Exclude this path AND every already-excluded one so overlapping trench
+  // falloff bands can't ping-pong forever — recursion is bounded by path count.
+  const nextExcluded = new Set(excluded);
+  nextExcluded.add(winner.path);
+  const without = _trenchHeight(wx, wz, surroundingH, nextExcluded);
   const blendTarget = without !== null ? without : surroundingH;
   return winner.segH * eased + blendTarget * (1 - eased);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// Returns positive (hill) or negative (valley) height relative to base level.
-export function getTerrainHeight(wx, wz) {
+// "Solid rock" height — noise + rim + control points, WITHOUT trench carving.
+// This is the surface of the uncarved landform (e.g. the top of a hill); the
+// cave ceiling uses it as the underside of the rock above a carved tunnel.
+export function getUncarvedHeight(wx, wz) {
   if (_tunnelMode) return _tunnelHeight(wx, wz);
   const raw    = rawNoise(wx, wz);
   const sharp  = Math.sign(raw) * Math.pow(Math.abs(raw), sharpExp);
   const noiseH = sharp * edgeFade(wx, wz) * scale * biomeAmplitudeScale;
   const base   = Math.max(noiseH, _rimHeight(wx, wz));
-  const cpH    = _controlPointHeight(wx, wz);
-  const surrounding = base + cpH;
-  const trH    = _trenchHeight(wx, wz, surrounding);
+  return base + _controlPointHeight(wx, wz);
+}
+
+// Returns positive (hill) or negative (valley) height relative to base level.
+export function getTerrainHeight(wx, wz) {
+  if (_tunnelMode) return _tunnelHeight(wx, wz);
+  const surrounding = getUncarvedHeight(wx, wz);
+  const trH = _trenchHeight(wx, wz, surrounding);
   return trH !== null ? trH : surrounding;
 }
 
@@ -475,4 +491,149 @@ export function rebuildTerrain(mesh, biome) {
 export function rebuildTerrainGeometry(mesh) {
   mesh.geometry.dispose();
   mesh.geometry = buildGeo(_lastBiome);
+}
+
+// ── Cave ceiling (intact-mound "blanket") ───────────────────────────────────────
+// The ceiling is a full copy of the ORIGINAL uncarved landform (getUncarvedHeight —
+// the mound as if it were never dug into), draped over the entire zone. It is built
+// exactly like the ground — same PlaneGeometry grid, UVs, normals, vertex colours —
+// and SHARES the ground material, so it renders pixel-identical to the terrain.
+// Because it's the whole original surface (not a strip clipped to the void), there
+// is no cut edge anywhere and therefore no seam: the mound simply looks intact and
+// the carved tunnel is hidden beneath it. A small lift keeps it cleanly above the
+// carved ground (over untouched areas the two coincide). The entrance is punched
+// later by removing triangles where the mouth should be.
+
+const CEIL_LIFT = 0.25;   // WU: real gap between blanket and ground so they never z-fight
+                          // (surface grounding adds the same lift — see getGroundHeight)
+
+// ── Cave entrances (mouths punched into the blanket) ────────────────────────────
+// Each entrance: { x, z, r, seed }. The mouth is an organic (non-circular) blob —
+// its boundary radius wobbles with angle via a few sine octaves keyed off `seed`,
+// so every mouth is a unique natural shape. Punching over the tunnel reveals the
+// cave (floor at the mouth's base); punching over solid hill just exposes the
+// ground ~CEIL_LIFT below (invisible), so placement is forgiving.
+let _caveEntrances = [];
+export function setCaveEntrances(list) { _caveEntrances = list ?? []; }
+export function getCaveEntrances()      { return _caveEntrances; }
+
+// Organic boundary radius of an entrance at angle `a` (radians). Continuous at
+// a=0/2π since every term is periodic in a. Several octaves — including some
+// high-frequency ones — give a finely jagged, natural edge rather than a smooth
+// blob (the fine octaves only read once the blanket mesh is dense enough).
+export function caveEntranceRadiusAt(ent, a) {
+  const s = ent.seed ?? 0;
+  const wobble = 1
+    + 0.30 * Math.sin(3  * a + s)
+    + 0.16 * Math.sin(7  * a + 2.3 * s)
+    + 0.09 * Math.sin(11 * a + 4.1 * s)
+    + 0.055 * Math.sin(17 * a + 5.7 * s)
+    + 0.035 * Math.sin(23 * a + 7.9 * s)
+    + 0.022 * Math.sin(31 * a + 9.3 * s);
+  return ent.r * wobble;
+}
+
+function _insideEntrance(x, z) {
+  for (const ent of _caveEntrances) {
+    const dx = x - ent.x, dz = z - ent.z;
+    const d  = Math.hypot(dx, dz);
+    if (d > ent.r * 1.7) continue;                 // quick reject (max wobble ≈ 1.66×)
+    if (d < caveEntranceRadiusAt(ent, Math.atan2(dz, dx))) return true;
+  }
+  return false;
+}
+
+// ── Cave layer grounding (over-the-hill vs in-the-tunnel) ───────────────────────
+// A heightmap has one height per (x,z), but over a tunnel there are two walkable
+// surfaces: the hill top (uncarved) and the tunnel floor (carved). Each unit
+// carries a `caveLayer` ('surface' | 'under'); we ground it to the matching
+// surface. Only active in cave zones (setCaveLayersActive), so every other zone
+// grounds to getTerrainHeight exactly as before — including trench canyons that
+// are meant to be walked *in*, not over.
+let _layersActive = false;
+export function setCaveLayersActive(on) { _layersActive = on; }
+
+const LAYER_MERGE_EPS = 0.6;   // WU: below this the two surfaces are "the same" (mouth / open ground)
+
+// Height a unit on `layer` should stand at. Surface units stand on the blanket,
+// which is lifted CEIL_LIFT above the ground, so add the same lift here — that
+// keeps a real gap between blanket and ground (kills z-fighting) without units
+// looking sunk into the roof.
+export function getGroundHeight(x, z, layer) {
+  if (!_layersActive) return getTerrainHeight(x, z);
+  return layer === 'under' ? getTerrainHeight(x, z) : getUncarvedHeight(x, z) + CEIL_LIFT;
+}
+
+// Layer a freshly-spawned unit belongs on: on the tunnel floor if there's rock
+// overhead here, otherwise on the surface.
+export function initialCaveLayer(x, z) {
+  if (!_layersActive) return 'surface';
+  return (getUncarvedHeight(x, z) - getTerrainHeight(x, z)) > LAYER_MERGE_EPS ? 'under' : 'surface';
+}
+
+// Per-frame transition. A surface unit drops under only by stepping into a punched
+// mouth; an under unit returns to the surface only once it's clear of the mouth AND
+// back where the two surfaces meet (the open-air lip), so it can't pop up mid-hill.
+export function resolveCaveLayer(current, x, z) {
+  if (!_layersActive) return 'surface';
+  if (current === 'under') {
+    if (!_insideEntrance(x, z) && (getUncarvedHeight(x, z) - getTerrainHeight(x, z)) < LAYER_MERGE_EPS)
+      return 'surface';
+    return 'under';
+  }
+  return _insideEntrance(x, z) ? 'under' : 'surface';
+}
+
+// Denser than the ground (128) so punched cave-mouth edges are fine-grained, not
+// boxy. UVs stay 0..1 across the plane regardless of resolution and the material
+// textures triplanar from world position, so it still matches the terrain exactly.
+const CEIL_SEGS = 512;
+
+function buildCeilGeo(biome) {
+  const SEGS = CEIL_SEGS;
+  const geo  = new THREE.PlaneGeometry(_gs, _gs, SEGS, SEGS);
+  const pos  = geo.attributes.position;
+  const roof = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = -pos.getY(i);
+    const unc = getUncarvedHeight(x, z);
+    pos.setZ(i, unc + CEIL_LIFT);
+    // How much real roof (rock overhead) is here: 0 on open ground, 1 under the
+    // tunnel. The reveal fades only where this is > 0, so it never exposes the
+    // CEIL_LIFT gap over flat ground near the mouth (that looked like a blurry step).
+    roof[i] = _smoothstep(0.6, 2.5, unc - getTerrainHeight(x, z));
+  }
+  pos.needsUpdate = true;
+  geo.setAttribute('aRoof', new THREE.Float32BufferAttribute(roof, 1));
+  geo.computeVertexNormals();
+  if (biome) colorTerrainVertices(geo, biome);
+
+  // Punch the mouths: drop any triangle whose centroid falls inside an entrance.
+  if (_caveEntrances.length) {
+    const src  = geo.index.array;
+    const keep = [];
+    for (let t = 0; t < src.length; t += 3) {
+      const a = src[t], b = src[t + 1], c = src[t + 2];
+      const cx =  (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cz = -(pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3;
+      if (!_insideEntrance(cx, cz)) keep.push(a, b, c);
+    }
+    geo.setIndex(keep);
+  }
+  return geo;
+}
+
+// Build the cave roof. Share the ground material (set to DoubleSide) so texture,
+// splatmap and biome tint match the terrain exactly. Rotated like the ground.
+export function buildCeilingMesh(material) {
+  const mesh = new THREE.Mesh(buildCeilGeo(_lastBiome), material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.receiveShadow = true;
+  mesh.renderOrder = 1;
+  return mesh;
+}
+
+export function rebuildCeiling(mesh, biome) {
+  mesh.geometry.dispose();
+  mesh.geometry = buildCeilGeo(biome ?? _lastBiome);
 }

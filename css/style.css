@@ -4008,13 +4008,14 @@ body {
 .bst-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-family: var(--font-body);
 }
-.bst-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
+/* Fixed column widths keep every per-CR table aligned with the others */
+.bst-c-name { width: 150px; }
+.bst-c-num  { width: 50px;  }
+.bst-c-ab   { width: 46px;  }
+.bst-c-atks { width: auto;  }
 .bst-table thead th {
   font-family: var(--font-fantasy);
   font-size: 0.54rem;
@@ -4033,6 +4034,99 @@ body {
 .bst-th-num   { width: 48px;  text-align: center !important; }
 .bst-th-ab    { width: 50px;  text-align: center !important; }
 .bst-th-atks  { }
+
+/* ── CR accordion ────────────────────────────────────────────────────── */
+#bestiary-accordion { display: flex; flex-direction: column; }
+
+.bst-cr-sec {
+  border-bottom: 1px solid rgba(212,175,55,0.08);
+}
+.bst-cr-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px 10px;
+  background:
+    repeating-linear-gradient(-45deg, transparent 0, transparent 3px, rgba(212,175,55,0.008) 3px, rgba(212,175,55,0.008) 4px),
+    linear-gradient(180deg, rgba(18,12,3,0.99) 0%, rgba(8,5,1,1.00) 100%);
+  border: none;
+  border-top: 1px solid rgba(212,175,55,0.10);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s;
+}
+.bst-cr-head:hover { background: linear-gradient(180deg, rgba(30,21,6,0.99) 0%, rgba(12,8,2,1.00) 100%); }
+
+.bst-cr-chev {
+  color: #7a6432;
+  font-size: 0.72rem;
+  transition: transform 0.16s ease, color 0.14s;
+  flex-shrink: 0;
+  width: 12px;
+}
+.bst-cr-sec.open .bst-cr-chev { transform: rotate(90deg); color: var(--gold); }
+
+.bst-cr-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.66rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(212,175,55,0.35);
+  flex-shrink: 0;
+}
+.bst-cr-meta {
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  letter-spacing: 0.5px;
+  color: #6a5f48;
+}
+.bst-cr-statted {
+  color: #33bb88;
+  font-weight: bold;
+}
+
+.bst-cr-body { display: none; padding-bottom: 4px; }
+.bst-cr-sec.open .bst-cr-body { display: block; }
+.bst-cr-body .bst-table thead th { padding-top: 5px; padding-bottom: 5px; }
+
+/* Reference-only (name-catalogued, unstatted) rows */
+.bst-ref-name { color: #8a86a4 !important; opacity: 0.9; }
+.bst-ref-note {
+  font-size: 0.62rem;
+  font-style: italic;
+  color: #4e4763;
+  letter-spacing: 0.4px;
+  padding: 6px 10px 2px !important;
+  vertical-align: top;
+}
+
+/* In-game (statted) rows get a faint gold accent on the name */
+.bst-stat-row .bst-name-cell { box-shadow: inset 2px 0 0 rgba(212,175,55,0.30); }
+
+/* Expand / collapse toolbar buttons */
+.bst-tool-btn {
+  background: rgba(12,8,2,0.9);
+  border: 1px solid #3a2a08;
+  border-radius: 3px;
+  color: #8a7a50;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  letter-spacing: 0.4px;
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s, text-shadow 0.12s;
+}
+.bst-tool-btn:hover {
+  color: var(--gold);
+  border-color: rgba(212,175,55,0.45);
+  text-shadow: 0 0 6px rgba(212,175,55,0.35);
+}
 
 /* Retired / superseded columns — greyed out */
 th.bst-col-retired { color: #2a2820 !important; }
@@ -4194,10 +4288,11 @@ td.bst-col-retired { color: #343228 !important; }
   gap: 6px;
   margin-top: 10px;
   width: 100%;
-  max-width: 420px;
+  max-width: 620px;
 }
 #bestiary-search {
   flex: 1;
+  min-width: 140px;
   background: rgba(12,8,2,0.92);
   border: 1px solid #3a2a08;
   border-radius: 3px;
@@ -5015,23 +5110,17 @@ td.bst-col-retired { color: #343228 !important; }
   margin: 1px 0;
 }
 .gm-rally {
-  color: rgba(212,175,55,0.45);
+  color: rgba(68,255,68,0.40);
 }
 .gm-rally:hover {
-  color: rgba(212,175,55,1.0);
-  border-color: rgba(212,175,55,0.55);
+  color: rgba(68,255,68,0.75);
+  border-color: rgba(212,175,55,0.50);
 }
-/* Rally icon: large center dot (Leugren) + 3 smaller dots converging */
-.gm-dots-rally {
+/* Rally icon: 4 arrows converging toward the centre (gather / regroup) */
+.gm-rally-svg {
   display: block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow:
-    -10px  0px 0 -1px currentColor,
-     10px  0px 0 -1px currentColor,
-      0px  10px 0 -1px currentColor;
+  width: 21px;
+  height: 21px;
 }
 /* 4-dot icon: top-left dot + 3 box-shadow dots forming a 2×2 grid */
 .gm-dots-4 {

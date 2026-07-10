@@ -4,7 +4,8 @@ import { COLORS, SCENE, GROUND_SIZE, GRID_DIVISIONS, WORLD_UNITS_PER_SQUARE } fr
 
 let _sceneGS = GROUND_SIZE;
 export function setSceneGroundSize(s) { _sceneGS = s; }
-import { buildTerrainMesh, getTerrainHeight } from './terrain.js';
+import { buildTerrainMesh, buildCeilingMesh, getTerrainHeight, getGroundHeight, getUncarvedHeight } from './terrain.js';
+import { ceilingMaterial, applyRevealShader } from './caveReveal.js';
 import { isEditModeActive } from './devConfig.js';
 
 export const scene = new THREE.Scene();
@@ -54,10 +55,20 @@ export const fire = new THREE.DirectionalLight(COLORS.rimFire, SCENE.fireIntensi
 fire.position.set(...SCENE.firePos);
 scene.add(fire);
 
-export const ground = buildTerrainMesh(
-  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0, vertexColors: true })
-);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, roughness: 0.92, metalness: 0, vertexColors: true,
+});
+export const ground = buildTerrainMesh(groundMat);
 scene.add(ground);
+
+// Cave ceiling — its own material (caveReveal) so it can fade a soft patch around
+// heroes who go under the roof. syncCaveRevealMaterial keeps its map/colour/rough
+// matched to the ground. Hidden until a cave zone loads (toggled by zoneLoader);
+// follows the original hill contour so the hill reads as intact with the cave a
+// hole in its side.
+export const ceiling = buildCeilingMesh(ceilingMaterial);
+ceiling.visible = false;
+scene.add(ceiling);
 
 // ── Terrain-conforming grid ───────────────────────────────────────────────────
 // Instead of a flat GridHelper we build LineSegments whose vertices are sampled
@@ -68,34 +79,45 @@ scene.add(ground);
 const _GRID_SUB    = 4;     // sub-steps per cell — captures fine terrain detail
 const _GRID_Y_LIFT = 0.07;  // world-units above the surface (avoids z-fighting)
 
-function _buildGridGeo() {
+// smoothstep — how much real roof (rock overhead) is at (x,z): 0 on open ground,
+// 1 under the tunnel. Matches the blanket's aRoof so the grid fades identically.
+function _gss(a, b, t) { const x = Math.max(0, Math.min(1, (t - a) / (b - a))); return x * x * (3 - 2 * x); }
+function _gridRoof(x, z) { return _gss(0.6, 2.5, getUncarvedHeight(x, z) - getTerrainHeight(x, z)); }
+
+const _FLOOR_H = (x, z) => getTerrainHeight(x, z);                 // carved terrain / tunnel floor
+const _SURF_H  = (x, z) => getGroundHeight(x, z, 'surface');      // surface / blanket
+
+function _buildGridGeo(heightFn, withRoof) {
   const GS   = _sceneGS;
   const DIVS = Math.round(GS / WORLD_UNITS_PER_SQUARE);  // always 1 cell = 1 grid square
   const CELL = GS / DIVS;
   const STEP = CELL / _GRID_SUB;
   const half = GS * 0.5;
 
-  // Pre-compute all heights on a (DIVS*SUB+1)² sub-grid — each point sampled once
-  const pts  = DIVS * _GRID_SUB + 1;
-  const h    = new Float32Array(pts * pts);
+  // Pre-compute all heights (and roof factors) on a (DIVS*SUB+1)² sub-grid
+  const pts = DIVS * _GRID_SUB + 1;
+  const h   = new Float32Array(pts * pts);
+  const r   = withRoof ? new Float32Array(pts * pts) : null;
   for (let iz = 0; iz < pts; iz++) {
     for (let ix = 0; ix < pts; ix++) {
-      h[iz * pts + ix] = getTerrainHeight(-half + ix * STEP, -half + iz * STEP) + _GRID_Y_LIFT;
+      const x = -half + ix * STEP, z = -half + iz * STEP;
+      h[iz * pts + ix] = heightFn(x, z) + _GRID_Y_LIFT;
+      if (r) r[iz * pts + ix] = _gridRoof(x, z);
     }
   }
 
   // Build vertex pairs for LineSegments (each pair = one segment)
   const verts = [];
+  const roof  = withRoof ? [] : null;
 
   // Lines running in X (constant Z row)
   for (let iz = 0; iz <= DIVS; iz++) {
     const row = iz * _GRID_SUB;
     for (let ix = 0; ix < DIVS * _GRID_SUB; ix++) {
-      const x0 = -half + ix       * STEP;
-      const x1 = -half + (ix + 1) * STEP;
-      const z  = -half + iz       * CELL;
-      verts.push(x0, h[row * pts + ix],       z,
-                 x1, h[row * pts + (ix + 1)], z);
+      const x0 = -half + ix * STEP, x1 = -half + (ix + 1) * STEP;
+      const z  = -half + iz * CELL;
+      verts.push(x0, h[row * pts + ix], z, x1, h[row * pts + (ix + 1)], z);
+      if (roof) roof.push(r[row * pts + ix], r[row * pts + (ix + 1)]);
     }
   }
 
@@ -103,36 +125,52 @@ function _buildGridGeo() {
   for (let ix = 0; ix <= DIVS; ix++) {
     const col = ix * _GRID_SUB;
     for (let iz = 0; iz < DIVS * _GRID_SUB; iz++) {
-      const z0 = -half + iz       * STEP;
-      const z1 = -half + (iz + 1) * STEP;
-      const x  = -half + ix       * CELL;
-      verts.push(x, h[iz       * pts + col], z0,
-                 x, h[(iz + 1) * pts + col], z1);
+      const z0 = -half + iz * STEP, z1 = -half + (iz + 1) * STEP;
+      const x  = -half + ix * CELL;
+      verts.push(x, h[iz * pts + col], z0, x, h[(iz + 1) * pts + col], z1);
+      if (roof) roof.push(r[iz * pts + col], r[(iz + 1) * pts + col]);
     }
   }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  if (roof) geo.setAttribute('aRoof', new THREE.Float32BufferAttribute(roof, 1));
   return geo;
 }
 
+// Floor grid — follows the carved terrain (tunnel floor); the default grid.
 export const grid = new THREE.LineSegments(
-  _buildGridGeo(),
+  _buildGridGeo(_FLOOR_H, false),
   new THREE.LineBasicMaterial({
-    color:       COLORS.gridMain,
-    transparent: true,
-    opacity:     0.3,
-    depthTest:   true,
-    depthWrite:  false,
+    color: COLORS.gridMain, transparent: true, opacity: 0.3, depthTest: true, depthWrite: false,
   })
 );
 grid.renderOrder = 2;
 grid.visible = false;
 scene.add(grid);
 
+// Blanket grid — rides the surface (blanket) in cave zones and fades with the roof
+// via the shared reveal shader, so revealing the party also opens the roof grid.
+const _ceilingGridMat = new THREE.LineBasicMaterial({
+  color: COLORS.gridMain, opacity: 0.3, depthTest: true, depthWrite: false,
+});
+applyRevealShader(_ceilingGridMat);
+export const ceilingGrid = new THREE.LineSegments(_buildGridGeo(_SURF_H, true), _ceilingGridMat);
+ceilingGrid.renderOrder = 3;
+ceilingGrid.visible = false;
+scene.add(ceilingGrid);
+
+let _caveGridActive = false;
+export function setCeilingGridActive(on) {
+  _caveGridActive = on;
+  ceilingGrid.visible = on && grid.visible;
+}
+
 export function rebuildGrid() {
   grid.geometry.dispose();
-  grid.geometry = _buildGridGeo();
+  grid.geometry = _buildGridGeo(_FLOOR_H, false);
+  ceilingGrid.geometry.dispose();
+  ceilingGrid.geometry = _buildGridGeo(_SURF_H, true);
 }
 
 const gridBtn = document.getElementById('grid-toggle-btn');
@@ -144,6 +182,7 @@ gridBtn.addEventListener('click', function () {
 
 export function setGridVisible(v) {
   grid.visible = v;
+  ceilingGrid.visible = v && _caveGridActive;
   gridBtn.textContent = v ? 'Grid On' : 'Grid Off';
   gridBtn.classList.toggle('off', !v);
 }

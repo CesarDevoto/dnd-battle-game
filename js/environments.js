@@ -4,6 +4,7 @@ import { scene, ground, grid, ambient, moon, fire, camera, rebuildGrid } from '.
 import { playAmbient } from './audio.js';
 import { ENVS, ANIM, COLORS, HERO_ZONE, SCENE } from './constants.js';
 import { getTerrainHeight, rebuildTerrain, isOnTunnelFloor, setTerrainAmplitudeScale, setTerrainProfile } from './terrain.js';
+import { syncCaveRevealMaterial } from './caveReveal.js';
 import { clearLootLabels } from './loot.js';
 import {
   _windBlobs, _cachedMats, _cachedGeos, updateWind,
@@ -1673,6 +1674,7 @@ export function setEnv(name, ambientKey) {
   ground.material.color.set(0xffffff);
   ground.material.roughness = biomeRoughness[name] ?? 0.92;
   ground.material.needsUpdate = true;
+  syncCaveRevealMaterial(ground.material);   // keep the cave roof matched to the terrain
 
   document.querySelectorAll('.env-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.env === name)

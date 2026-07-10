@@ -975,8 +975,10 @@
           <div id="bestiary-title">BESTIARY</div>
           <div id="bestiary-subtitle">Enemy Compendium</div>
           <div id="bestiary-search-wrap">
-            <input id="bestiary-search" type="text" placeholder="Search enemies…" autocomplete="off" spellcheck="false">
+            <input id="bestiary-search" type="text" placeholder="Search creatures…" autocomplete="off" spellcheck="false">
             <button id="bestiary-search-clear" title="Clear">✕</button>
+            <button id="bestiary-expand-all" class="bst-tool-btn" title="Expand all CR tiers">Expand all</button>
+            <button id="bestiary-collapse-all" class="bst-tool-btn" title="Collapse all CR tiers">Collapse all</button>
           </div>
           <button id="bestiary-close">✕</button>
         </div>
@@ -997,8 +999,13 @@
           <span class="gm-dot-1"></span>
         </button>
         <div class="gm-divider"></div>
-        <button id="gm-rally-btn" class="gm-btn gm-rally" title="Rally — Gobo, Rasec &amp; Milo move adjacent to Leugren">
-          <span class="gm-dots-rally"></span>
+        <button id="gm-rally-btn" class="gm-btn gm-rally" title="Rally — reform the party into a tight box">
+          <svg class="gm-rally-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2.5 2.5 L8.5 8.5 M8.5 8.5 L8.5 5 M8.5 8.5 L5 8.5"/>
+            <path d="M21.5 2.5 L15.5 8.5 M15.5 8.5 L15.5 5 M15.5 8.5 L19 8.5"/>
+            <path d="M2.5 21.5 L8.5 15.5 M8.5 15.5 L8.5 19 M8.5 15.5 L5 15.5"/>
+            <path d="M21.5 21.5 L15.5 15.5 M15.5 15.5 L15.5 19 M15.5 15.5 L19 15.5"/>
+          </svg>
         </button>
       </div>
 

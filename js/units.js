@@ -4,7 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
-import { getTerrainHeight } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, initialCaveLayer } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
 import { equipItem } from './equipment.js';
 import { getItem } from './items.js';
@@ -340,7 +340,8 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   const src   = gltf?.scene ? MODEL_PATHS[type] : 'PLACEHOLDER BOX (model failed to load)';
   console.log(`[units] Building ${label} (${type}) for team ${team} → ${src}`);
 
-  const terrainY = getTerrainHeight(worldX, worldZ);
+  const caveLayer = initialCaveLayer(worldX, worldZ);   // 'under' if spawned in a tunnel
+  const terrainY  = getGroundHeight(worldX, worldZ, caveLayer);
   if (type === 'orc') {
     console.log('Orc spawned at position:', { x: worldX, y: terrainY, z: worldZ });
   }
@@ -525,6 +526,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     : Math.random();
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
+              caveLayer,
               familiar: def.familiar ?? false,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               spellSlots: def.spellSlots,

@@ -7,7 +7,7 @@ import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { getTerrainHeight } from './terrain.js';
+import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -499,7 +499,13 @@ let _owlHelpPicking = false;
 export let combatPhase = false;
 
 // Callback registered by zoneLoader to block premature victory while spawns are pending.
-let _pendingSpawnCheckFn = () => false;
+// NOTE: `var` (not `let`) so the binding is hoisted — zoneLoader imports combat.js and
+// calls registerPendingSpawnCheck() at module-load time, which in the import cycle runs
+// before this line evaluates. A `let` here throws a TDZ error ("Cannot access
+// '_pendingSpawnCheckFn' before initialization") and aborts the whole app boot. We also
+// leave it uninitialized (defaulting at the call site) so a later initializer can't clobber
+// the real callback that zoneLoader already registered.
+var _pendingSpawnCheckFn;
 export function registerPendingSpawnCheck(fn) { _pendingSpawnCheckFn = fn; }
 
 let _halfGroundSize = GROUND_SIZE / 2;
@@ -757,7 +763,7 @@ function animatePath(unit, path, onComplete) {
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
   let startZ  = unit.grp.position.z;
-  let startY  = getTerrainHeight(startX, startZ);
+  let startY  = getGroundHeight(startX, startZ, unit.caveLayer);
   let startTs = null;
 
   // Face the first direction immediately
@@ -772,7 +778,7 @@ function animatePath(unit, path, onComplete) {
     const dist    = Math.sqrt(dx * dx + dz * dz);
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED) / dist) : 1;
-    const endY    = getTerrainHeight(target.x, target.z);
+    const endY    = getGroundHeight(target.x, target.z, unit.caveLayer);
 
     unit.grp.position.x = startX + dx * t;
     unit.grp.position.z = startZ + dz * t;
@@ -1886,7 +1892,7 @@ function removeDefeatedUnit(u, attacker = null) {
     el.classList.toggle('active', +el.dataset.ti === turnIndex)
   );
 
-  if (!units.some(x => x.team === 'red' && x.aggro) && !_pendingSpawnCheckFn()) {
+  if (!units.some(x => x.team === 'red' && x.aggro) && !(_pendingSpawnCheckFn?.() ?? false)) {
     exitCombat();
     return;
   }
@@ -4323,7 +4329,7 @@ function _animateRoamNudge(u) {
   u._roamNudging = true;
 
   const startX = cx, startZ = cz;
-  const startY = getTerrainHeight(startX, startZ);
+  const startY = getGroundHeight(startX, startZ, u.caveLayer);
   let startTs  = null;
 
   function frame(ts) {
@@ -4335,7 +4341,7 @@ function _animateRoamNudge(u) {
     }
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33) / (dist * ratio)) : 1;
-    const endY    = getTerrainHeight(destX, destZ);
+    const endY    = getGroundHeight(destX, destZ, u.caveLayer);
 
     u.grp.position.x = startX + dx * ratio * t;
     u.grp.position.z = startZ + dz * ratio * t;

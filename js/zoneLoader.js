@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -349,6 +349,16 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   setTerrainTrenches(zone.trenches ?? []);
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
   setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: 2 })));
+  setCaveEntrances(zone.caveEntrances ?? []);
+  setCaveLayersActive(!!zone.cave);   // before the biome switch so the grid + terrain rebuild sample the surface
+
+  // Tunnel-mode zones: swap the heightfield for the carved-canyon layout before
+  // the terrain rebuild, so both ground and ceiling bake against it.
+  setTunnelMode(!!zone.tunnel);
+  if (zone.tunnel) {
+    if (zone.tunnelPaths) setTunnelPaths(zone.tunnelPaths);
+    else buildTunnelPaths();
+  }
 
   // Switch biome — skip random props if zone defines its own
   clearEditorProps();
@@ -358,6 +368,13 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   } else {
     setEnv(zone.biome, zone.ambient);
   }
+
+  // Cave ceiling — underside-of-rock roof over carved (trench) tunnels, shown for
+  // zones flagged `cave`. setEnv above has already rebuilt the ground with the
+  // hill control points + trenches, so the roof samples the final heightfield.
+  ceiling.visible = !!zone.cave;
+  setCeilingGridActive(!!zone.cave);   // show the blanket grid only in cave zones
+  if (zone.cave) rebuildCeiling(ceiling, zone.biome);
 
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
@@ -369,26 +386,35 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   _postCombat = false;
 
-  // Place heroes (initial load) or reposition existing ones (zone transition)
+  // Place heroes (initial load) or reposition existing ones (zone transition).
+  // Formation: a tight 2×2 box — one hero per adjacent grid square (2 WU each),
+  // centred on the arrival point or the centroid of the zone's heroEntry. This
+  // overrides the authored per-hero spread so the party always starts clustered.
+  const HERO_BOX = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const _entry   = zone.heroEntry ?? [];
+  const _cx = arrivalPos ? arrivalPos.x : (_entry.length ? _entry.reduce((s, p) => s + p.x, 0) / _entry.length : 0);
+  const _cz = arrivalPos ? arrivalPos.z : (_entry.length ? _entry.reduce((s, p) => s + p.z, 0) / _entry.length : 0);
+  const _box = HERO_BOX.map(([ox, oz]) => ({ x: _cx + ox, z: _cz + oz }));
+
   if (repositionHeroes) {
     const heroes = units.filter(u => u.team === 'blue');
-    const positions = arrivalPos
-      ? [[-1,-1],[1,-1],[-1,1],[1,1]].map(([ox,oz]) => ({ x: arrivalPos.x + ox, z: arrivalPos.z + oz }))
-      : zone.heroEntry;
-    positions.forEach((pos, i) => {
+    _box.forEach((pos, i) => {
       const h = heroes[i];
       if (!h) return;
+      h.caveLayer = 'surface';
       h.grp.position.set(pos.x, getTerrainHeight(pos.x, pos.z), pos.z);
       if (h.anchor) { h.anchor.x = pos.x; h.anchor.z = pos.z; }
     });
     // Snap camera instantly to party leader — prevents lerping from the previous zone.
     snapCameraToUnit(heroes[0]);
   } else {
-    // Fresh load — place heroes if none exist yet
+    // Fresh load — place heroes if none exist yet (keep each hero's type/order,
+    // but at the tight box position).
     const existing = units.filter(u => u.team === 'blue');
     if (existing.length === 0) {
-      zone.heroEntry.forEach(pos => {
-        const u = buildUnit(pos.x, pos.z, 'blue', pos.type);
+      _entry.forEach((pos, i) => {
+        const bp = _box[i] ?? pos;
+        const u  = buildUnit(bp.x, bp.z, 'blue', pos.type);
         renderHeroPortrait(u);
       });
     }
