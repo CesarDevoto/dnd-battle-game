@@ -5,6 +5,7 @@ import { playUnitAggroSound } from './audio.js';
 import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
 import { barrierSegments } from './environments.js';
+import { barrierBlocksLayer } from './terrain.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export function exitPrecombat() {
 export function selectPCHero(hero)  { _selected = hero; }
 export function deselectPCHero()    { _selected = null; }
 
-function _crossesAnyBarrier(ax, az, bx, bz) {
+function _crossesAnyBarrier(ax, az, bx, bz, layer) {
   for (const s of barrierSegments) {
     const rx = bx - ax, rz = bz - az;
     const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
@@ -73,7 +74,8 @@ function _crossesAnyBarrier(ax, az, bx, bz) {
     const qpx = s.x1 - ax, qpz = s.z1 - az;
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 &&
+        barrierBlocksLayer((s.x1 + s.x2) * 0.5, (s.z1 + s.z2) * 0.5, layer)) return true;
   }
   return false;
 }
@@ -84,7 +86,7 @@ export function movePCHeroTo(hero, x, z) {
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   const cx = Math.max(-halfGS, Math.min(halfGS, x));
   const cz = Math.max(-halfGS, Math.min(halfGS, z));
-  if (_crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz)) return;
+  if (_crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
   hero._pcTarget = { x: cx, z: cz };
   setUnitWalking(hero, true);
 }
@@ -168,7 +170,7 @@ function _stepToward(unit, tx, tz, speed, dt) {
   const step = Math.min(speed * dt, dist);
   const nx = unit.grp.position.x + (dx / dist) * step;
   const nz = unit.grp.position.z + (dz / dist) * step;
-  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz)) return 'blocked';
+  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz, unit.caveLayer)) return 'blocked';
   const zone2   = getActiveZone();
   const halfGS2 = ((zone2?.groundSize ?? GROUND_SIZE) / 2) - 2;
   if (Math.abs(nx) > halfGS2 || Math.abs(nz) > halfGS2) return 'blocked';

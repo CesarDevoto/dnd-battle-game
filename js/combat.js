@@ -7,7 +7,7 @@ import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { getTerrainHeight, getGroundHeight, raySurfacePoint } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -547,7 +547,7 @@ function handleUndo() {
   hideUndoBtn();
   hideMoveRange();
   hideAttackTargets();
-  const path = findPath(u.grp.position.x, u.grp.position.z, x, z);
+  const path = findPath(u.grp.position.x, u.grp.position.z, x, z, u.caveLayer);
   animatePath(u, path, () => {
     turnMovedFt = movedFt;
     addLog(`${unitLabel(u)} undoes move`, 'move');
@@ -584,7 +584,7 @@ function hasPropClash(x, z) {
 }
 
 // Returns true if the step from (ax,az) to (bx,bz) crosses any barrier segment.
-function crossesBarrier(ax, az, bx, bz) {
+function crossesBarrier(ax, az, bx, bz, layer) {
   for (const s of barrierSegments) {
     const rx = bx - ax, rz = bz - az;
     const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
@@ -593,7 +593,8 @@ function crossesBarrier(ax, az, bx, bz) {
     const qpx = s.x1 - ax, qpz = s.z1 - az;
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 &&
+        barrierBlocksLayer((s.x1 + s.x2) * 0.5, (s.z1 + s.z2) * 0.5, layer)) return true;
   }
   return false;
 }
@@ -703,7 +704,7 @@ function atkTriggerWU(atk) {
 
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
 
-function findPath(sx, sz, tx, tz) {
+function findPath(sx, sz, tx, tz, layer) {
   const S = WORLD_UNITS_PER_SQUARE;
   const key = (x, z) => `${x},${z}`;
   const dirs = [
@@ -726,7 +727,7 @@ function findPath(sx, sz, tx, tz) {
       if (parent.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
-      if (crossesBarrier(x, z, nx, nz)) continue;
+      if (crossesBarrier(x, z, nx, nz, layer)) continue;
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
     }
@@ -833,7 +834,7 @@ const SMOKE_TICKS      = 3;   // internal round-advance countdown (see comment a
 
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
-function _bfsReachable(ux, uz, maxDist, excludeUnit) {
+function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
   const S    = WORLD_UNITS_PER_SQUARE;
   const key  = (x, z) => `${x},${z}`;
   const dirs = [
@@ -854,7 +855,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit) {
       if (dist.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
-      if (crossesBarrier(x, z, nx, nz)) continue;
+      if (crossesBarrier(x, z, nx, nz, layer)) continue;
       dist.set(k, nd);
       // Units can pass THROUGH occupied squares but cannot stop on one.
       if (!isOccupied(nx, nz, excludeUnit)) result.add(k);
@@ -873,7 +874,7 @@ function showMoveRange(u, overrideFt) {
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   validTiles.clear();
-  for (const k of _bfsReachable(ux, uz, maxDist, u)) validTiles.add(k);
+  for (const k of _bfsReachable(ux, uz, maxDist, u, u.caveLayer)) validTiles.add(k);
 
   // Smoke & Mirrors: Milo won't leave the cloud he threw down until it dissipates
   if (u.smokeActive && u.smokeCenter) {
@@ -2846,7 +2847,7 @@ renderer.domElement.addEventListener('click', e => {
           prevMoveState = { x: curU.grp.position.x, z: curU.grp.position.z, movedFt: turnMovedFt };
           hideMoveRange();
           hideAttackTargets();
-          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz);
+          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz, curU.caveLayer);
           if (!path.length) {
             // Destination blocked by barrier — restore state, do nothing
             prevMoveState = null;
@@ -4325,7 +4326,7 @@ function _animateRoamNudge(u) {
   const destZ     = cz + dz * ratio;
 
   // Skip nudge if the path crosses a barrier or the destination is occupied.
-  if (crossesBarrier(cx, cz, destX, destZ) || isOccupied(destX, destZ, u)) {
+  if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer) || isOccupied(destX, destZ, u)) {
     if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
     _roamAggroCheck(u);
     return;
@@ -4391,7 +4392,7 @@ function _familiarMoveToward(u, destPos, onDone) {
   if (remFt <= 0) { onDone(); return; }
   const maxDist = (remFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   const ux = u.grp.position.x, uz = u.grp.position.z;
-  const reach = _bfsReachable(ux, uz, maxDist, u);
+  const reach = _bfsReachable(ux, uz, maxDist, u, u.caveLayer);
   if (!reach.size) { onDone(); return; }
   let best = null, bestD = Infinity;
   for (const k of reach) {
@@ -4400,7 +4401,7 @@ function _familiarMoveToward(u, destPos, onDone) {
     if (d < bestD) { bestD = d; best = { x: kx, z: kz }; }
   }
   if (!best) { onDone(); return; }
-  const path = findPath(ux, uz, best.x, best.z);
+  const path = findPath(ux, uz, best.x, best.z, u.caveLayer);
   if (!path.length) { onDone(); return; }
   const mdx = best.x - ux, mdz = best.z - uz;
   const movedFt = Math.round(Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE) * GRID_SQUARE_FEET;
@@ -4841,7 +4842,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
 
     if (dest) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z);
+      const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
       if (!path.length) { doActionPriority(endHeroAITurn); return; }
       animatePath(u, path, () => {
         if (!combatPhase || !units.includes(u)) return;
@@ -5031,7 +5032,7 @@ function runAITurn(u) {
     // Helper: move to dest then call cb
     function moveToAndThen(dest, cb) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z);
+      const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
       animatePath(u, path, () => {
         const mdx = dest.x - ox, mdz = dest.z - oz;
         const movedFt = Math.round(

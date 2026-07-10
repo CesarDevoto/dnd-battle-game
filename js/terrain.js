@@ -598,6 +598,17 @@ export function initialCaveLayer(x, z) {
   return (getUncarvedHeight(x, z) - getTerrainHeight(x, z)) > LAYER_MERGE_EPS ? 'under' : 'surface';
 }
 
+// Whether a barrier at (mx,mz) should block a unit on `layer`. Auto-derived: in a
+// cave zone a barrier sitting over a tunnel (headroom overhead) only blocks 'under'
+// units, and a barrier on open ground only blocks 'surface' units — so tunnel walls
+// don't stop a hero walking over the hill above them. Non-cave zones (or an unknown
+// layer) block everyone, exactly as before.
+export function barrierBlocksLayer(mx, mz, layer) {
+  if (!_layersActive || layer == null) return true;
+  const barrierLayer = (getUncarvedHeight(mx, mz) - getTerrainHeight(mx, mz)) > LAYER_MERGE_EPS ? 'under' : 'surface';
+  return barrierLayer === layer;
+}
+
 // Per-frame transition. A surface unit drops under only by stepping into a punched
 // mouth; an under unit returns to the surface only once it's clear of the mouth AND
 // back where the two surfaces meet (the open-air lip), so it can't pop up mid-hill.
