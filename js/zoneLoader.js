@@ -48,6 +48,19 @@ const _exitPt    = new THREE.Vector2();
 export function getActiveZone()  { return _active; }
 export function getAllZones()     { return Object.values(_registry); }
 
+// Fog / high-darkness zones — enemies can't see far, so their aggro/detection
+// radius is capped (8 grid squares) there. Classified by biome, or an explicit
+// `lowVisibility: true` flag any zone can set to opt in.
+const LOW_VIS_BIOMES = new Set(['dungeon', 'graveyard', 'styx']);
+const LOW_VIS_AGGRO  = 8 * WORLD_UNITS_PER_SQUARE;   // 16 world units
+export function isLowVisZone() {
+  return _active?.lowVisibility ?? LOW_VIS_BIOMES.has(_active?.biome);
+}
+// Cap a detection radius for the active zone (low-visibility → 8 squares max).
+export function capDetectRange(range) {
+  return isLowVisZone() ? Math.min(range, LOW_VIS_AGGRO) : range;
+}
+
 // ── Wave spawner ──────────────────────────────────────────────────────────────
 // Each entry: { type, x, z, round, every?, yOff?, scale?, roams?, ... }
 // `round`  — first round to fire (1-based)

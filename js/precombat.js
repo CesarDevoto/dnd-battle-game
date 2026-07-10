@@ -2,7 +2,7 @@ import { units, setUnitWalking } from './units.js';
 import { UNIT_TYPES, GROUND_SIZE, MILO_HIDE_DETECT_MULT } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
-import { getActiveZone } from './zoneLoader.js';
+import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
 import { barrierSegments } from './environments.js';
 
@@ -186,7 +186,8 @@ function _checkAggro() {
   const heroes  = units.filter(u => u.team === 'blue' && u.hp > 0);
   const enemies = units.filter(u => u.team === 'red'  && u.hp > 0);
   for (const enemy of enemies) {
-    const baseRange = enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? DETECT_DEFAULT;
+    // capDetectRange shrinks this to 8 squares in fog / high-darkness zones.
+    const baseRange = capDetectRange(enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? DETECT_DEFAULT);
     for (const hero of heroes) {
       // Milo's out-of-combat Hide: his stealth shrinks this enemy's detection
       // radius vs him by 50%; while standing in his own smoke cloud he can't be

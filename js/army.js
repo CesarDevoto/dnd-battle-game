@@ -86,7 +86,7 @@ export const selectRing = new THREE.Mesh(
   new THREE.RingGeometry(INTERACTION.selectRingInner, INTERACTION.selectRingOuter, 32),
   new THREE.MeshBasicMaterial({
     color: COLORS.selectRing, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
-    depthTest: false,
+    depthTest: true,   // let the unit's body occlude the ring behind it
   })
 );
 selectRing.rotation.x  = -Math.PI / 2;

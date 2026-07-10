@@ -14,8 +14,14 @@
 
 import * as THREE from 'three';
 import { units, setUnitStealth } from './units.js';
-import { UNIT_TYPES, MILO_HIDE_DETECT_MULT } from './constants.js';
+import { UNIT_TYPES, MILO_HIDE_DETECT_MULT, WORLD_UNITS_PER_SQUARE } from './constants.js';
+
+// Even with clear line of sight, Milo's hide-scouting can't reveal an enemy's
+// aggro ring beyond this range — so in high-fog / darkness zones he doesn't get
+// indefinite LOS. 10 grid squares.
+const MAX_SCOUT_RANGE = 10 * WORLD_UNITS_PER_SQUARE;
 import { combatPhase, addLog, hasLineOfSight } from './combat.js';
+import { capDetectRange } from './zoneLoader.js';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
 import { playSound } from './audio.js';
@@ -93,15 +99,16 @@ export function tickHideScout() {
 
   for (const enemy of units) {
     if (enemy.team !== 'red' || enemy.hp <= 0) continue;
-    const base   = enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? 20;
+    const base   = capDetectRange(enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? 20);
     const radius = base * MILO_HIDE_DETECT_MULT;
     const cx = enemy.grp.position.x, cz = enemy.grp.position.z;
 
     // Only draw for enemies near enough to matter AND that Milo can actually
     // see (line of sight) — he can't map the detection range of a foe hidden
-    // behind a wall.
+    // behind a wall. Hard-capped at MAX_SCOUT_RANGE (10 squares) so fog/darkness
+    // zones don't grant unlimited-range LOS.
     const dx = cx - milo.grp.position.x, dz = cz - milo.grp.position.z;
-    const showR = base * 3;
+    const showR = Math.min(base * 3, MAX_SCOUT_RANGE);
     let mesh = _rings.get(enemy);
     const visible = dx * dx + dz * dz <= showR * showR &&
                     hasLineOfSight(milo.grp.position.x, milo.grp.position.z, cx, cz);

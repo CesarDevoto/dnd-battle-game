@@ -274,13 +274,13 @@ function buildSpellPanelHTML(u) {
 
   const totalPrepared = spellPool.filter(sp => prepared.has(sp.key) && (sp.level ?? 1) > 0).length;
 
+  // Cantrips are spells too, so they live under the SPELLS title as the first
+  // accordion row — styled like the level rows — followed by Level 1, 2, …
+  const cantripsHdr = `<span class="ss-acc-left"><span class="ss-acc-level">Cantrips</span><span class="ss-acc-count">${cantrips.length}</span></span>`;
+  const cantripsRow = row('cantrips', cantripsHdr, 'CANTRIPS',
+    cantrips.length ? makeList(cantrips, true) : `<div class="ss-spell-empty">— none —</div>`);
+
   return `
-    ${(()=>{
-        const cantripTitle = 'CANTRIPS';
-        return row('cantrips', `<span class="ss-acc-left"><span class="ss-spell-title">CANTRIPS</span></span>`, cantripTitle,
-          cantrips.length ? makeList(cantrips, true) : `<div class="ss-spell-empty">— none —</div>`);
-      })()}
-    <div class="ss-sep"></div>
     <div class="ss-spells-hdr">
       <span class="ss-spell-title">SPELLS</span>
     </div>
@@ -288,6 +288,7 @@ function buildSpellPanelHTML(u) {
       <span class="ss-prep-label">PREPARED MAX</span>
       <span class="ss-prep-val">${totalPrepared}</span>
     </div>
+    ${cantripsRow}
     ${levelRows}`;
 }
 

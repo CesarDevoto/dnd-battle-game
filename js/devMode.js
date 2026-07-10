@@ -7,6 +7,7 @@ import { getMarkersVisible, setMarkersVisible } from './terrainEditor.js';
 import { setPointLightOrbsVisible, setFogDensityMultiplier } from './environments.js';
 import { isAIPanelOpen } from './npcAIEditor.js';
 import { IS_DEV, setEditModeActive } from './devConfig.js';
+import { capDetectRange } from './zoneLoader.js';
 import { setWaypointMarkersVisible } from './bleakmireWoodsEvent.js';
 
 let _dev = IS_DEV;
@@ -85,7 +86,7 @@ function _tickDetectRings() {
 
     const cx     = unit.grp.position.x;
     const cz     = unit.grp.position.z;
-    const radius = unit.detectRange ?? UNIT_TYPES[unit.type]?.detect ?? _DETECT_DEFAULT;
+    const radius = capDetectRange(unit.detectRange ?? UNIT_TYPES[unit.type]?.detect ?? _DETECT_DEFAULT);
 
     if (!_detectRings.has(unit)) {
       const geo  = new THREE.RingGeometry(radius - 0.18, radius + 0.18, 72);

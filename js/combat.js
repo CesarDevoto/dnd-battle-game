@@ -146,7 +146,7 @@ export const activeRing = new THREE.Mesh(
   _makeConformingGeo(0, 0, INTERACTION.activeRingInner, INTERACTION.activeRingOuter, 32, 0.05),
   new THREE.MeshBasicMaterial({
     color: COLORS.activeRing, side: THREE.DoubleSide, transparent: true, opacity: 0.8,
-    depthTest: false,
+    depthTest: true,   // let the unit's body occlude the ring behind it
   })
 );
 activeRing.frustumCulled = false;
@@ -167,7 +167,7 @@ for (let i = 0; i < MAX_ATK_RINGS; i++) {
     new THREE.RingGeometry(0.85, 1.10, 32),
     new THREE.MeshBasicMaterial({
       color: 0xCC6644, side: THREE.DoubleSide, transparent: true, opacity: 0.80,
-      depthWrite: false, depthTest: false,
+      depthWrite: false, depthTest: true,   // let the unit's body occlude the ring behind it
     })
   );
   ring.rotation.x  = -Math.PI / 2;
@@ -189,7 +189,7 @@ for (let i = 0; i < MAX_HEAL_RINGS; i++) {
     new THREE.RingGeometry(0.85, 1.10, 32),
     new THREE.MeshBasicMaterial({
       color: 0x22dd88, side: THREE.DoubleSide, transparent: true, opacity: 0.80,
-      depthWrite: false, depthTest: false,
+      depthWrite: false, depthTest: true,   // let the unit's body occlude the ring behind it
     })
   );
   ring.rotation.x  = -Math.PI / 2;
