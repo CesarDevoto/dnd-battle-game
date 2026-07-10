@@ -4,6 +4,11 @@
 
 export const GRID_SQUARE_FEET       = 5;   // 1 grid square = 5 ft (D&D standard)
 export const WORLD_UNITS_PER_SQUARE = 2;   // 2 Three.js world units = 1 grid square
+// Two units are "adjacent" (engaged) when their centres are within this distance
+// — 1.5 squares, which covers an orthogonal OR diagonal neighbouring square but
+// not a 2-square gap. Shared by the engagement lock icon and Sneak Attack so
+// their triggers stay identical.
+export const ADJACENT_WU = 1.5 * WORLD_UNITS_PER_SQUARE;   // = 3 world units
 export const GROUND_SIZE            = 108; // ground plane side length (world units)
 export const GRID_DIVISIONS         = 54;  // GridHelper line count
 

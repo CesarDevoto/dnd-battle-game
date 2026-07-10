@@ -90,6 +90,13 @@ function _stopPicking() {
 function _cast(target) {
   const caster = _selected;
   if (!_canCast() || !caster) { _render(); return; }
+  // Don't spend the heal on an ally already at full HP — keep it available.
+  if (target.hp >= target.maxHp) {
+    showFloatingDamage(target, 'Full HP', '#8fd0ff');
+    addLog(`${UNIT_TYPES[target.type]?.name ?? target.type} is already at full health — Healing Word not spent.`, 'heal');
+    _render();
+    return;
+  }
   _used = true;
 
   const wisMod = Math.floor(((UNIT_TYPES.dwarf?.abilities?.wis ?? 10) - 10) / 2);

@@ -2,10 +2,10 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
-import { WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
+import { ADJACENT_WU } from './constants.js';
 
 // Matches atkTriggerWU for a standard 5-foot melee: (5/5)*2 + 2 + 1 = 5 WU
-const ENGAGE_WU = (5 / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE + WORLD_UNITS_PER_SQUARE + 1.0;
+const ENGAGE_WU = ADJACENT_WU;   // identical trigger to Sneak Attack's adjacency
 
 // ── Lock icon canvas texture ──────────────────────────────────────────────────
 let _lockSpriteMat = null;

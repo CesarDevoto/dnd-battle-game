@@ -5,7 +5,7 @@ import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, fa
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
-         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ENEMY_CR, GROUND_SIZE,
+         WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
@@ -642,7 +642,7 @@ function _allyAdjacentToTarget(attacker, target) {
     if (ally.hp <= 0 || sleepingUnits.has(ally) || ally.stunned) continue;
     const dx = ally.grp.position.x - target.grp.position.x;
     const dz = ally.grp.position.z - target.grp.position.z;
-    if (dx * dx + dz * dz <= 9) return true;
+    if (dx * dx + dz * dz <= ADJACENT_WU * ADJACENT_WU) return true;
   }
   return false;
 }
@@ -687,9 +687,12 @@ function _logAtkQtyMsg(unit, atk) {
 function atkRangeWU(rangeFt) {
   return (rangeFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE + 1.0;
 }
-// Melee gets one extra grid square so units blocked at adjacency still trigger melee
+// Distance at which an attack can trigger. A 5 ft melee resolves to 3 WU =
+// ADJACENT_WU, so melee reach (and its range ring) match the engagement/Sneak
+// Attack adjacency exactly — a target must be in an adjacent square. Reach
+// weapons (10 ft) scale up naturally via atkRangeWU.
 function atkTriggerWU(atk) {
-  return atkRangeWU(atk.range) + (atk.type === 'melee' ? WORLD_UNITS_PER_SQUARE : 0);
+  return atkRangeWU(atk.range);
 }
 
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
@@ -1002,6 +1005,14 @@ function _resolveOOCHeal(target) {
 function castHeal(caster, target, spellKey) {
   const spell = SPELLS[spellKey];
   if (!spell) return;
+  // Never fire (or spend the slot/action) on an ally already at full HP — let
+  // the healer redirect. Keep heal-targeting active so they can pick another.
+  if (target.hp >= target.maxHp) {
+    showFloatingDamage(target, 'Full HP', '#8fd0ff');
+    addLog(`${unitLabel(target)} is already at full health — ${spell.name} not spent.`, 'heal');
+    showHealTargets(caster, spellKey);
+    return;
+  }
   const isCantrip = (spell.level ?? 1) === 0;
   if (!isCantrip && (caster.spellSlots ?? 0) <= 0) return;
 
@@ -1413,6 +1424,12 @@ function _useHealingPotion(u) {
   if (isAnimating || turnBonusActioned) return;
   const item = _heroPotion(u);
   if (!item) return;
+  // Don't drink (or spend the bonus action / charge) at full HP.
+  if (u.hp >= u.maxHp) {
+    showFloatingDamage(u, 'Full HP', '#8fd0ff');
+    addLog(`${unitLabel(u)} is already at full health — potion not used.`, 'heal');
+    return;
+  }
 
   turnBonusActioned = true;
 
@@ -3244,7 +3261,9 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
         if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger, enemy });
       } else if (trigger === 'enemy_in_ranged_range') {
         const rangeWU = _heroRangedRangeWU(hero);
-        if (rangeWU != null && dist <= rangeWU) {
+        // Require the enemy to move 5 ft (1 square) INTO ranged range, not just
+        // graze the outer edge, before the readied shot fires.
+        if (rangeWU != null && dist <= rangeWU - WORLD_UNITS_PER_SQUARE) {
           matches.push({ hero, trigger, enemy });
         }
       }
