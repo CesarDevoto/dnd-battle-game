@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
-import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
+import { showQuickDialogue, registerDialogueScene } from './dagnaEvent.js';
 import { units } from './units.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { dismissExclamation, trackExclamation, isMarkerSeen } from './exclamationMarkers.js';
@@ -16,67 +16,30 @@ export function initAmbush({ getActiveZoneId }) {
 }
 
 // ── Dialogue ──────────────────────────────────────────────────────────────────
+// One aftermath scene — the party inspects the wreck, spots the tracks, and
+// resolves to act. No branching prompt: closing the dialogue drops the footprint
+// trail and adds the "Follow the Goblin Tracks" quest, and the player then
+// decides for themselves whether to chase north or press on to Phandalin.
 const _LINES = [
   { s: 'Leugren', t: "Gods… This was my cousin Gundren's mare, Maggie. And that brown stallion yonder — that's Sildar's mount from Neverwinter." },
   { s: 'Gobo',    t: "These goblin arrows did the deed, no doubt about it." },
   { s: 'Rasec',   t: "Saddlebags are stripped clean. And Gundren's map case… it's empty. Strange — none of these filthy little bastards has the map on them." },
   { s: 'Milo',    t: "Oi! Over here! Tracks! A dozen or more goblins have been back and forth along this trail… and I'd stake a silver that these two heavy sets of prints were prisoners — dwarves or men — being hauled north." },
-];
-
-registerDialogueScene({ id: 'dlg_ambush_victory', name: 'Goblin Ambush — After Battle', lines: _LINES, onDone: () => _showFootsteps() });
-
-// ── Pursuit dialogue ──────────────────────────────────────────────────────────
-const _PURSUIT_LINES = [
   { s: 'Leugren', t: "They've taken my uncle and Sildar! We must go after them!" },
   { s: 'Rasec',   t: "Leugren, wait… What of the horses and the wagon? We still have a contract to deliver these provisions to Barthen's in Phandalin." },
 ];
 
-const _PURSUIT_CHOICES = [
-  { label: 'Follow the tracks', pursue: true,  lines: [{ s: 'Milo', t: "This way! The tracks lead north — follow me!" }] },
-  { label: 'Head to Phandalin', pursue: false, lines: [{ s: 'Gobo', t: "Smart. Let's head back to the wagon and get these supplies to Phandalin before anything else goes wrong." }] },
-];
-
-function _buildChoices() {
-  return _PURSUIT_CHOICES.map(ch => ({
-    label:  ch.label,
-    onPick: () => {
-      if (ch.pursue) {
-        setQuestFlag('goblin_pursuit');
-        addQuest('goblin_pursuit', 'Follow the Goblin Tracks',
-          "Track the goblins north to rescue Gundren Rockseeker and Sildar Hallwinter.");
-      } else {
-        // Lets Milo bring the choice back up on a later return to this zone
-        // (see the reconsider-prompt listener below) — not set until now
-        // since declining wasn't previously tracked at all.
-        setQuestFlag('goblin_pursuit_declined');
-      }
-      showQuickDialogue(ch.lines);
-    },
-  }));
+// Runs when the aftermath dialogue is closed.
+function _onAftermathClosed() {
+  _showFootsteps();
+  if (!getQuestFlag('goblin_pursuit')) {
+    setQuestFlag('goblin_pursuit');
+    addQuest('goblin_pursuit', 'Follow the Goblin Tracks',
+      "Track the goblins north to rescue Gundren Rockseeker and Sildar Hallwinter.");
+  }
 }
 
-// ── Reconsider prompt — Milo re-offers the pursuit choice on a later return ──
-// visit to this zone, for as long as the player keeps declining. Only makes
-// sense after they've been through the choice at least once and picked
-// "Head to Phandalin" (goblin_pursuit_declined) without ever having since
-// picked "Follow the tracks" (goblin_pursuit).
-const _RECONSIDER_LINES = [
-  { s: 'Milo', t: "I wonder if the tracks of those goblins yet remain to be seen... or if the wilds have swallowed them whole." },
-];
-registerDialogueScene({ id: 'dlg_pursuit_reconsider', name: 'Goblin Ambush — Reconsider Pursuit', lines: _RECONSIDER_LINES, onDone: () => showChoiceUI(_buildChoices()) });
-
-window.addEventListener('zone:loaded', e => {
-  if (e.detail?.id !== 'road_to_phandelver') return;
-  if (!getQuestFlag('goblin_pursuit_declined') || getQuestFlag('goblin_pursuit')) return;
-  setTimeout(() => showQuickDialogue(_RECONSIDER_LINES, () => showChoiceUI(_buildChoices())), 900);
-});
-
-registerDialogueScene({
-  id: 'dlg_pursuit',
-  name: 'Goblin Ambush — Pursue or Deliver?',
-  lines: _PURSUIT_LINES,
-  onDone: () => showChoiceUI(_buildChoices()),
-});
+registerDialogueScene({ id: 'dlg_ambush_victory', name: 'Goblin Ambush — After Battle', lines: _LINES, onDone: _onAftermathClosed });
 
 // ── Zone load — spawn ! near horses ──────────────────────────────────────────
 const _STAR_X = 15.2, _STAR_Z = 10.79;
@@ -107,31 +70,10 @@ registerPostCombatHandler(30, (ctx, done) => {
   if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
   dismissExclamation('horses_road');
   setTimeout(() => showQuickDialogue(_LINES, () => {
-    _showFootsteps();
+    _onAftermathClosed();
     done();
   }), 400);
 });
-
-// ── Pursuit trigger: fires after first hero move post-footsteps ───────────────
-let _waitingForMove = false;
-let _heroPositions  = null;
-let _pursuitFired   = false;
-
-function _startPursuitWatch() {
-  _waitingForMove = true;
-  _heroPositions  = new Map();
-  for (const u of units) {
-    if (u.team === 'blue') {
-      _heroPositions.set(u, { x: u.grp.position.x, z: u.grp.position.z });
-    }
-  }
-}
-
-function _startPursuit() {
-  if (_pursuitFired) return;
-  _pursuitFired = true;
-  showQuickDialogue(_PURSUIT_LINES, () => showChoiceUI(_buildChoices()));
-}
 
 // ── Footprint texture (canvas-drawn silhouette) ───────────────────────────────
 // Returns a CanvasTexture with a bare-foot silhouette: heel, arch, ball, 5 toes.
@@ -291,8 +233,6 @@ function _showFootsteps() {
       _meshes.push(m);
     }
   }
-
-  _startPursuitWatch();
 }
 
 function _hideFootsteps() {
@@ -317,25 +257,9 @@ export function tickAmbush(dt) {
       if (opacity < 1) m.material.opacity = opacity;
     }
   }
-
-  if (_waitingForMove && _heroPositions) {
-    for (const [u, pos] of _heroPositions) {
-      const dx = u.grp.position.x - pos.x;
-      const dz = u.grp.position.z - pos.z;
-      if (dx * dx + dz * dz > 0.25) {
-        _waitingForMove = false;
-        _heroPositions  = null;
-        _startPursuit();
-        break;
-      }
-    }
-  }
 }
 
 // ── Cleanup on zone change ────────────────────────────────────────────────────
 window.addEventListener('zone:loading', () => {
   _hideFootsteps();
-  _waitingForMove = false;
-  _heroPositions  = null;
-  _pursuitFired   = false;
 });

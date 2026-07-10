@@ -831,6 +831,19 @@ body {
 }
 .top-btn-row button + button { margin-left: -1px; }
 
+/* New Game / reset — destructive, so tint it warning-red. */
+#new-game-btn {
+  color: #d98a6a;
+  border-color: #7a3a2a;
+  background: linear-gradient(180deg, rgba(40,14,8,0.92) 0%, rgba(24,8,5,0.97) 100%);
+}
+#new-game-btn:hover {
+  color: #ffb494;
+  border-color: #cc5533;
+  background: linear-gradient(180deg, rgba(70,22,12,0.96) 0%, rgba(40,12,7,0.98) 100%);
+  text-shadow: 0 0 8px rgba(220,90,50,0.5);
+}
+
 /* Gold — ZONES, CUTSCENES */
 #zones-btn, #cutscenes-btn {
   color: var(--gold-dim);

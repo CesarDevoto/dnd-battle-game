@@ -73,6 +73,34 @@ let _lineIdx      = 0;
 let _dlgOnDone    = null;
 let _forcePreview = false;  // set before async sequence so _showLines picks it up
 
+// ── Combat gating ─────────────────────────────────────────────────────────────
+// No dialogue box while a fight is on. A dialogue requested during combat is
+// deferred; a dialogue already open when combat starts is stashed (with its
+// current line) and hidden — both replay when combat ends. Dev previews are
+// never gated. Tracked via the global combat:start / combat:ended events so we
+// don't import combat.js (avoids a circular dependency).
+let _combatActive = false;
+let _deferredDlg  = null;   // { lines, onDone, lineIdx } to replay after combat
+
+window.addEventListener('combat:start', () => {
+  _combatActive = true;
+  if (_dlgEl && _dlgEl.style.display !== 'none' && _lines?.length && !_isPreview) {
+    _deferredDlg = { lines: _lines, onDone: _dlgOnDone, lineIdx: _lineIdx };
+    _hideDlg();
+  }
+});
+
+window.addEventListener('combat:ended', () => {
+  _combatActive = false;
+  const d = _deferredDlg;
+  _deferredDlg = null;
+  if (d && d.lines?.length) {
+    _showLines(d.lines, d.onDone);
+    _lineIdx = Math.min(Math.max(0, d.lineIdx ?? 0), d.lines.length - 1);
+    _renderLine();   // resume from the interrupted line
+  }
+});
+
 // ── Kill counter element ──────────────────────────────────────────────────────
 let _killsEl = null;
 
@@ -424,6 +452,11 @@ export function showChoiceUI(choices) {
 }
 
 function _showLines(lines, onDone, preview = false) {
+  // Mid-combat: never pop the box — stash and replay it once the fight ends.
+  if (_combatActive && !(preview || _forcePreview)) {
+    _deferredDlg = { lines, onDone, lineIdx: 0 };
+    return;
+  }
   _isPreview = preview || _forcePreview;
   _forcePreview = false;
   _buildDlgUI();
