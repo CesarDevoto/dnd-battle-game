@@ -6951,6 +6951,16 @@ td.bst-col-retired { color: #343228 !important; }
   min-height: 14px;
   margin-bottom: 2px;
 }
+#te-cave-lbl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.66rem;
+  color: #d0b070;
+  cursor: pointer;
+  margin: 2px 0 4px;
+}
+#te-cave-lbl input { cursor: pointer; accent-color: #c8822a; }
 #te-barrier-draw-btn.active {
   background: rgba(255, 100, 0, 0.25);
   border-color: #ff6600;

@@ -17,7 +17,7 @@ import { initBestiary } from './bestiary.js';
 import { initSpellbook } from './spellbook.js';
 import { initHotbar, bindPermanentHotkey } from './hotbar.js';
 import { cycleHero, removeUnits, tickHoldMove } from './army.js';
-import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
+import { initZoneUI, tickZone, loadZone, getActiveZone, applyCaveRoof } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
 import { initPropEditor, getPlacedProps } from './propEditor.js';
@@ -189,6 +189,37 @@ if (IS_DEV) {
   initReferenceOverlay();
   initTrenchEditor();
   initCaveEntranceEditor();
+
+  // Cave-roof checkbox (terrain editor) — toggles zone.cave live + persists it.
+  {
+    const caveCheck  = document.getElementById('te-cave-check');
+    const caveStatus = document.getElementById('te-cave-status');
+    if (caveCheck) {
+      window.addEventListener('zone:loaded', () => {
+        caveCheck.checked = !!getActiveZone()?.cave;
+        if (caveStatus) caveStatus.textContent = '';
+      });
+      caveCheck.addEventListener('change', async () => {
+        const on = caveCheck.checked;
+        applyCaveRoof(on);
+        const zone = getActiveZone();
+        if (!zone) return;
+        if (caveStatus) caveStatus.textContent = 'Saving…';
+        try {
+          const res = await fetch('/__save_zone_cave', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zoneId: zone.id, cave: on }),
+          });
+          const j = await res.json();
+          if (caveStatus) caveStatus.textContent = j.ok
+            ? (on ? 'Cave roof ON ✓' : 'Cave roof OFF ✓')
+            : `Error: ${j.error}`;
+        } catch (e) {
+          if (caveStatus) caveStatus.textContent = 'Save failed: ' + e.message;
+        }
+      });
+    }
+  }
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');

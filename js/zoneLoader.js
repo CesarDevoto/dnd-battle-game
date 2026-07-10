@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive, rebuildGrid } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
@@ -47,6 +47,19 @@ const _exitRay   = new THREE.Raycaster();
 const _exitPt    = new THREE.Vector2();
 
 export function getActiveZone()  { return _active; }
+
+// Toggle the cave roof (blanket) on the active zone live — same setup loadZone
+// does. The editor's Cave-roof checkbox calls this; persist with the save endpoint.
+export function applyCaveRoof(on) {
+  if (!_active) return;
+  _active.cave = on;
+  setCaveEntrances(_active.caveEntrances ?? []);
+  setCaveLayersActive(on);
+  ceiling.visible = on;
+  setCeilingGridActive(on);
+  if (on) rebuildCeiling(ceiling, _active.biome);
+  rebuildGrid();                 // grids re-conform to the surface (or back to terrain)
+}
 export function getAllZones()     { return Object.values(_registry); }
 
 // Fog / high-darkness zones — enemies can't see far, so their aggro/detection

@@ -523,6 +523,49 @@ function saveZoneTrenchesPlugin() {
   };
 }
 
+function saveZoneCavePlugin() {
+  return {
+    name: 'save-zone-cave',
+    configureServer(server) {
+      server.middlewares.use('/__save_zone_cave', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, cave } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath))
+              throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+            const val = cave ? 'true' : 'false';
+
+            if (/[ \t]*cave\s*:\s*(?:true|false)/.test(src)) {
+              src = src.replace(/([ \t]*)cave\s*:\s*(?:true|false)\s*,?/, `$1cave: ${val},`);
+            } else {
+              // Insert a `cave:` field right after the zone `id:` line.
+              src = src.replace(/^([ \t]*id\s*:.*,[ \t]*)$/m, `$1\n  cave: ${val},`);
+            }
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 function saveZoneCaveEntrancesPlugin() {
   return {
     name: 'save-zone-cave-entrances',
@@ -706,5 +749,5 @@ function deleteZonePlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneCaveEntrancesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneCavePlugin(), saveZoneCaveEntrancesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
 });
