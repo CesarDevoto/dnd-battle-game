@@ -15,6 +15,7 @@ import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
 import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
+import { filterZoneSpawns, tagSpawnedEnemy, setEnemySpawner } from './respawn.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_road_to_phandelver.js';
 import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
@@ -283,6 +284,31 @@ function _buildFogBreach(x, z, scale = 0.5) {
   });
 }
 
+// ── Enemy / NPC spawn ─────────────────────────────────────────────────────────
+// Builds and places one zone enemy/NPC def. Shared by initial zone load and by
+// the respawn system's live tick (setEnemySpawner below), so a mob returns with
+// exactly the same setup it had originally. Returns the unit.
+function _spawnZoneEnemy(e) {
+  const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
+  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
+  if (e.yOff)                           u.hoverY = e.yOff;
+  if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
+  if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
+  if (e.patrol?.length >= 2)            { u.patrolPath = e.patrol; u._patrolIdx = 0; }
+  // AI settings
+  if (e.detectRange != null)      u.detectRange      = e.detectRange;
+  if (e.socialAggroRange != null) u.socialAggroRange = e.socialAggroRange;
+  if (e.roams)                    u.roams            = true;
+  if (e.roamMode)             u.roamMode     = e.roamMode;
+  if (e.wanderRadius != null) u.wanderRadius = e.wanderRadius;
+  if (e.stealthed)            { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
+  if (e.attackPref)           u.attackPref   = e.attackPref;
+  tagSpawnedEnemy(u, e);   // stamp _respawnId so a later defeat records its timer
+  return u;
+}
+// Let the respawn system spawn a single foe live when its timer elapses.
+setEnemySpawner(_spawnZoneEnemy);
+
 // ── Load a zone ───────────────────────────────────────────────────────────────
 
 export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
@@ -375,23 +401,17 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Apply zone-specific hero skin — must run after heroes are built
   applyHeroSkin(zone.heroSkin ?? null);
 
-  // Place enemies and friendly NPCs
-  zone.enemies.forEach(e => {
-    const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
-    const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
-    if (e.yOff)                           u.hoverY = e.yOff;
-    if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
-    if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
-    if (e.patrol?.length >= 2)            { u.patrolPath = e.patrol; u._patrolIdx = 0; }
-    // AI settings
-    if (e.detectRange != null)      u.detectRange      = e.detectRange;
-    if (e.socialAggroRange != null) u.socialAggroRange = e.socialAggroRange;
-    if (e.roams)                    u.roams            = true;
-    if (e.roamMode)             u.roamMode     = e.roamMode;
-    if (e.wanderRadius != null) u.wanderRadius = e.wanderRadius;
-    if (e.stealthed)            { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
-    if (e.attackPref)           u.attackPref   = e.attackPref;
-  });
+  // Place enemies and friendly NPCs. Enemy spawns run through the respawn
+  // filter: any foe whose 15-min / 2-h timer hasn't elapsed stays dead and is
+  // skipped here (it comes back later via tickRespawn while you linger, or on a
+  // future re-entry). Friendly NPCs (team:'npc') never respawn-gate — they're
+  // always placed. filterZoneSpawns records the full enemy set so live respawn
+  // knows every spawn point.
+  const enemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') === 'red');
+  const nonEnemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') !== 'red');
+  const spawnNow = filterZoneSpawns(id, enemyDefs);
+  spawnNow.forEach(_spawnZoneEnemy);
+  nonEnemyDefs.forEach(_spawnZoneEnemy);
 
   // Build exit markers — visible whenever outside combat (tickZone drives this)
   zone.exits.forEach(exit => _buildExitMarker(exit));

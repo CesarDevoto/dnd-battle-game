@@ -1852,7 +1852,7 @@ function removeDefeatedUnit(u, attacker = null) {
     // reason (see _activeZoneId comment above): a direct import here would
     // create combat.js → bleakmireWoodsEvent.js → exclamationMarkers.js →
     // combat.js, a circular dependency that breaks module init order.
-    window.dispatchEvent(new CustomEvent('unit:defeated', { detail: { type: u.type } }));
+    window.dispatchEvent(new CustomEvent('unit:defeated', { detail: { type: u.type, respawnId: u._respawnId } }));
     const cr   = ENEMY_CR[u.type] ?? 0;
     const loot = rollLoot(cr, u.type, _activeZoneId);
     spawnLootLabels(u.grp.position, loot);
