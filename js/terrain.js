@@ -564,6 +564,33 @@ export function getGroundHeight(x, z, layer) {
   return layer === 'under' ? getTerrainHeight(x, z) : getUncarvedHeight(x, z) + CEIL_LIFT;
 }
 
+// March a camera ray to the point where it first crosses the walkable surface for
+// `layer` (the blanket for 'surface', the floor for 'under'). Used for click-to-move
+// so the target XZ matches the surface the hero stands on — a plain ground raycast
+// hits the carved terrain UNDER the blanket at a shifted XZ (angled ray) and makes
+// heroes move erratically. Cheap: a coarse march + binary refine over getGroundHeight.
+export function raySurfacePoint(ray, layer) {
+  const O = ray.origin, D = ray.direction;
+  if (D.y > -1e-4) return null;                     // not aimed downward
+  const STEP = 1.2, MAX_T = 700;
+  let prevT = 0;
+  let prevAbove = (O.y - getGroundHeight(O.x, O.z, layer)) > 0;
+  for (let t = STEP; t <= MAX_T; t += STEP) {
+    const above = (O.y + D.y * t - getGroundHeight(O.x + D.x * t, O.z + D.z * t, layer)) > 0;
+    if (!above && prevAbove) {
+      let lo = prevT, hi = t;
+      for (let k = 0; k < 14; k++) {
+        const m = (lo + hi) * 0.5;
+        if ((O.y + D.y * m - getGroundHeight(O.x + D.x * m, O.z + D.z * m, layer)) > 0) lo = m; else hi = m;
+      }
+      const f = (lo + hi) * 0.5;
+      return new THREE.Vector3(O.x + D.x * f, O.y + D.y * f, O.z + D.z * f);
+    }
+    prevAbove = above; prevT = t;
+  }
+  return null;
+}
+
 // Layer a freshly-spawned unit belongs on: on the tunnel floor if there's rock
 // overhead here, otherwise on the surface.
 export function initialCaveLayer(x, z) {

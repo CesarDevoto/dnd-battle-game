@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
+import { scene, camera, renderer, controls, ground, ceiling, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
+import { raySurfacePoint } from './terrain.js';
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
@@ -117,6 +118,13 @@ function groundHit(clientX, clientY) {
   mouse2D.x =  (clientX / window.innerWidth)  * 2 - 1;
   mouse2D.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse2D, camera);
+  // Cave zones: target the surface the selected hero is on (blanket vs tunnel
+  // floor), not the carved ground beneath the blanket.
+  if (ceiling.visible) {
+    const layer = getPCSelected()?.caveLayer === 'under' ? 'under' : 'surface';
+    const p = raySurfacePoint(raycaster.ray, layer);
+    if (p) return p;
+  }
   const h = raycaster.intersectObject(ground);
   return h.length ? h[0].point : null;
 }

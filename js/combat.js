@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
+import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar } from './familiar.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
@@ -7,7 +7,7 @@ import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { getTerrainHeight, getGroundHeight } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, raySurfacePoint } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -2721,6 +2721,13 @@ function groundHit(clientX, clientY) {
   _mouse.x =  (clientX / window.innerWidth)  * 2 - 1;
   _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
   _ray.setFromCamera(_mouse, camera);
+  // Cave zones: target the surface the active hero is on (blanket vs tunnel floor),
+  // not the carved ground beneath the blanket.
+  if (ceiling.visible) {
+    const layer = turnOrder[turnIndex]?.caveLayer === 'under' ? 'under' : 'surface';
+    const p = raySurfacePoint(_ray.ray, layer);
+    if (p) return p;
+  }
   const hits = _ray.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }
