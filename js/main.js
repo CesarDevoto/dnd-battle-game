@@ -41,6 +41,7 @@ import { initSacredFlameLight } from './sacredflame.js';
 import { initGraveCurseLight } from './morvathEffects.js';
 import { prewarmArrowShaders } from './arrow.js';
 import { initAudio, initMixerPanel } from './audio.js';
+import { initUiScale } from './uiScale.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { tickLoot } from './loot.js';
@@ -75,6 +76,7 @@ initGraveCurseLight();
 prewarmArrowShaders();
 initAudio();
 initMixerPanel();
+initUiScale();
 initEngagementLines();
 initBestiary();
 initXPTable();
@@ -245,7 +247,7 @@ if (IS_DEV) {
   };
 }
 
-bindPermanentHotkey('Backquote','TOGGLE<br>HEROES', cycleHero,      null);
+bindPermanentHotkey('Backquote','NEXT<br>HERO', cycleHero,      null);
 bindPermanentHotkey('Tab',      'NEXT<br>TARGET',   () => {},       null);
 
 // ── F / G — camera flip and top-view toggle (no hotbar buttons; keyboard-only) ──

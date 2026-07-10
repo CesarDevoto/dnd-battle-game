@@ -23,6 +23,7 @@ const SOUNDS = {
   graveyard:     { src: 'assets/audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   haunted_wood:       { src: 'assets/audio/ambient/haunted forest ambience.mp3', category: 'ambient', loop: true },
   mausoleum:          { src: 'assets/audio/ambient/mausoleumambience.mp3',        category: 'ambient', loop: true },
+  tavern_ambience:    { src: 'assets/audio/ambient/tavernambience.mp3',           category: 'ambient', loop: true },
   // Unit-specific — aggro & attack vocalizations
   mane_dretch_aggro:  { src: 'assets/audio/combat/mane dretch aggro.mp3',  category: 'combat' },
   mane_dretch_attack: { src: 'assets/audio/combat/mane dretch attack.mp3', category: 'combat' },
@@ -277,6 +278,44 @@ export function startWaystoneAudio(playActivation) {
     setTimeout(() => { try { _pulseSrc?.stop(); gainNode.disconnect(); } catch {} }, 400);
   };
 
+  return { setDist, stop };
+}
+
+// A looping sound that swells with proximity to a point — full volume at/inside
+// `near`, silent at/beyond `far` (world units), smooth falloff between. Layers on
+// TOP of the biome ambient (its own gain node on the 'ambient' bus), so e.g. a
+// tavern loop can rise as the party nears the tavern while the forest keeps
+// playing. Caller feeds setDist(distanceToPoint) each frame. Same shape as
+// startWaystoneAudio: returns { setDist, stop }.
+export function startPositionalAmbient(key, { near = 4, far = 16, maxVol = 1 } = {}) {
+  const ctx = _getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const gainNode = ctx.createGain();
+  gainNode.gain.value = 0;
+  gainNode.connect(_catGains['ambient'] ?? _masterGain);
+
+  let _src = null, _stopped = false;
+  const buf = _buffers[key];
+  if (buf) {
+    _src = ctx.createBufferSource();
+    _src.buffer = buf;
+    _src.loop   = true;
+    _src.connect(gainNode);
+    _src.start();
+  }
+
+  const setDist = (dist) => {
+    if (_stopped || !_src) return;
+    const t = Math.max(0, Math.min(1, 1 - (dist - near) / (far - near)));
+    gainNode.gain.setTargetAtTime(Math.sqrt(t) * maxVol, ctx.currentTime, 0.2);
+  };
+  const stop = () => {
+    if (_stopped) return;
+    _stopped = true;
+    gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+    setTimeout(() => { try { _src?.stop(); gainNode.disconnect(); } catch {} }, 500);
+  };
   return { setDist, stop };
 }
 

@@ -299,36 +299,50 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
 export function isAutomated()      { return _mode === 'automated'; }
 export function hasPendingSwitch() { return _pendingSwitch !== null; }
 
+// Light the selected mode's button, grey out the other. (Name kept — it's
+// called from handleRoundStartSwitch and init.)
 export function updateButtonLabel() {
-  const btn = document.getElementById('combat-mode-btn');
-  if (!btn) return;
-  btn.textContent = _mode === 'manual' ? '⚔ AUTOMATE' : '☰ MANUAL';
-  btn.classList.toggle('is-automated', _mode === 'automated');
+  const auto = document.getElementById('combat-mode-auto');
+  const man  = document.getElementById('combat-mode-manual');
+  if (!auto || !man) return;
+  const automated = _mode === 'automated';
+  auto.classList.toggle('active',   automated);
+  auto.classList.toggle('inactive', !automated);
+  man.classList.toggle('active',   !automated);
+  man.classList.toggle('inactive',  automated);
 }
 
 // ─── Queue / clear pending switch ─────────────────────────────────────────────
 function _queueSwitch(mode) {
   _pendingSwitch = mode;
-  document.getElementById('combat-mode-btn')?.classList.add('pending-switch');
+  const id = mode === 'automated' ? 'combat-mode-auto' : 'combat-mode-manual';
+  document.getElementById(id)?.classList.add('pending');
 }
 function _clearQueue() {
   _pendingSwitch = null;
-  document.getElementById('combat-mode-btn')?.classList.remove('pending-switch');
+  document.getElementById('combat-mode-auto')?.classList.remove('pending');
+  document.getElementById('combat-mode-manual')?.classList.remove('pending');
 }
 
 // ─── Button click handler ─────────────────────────────────────────────────────
-function _onButtonClick() {
-  const targetMode = _mode === 'manual' ? 'automated' : 'manual';
-
+// Each button targets a fixed mode. Clicking the already-active mode (with
+// nothing queued) is a no-op.
+function _selectMode(targetMode) {
   if (targetMode === 'manual') {
+    if (_mode === 'manual' && !_pendingSwitch) return;   // already manual — nothing to do
     if (_combatActive) { _queueSwitch('manual'); }
     else { _mode = 'manual'; updateButtonLabel(); }
     return;
   }
 
-  if (!_tendenciesSet || !_combatActive) {
+  // ─── Automated ───
+  // Open the tendencies page when first switching to automated (never set), or
+  // when AUTOMATED is clicked while already automated — so you can re-edit the
+  // tendencies at any time (e.g. out of combat). Otherwise just queue the switch.
+  const alreadyAutomated = _mode === 'automated' && !_pendingSwitch;
+  if (!_tendenciesSet || !_combatActive || alreadyAutomated) {
     _openTendencies(() => {
-      if (_combatActive) { _queueSwitch('automated'); }
+      if (_combatActive && !alreadyAutomated) { _queueSwitch('automated'); }
       else { _mode = 'automated'; updateButtonLabel(); }
     });
   } else {
@@ -635,7 +649,8 @@ export function pickAutoTarget(heroType, heroPos, enemies, allies = []) {
 export function initCombatAutomation() {
   _load();
   updateButtonLabel();
-  document.getElementById('combat-mode-btn')?.addEventListener('click', _onButtonClick);
+  document.getElementById('combat-mode-auto')?.addEventListener('click',   () => _selectMode('automated'));
+  document.getElementById('combat-mode-manual')?.addEventListener('click', () => _selectMode('manual'));
 
   window.addEventListener('combat:start', () => { _combatActive = true; });
   window.addEventListener('combat:ended', () => {

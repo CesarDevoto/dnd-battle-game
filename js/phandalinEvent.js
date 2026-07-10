@@ -2,6 +2,7 @@ import { units } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 import { isPrecombat } from './precombat.js';
 import { showQuickDialogue, registerDialogueScene } from './dagnaEvent.js';
+import { startPositionalAmbient } from './audio.js';
 
 // ── Phandalin town event ──────────────────────────────────────────────────────
 // Peaceful hub zone. Wire townsfolk dialogue, quests, and shop triggers here.
@@ -17,6 +18,13 @@ const _ARRIVAL_LINES = [
 registerDialogueScene({ id: 'dlg_phandalin_arrival', name: 'Phandalin — Arrival', lines: _ARRIVAL_LINES });
 
 let _watchingArrival = false;
+
+// ── Tavern proximity ambience ─────────────────────────────────────────────────
+// A tavern loop layered over the forest ambient that swells as the party nears
+// the tavern. near/far in world units (WORLD_UNITS_PER_SQUARE = 2, so far:16 = 8
+// squares — clearly audible from ~5 squares out, silent past ~8).
+const _TAVERN = { x: -57, z: -28 };
+let _tavernAudio = null;
 
 function _fireArrivalDialogue() {
   try { if (localStorage.getItem(_KEY_ARRIVAL)) return; } catch {}
@@ -35,14 +43,32 @@ export function tickPhandalin(dt) {
     });
     if (inTown) _fireArrivalDialogue();
   }
+
+  // Swell the tavern loop toward the nearest living hero's distance to it.
+  if (_tavernAudio) {
+    let nearest = Infinity;
+    for (const u of units) {
+      if (u.team !== 'blue' || u.hp <= 0) continue;
+      const dx = u.grp.position.x - _TAVERN.x, dz = u.grp.position.z - _TAVERN.z;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d < nearest) nearest = d;
+    }
+    if (nearest < Infinity) _tavernAudio.setDist(nearest);
+  }
 }
 
 // ── Zone lifecycle ────────────────────────────────────────────────────────────
 window.addEventListener('zone:loaded', e => {
   if (e.detail?.id !== 'phandalin') return;
   try { if (!localStorage.getItem(_KEY_ARRIVAL)) _watchingArrival = true; } catch {}
+  // Start the proximity tavern loop (silent until a hero approaches).
+  _tavernAudio?.stop();
+  _tavernAudio = startPositionalAmbient('tavern_ambience', { near: 4, far: 16, maxVol: 0.6 });
 });
 
 window.addEventListener('zone:loading', () => {
   _watchingArrival = false;
+  // Leaving the zone — stop the tavern loop.
+  _tavernAudio?.stop();
+  _tavernAudio = null;
 });

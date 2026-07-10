@@ -50,7 +50,7 @@
         <button id="xp-table-btn">XP TABLE</button>
         <button id="smart-hit-btn">SMART HIT %</button>
         <button id="smart-save-btn">SMART SAVE %</button>
-        <button id="audio-mixer-btn">AUDIO</button>
+        <button id="audio-mixer-btn">SETTINGS</button>
         <button id="quest-log-btn">QUESTS</button>
         <button id="map-btn">MAP</button>
         <button id="keybinds-btn">KEYBINDS</button>
@@ -494,7 +494,12 @@
 
     <!-- Audio mixer panel -->
     <div id="audio-mixer-panel">
-      <div class="amx-title">AUDIO MIXER</div>
+      <div class="amx-title">SETTINGS</div>
+      <div class="amx-row">
+        <label class="amx-lbl">UI Text</label>
+        <input type="range" id="amx-uiscale" min="1" max="1.5" step="0.05">
+        <span class="amx-val">100%</span>
+      </div>
       <div class="amx-row">
         <label class="amx-lbl">Master</label>
         <input type="range" id="amx-master" min="0" max="1" step="0.01">
@@ -570,7 +575,11 @@
       <div id="start-battle-btn-wrap">
         <button id="start-battle-btn" class="s-btn">▶ START PLAY MODE</button>
       </div>
-      <button id="combat-mode-btn" title="Any change commences at start of the next combat round.">⚔ COMBAT MODE</button>
+      <div id="combat-mode-bar" title="Any change commences at start of the next combat round.">
+        <span class="cm-label">COMBAT</span>
+        <button id="combat-mode-auto" class="cm-btn">AUTOMATED</button>
+        <button id="combat-mode-manual" class="cm-btn">MANUAL</button>
+      </div>
     </div>
 
     <!-- Floating unit action menu (no buttons — selection ring only) -->

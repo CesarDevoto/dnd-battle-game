@@ -1,6 +1,10 @@
 /* ── Google Fonts ─────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&display=swap');
 
+/* Root font-size drives all rem-based UI text; --ui-scale (Settings → UI Text)
+   multiplies it for readability on large / high-DPI screens. Default 1 = 16px. */
+html { font-size: calc(16px * var(--ui-scale, 1)); }
+
 /* ── Dev / Play mode toggle button ──────────────────────────────────── */
 #dev-mode-btn {
   position: fixed;
@@ -43,7 +47,6 @@ body:not(.dev-mode) .dev-only { display: none !important; }
 .play-mode #setup-panel-blue,
 .play-mode #setup-panel-cutscenes,
 .play-mode #env-selector,
-.play-mode #audio-mixer-panel,
 .play-mode #bestiary-btn,
 .play-mode #spellbook-btn,
 .play-mode #npc-editor-panel,
@@ -57,6 +60,9 @@ body:not(.dev-mode) .dev-only { display: none !important; }
 
 /* ── CSS Variables ────────────────────────────────────────────────────── */
 :root {
+  /* Adjustable UI text scale (Settings → UI Text). All fonts are rem, so the
+     root font-size below multiplies them together. Combat log opts out (px). */
+  --ui-scale:     1;
   --gold:         #d4af37;
   --gold-bright:  #f0d868;
   --gold-dim:     #8b6914;
@@ -536,17 +542,15 @@ body {
   text-shadow: 0 0 10px #ff3333, 0 0 24px rgba(255,60,40,0.45);
   box-shadow: inset 0 1px 0 rgba(255,100,80,0.18), 0 0 22px rgba(220,30,20,0.40), 0 0 50px rgba(180,0,0,0.18);
 }
-#combat-mode-btn {
+/* ── Combat mode bar (thin window: COMBAT label + Automated / Manual) ────── */
+#combat-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 5px 4px 12px;
   background: linear-gradient(180deg, rgba(8,16,36,0.96) 0%, rgba(4,8,18,0.99) 100%);
   border: 1px solid #2a4a80;
-  color: #4a78cc;
-  font-family: var(--font-fantasy);
-  font-size: 0.60rem;
-  letter-spacing: 2px;
-  padding: 6px 16px;
-  border-radius: 3px;
-  cursor: pointer;
-  white-space: nowrap;
+  border-radius: 4px;
   box-shadow:
     inset 0 1px 0 rgba(80,130,255,0.12),
     inset 0 -1px 0 rgba(0,0,0,0.60),
@@ -554,12 +558,56 @@ body {
     0 4px 20px rgba(0,0,0,0.80),
     0 0 28px rgba(30,60,150,0.15);
 }
-#combat-mode-btn:hover {
-  background: linear-gradient(180deg, rgba(16,28,64,0.98) 0%, rgba(8,14,36,0.99) 100%);
+#combat-mode-bar .cm-label {
+  font-family: var(--font-fantasy);
+  font-size: 0.58rem;
+  letter-spacing: 3px;
+  color: #7a92c8;
+  padding-right: 3px;
+  white-space: nowrap;
+}
+.cm-btn {
+  font-family: var(--font-fantasy);
+  font-size: 0.55rem;
+  letter-spacing: 2px;
+  padding: 5px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid #2a4a80;
+  background: rgba(6,12,28,0.7);
+  color: #4a78cc;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, opacity 0.15s;
+}
+.cm-btn:hover {
   border-color: #4a88ff;
   color: #7aabff;
-  text-shadow: 0 0 10px #4a88ff, 0 0 24px rgba(60,100,255,0.45);
-  box-shadow: inset 0 1px 0 rgba(100,160,255,0.18), 0 0 22px rgba(40,80,220,0.40), 0 0 50px rgba(20,40,180,0.18);
+  text-shadow: 0 0 8px rgba(60,100,255,0.45);
+}
+/* Selected mode — lit up. */
+.cm-btn.active {
+  background: linear-gradient(180deg, rgba(30,64,150,0.55) 0%, rgba(14,28,64,0.75) 100%);
+  border-color: #4a88ff;
+  color: #cfe0ff;
+  box-shadow: inset 0 1px 0 rgba(100,160,255,0.18), 0 0 14px rgba(40,80,220,0.40);
+}
+/* The other mode — dimmed, but clearly still clickable (brightens on hover). */
+.cm-btn.inactive {
+  opacity: 0.6;
+  color: #8a97b4;
+  border-color: #35415c;
+  background: rgba(6,10,20,0.5);
+}
+.cm-btn.inactive:hover {
+  opacity: 0.85;
+  color: #9fc0ff;
+  border-color: #4a88ff;
+}
+/* Queued switch (applies at next round). */
+.cm-btn.pending {
+  border-color: rgba(212,175,55,0.65);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(212,175,55,0.18);
 }
 .s-row { display: flex; gap: 5px; }
 .s-row .s-btn { flex: 1; }
@@ -716,7 +764,7 @@ body {
   position: relative;
   /* Match #spell-bar-title exactly so the two widgets read as one system,
      especially when both are shrunk down to just their title bars. */
-  font-size: 0.58rem;
+  font-size: 9.3px;   /* px, not rem — combat log opts out of the UI text scale */
   letter-spacing: 3px;
   border-bottom: none;
   border-image: none;
@@ -1014,7 +1062,7 @@ body {
   background: rgba(60,40,8,0.90);
 }
 .log-entry {
-  font-size: 0.65rem;
+  font-size: 10.4px;   /* px, not rem — combat log opts out of the UI text scale */
   letter-spacing: 0.4px;
   color: #9898b4;
   padding: 1px 4px;
@@ -1026,7 +1074,7 @@ body {
 .log-entry:hover { border-left-color: rgba(212,175,55,0.22); }
 .log-round  {
   color: var(--gold);
-  font-size: 0.65rem;
+  font-size: 10.4px;   /* px, not rem — combat log opts out of the UI text scale */
   text-align: center;
   letter-spacing: 0.4px;
   font-weight: 600;
@@ -5230,16 +5278,6 @@ td.bst-col-retired { color: #343228 !important; }
 }
 
 /* ── Combat automation: button states ───────────────────────────────────── */
-#combat-mode-btn.is-automated {
-  border-color: #2a6aaa;
-  color: #6aabee;
-  background: linear-gradient(180deg, rgba(8,20,44,0.97) 0%, rgba(4,10,24,0.99) 100%);
-}
-#combat-mode-btn.pending-switch {
-  border-color: rgba(212,175,55,0.65);
-  color: var(--gold);
-  box-shadow: 0 0 10px rgba(212,175,55,0.18);
-}
 
 /* ── Tendencies overlay ──────────────────────────────────────────────────── */
 #tendencies-overlay {
