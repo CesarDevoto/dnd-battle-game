@@ -1,8 +1,10 @@
 export const ZONE = {
+  fogColor: 0x221839,
   id:        'warrens',
   name:      'The Warrens',
   biome: 'forest',
   groundSize: 432,   // 4x the default (108) — doubled twice; large open map, same cave in the middle
+  fogDensity: 0.022,
   // Cave test: an outdoor hillside with a cave mouth leading into a straight
   // tunnel that ends in a room. The hill is a terrain control point; the tunnel
   // and room are carved with trenches; `cave` turns on the underside-of-rock roof.
@@ -78,7 +80,9 @@ export const ZONE = {
     { x:  2, z: -12, type: 'halfling' },
   ],
   enemies: [
-    { type: 'solrac', x: 0, z: 29 },   // lurking in the back room
+    { type: 'goblin', x: 138.65, z: 115.12, animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
+    { type: 'goblin2', x: 136.84, z: 113.21 },
+    { type: 'humanpeasant1', x: 139.12, z: 111.2 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
@@ -92,24 +96,6 @@ export const ZONE = {
   ],
   terrainSeed: { ph: [1.235351,5.315199,3.684424,4.448136,2.85367,3.903505,3.981039,2.110116,3.782323,3.722617,6.034926,3.710996], fx: [1.013656,2.181118,6.165918,19.294515,26.431867,52.685326], fz: [1.479916,3.90371,8.060919,16.160476,58.968719,92.188009], sharpExp: 1.256837, scale: 7.874184 },
   props: [],
-  barriers: [
-    { x1: 2.48, z1: 0.12, x2: 2.68, z2: 14.9 },
-    { x1: 2.68, z1: 14.9, x2: 6.86, z2: 18.21 },
-    { x1: 6.86, z1: 18.21, x2: 8.93, z2: 23.12 },
-    { x1: 8.93, z1: 23.12, x2: 8.49, z2: 35.83 },
-    { x1: 8.49, z1: 35.83, x2: 4.28, z2: 41.1 },
-    { x1: 4.28, z1: 41.1, x2: -0.46, z2: 41.83 },
-    { x1: -0.46, z1: 41.83, x2: -6.05, z2: 39.07 },
-    { x1: -6.05, z1: 39.07, x2: -8.33, z2: 35.51 },
-    { x1: -8.33, z1: 35.51, x2: -8.4, z2: 35.62 },
-    { x1: -9.01, z1: 26.01, x2: -8.14, z2: 20.18 },
-    { x1: -8.14, z1: 20.18, x2: -5.5, z2: 17.04 },
-    { x1: -5.5, z1: 17.04, x2: -2.55, z2: 14.96 },
-    { x1: -2.55, z1: 14.96, x2: -2.07, z2: 12.19 },
-    { x1: -2.07, z1: 12.19, x2: -2.18, z2: 0.97 },
-    { x1: -2.18, z1: 0.97, x2: -2.48, z2: -0.23 },
-    { x1: -2.48, z1: -0.23, x2: -3.22, z2: -0.39 },
-    { x1: 2.45, z1: 0.13, x2: 3.55, z2: -0.44 },
-  ],
+  barriers: [],
   visionBlockers: [],
 };
