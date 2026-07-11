@@ -65,6 +65,7 @@ import { updateXPBar, showLevelUpFloat } from './progression.js';
 import { showLevelUpModal } from './levelUpModal.js';
 import { playSound } from './audio.js';
 import { initGroupMove } from './groupMove.js';
+import { initFogEditor } from './fogEditor.js';
 import { initQuests } from './quests.js';
 import { initDevLevelTool } from './devLevelTool.js';
 
@@ -189,6 +190,7 @@ if (IS_DEV) {
   initReferenceOverlay();
   initTrenchEditor();
   initCaveEntranceEditor();
+  initFogEditor();
 
   // Cave-roof checkbox (terrain editor) — toggles zone.cave live + persists it.
   {

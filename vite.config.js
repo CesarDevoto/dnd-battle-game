@@ -748,6 +748,62 @@ function deleteZonePlugin() {
   };
 }
 
+function saveZoneFogPlugin() {
+  return {
+    name: 'save-zone-fog',
+    configureServer(server) {
+      server.middlewares.use('/__save_zone_fog', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, fogDensity, fogColor } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath))
+              throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+
+            // Insert-or-replace a single-line scalar field just inside ZONE {}.
+            const upsert = (s, name, literal) => {
+              const line = `  ${name}: ${literal},`;
+              const re = new RegExp(`^[ \\t]*${name}\\s*:[^\\n]*$`, 'm');
+              if (re.test(s)) return s.replace(re, line);
+              return s.replace(/^(export const ZONE = \{\n)/m, `$1${line}\n`);
+            };
+            // Remove a field line entirely (used when a value is cleared).
+            const removeField = (s, name) =>
+              s.replace(new RegExp(`^[ \\t]*${name}\\s*:[^\\n]*\\n`, 'm'), '');
+
+            const d = Math.round(Number(fogDensity) * 1e4) / 1e4;
+            src = upsert(src, 'fogDensity', String(d));
+
+            if (fogColor) {
+              const hex = String(fogColor).replace(/^#|^0x/, '').toLowerCase();
+              src = upsert(src, 'fogColor', `0x${hex}`);
+            } else {
+              src = removeField(src, 'fogColor');
+            }
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneCavePlugin(), saveZoneCaveEntrancesPlugin(), saveZoneVisionBlockersPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneCavePlugin(), saveZoneCaveEntrancesPlugin(), saveZoneVisionBlockersPlugin(), saveZoneFogPlugin(), createZonePlugin(), deleteZonePlugin()],
 });

@@ -5,7 +5,7 @@ import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNo
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
-import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight } from './environments.js';
+import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight, setZoneFogDensity } from './environments.js';
 import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
 import { loadPaint } from './terrainPaint.js';
@@ -383,6 +383,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   } else {
     setEnv(zone.biome, zone.ambient);
   }
+
+  // Per-zone atmospheric-fog override (after setEnv, which resets to biome default)
+  if (zone.fogDensity != null) setZoneFogDensity(zone.fogDensity, zone.fogColor);
 
   // Cave ceiling — underside-of-rock roof over carved (trench) tunnels, shown for
   // zones flagged `cave`. setEnv above has already rebuilt the ground with the

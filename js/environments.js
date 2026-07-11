@@ -1617,6 +1617,19 @@ export function setFogDensityMultiplier(m) {
   scene.fog.density = _baseFogDensity * _fogDensityMult;
 }
 
+// Per-zone fog override — call after setEnv() to nudge a single zone's
+// atmospheric fog without touching the shared biome defaults. Updates the base
+// density so the dev-zoom multiplier keeps working on top of it.
+export function setZoneFogDensity(density, color = null) {
+  _baseFogDensity = density;
+  scene.fog.density = _baseFogDensity * _fogDensityMult;
+  if (color != null) scene.fog.color.set(color);
+}
+
+export function getBaseFogDensity()      { return _baseFogDensity; }
+export function getFogDensityMultiplier() { return _fogDensityMult; }
+export function getFogColorHex()          { return '#' + scene.fog.color.getHexString(); }
+
 export function setEnv(name, ambientKey) {
   _clearDungeonHeroLights();
   const e = ENVS[name];
