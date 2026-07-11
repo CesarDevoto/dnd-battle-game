@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { scene, ground, grid, ambient, moon, fire, camera, rebuildGrid } from './scene.js';
 import { playAmbient } from './audio.js';
 import { ENVS, ANIM, COLORS, HERO_ZONE, SCENE } from './constants.js';
@@ -1225,6 +1226,11 @@ function _mangroveEdgePos() {
 }
 
 // ── GLB loaders ───────────────────────────────────────────────────────────────
+// Shared loader with the meshopt decoder set — every environment GLB is
+// meshopt-compressed, so a bare GLTFLoader throws "setMeshoptDecoder must be
+// called before loading compressed files" and the asset silently goes missing.
+const _envLoader = new GLTFLoader();
+_envLoader.setMeshoptDecoder(MeshoptDecoder);
 
 let _mangroveGltf   = null;
 let _mangrovePromise = null;
@@ -1232,7 +1238,7 @@ let _mangrovePromise = null;
 function _loadMangrove() {
   if (_mangrovePromise) return _mangrovePromise;
   _mangrovePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/mangrove.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1259,7 +1265,7 @@ let _dungeonRockWallPromise = null;
 function _loadDungeonRockWall() {
   if (_dungeonRockWallPromise) return _dungeonRockWallPromise;
   _dungeonRockWallPromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/dungeonrockwall.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1286,7 +1292,7 @@ let _forestTreePromise = null;
 function _loadForestTree() {
   if (_forestTreePromise) return _forestTreePromise;
   _forestTreePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/foresttree.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1313,7 +1319,7 @@ let _deadTreePromise = null;
 function _loadDeadTree() {
   if (_deadTreePromise) return _deadTreePromise;
   _deadTreePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/deadtree.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1340,7 +1346,7 @@ let _evergreenTreePromise = null;
 function _loadEvergreenTree() {
   if (_evergreenTreePromise) return _evergreenTreePromise;
   _evergreenTreePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/evergreentree.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1367,7 +1373,7 @@ let _savannaTreePromise = null;
 function _loadSavannaTree() {
   if (_savannaTreePromise) return _savannaTreePromise;
   _savannaTreePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/savannahtree.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1394,7 +1400,7 @@ let _tombstonePromise = null;
 function _loadTombstone1() {
   if (_tombstonePromise) return _tombstonePromise;
   _tombstonePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/tombstone1.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1421,7 +1427,7 @@ let _logPromise = null;
 function _loadLog() {
   if (_logPromise) return _logPromise;
   _logPromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/log.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1448,7 +1454,7 @@ let _brokenTreePromise = null;
 function _loadBrokenTree() {
   if (_brokenTreePromise) return _brokenTreePromise;
   _brokenTreePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/brokentree.glb',
       gltf => {
         gltf.scene.traverse(child => {
@@ -1475,7 +1481,7 @@ let _stalactitePromise = null;
 function _loadStalactite() {
   if (_stalactitePromise) return _stalactitePromise;
   _stalactitePromise = new Promise(resolve => {
-    new GLTFLoader().load(
+    _envLoader.load(
       'assets/environment/stalactite.glb',
       gltf => {
         gltf.scene.traverse(child => {

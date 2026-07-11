@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit, setGridVisible } from './scene.js';
 import { units, corpses, heroRoster } from './units.js';
 import { getTerrainHeight } from './terrain.js';
@@ -48,6 +49,7 @@ let _portalLight  = null; // THREE.PointLight added/removed per-sequence
 
 // ── Dagna ─────────────────────────────────────────────────────────────────────
 const _loader = new GLTFLoader();
+_loader.setMeshoptDecoder(MeshoptDecoder);   // dagna.glb may be meshopt-compressed
 let _dagnaGrp        = null;
 let _dagnaMixer      = null;
 let _dagnaIdleAction = null;
