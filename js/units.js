@@ -65,7 +65,7 @@ const MODEL_PATHS = {
   abyssal_chicken:  'assets/models/abyssalchicken.glb',
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
-  solrac:    'assets/models/solrac.glb',
+  solrac:    'assets/models/npcs/solrac.glb',
   owl:       'assets/models/owl.glb',
   // Townsfolk NPCs — assets/models/npcs/ subfolder (lowercase — case-sensitive on deploy)
   npc_dwarf:          'assets/models/npcs/npc dwarf.glb',
@@ -190,10 +190,10 @@ const ANIM_CLIP_NAMES = {
   giant_rat: {
     idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Jump', death: 'Death',
   },
-  // solrac.glb has no standing idle — only a seated pose plus loco clips.
-  // Use the cross-legged sit as the resting idle; pin loco to the .001 variants.
+  // solrac.glb has a real standing idle (Idle_11) plus loco + sit/cheer poses.
+  // Pin the standing idle and loco explicitly; no attack clip (peaceful NPC).
   solrac: {
-    idle: 'Sit_Cross_Legged_on_Floor', walk: 'Walking.001', run: 'Running.001', attack: null,
+    idle: 'Idle_11', walk: 'Walking.001', run: 'Running.001', attack: null,
   },
   // Archery_Shot_1 (rangeY 8.6) beats Walking (7.0) on the loco tiebreak since both are 1.0s;
   // pin the two swapped slots to fix it.
@@ -352,6 +352,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
   // Animation state — only populated for ANIMATED_TYPES
   let mixer = null, idleAction = null, walkAction = null, runAction = null, attackAction = null, rangedAttackAction = null, spellCastAction = null, deathAction = null;
+  let unitClips = null;   // raw gltf.animations, exposed so events can play unmapped clips (e.g. Solrac's Bar_Hang_Idle)
 
   if (gltf?.scene) {
     const model = SkeletonUtils.clone(gltf.scene);
@@ -415,6 +416,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     // ── Skeletal animation setup ─────────────────────────────────────────────
     if (ANIMATED_TYPES.has(type) && !SCALE_ANIMATE_TYPES.has(type) && gltf.animations?.length) {
       const clips = gltf.animations;
+      unitClips = clips;
       mixer = new THREE.AnimationMixer(model);
 
       // Auto-detect roles — returns clip objects directly so duplicate meshy.ai names can't collide
@@ -532,6 +534,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               spellSlots: def.spellSlots,
               _animPhaseOffset: _phaseOff,
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
+              clips: unitClips,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {},
               // scale-animate state (only used when SCALE_ANIMATE_TYPES.has(type))
               _scaleMode: SCALE_ANIMATE_TYPES.has(type) ? 'idle' : null,
@@ -601,6 +604,9 @@ export function setUnitWalking(unit, walking, run = false) {
     return;
   }
   if (!unit.mixer) return;
+  // While an event holds a forced clip (e.g. Solrac hanging), ignore walk/idle
+  // swaps so nothing knocks him out of the pose. Cleared via setUnitAnimLocked.
+  if (unit._animLocked) return;
 
   // Resolve action first — if null, bail without touching isWalking so the
   // guard doesn't lock out future calls once the clip becomes available.
@@ -627,6 +633,25 @@ export function setUnitWalking(unit, walking, run = false) {
   if (walking) action.time = _phaseTime(unit, action);
   action.play();
 }
+
+// Play an arbitrary animation clip by name — for clips that aren't one of the mapped
+// idle/walk/run roles (e.g. Solrac's Bar_Hang_Idle shackled pose). Loops by default and
+// locks out setUnitWalking so nothing swaps him back; call setUnitAnimLocked(unit, false)
+// when the pose ends (e.g. on release). Returns false if the clip/mixer isn't available.
+export function playUnitClip(unit, clipName, { loop = true, lock = true } = {}) {
+  if (!unit.mixer || !unit.clips) return false;
+  const clip = unit.clips.find(c => c.name === clipName);
+  if (!clip) return false;
+  const action = unit.mixer.clipAction(clip);
+  action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+  action.clampWhenFinished = !loop;
+  unit.mixer.stopAllAction();
+  action.reset().setEffectiveWeight(1).play();
+  unit._animLocked = lock;
+  return true;
+}
+
+export function setUnitAnimLocked(unit, locked) { unit._animLocked = locked; }
 
 // Desync identical loops between units by starting each at its own phase offset.
 // Must wrap the offset by the clip duration: a phase offset past the clip's end

@@ -963,18 +963,6 @@ export const UNIT_TYPES = {
     modelRotY:  -Math.PI / 4,
   },
 
-  // Humanoid NPC. Rigged GLB (~1.66 units tall in bind pose); scale ~1.27 puts it
-  // at ~2.1 world units, matching the elf/dwarf heroes. Origin sits at the head
-  // (mesh min y ≈ -1.54), so yOffset lifts the feet to ground level.
-  // Grounding is bbox-derived and unverified in-game — nudge with [ / ] if it floats/sinks.
-  solrac: {
-    name: 'Solrac',
-    team: 'npc',
-    scale:      [1.27, 1.27, 1.27],
-    yOffset:    1.96,
-    anchorY:    2.0,
-  },
-
   // Townsfolk dwarf NPC. Rigged GLB. Scale/grounding are a first guess based on
   // the hero dwarf (scale ~0.99) — the model's bind-pose height and origin are
   // unverified in-game, so nudge scale/yOffset with [ / ] and the dev tools if
@@ -996,6 +984,20 @@ export const UNIT_TYPES = {
     team: 'npc',
     scale:   [0.9, 0.9, 0.9],
     yOffset: 0.9,
+    anchorY: 1.9,
+  },
+
+  // Solrac — animated peasant NPC (solrac.glb). Rigged, feet-at-origin (~1.62u tall in
+  // bind pose); scale ~1.3 reads ~2.1u (adult height, matching the heroes). Has a
+  // standing idle (Idle_11) plus loco + sit/cheer poses; idle is pinned in the units.js
+  // clip map. The attached head's emissive was re-pointed to its base albedo so it
+  // matches the body's brightness (see units.js emissive-primary material handling).
+  // Grounding is bbox-derived — nudge scale/yOffset with [ / ] in the NPC editor.
+  solrac: {
+    name: 'Solrac',
+    team: 'npc',
+    scale:   [1.3, 1.3, 1.3],
+    yOffset: 0.02,
     anchorY: 1.9,
   },
 
