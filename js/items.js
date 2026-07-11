@@ -2809,6 +2809,17 @@ export const ITEMS = {
     value:       25,
     description: 'Sacred dung from the grassling mounds. Bring it to an alchemist in the towns of men to render it into 2 Potions of Lesser Healing.',
   },
+
+  // Quest key — dropped by a Warrens goblin jailer; opens Solrac's shackles.
+  goblin_key: {
+    id:          'goblin_key',
+    name:        'Goblin Key',
+    rarity:      'green',
+    icon:        'assets/items/materials/goblin key.png',
+    material:    true,
+    value:       0,
+    description: "A crude iron key wrenched from a goblin jailer in the Warrens. It fits the shackles binding the prisoner Solrac. Carry it to him to set him free.",
+  },
 };
 
 export function getItem(id) {

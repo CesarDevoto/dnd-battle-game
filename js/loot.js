@@ -117,6 +117,17 @@ function _markMorvathAmuletDropped() {
   try { localStorage.setItem(_MORVATH_AMULET_KEY, '1'); } catch {}
 }
 
+// ── Goblin Key — guaranteed one-time drop from a Warrens goblin (Solrac quest) ──
+const GOBLIN_KEY = getItem('goblin_key');
+const _WARRENS_KEY_KEY = 'dnd_warrens_goblin_key_dropped';
+
+function _warrensKeyAlreadyDropped() {
+  try { return localStorage.getItem(_WARRENS_KEY_KEY) === '1'; } catch { return false; }
+}
+function _markWarrensKeyDropped() {
+  try { localStorage.setItem(_WARRENS_KEY_KEY, '1'); } catch {}
+}
+
 // ── Public: roll loot for one enemy ──────────────────────────────────────────
 // type/zoneId are optional — pass them to enable the one-time guaranteed drop.
 export function rollLoot(cr, type = null, zoneId = null) {
@@ -137,6 +148,11 @@ export function rollLoot(cr, type = null, zoneId = null) {
   if (type === 'morvath' && !_morvathAmuletAlreadyDropped()) {
     items.push({ ...SOUL_SHARD_AMULET });
     _markMorvathAmuletDropped();
+  }
+
+  if (type === 'goblin' && zoneId === 'warrens' && GOBLIN_KEY && !_warrensKeyAlreadyDropped()) {
+    items.push({ ...GOBLIN_KEY });
+    _markWarrensKeyDropped();
   }
 
   return { coins, items };

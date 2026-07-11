@@ -88,10 +88,11 @@ export const ZONE = {
   ],
   enemies: [
     { type: 'solrac', x: 136.7, z: 57.34 },
+    { type: 'goblin', x: 139.09, z: 110.23 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
-    { x: 139.41, z: 110.35, r: 4, seed: 4.037 },
+    { x: 139.41, z: 110.35, r: 5, seed: 4.491 },
   ],
   exits: [
     // Corner wall-gate connecting out to Bleakmire Woods. notchHalfWidth widens the
