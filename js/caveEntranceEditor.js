@@ -170,7 +170,7 @@ function _buildPanel() {
     <div id="cme-status" class="cme-status"></div>`;
   const s = document.createElement('style');
   s.textContent = `
-    #cme-panel { position:fixed; top:92px; right:10px; z-index:60; width:190px;
+    #cme-panel { display:none; position:fixed; top:92px; right:10px; z-index:60; width:190px;
       background:rgba(10,8,4,0.92); border:1px solid #4a3412; border-radius:5px;
       padding:8px; font-family:sans-serif; color:#cdbf9a; box-shadow:0 3px 12px rgba(0,0,0,0.5); }
     #cme-panel .cme-title { font-size:0.62rem; letter-spacing:2px; color:#d4af37; margin-bottom:6px; text-align:center; }
@@ -195,6 +195,17 @@ function _buildPanel() {
 export function initCaveEntranceEditor() {
   if (!IS_DEV) return;
   _buildPanel();
+
+  // Top-bar toggle, matching the other dev editors (panel is hidden by default).
+  document.getElementById('cave-editor-btn')?.addEventListener('click', () => {
+    const panel = document.getElementById('cme-panel');
+    if (!panel) return;
+    const open = panel.style.display !== 'block';
+    panel.style.display = open ? 'block' : 'none';
+    document.getElementById('cave-editor-btn').classList.toggle('active', open);
+    if (!open) _setMode(false);   // closing the panel also stops placing mode
+    _updateStatus();
+  });
 
   renderer.domElement.addEventListener('click', _onClick, true); // capture, before hero-click
 

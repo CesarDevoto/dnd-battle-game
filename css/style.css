@@ -885,13 +885,14 @@ body {
   text-shadow: 0 0 10px rgba(80,220,140,0.55);
 }
 
-/* Amber — BIOMES, TERRAIN */
-#biomes-btn, #terrain-editor-btn {
+/* Amber — BIOMES, TERRAIN, CAVE */
+#biomes-btn, #terrain-editor-btn, #cave-editor-btn {
   color: #c89050;
   background: linear-gradient(180deg, rgba(28,16,4,0.92) 0%, rgba(14,8,2,0.96) 100%);
   border-color: rgba(106,60,16,0.60);
 }
 #biomes-btn:hover, #biomes-btn.active,
+#cave-editor-btn:hover, #cave-editor-btn.active,
 #terrain-editor-btn:hover, #terrain-editor-btn.active {
   color: #f0b870;
   border-color: #a06020;
