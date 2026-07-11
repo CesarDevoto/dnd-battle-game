@@ -2,6 +2,7 @@ export const ZONE = {
   id:        'warrens',
   name:      'The Warrens',
   biome: 'forest',
+  groundSize: 432,   // 4x the default (108) — doubled twice; large open map, same cave in the middle
   // Cave test: an outdoor hillside with a cave mouth leading into a straight
   // tunnel that ends in a room. The hill is a terrain control point; the tunnel
   // and room are carved with trenches; `cave` turns on the underside-of-rock roof.
@@ -28,7 +29,13 @@ export const ZONE = {
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
   ],
-  exits: [],
+  exits: [
+    // Corner wall-gate connecting out to Bleakmire Woods. notchHalfWidth widens the
+    // rim opening (~24 WU) so it reads as a real split in the thick corner wall; the
+    // negative fogPush pulls the fog ball back off the corner to ~181,181. Arrival
+    // lands just inside Bleakmire's reciprocal Warrens gate (at -94.83, 2.59).
+    { x: 183, z: 183, targetZone: 'bleakmire_woods', arrivalX: -85, arrivalZ: 2.3, label: 'Bleakmire Woods', clickScale: 2, notchHalfWidth: 12, fogPush: -2.83, fogScale: 3 },
+  ],
   terrainSeed: null,
   props: [],
   barriers: [

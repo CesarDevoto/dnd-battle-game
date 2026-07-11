@@ -49,7 +49,7 @@ export function tickDevCamera(dt) {
   if (!any) return;
 
   // Pan speed scales with camera height so it feels the same zoomed in or out
-  const speed = Math.max(camera.position.y, 4) * 1.8;
+  const speed = Math.max(camera.position.y, 4) * 3.6;
 
   const fwd = new THREE.Vector3();
   camera.getWorldDirection(fwd);

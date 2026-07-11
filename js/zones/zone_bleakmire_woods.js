@@ -55,7 +55,7 @@ export const ZONE = {
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'road_to_phandelver', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
     { x: 82, z: -82, targetZone: 'haunted_wood', arrivalX: -82, arrivalZ: 78, label: 'Haunted Wood', fogPush: 14 },
-    { x: -94.83, z: 2.59, targetZone: 'warrens', label: 'The Warrens', proximityTrigger: true, fogPush: 0, fogHeight: 7.8 },
+    { x: -94.83, z: 2.59, targetZone: 'warrens', arrivalX: 172, arrivalZ: 172, label: 'The Warrens', proximityTrigger: true, fogPush: 0, fogHeight: 7.8 },
   ],
   terrain: [
     { x: 17, z: 20, h: -3, r: 11, pr: 8 },

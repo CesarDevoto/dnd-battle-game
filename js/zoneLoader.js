@@ -162,7 +162,9 @@ function _buildExitMarker(exit) {
   const wx    = exit.x + dirX * PUSH + (exit.fogOffsetX ?? 0);
   const wz    = exit.z + dirZ * PUSH + (exit.fogOffsetZ ?? 0);
   const gy    = getTerrainHeight(wx, wz);
-  const BALL_Y = exit.fogHeight ?? 1.8;   // float above ground
+  const FS    = exit.fogScale ?? 1;        // whole-ball size multiplier (sprite size + spread)
+  const BALL_Y = exit.fogHeight ?? 1.8;    // float above ground — NOT scaled, so the ball
+                                           // grows in place rather than riding up into the wall
 
   const texBright = _makeFogBallTex(true);
   const texSoft   = _makeFogBallTex(false);
@@ -188,13 +190,13 @@ function _buildExitMarker(exit) {
       depthWrite:  false,
     });
     const spr = new THREE.Sprite(mat);
-    spr.scale.set(def.s, def.s, 1);
-    spr.position.set(wx + def.ox, gy + BALL_Y + def.oy, wz + def.oz);
+    spr.scale.set(def.s * FS, def.s * FS, 1);
+    spr.position.set(wx + def.ox * FS, gy + BALL_Y + def.oy * FS, wz + def.oz * FS);
     spr.userData.exit         = exit;
     spr.userData.isFogSprite  = true;
     spr.userData.opacityScale = def.os;
     spr.userData.bobPhase     = def.bp;
-    spr.userData.baseY        = gy + BALL_Y + def.oy;
+    spr.userData.baseY        = gy + BALL_Y + def.oy * FS;
     spr.userData.rotSpeed     = def.rs;
     spr.visible = false;
     scene.add(spr);
@@ -226,7 +228,7 @@ function _buildExitMarker(exit) {
       depthWrite:  false,
       side:        THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size, def.size), mat);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size * FS, def.size * FS), mat);
     mesh.rotation.x        = -Math.PI / 2;
     mesh.position.set(wx, gy + def.yOff, wz);
     mesh.userData.exit         = exit;
@@ -361,7 +363,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   setTerrainControlPoints(zone.terrain ?? []);
   setTerrainTrenches(zone.trenches ?? []);
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
-  setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: 2 })));
+  setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: e.notchHalfWidth ?? 2 })));
   setCaveEntrances(zone.caveEntrances ?? []);
   setCaveLayersActive(!!zone.cave);   // before the biome switch so the grid + terrain rebuild sample the surface
 
