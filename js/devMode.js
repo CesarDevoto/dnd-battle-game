@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { camera, controls, scene, getFollowUnit, setFollowUnit } from './scene.js';
+import { camera, controls, scene, getFollowUnit, setFollowUnit, saveCameraPose, restoreCameraPose } from './scene.js';
 import { SCENE, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { units, setUnitStealth } from './units.js';
@@ -13,6 +13,11 @@ import { setWaypointMarkersVisible } from './bleakmireWoodsEvent.js';
 let _dev = IS_DEV;
 const _wasOpen = { prop: false, npc: false, terrain: false };
 let _markersWereVisible = true;
+
+// Per-zone dev camera pose — persisted so a reload returns to where you left off.
+let _camZoneId = null;
+let _camSaveT  = 0;
+const _camKey  = id => `dnd-devcam-${id}`;
 
 // ── Dev sky light — dungeon only ──────────────────────────────────────────────
 // Gives enough overhead fill to build/review dungeon zones; killed in play view.
@@ -45,6 +50,14 @@ export function tickDevCamera(dt) {
   _tickSocialRings();
 
   if (!_dev) return;
+
+  // Persist the camera pose (throttled) so a zone reload can restore it. Runs
+  // regardless of WASD so mouse-driven orbit/zoom is captured too.
+  if (_camZoneId) {
+    _camSaveT += dt;
+    if (_camSaveT >= 0.4) { _camSaveT = 0; saveCameraPose(_camKey(_camZoneId)); }
+  }
+
   const any = Object.values(_keys).some(Boolean);
   if (!any) return;
 
@@ -187,9 +200,14 @@ export function initDevMode() {
   });
 
   // Zone loads call snapCameraToUnit which re-sets _followUnit — release it in dev mode
-  // so the camera stays free instead of continuously chasing the hero.
-  window.addEventListener('zone:loaded', () => {
-    if (_dev) setFollowUnit(null);
+  // so the camera stays free instead of continuously chasing the hero, then restore
+  // the camera to wherever it was last left in this zone (persisted per zone).
+  window.addEventListener('zone:loaded', e => {
+    _camZoneId = e.detail?.id ?? null;
+    if (_dev) {
+      setFollowUnit(null);
+      if (_camZoneId) restoreCameraPose(_camKey(_camZoneId));
+    }
   });
 
   window.addEventListener('keydown', e => {

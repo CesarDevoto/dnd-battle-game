@@ -247,6 +247,29 @@ export function snapCameraToUnit(unit) {
   _camFocusActive = false; // updateCameraFocus re-activates via _followUnit each frame
 }
 
+// ── Dev camera pose persistence ───────────────────────────────────────────────
+// Save/restore the free camera position + orbit target to localStorage so a zone
+// reload in dev view returns to where you were instead of snapping to the party.
+export function saveCameraPose(key) {
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      p: [camera.position.x, camera.position.y, camera.position.z],
+      t: [controls.target.x, controls.target.y, controls.target.z],
+    }));
+  } catch {}
+}
+export function restoreCameraPose(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const { p, t } = JSON.parse(raw);
+    camera.position.set(p[0], p[1], p[2]);
+    controls.target.set(t[0], t[1], t[2]);
+    controls.update();
+    return true;
+  } catch { return false; }
+}
+
 // ── Top-view toggle ───────────────────────────────────────────────────────────
 
 // ── Scroll zoom ───────────────────────────────────────────────────────────────
