@@ -110,6 +110,9 @@ export const ZONE = {
     { model: 'shackles', x: 136.73, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
     { model: 'shackles', x: 137.74, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
     { model: 'shackles', x: 138.75, z: 57.43, y: 17.5, yOff: 2.5, rotY: 9.556, scale: 0.513 },
+    { model: 'skeleton1', x: 138.81, z: 57.68, y: 15.43, yOff: 0.43, rotY: 0.262, scale: 0.909 },
+    { model: 'corpse1', x: 140.34, z: 58.63, y: 15, rotY: 0, scale: 0.683 },
+    { model: 'corpse1', x: 135.15, z: 57.49, y: 15, rotY: 3.272, scale: 0.683 },
   ],
   barriers: [
     { x1: 123.14, z1: 39.79, x2: 126.17, z2: 37.9 },
