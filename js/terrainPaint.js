@@ -312,6 +312,32 @@ export function initTerrainPaint() {
 
   window.addEventListener('zone:loaded', e => { _activeZone = e.detail?.id ?? null; _updateCounter(); });
 
+  // Diagnostic (prod-safe): run window.__roadDebug() in the console on a painted
+  // zone to report where the paint pipeline is (or isn't) working. Temporary —
+  // for the "painted road not visible on some machines" investigation.
+  window.__roadDebug = () => {
+    const out = {
+      shaderPatched:      !!_shader,
+      onBeforeCompileSet: !!ground.material?.onBeforeCompile,
+      uSize:              _shader?.uniforms?.uSize?.value,
+      uPaintRepeat:       _shader?.uniforms?.uPaintRepeat?.value,
+      strokes:            _strokes.length,
+      activeZone:         _activeZone,
+      groundType:         ground.geometry?.type,
+      groundWidth:        ground.geometry?.parameters?.width ?? null,
+      hasBaseMap:         !!ground.material?.map,
+      maskRedPixels:      0,
+    };
+    try {
+      const d = _maskCtx.getImageData(0, 0, MASK_SIZE, MASK_SIZE).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 20) n++;
+      out.maskRedPixels = n;
+    } catch (err) { out.maskErr = err.message; }
+    console.log('[roadDebug]', out);
+    return out;
+  };
+
   // Turning the terrain editor off should also drop paint mode.
   document.getElementById('terrain-editor-btn')?.addEventListener('click', () => {
     if (_paintMode) _setPaintMode(false);
