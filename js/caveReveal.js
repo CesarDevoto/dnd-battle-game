@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getGroundHeight } from './terrain.js';
+import { applyPaintShader, roofPaintUniforms } from './terrainPaintShader.js';
 
 // ── Cave roof reveal ────────────────────────────────────────────────────────────
 // The blanket (and the blanket grid) get their own materials with a shader patch
@@ -23,10 +24,15 @@ const _u = {
 };
 
 // Patch any material (mesh or line) so it fades with the reveal. Sets transparent.
-export function applyRevealShader(material) {
+// withPaint=true also injects the terrain-paint splatmap (road/dirt/tint) so the
+// cave-roof blanket receives the same painted surfaces as the ground. Only the
+// blanket MESH wants paint — the blanket grid (lines) passes withPaint=false so
+// its lines aren't tinted by road/dirt textures.
+export function applyRevealShader(material, withPaint = false) {
   material.transparent = true;
-  material.customProgramCacheKey = () => 'cave-reveal-v2-' + material.type;
+  material.customProgramCacheKey = () => 'cave-reveal-v3-' + (withPaint ? 'paint-' : '') + material.type;
   material.onBeforeCompile = shader => {
+    if (withPaint) applyPaintShader(shader, roofPaintUniforms);   // blanket's own paint layer; rgb first, reveal touches alpha below
     shader.uniforms.uReveal      = _u.uReveal;
     shader.uniforms.uRevealCount = _u.uRevealCount;
     shader.uniforms.uRevealInner = _u.uRevealInner;
@@ -66,7 +72,7 @@ export const ceilingMaterial = new THREE.MeshStandardMaterial({
   // the shader discards fully-revealed fragments so the tunnel still shows through.
   depthWrite: true,
 });
-applyRevealShader(ceilingMaterial);
+applyRevealShader(ceilingMaterial, true);   // blanket mesh: reveal + terrain paint
 
 // Copy the ground's current look so the roof matches the terrain exactly.
 export function syncCaveRevealMaterial(groundMat) {

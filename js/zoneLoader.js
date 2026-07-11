@@ -398,8 +398,8 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   loadBarrierVisuals(zone.barriers ?? []);
   loadTrenchVisuals(zone.trenches ?? []);
 
-  // Rasterize painted terrain strokes into the splatmap
-  loadPaint(zone.paint ?? [], zone.paintTint ?? null);
+  // Rasterize painted terrain strokes into the splatmaps (floor + cave blanket)
+  loadPaint(zone.paint ?? [], zone.paintTint ?? null, zone.paintRoof ?? [], zone.paintRoofTint ?? null);
 
 
   _postCombat = false;

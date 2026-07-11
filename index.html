@@ -756,6 +756,13 @@
           <label class="te-input-lbl">pr<input id="te-default-pr" class="te-num" type="number" value="0" step="0.5" min="0"></label>
         </div>
         <div id="te-status"></div>
+        <div id="te-selected-row" style="display:none">
+          <span class="te-lbl">Point:</span>
+          <label class="te-input-lbl">h<input id="te-sel-h" class="te-num" type="number" step="0.5"></label>
+          <label class="te-input-lbl">r<input id="te-sel-r" class="te-num" type="number" step="0.5" min="1"></label>
+          <label class="te-input-lbl">pr<input id="te-sel-pr" class="te-num" type="number" step="0.5" min="0"></label>
+          <button id="te-sel-del" title="Delete point">✕</button>
+        </div>
         <div id="te-counter" class="te-counter">Points: 0</div>
         <div id="te-btn-row">
           <button id="te-markers-btn">HIDE MARKERS</button>
@@ -791,8 +798,13 @@
         <label id="te-cave-lbl"><input id="te-cave-check" type="checkbox"> Cave roof — blanket over trenches</label>
         <div id="te-cave-status" class="te-status-small"></div>
         <div class="te-section-divider">── PAINT ──</div>
+        <div id="te-btn-row">
+          <span class="te-lbl">Layer:</span>
+          <button class="tp-layer-btn active" data-layer="floor" title="Ground / tunnel floor">FLOOR</button>
+          <button class="tp-layer-btn" data-layer="roof" title="Cave-roof blanket (hilltop)">BLANKET</button>
+        </div>
         <div id="tp-status" class="te-status-small">Click PAINT MODE, then drag on the terrain</div>
-        <div id="tp-counter" class="te-counter">Strokes: 0</div>
+        <div id="tp-counter" class="te-counter">Floor strokes: 0</div>
         <div id="te-btn-row">
           <button class="tp-ch-btn active" data-ch="road">ROAD</button>
           <button class="tp-ch-btn" data-ch="dirt">DIRT</button>

@@ -276,6 +276,36 @@ function _adjustPR(delta) {
   _rebuild();
 }
 
+// Absolute value setters, driven by the per-point number inputs.
+function _setH(val) {
+  if (_selectedIdx < 0 || !isFinite(val)) return;
+  _pushHistory();
+  const cp = getTerrainControlPoints()[_selectedIdx];
+  cp.h = +val.toFixed(2);
+  _updateMarkerRadius(_selectedIdx);
+  _rebuild();
+}
+
+function _setR(val) {
+  if (_selectedIdx < 0 || !isFinite(val)) return;
+  _pushHistory();
+  const cp = getTerrainControlPoints()[_selectedIdx];
+  cp.r = Math.max(1, +val.toFixed(2));
+  if (cp.pr != null && cp.pr > cp.r - 0.5) cp.pr = Math.max(0, cp.r - 0.5);
+  _updateMarkerRadius(_selectedIdx);
+  _rebuild();
+}
+
+function _setPR(val) {
+  if (_selectedIdx < 0 || !isFinite(val)) return;
+  _pushHistory();
+  const cp = getTerrainControlPoints()[_selectedIdx];
+  const newPR = Math.max(0, Math.min(cp.r - 0.5, +val.toFixed(2)));
+  if (newPR > 0) cp.pr = newPR; else delete cp.pr;
+  _updateMarkerRadius(_selectedIdx);
+  _rebuild();
+}
+
 function _stampFrom(dx, dz) {
   if (_selectedIdx < 0) return;
   _pushHistory();
@@ -343,6 +373,25 @@ function _updateStatus() {
   }
   const cnt = document.getElementById('te-counter');
   if (cnt) cnt.textContent = `Points: ${pts.length}`;
+  _syncSelectedInputs();
+}
+
+// Show/populate the per-point h/r/pr inputs for the selected control point.
+// Skips whichever input is focused so it never clobbers what the user is typing.
+function _syncSelectedInputs() {
+  const row = document.getElementById('te-selected-row');
+  if (!row) return;
+  const pts = getTerrainControlPoints();
+  const cp  = _selectedIdx >= 0 ? pts[_selectedIdx] : null;
+  if (!cp) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && el !== document.activeElement) el.value = v;
+  };
+  set('te-sel-h',  cp.h);
+  set('te-sel-r',  cp.r);
+  set('te-sel-pr', cp.pr ?? 0);
 }
 
 function _updateDefaultInputs() {
@@ -379,6 +428,7 @@ export function initTerrainEditor() {
       _selectedIdx = -1;
       _setMarkersVisible(_markersVisible); // hides because _open is now false
     }
+    _updateStatus();
   });
 
   document.getElementById('te-collapse-btn')?.addEventListener('click', e => {
@@ -410,6 +460,22 @@ export function initTerrainEditor() {
   document.getElementById('te-default-pr')?.addEventListener('input', e => {
     _defaultPR = Math.max(0, parseFloat(e.target.value) || 0);
   });
+
+  // Per-point h/r/pr inputs for the selected control point
+  document.getElementById('te-sel-h')?.addEventListener('input', e => {
+    if (e.target.value !== '') _setH(parseFloat(e.target.value));
+  });
+  document.getElementById('te-sel-r')?.addEventListener('input', e => {
+    if (e.target.value !== '') _setR(parseFloat(e.target.value));
+  });
+  document.getElementById('te-sel-pr')?.addEventListener('input', e => {
+    if (e.target.value !== '') _setPR(parseFloat(e.target.value));
+  });
+  // On blur, re-sync so any clamped/normalised value is reflected in the box
+  ['te-sel-h', 'te-sel-r', 'te-sel-pr'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', _syncSelectedInputs);
+  });
+  document.getElementById('te-sel-del')?.addEventListener('click', _removeSelected);
 
   // Capture-phase click
   renderer.domElement.addEventListener('click', e => {
@@ -454,6 +520,7 @@ export function initTerrainEditor() {
       _selectedIdx = -1;
       _selRing.visible = false;
       clearBarrierSelection();
+      _updateStatus();
       return;
     }
     clearTrenchSelection();
@@ -466,6 +533,7 @@ export function initTerrainEditor() {
     if (!e.shiftKey && selectBarrierAt(e.clientX, e.clientY)) {
       _selectedIdx = -1;
       _selRing.visible = false;
+      _updateStatus();
       return;
     }
     clearBarrierSelection();

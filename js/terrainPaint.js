@@ -1,124 +1,85 @@
 import * as THREE from 'three';
-import { renderer, camera, ground, controls } from './scene.js';
+import { renderer, camera, ground, ceiling, controls } from './scene.js';
 import { makeRoadTexture } from './propBuilders.js';
 import { IS_DEV } from './devConfig.js';
+import { sharedPaintUniforms, floorPaintUniforms, roofPaintUniforms, applyPaintShader } from './terrainPaintShader.js';
 
 // ── Terrain paint (splatmap) ──────────────────────────────────────────────────
-// Spray-paint biome surfaces onto the ground. A 1024² RGBA mask lives in UV
-// space (so it survives every terrain geometry rebuild); each channel is a paint
-// material blended over the base biome texture in the ground material's fragment
-// shader (patched via onBeforeCompile):
+// Spray-paint biome surfaces onto the terrain. Each channel is a paint material
+// blended over the base biome texture in a material's fragment shader (patched
+// via onBeforeCompile — see terrainPaintShader.js):
 //   R = road  (tiled stone-road texture, matches the road props)
 //   G = dirt  (tiled worn-earth texture)
 //   B = tint  (multiplies the base surface toward uTintColor — grass/sand/snow)
 // "Erase" scales all three channels back toward 0.
 //
-// Paint is stored as vector STROKES ({x,z,r,ch}) on the zone, rasterized into the
-// mask at load — git-friendly, editable, resolution-independent (like barriers).
+// TWO INDEPENDENT LAYERS, each a 1024² RGBA mask in UV space (survives geometry
+// rebuilds): the ground FLOOR (visible on open ground / tunnel floors) and the
+// cave-roof BLANKET (the intact hilltop over a cave). They paint separately so a
+// road on the hilltop needn't appear on the tunnel floor below it, and vice-versa.
+// Non-cave zones only ever show the floor.
+//
+// Paint is stored as vector STROKES ({x,z,r,ch}) on the zone — git-friendly,
+// editable, resolution-independent (like barriers): `paint`/`paintTint` for the
+// floor, `paintRoof`/`paintRoofTint` for the blanket.
 
 const MASK_SIZE  = 1024;     // mask canvas resolution
 const TILE_WU    = 6;        // road/dirt texture tiles once per this many world units
-const CHANNELS   = ['road', 'dirt', 'tint'];   // → mask R,G,B; 'erase' is special
 
-// ── Mask canvas ────────────────────────────────────────────────────────────────
-const _maskCv  = document.createElement('canvas');
-_maskCv.width  = _maskCv.height = MASK_SIZE;
-const _maskCtx = _maskCv.getContext('2d', { willReadFrequently: true });
-let   _maskTex = null;
+// ── Paint layers ───────────────────────────────────────────────────────────────
+// Each layer owns its own mask canvas/texture, recorded strokes, and the shared
+// uniform object its material reads (floor → ground, roof → cave blanket).
+function _makeLayer(uniforms) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = MASK_SIZE;
+  return {
+    cv,
+    ctx: cv.getContext('2d', { willReadFrequently: true }),
+    tex: null,
+    uniforms,
+    strokes: [],
+    lastRec: null,
+  };
+}
+const _floor = _makeLayer(floorPaintUniforms);
+const _roof  = _makeLayer(roofPaintUniforms);
+let _targetKey = 'floor';                 // which layer the brush paints into
+function _tgt() { return _targetKey === 'roof' ? _roof : _floor; }
 
-function _clearMask() {
-  // Opaque black = no paint anywhere (alpha kept at 255 so CanvasTexture sampling
-  // stays clean — the shader reads .rgb only).
-  _maskCtx.globalCompositeOperation = 'source-over';
-  _maskCtx.fillStyle = '#000000';
-  _maskCtx.fillRect(0, 0, MASK_SIZE, MASK_SIZE);
-  if (_maskTex) _maskTex.needsUpdate = true;
+function _initLayerTex(layer) {
+  layer.tex = new THREE.CanvasTexture(layer.cv);
+  layer.tex.colorSpace = THREE.NoColorSpace;      // mask is data, not color
+  layer.uniforms.uPaintMask.value = layer.tex;    // real mask replaces the fallback
+  _clearMask(layer);
 }
 
-// ── Textures ───────────────────────────────────────────────────────────────────
-function _makeDirtTexture() {
-  const S = 512;
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = S;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#6b4a26';
-  ctx.fillRect(0, 0, S, S);
-  [
-    { colors: ['#5a3d1e','#4e3418','#634426'], count: 120, rMin: 8,  rMax: 44, aMin: 0.20, aMax: 0.40 },
-    { colors: ['#7c5730','#8a6338','#6e4c28'], count: 140, rMin: 5,  rMax: 24, aMin: 0.15, aMax: 0.30 },
-    { colors: ['#43301a','#3a2814'],           count: 70,  rMin: 2,  rMax: 10, aMin: 0.18, aMax: 0.34 },
-  ].forEach(layer => {
-    for (let i = 0; i < layer.count; i++) {
-      const x = Math.random() * S, y = Math.random() * S;
-      const r = layer.rMin + Math.random() * (layer.rMax - layer.rMin);
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.random() * Math.PI);
-      ctx.globalAlpha = layer.aMin + Math.random() * (layer.aMax - layer.aMin);
-      ctx.fillStyle   = layer.colors[Math.floor(Math.random() * layer.colors.length)];
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r, r * (0.5 + Math.random()), 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-  });
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
+function _clearMask(layer) {
+  // Opaque black = no paint anywhere (alpha kept at 255 so CanvasTexture sampling
+  // stays clean — the shader reads .rgb only).
+  layer.ctx.globalCompositeOperation = 'source-over';
+  layer.ctx.fillStyle = '#000000';
+  layer.ctx.fillRect(0, 0, MASK_SIZE, MASK_SIZE);
+  if (layer.tex) layer.tex.needsUpdate = true;
 }
 
 // ── Shader patch ─────────────────────────────────────────────────────────────
-let _shader   = null;    // captured shader ref (for live uniform updates)
-const _tint   = new THREE.Color('#6aa84f');   // default grass tint
-let   _repeat = 36;      // gs / TILE_WU, set per zone
-let   _size   = 216;     // active ground size (gs), set per zone
+// The paint shader + uniforms live in terrainPaintShader.js so the ground AND the
+// cave-roof blanket (patched in caveReveal.js) can each read their own layer.
+let _shader = null;    // captured ground shader ref (debug/introspection only)
 
-function _patchGroundMaterial() {
-  _maskTex = new THREE.CanvasTexture(_maskCv);
-  _maskTex.colorSpace = THREE.NoColorSpace;   // mask is data, not color
-  const roadTex = makeRoadTexture(1, 1);
-  const dirtTex = _makeDirtTexture();
-  _clearMask();
+function _patchMaterials() {
+  // Install the real tiled road texture (from propBuilders). Done here — not in
+  // terrainPaintShader — because that module can't import propBuilders without
+  // pulling scene.js into its own init and crashing (see note there). This runs
+  // at initTerrainPaint (main.js), well after scene is fully constructed.
+  sharedPaintUniforms.uRoadTex.value = makeRoadTexture(1, 1);
+
+  _initLayerTex(_floor);
+  _initLayerTex(_roof);   // the ceiling material (caveReveal.js) reads _roof's mask
 
   const mat = ground.material;
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uPaintMask   = { value: _maskTex };
-    shader.uniforms.uRoadTex     = { value: roadTex };
-    shader.uniforms.uDirtTex     = { value: dirtTex };
-    shader.uniforms.uTintColor   = { value: _tint };
-    shader.uniforms.uPaintRepeat = { value: _repeat };
-    shader.uniforms.uSize        = { value: _size };
-
-    // Derive the paint UV from local position (not the `uv` attribute), which is
-    // always present — the ground material may have no `map` (hence no `uv`) at
-    // first compile, before any zone/biome is loaded. Plane local x,y map to
-    // world as: worldX = x, worldZ = -y → matches _worldToPx's canvas mapping.
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vPaintUv;\nuniform float uSize;')
-      .replace('#include <begin_vertex>',
-        '#include <begin_vertex>\n  vPaintUv = vec2(position.x / uSize + 0.5, position.y / uSize + 0.5);');
-
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>',
-        `#include <common>
-        varying vec2 vPaintUv;
-        uniform sampler2D uPaintMask;
-        uniform sampler2D uRoadTex;
-        uniform sampler2D uDirtTex;
-        uniform vec3  uTintColor;
-        uniform float uPaintRepeat;`)
-      .replace('#include <color_fragment>',
-        `#include <color_fragment>
-        {
-          vec3  _pm   = texture2D(uPaintMask, vPaintUv).rgb;
-          vec2  _tuv  = vPaintUv * uPaintRepeat;
-          // tint first (multiplies existing surface — keeps texture detail)
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTintColor, _pm.b);
-          // dirt, then road on top (road wins, keeps its own texture)
-          diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(uDirtTex, _tuv).rgb, _pm.g);
-          diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(uRoadTex, _tuv).rgb, _pm.r);
-        }`);
-
+    applyPaintShader(shader, floorPaintUniforms);
     _shader = shader;
   };
   mat.needsUpdate = true;   // force recompile now that onBeforeCompile is set
@@ -136,8 +97,8 @@ function _worldToPx(wx, wz) {
   return { px: (wx / gs + 0.5) * MASK_SIZE, py: (wz / gs + 0.5) * MASK_SIZE, gs };
 }
 
-// ── Rasterize one stroke into the mask ───────────────────────────────────────
-function _stamp(wx, wz, rWU, ch) {
+// ── Rasterize one stroke into a layer's mask ─────────────────────────────────
+function _stamp(layer, wx, wz, rWU, ch) {
   const { px, py, gs } = _worldToPx(wx, wz);
   const rPx = Math.max(1, (rWU / gs) * MASK_SIZE);
 
@@ -148,7 +109,7 @@ function _stamp(wx, wz, rWU, ch) {
   const w  = x1 - x0, h = y1 - y0;
   if (w <= 0 || h <= 0) return;
 
-  const img  = _maskCtx.getImageData(x0, y0, w, h);
+  const img  = layer.ctx.getImageData(x0, y0, w, h);
   const data = img.data;
   const erase = ch === 'erase';
   const chOff = ch === 'road' ? 0 : ch === 'dirt' ? 1 : 2;   // tint→2
@@ -180,47 +141,54 @@ function _stamp(wx, wz, rWU, ch) {
       data[i + 3] = 255;   // keep opaque
     }
   }
-  _maskCtx.putImageData(img, x0, y0);
-  if (_maskTex) _maskTex.needsUpdate = true;
+  layer.ctx.putImageData(img, x0, y0);
+  if (layer.tex) layer.tex.needsUpdate = true;
 }
 
 // ── Public: load paint for a zone ────────────────────────────────────────────
-export function loadPaint(strokes, tintHex) {
-  _size   = _gs();
-  _repeat = _size / TILE_WU;
-  if (tintHex) _tint.set(tintHex);
-  if (_shader) {
-    _shader.uniforms.uSize.value        = _size;
-    _shader.uniforms.uPaintRepeat.value = _repeat;
-    _shader.uniforms.uTintColor.value   = _tint;
-  }
-  const tintInput = document.getElementById('tp-tint');
-  if (tintInput && tintHex) tintInput.value = '#' + _tint.getHexString();
-  _clearMask();
-  _strokes = [];
-  (strokes ?? []).forEach(s => {
-    _strokes.push({ x: s.x, z: s.z, r: s.r, ch: s.ch });
-    _stamp(s.x, s.z, s.r, s.ch);
-  });
+// floorStrokes/floorTint → ground; roofStrokes/roofTint → cave blanket.
+export function loadPaint(floorStrokes, floorTint, roofStrokes, roofTint) {
+  sharedPaintUniforms.uSize.value        = _gs();
+  sharedPaintUniforms.uPaintRepeat.value = sharedPaintUniforms.uSize.value / TILE_WU;
+  _loadLayer(_floor, floorStrokes, floorTint);
+  _loadLayer(_roof,  roofStrokes,  roofTint);
+  _syncTintInput();
   _updateCounter();
 }
 
+function _loadLayer(layer, strokes, tintHex) {
+  if (tintHex) layer.uniforms.uTintColor.value.set(tintHex);
+  _clearMask(layer);
+  layer.strokes = [];
+  layer.lastRec = null;
+  (strokes ?? []).forEach(s => {
+    layer.strokes.push({ x: s.x, z: s.z, r: s.r, ch: s.ch });
+    _stamp(layer, s.x, s.z, s.r, s.ch);
+  });
+}
+
 // ── Brush / editor state ─────────────────────────────────────────────────────
-let _strokes    = [];          // recorded strokes for the active zone
 let _paintMode  = false;
 let _painting   = false;
 let _channel    = 'road';
 let _brush      = 4.0;         // radius in world units
-let _lastRec    = null;        // last recorded stroke pos (for spacing)
 let _activeZone = null;
 
 export function isPaintModeActive() { return _paintMode; }
 
 const _rc  = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
-function _groundPt(cx, cy) {
+
+// The point to paint at. When painting the blanket, raycast the ceiling mesh so
+// the stroke lands where the cursor meets the visible hilltop; otherwise (and as
+// a fallback when there's no cave roof) raycast the ground.
+function _paintPt(cx, cy) {
   _ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_ndc, camera);
+  if (_targetKey === 'roof' && ceiling.visible) {
+    const rh = _rc.intersectObject(ceiling);
+    if (rh.length) return rh[0].point;
+  }
   const hits = _rc.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }
@@ -228,15 +196,16 @@ function _groundPt(cx, cy) {
 function _paintAt(pt) {
   // Record + rasterize, but space out recorded strokes so a drag doesn't store
   // thousands of near-duplicate points.
+  const layer = _tgt();
   const spacing = Math.max(0.4, _brush * 0.4);
-  if (_lastRec) {
-    const dx = pt.x - _lastRec.x, dz = pt.z - _lastRec.z;
-    if (dx * dx + dz * dz < spacing * spacing) { _stamp(pt.x, pt.z, _brush, _channel); return; }
+  if (layer.lastRec) {
+    const dx = pt.x - layer.lastRec.x, dz = pt.z - layer.lastRec.z;
+    if (dx * dx + dz * dz < spacing * spacing) { _stamp(layer, pt.x, pt.z, _brush, _channel); return; }
   }
   const s = { x: +pt.x.toFixed(1), z: +pt.z.toFixed(1), r: +_brush.toFixed(1), ch: _channel };
-  _strokes.push(s);
-  _lastRec = pt;
-  _stamp(s.x, s.z, s.r, s.ch);
+  layer.strokes.push(s);
+  layer.lastRec = pt;
+  _stamp(layer, s.x, s.z, s.r, s.ch);
   _updateCounter();
 }
 
@@ -248,6 +217,15 @@ function _setChannel(ch) {
   _updateStatus();
 }
 
+function _setTarget(key) {
+  _targetKey = key === 'roof' ? 'roof' : 'floor';
+  document.querySelectorAll('.tp-layer-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.layer === _targetKey));
+  _syncTintInput();
+  _updateCounter();
+  _updateStatus();
+}
+
 function _setPaintMode(on) {
   _paintMode = on;
   if (!on && _painting) { _painting = false; controls.enabled = true; }
@@ -256,16 +234,24 @@ function _setPaintMode(on) {
   _updateStatus();
 }
 
+function _syncTintInput() {
+  const el = document.getElementById('tp-tint');
+  if (el) el.value = '#' + _tgt().uniforms.uTintColor.value.getHexString();
+}
+
 function _updateStatus() {
   const el = document.getElementById('tp-status');
   if (!el) return;
+  const layerName = _targetKey === 'roof' ? 'blanket' : 'floor';
   el.textContent = _paintMode
-    ? `Painting "${_channel}" · brush ${_brush.toFixed(1)} · drag on terrain`
-    : 'Click PAINT MODE, then drag on the terrain';
+    ? `Painting ${layerName} "${_channel}" · brush ${_brush.toFixed(1)} · drag on terrain`
+    : `Target: ${layerName} · click PAINT MODE, then drag`;
 }
 function _updateCounter() {
   const el = document.getElementById('tp-counter');
-  if (el) el.textContent = `Strokes: ${_strokes.length}`;
+  if (!el) return;
+  const layerName = _targetKey === 'roof' ? 'Blanket' : 'Floor';
+  el.textContent = `${layerName} strokes: ${_tgt().strokes.length}`;
 }
 function _setSave(msg, cls) {
   const el = document.getElementById('tp-save-status');
@@ -281,14 +267,17 @@ async function _save() {
     const res = await fetch('/__save_zone_paint', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        zoneId: _activeZone,
-        paint: _strokes,
-        paintTint: '#' + _tint.getHexString(),
+        zoneId:        _activeZone,
+        paint:         _floor.strokes,
+        paintTint:     '#' + _floor.uniforms.uTintColor.value.getHexString(),
+        paintRoof:     _roof.strokes,
+        paintRoofTint: '#' + _roof.uniforms.uTintColor.value.getHexString(),
       }),
     });
     const json = await res.json();
     if (json.ok) {
-      _setSave(`Saved ${_strokes.length} stroke${_strokes.length !== 1 ? 's' : ''} ✓`, 'ok');
+      const total = _floor.strokes.length + _roof.strokes.length;
+      _setSave(`Saved ${total} stroke${total !== 1 ? 's' : ''} ✓`, 'ok');
       setTimeout(() => _setSave('', ''), 3000);
     } else {
       _setSave(`Error: ${json.error}`, 'error');
@@ -299,40 +288,41 @@ async function _save() {
 }
 
 function _clearPaint() {
-  _strokes = [];
-  _lastRec = null;
-  _clearMask();
+  const layer = _tgt();
+  layer.strokes = [];
+  layer.lastRec = null;
+  _clearMask(layer);
   _updateCounter();
   _updateStatus();
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 export function initTerrainPaint() {
-  _patchGroundMaterial();
+  _patchMaterials();
 
   window.addEventListener('zone:loaded', e => { _activeZone = e.detail?.id ?? null; _updateCounter(); });
 
   // Diagnostic (prod-safe): run window.__roadDebug() in the console on a painted
-  // zone to report where the paint pipeline is (or isn't) working. Temporary —
-  // for the "painted road not visible on some machines" investigation.
+  // zone to report where the paint pipeline is (or isn't) working.
   window.__roadDebug = () => {
     const out = {
       shaderPatched:      !!_shader,
       onBeforeCompileSet: !!ground.material?.onBeforeCompile,
-      uSize:              _shader?.uniforms?.uSize?.value,
-      uPaintRepeat:       _shader?.uniforms?.uPaintRepeat?.value,
-      strokes:            _strokes.length,
+      uSize:              sharedPaintUniforms.uSize.value,
+      uPaintRepeat:       sharedPaintUniforms.uPaintRepeat.value,
+      floorStrokes:       _floor.strokes.length,
+      roofStrokes:        _roof.strokes.length,
       activeZone:         _activeZone,
       groundType:         ground.geometry?.type,
       groundWidth:        ground.geometry?.parameters?.width ?? null,
       hasBaseMap:         !!ground.material?.map,
-      maskRedPixels:      0,
+      floorRedPixels:     0,
     };
     try {
-      const d = _maskCtx.getImageData(0, 0, MASK_SIZE, MASK_SIZE).data;
+      const d = _floor.ctx.getImageData(0, 0, MASK_SIZE, MASK_SIZE).data;
       let n = 0;
       for (let i = 0; i < d.length; i += 4) if (d[i] > 20) n++;
-      out.maskRedPixels = n;
+      out.floorRedPixels = n;
     } catch (err) { out.maskErr = err.message; }
     console.log('[roadDebug]', out);
     return out;
@@ -347,10 +337,15 @@ export function initTerrainPaint() {
 
   document.getElementById('tp-paint-btn')?.addEventListener('click', () => _setPaintMode(!_paintMode));
   document.getElementById('tp-clear-btn')?.addEventListener('click', () => {
-    if (_strokes.length && !confirm(`Clear all ${_strokes.length} paint stroke(s)?`)) return;
+    const n = _tgt().strokes.length;
+    const layerName = _targetKey === 'roof' ? 'blanket' : 'floor';
+    if (n && !confirm(`Clear all ${n} ${layerName} paint stroke(s)?`)) return;
     _clearPaint();
   });
   document.getElementById('tp-save-btn')?.addEventListener('click', _save);
+
+  document.querySelectorAll('.tp-layer-btn').forEach(b =>
+    b.addEventListener('click', () => _setTarget(b.dataset.layer)));
 
   document.querySelectorAll('.tp-ch-btn').forEach(b =>
     b.addEventListener('click', () => _setChannel(b.dataset.ch)));
@@ -363,32 +358,30 @@ export function initTerrainPaint() {
 
   const tintInput = document.getElementById('tp-tint');
   tintInput?.addEventListener('input', e => {
-    _tint.set(e.target.value);
-    if (_shader) _shader.uniforms.uTintColor.value = _tint;
+    _tgt().uniforms.uTintColor.value.set(e.target.value);   // active layer's tint
   });
   document.querySelectorAll('.tp-tint-swatch').forEach(b =>
     b.addEventListener('click', () => {
-      _tint.set(b.dataset.color);
+      _tgt().uniforms.uTintColor.value.set(b.dataset.color);
       if (tintInput) tintInput.value = b.dataset.color;
-      if (_shader) _shader.uniforms.uTintColor.value = _tint;
     }));
 
   // ── Brush pointer handlers (capture phase — beat OrbitControls & hero clicks) ──
   renderer.domElement.addEventListener('pointerdown', e => {
     if (!_paintMode || e.button !== 0) return;
-    const pt = _groundPt(e.clientX, e.clientY);
+    const pt = _paintPt(e.clientX, e.clientY);
     if (!pt) return;
     e.stopImmediatePropagation();
     controls.enabled = false;   // drag paints instead of orbiting the camera
     _painting = true;
-    _lastRec  = null;
+    _tgt().lastRec = null;
     _paintAt(pt);
   }, true);
 
   renderer.domElement.addEventListener('pointermove', e => {
     if (!_painting) return;
     e.stopImmediatePropagation();
-    const pt = _groundPt(e.clientX, e.clientY);
+    const pt = _paintPt(e.clientX, e.clientY);
     if (pt) _paintAt(pt);
   }, true);
 
@@ -396,10 +389,11 @@ export function initTerrainPaint() {
     if (!_painting) return;
     _painting = false;
     controls.enabled = true;
-    _lastRec = null;
+    _tgt().lastRec = null;
   };
   window.addEventListener('pointerup', _endStroke, true);
 
+  _setTarget('floor');
   _updateStatus();
   _updateCounter();
 }

@@ -412,7 +412,7 @@ function saveZonePaintPlugin() {
         req.on('data', c => { body += c; });
         req.on('end', () => {
           try {
-            const { zoneId, paint, paintTint } = JSON.parse(body);
+            const { zoneId, paint, paintTint, paintRoof, paintRoofTint } = JSON.parse(body);
             if (!zoneId) throw new Error('missing zoneId');
 
             const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
@@ -422,28 +422,35 @@ function saveZonePaintPlugin() {
             let src = fs.readFileSync(filePath, 'utf-8');
 
             const r = (n) => Math.round(n * 10) / 10;
-            const itemLines = (paint ?? []).map(p =>
-              `    { x: ${r(p.x)}, z: ${r(p.z)}, r: ${r(p.r)}, ch: '${p.ch}' },`
-            );
-            const paintBlock = (paint ?? []).length
-              ? `  paint: [\n${itemLines.join('\n')}\n  ],`
-              : `  paint: [],`;
 
-            if (/[ \t]*paint\s*:/.test(src)) {
-              src = src.replace(/[ \t]*paint\s*:[\s\S]*?\],?/, paintBlock);
-            } else {
-              src = src.replace(/^(\};)/m, `${paintBlock}\n$1`);
-            }
+            // Upsert a `<name>: [ … ]` stroke array. The `\s*:` guard means the
+            // `paint` field regex never matches `paintRoof`/`paintTint` (which have
+            // no colon straight after `paint`), so the four fields stay independent.
+            const upsertArray = (name, arr) => {
+              const lines = (arr ?? []).map(p =>
+                `    { x: ${r(p.x)}, z: ${r(p.z)}, r: ${r(p.r)}, ch: '${p.ch}' },`
+              );
+              const block = (arr ?? []).length
+                ? `  ${name}: [\n${lines.join('\n')}\n  ],`
+                : `  ${name}: [],`;
+              const re = new RegExp(`[ \\t]*${name}\\s*:[\\s\\S]*?\\],?`);
+              if (re.test(src)) src = src.replace(re, block);
+              else              src = src.replace(/^(\};)/m, `${block}\n$1`);
+            };
 
-            // paintTint (single string field)
-            if (paintTint) {
-              const tintLine = `  paintTint: '${paintTint}',`;
-              if (/[ \t]*paintTint\s*:/.test(src)) {
-                src = src.replace(/[ \t]*paintTint\s*:\s*'[^']*',?/, tintLine);
-              } else {
-                src = src.replace(/^(\};)/m, `${tintLine}\n$1`);
-              }
-            }
+            // Upsert a `<name>: '#hex',` string field.
+            const upsertTint = (name, hex) => {
+              if (!hex) return;
+              const line = `  ${name}: '${hex}',`;
+              const re = new RegExp(`[ \\t]*${name}\\s*:\\s*'[^']*',?`);
+              if (re.test(src)) src = src.replace(re, line);
+              else              src = src.replace(/^(\};)/m, `${line}\n$1`);
+            };
+
+            upsertArray('paint',     paint);       // ground floor strokes
+            upsertArray('paintRoof', paintRoof);   // cave-blanket strokes
+            upsertTint('paintTint',     paintTint);
+            upsertTint('paintRoofTint', paintRoofTint);
 
             fs.writeFileSync(filePath, src, 'utf-8');
             res.statusCode = 200;

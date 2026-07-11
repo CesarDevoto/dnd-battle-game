@@ -6891,6 +6891,26 @@ td.bst-col-retired { color: #343228 !important; }
   line-height: 1.5;
   min-height: 55px;
 }
+#te-selected-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  margin-bottom: 4px;
+}
+#te-sel-del {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  line-height: 1;
+  background: rgba(120,30,20,0.35);
+  border: 1px solid rgba(200,80,50,0.4);
+  border-radius: 3px;
+  color: #e0a080;
+  cursor: pointer;
+}
+#te-sel-del:hover { background: rgba(160,40,25,0.55); }
 .te-counter {
   font-size: 0.62rem;
   color: #8a5828;
@@ -6992,6 +7012,26 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #te-trench-save-status.te-save-status-ok    { color: #88ff66; }
 #te-trench-save-status.te-save-status-error { color: #ff6644; }
+
+/* Paint layer target toggle (FLOOR / BLANKET) */
+.tp-layer-btn {
+  flex: 1;
+  font-family: var(--font-fantasy);
+  font-size: 0.62rem;
+  letter-spacing: 1px;
+  padding: 3px 6px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 3px;
+  color: var(--btn-color);
+  cursor: pointer;
+}
+.tp-layer-btn:hover { border-color: #cc7730; color: #f0a050; }
+.tp-layer-btn.active {
+  background: rgba(255, 100, 0, 0.25);
+  border-color: #ff6600;
+  color: #ffaa44;
+}
 
 /* ── NPC Editor button ──────────────────────────────────────────────── */
 /* ── NPC Editor panel ───────────────────────────────────────────────── */
