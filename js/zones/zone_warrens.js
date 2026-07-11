@@ -87,9 +87,7 @@ export const ZONE = {
     { x:  2, z: -12, type: 'halfling' },
   ],
   enemies: [
-    { type: 'goblin', x: 138.65, z: 115.12, animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
-    { type: 'goblin2', x: 136.84, z: 113.21 },
-    { type: 'humanpeasant1', x: 139.12, z: 111.2 },
+    { type: 'solrac', x: 136.7, z: 57.34 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
@@ -105,6 +103,12 @@ export const ZONE = {
   terrainSeed: { ph: [1.235351,5.315199,3.684424,4.448136,2.85367,3.903505,3.981039,2.110116,3.782323,3.722617,6.034926,3.710996], fx: [1.013656,2.181118,6.165918,19.294515,26.431867,52.685326], fz: [1.479916,3.90371,8.060919,16.160476,58.968719,92.188009], sharpExp: 1.256837, scale: 7.874184 },
   props: [
     { model: 'cavemouth1', x: 141.99, z: 102.81, y: 14, yOff: -1, rotY: 6.152, scale: 8.8 },
+    { model: 'waystone', x: 107.64, z: 177.55, y: 0.5643, yOff: 0.45, rotY: 0, scale: 1, waystoneId: 'warrens', mapTab: 'I' },
+    { model: 'shackles', x: 136.7, z: 57.43, y: 17.5, yOff: 2.5, rotY: 3.142, scale: 0.513 },
+    { model: 'shackles', x: 136.71, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
+    { model: 'shackles', x: 136.73, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
+    { model: 'shackles', x: 137.74, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
+    { model: 'shackles', x: 138.75, z: 57.43, y: 17.5, yOff: 2.5, rotY: 9.556, scale: 0.513 },
   ],
   barriers: [
     { x1: 123.14, z1: 39.79, x2: 126.17, z2: 37.9 },
