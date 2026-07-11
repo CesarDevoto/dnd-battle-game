@@ -499,15 +499,16 @@ export function initNpcEditor() {
 
   // Keyboard
   const NUDGE = 0.5;
+  const MICRO_NUDGE = 0.05;   // Ctrl+Arrow: 1/10 of NUDGE for fine placement
   const DUP_STEP = 2.0;
   window.addEventListener('keydown', e => {
     if (!_open) return;
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
     switch (e.key) {
-      case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(-DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge(-NUDGE, 0);     } break;
-      case 'ArrowRight': e.preventDefault(); if (e.shiftKey) { _duplicateNpc( DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge( NUDGE, 0);     } break;
-      case 'ArrowUp':    e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,     -DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,     -NUDGE); } break;
-      case 'ArrowDown':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,      DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,      NUDGE); } break;
+      case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(-DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);     } break;
+      case 'ArrowRight': e.preventDefault(); if (e.shiftKey) { _duplicateNpc( DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);     } break;
+      case 'ArrowUp':    e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,     -DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,     -(e.ctrlKey ? MICRO_NUDGE : NUDGE)); } break;
+      case 'ArrowDown':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(0,      DUP_STEP); } else { if (!e.repeat) _snapshot(); _nudge(0,      (e.ctrlKey ? MICRO_NUDGE : NUDGE)); } break;
       case '[': e.preventDefault(); if (!e.repeat) _snapshot(); _adjustY(-0.25); break;
       case ']': e.preventDefault(); if (!e.repeat) _snapshot(); _adjustY( 0.25); break;
       case '-': if (!e.repeat) _snapshot(); _adjustScale(1 / 1.10); break;

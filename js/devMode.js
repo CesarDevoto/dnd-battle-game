@@ -281,10 +281,10 @@ function _applyCamera() {
     controls.enablePan     = true;
     controls.minDistance   = 0.3;
     controls.maxDistance   = 1200;
-    controls.zoomSpeed     = 4.0;
+    controls.zoomSpeed     = 2.0;
     setFogDensityMultiplier(0.15);   // far zoom would otherwise fog out well before maxDistance
-    controls.panSpeed      = 1.2;
-    controls.rotateSpeed   = 0.7;
+    controls.panSpeed      = 0.7;
+    controls.rotateSpeed   = 0.5;
     controls.mouseButtons  = {
       LEFT:   THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,

@@ -130,16 +130,24 @@ function _hitProp(clientX, clientY) {
       let o = hitObj; while (o) { if (o === m) return true; o = o.parent; } return false;
     });
     if (mesh) {
-      // Adopt into _placedProps so it can be moved/deleted like any placed prop
+      // Adopt into _placedProps so it can be moved/deleted like any placed prop.
+      // Recover identity + metadata from userData so re-saving doesn't silently strip
+      // it: a plain adopt sets model:null (dropped on export), and waystones carry their
+      // id/mapTab only in userData — flattening would lose the map link. `propModel` /
+      // `propParams` are recovered too for any builder that stamps them at instantiation.
+      const ud = mesh.userData ?? {};
       const entry = {
         mesh,
-        model: null,
+        model: ud.isWaystone ? 'waystone' : (ud.propModel ?? null),
         x:      mesh.position.x,
         z:      mesh.position.z,
         yOff:   0,
         rotY:   mesh.rotation.y,
         scaleF: mesh.scale.x || 1,
       };
+      if (ud.waystoneId != null) entry.waystoneId = ud.waystoneId;
+      if (ud.mapTab     != null) entry.mapTab     = ud.mapTab;
+      if (ud.propParams)         entry.params     = { ...ud.propParams };
       _placedProps.push(entry);
       return _placedProps.length - 1;
     }
@@ -617,7 +625,7 @@ const PROP_CATEGORIES = [
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse'] },
-  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles'] },
   { label: 'Terrain Surfaces',keys: ['flooring1','flooring2','rug1','road','roadcurve30','water','bloodpool'] },
   { label: 'Effects & Markers',keys:['fogpatch','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];

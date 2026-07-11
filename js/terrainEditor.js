@@ -553,6 +553,7 @@ export function initTerrainEditor() {
   }, true);
 
   const NUDGE = 0.5, HSTEP = 0.5, RSTEP = 0.5, PRSTEP = 0.5, STAMP = 2;
+  const MICRO_NUDGE = 0.05;   // Ctrl+Arrow: 1/10 of NUDGE for fine placement
   window.addEventListener('keydown', e => {
     if (!_open) return;
     if (e.target.tagName === 'INPUT') return;
@@ -573,10 +574,10 @@ export function initTerrainEditor() {
       }
     }
     switch (e.key) {
-      case 'ArrowLeft':  e.preventDefault(); _nudge(-NUDGE, 0);    break;
-      case 'ArrowRight': e.preventDefault(); _nudge( NUDGE, 0);    break;
-      case 'ArrowUp':    e.preventDefault(); _nudge(0, -NUDGE);    break;
-      case 'ArrowDown':  e.preventDefault(); _nudge(0,  NUDGE);    break;
+      case 'ArrowLeft':  e.preventDefault(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);    break;
+      case 'ArrowRight': e.preventDefault(); _nudge( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);    break;
+      case 'ArrowUp':    e.preventDefault(); _nudge(0, -(e.ctrlKey ? MICRO_NUDGE : NUDGE));    break;
+      case 'ArrowDown':  e.preventDefault(); _nudge(0,  (e.ctrlKey ? MICRO_NUDGE : NUDGE));    break;
       case '[': e.preventDefault(); _adjustH(-HSTEP); break;
       case ']': e.preventDefault(); _adjustH( HSTEP); break;
       case '-':                              _adjustR(-RSTEP);      break;

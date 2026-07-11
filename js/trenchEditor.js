@@ -465,6 +465,7 @@ export function initTrenchEditor() {
   });
 
   const NUDGE = 0.5, HSTEP = 0.5, RSTEP = 0.5, PRSTEP = 0.5;
+  const MICRO_NUDGE = 0.05;   // Ctrl+Arrow: 1/10 of NUDGE for fine placement
   window.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'Escape') {
@@ -473,10 +474,10 @@ export function initTrenchEditor() {
     }
     if (!hasSelectedTrenchPoint()) return;
     switch (e.key) {
-      case 'ArrowLeft':  e.preventDefault(); nudgeSelectedTrenchPoint(-NUDGE, 0);  break;
-      case 'ArrowRight': e.preventDefault(); nudgeSelectedTrenchPoint( NUDGE, 0);  break;
-      case 'ArrowUp':    e.preventDefault(); nudgeSelectedTrenchPoint(0, -NUDGE);  break;
-      case 'ArrowDown':  e.preventDefault(); nudgeSelectedTrenchPoint(0,  NUDGE);  break;
+      case 'ArrowLeft':  e.preventDefault(); nudgeSelectedTrenchPoint(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);  break;
+      case 'ArrowRight': e.preventDefault(); nudgeSelectedTrenchPoint( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);  break;
+      case 'ArrowUp':    e.preventDefault(); nudgeSelectedTrenchPoint(0, -(e.ctrlKey ? MICRO_NUDGE : NUDGE));  break;
+      case 'ArrowDown':  e.preventDefault(); nudgeSelectedTrenchPoint(0,  (e.ctrlKey ? MICRO_NUDGE : NUDGE));  break;
       case '[': e.preventDefault(); adjustSelectedTrenchPointH(-HSTEP); break;
       case ']': e.preventDefault(); adjustSelectedTrenchPointH( HSTEP); break;
       case '-':                     adjustSelectedTrenchR(-RSTEP);     break;
