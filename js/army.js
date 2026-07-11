@@ -289,7 +289,7 @@ renderer.domElement.addEventListener('click', e => {
       movePCHeroTo(sel, pt.x, pt.z);
       if (isGroupMove()) {
         units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0).forEach(o => {
-          movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz);
+          movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz, sel);
         });
       }
       return;
@@ -318,7 +318,7 @@ function _stopHoldMove() { _holdMoving = false; _holdFollowers = null; }
 function _issueHoldMove(x, z, sel) {
   movePCHeroTo(sel, x, z);
   if (_holdFollowers) {
-    for (const f of _holdFollowers) movePCHeroTo(f.unit, x + f.ox, z + f.oz);
+    for (const f of _holdFollowers) movePCHeroTo(f.unit, x + f.ox, z + f.oz, sel);
   }
 }
 

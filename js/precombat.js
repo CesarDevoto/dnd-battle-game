@@ -14,6 +14,15 @@ const PATROL_SPEED        = 0.9;  // enemy patrol speed
 const DETECT_DEFAULT      = 20;   // fallback detection radius (world units)
 const SOCIAL_AGGRO_DEFAULT = 10;  // fallback social aggro radius (world units)
 
+// Group-move recovery: when a follower's direct line to its formation slot is
+// blocked, it steers toward the leader's live position (funnels through the same
+// gap) instead of dead-stopping, then re-spreads once its slot is reachable.
+const FUNNEL_LAG_SQ = 36;   // >6 WU behind leader → funnel toward the leader
+// Slide fallbacks: if the straight step into an obstacle is blocked, retry the
+// step rotated by these offsets (radians, nearest-to-straight first) so a hero
+// hugs around a corner/prop. Each candidate is still barrier/bounds-validated.
+const DEFLECT_ANGLES = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4];
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let _active   = false;
@@ -57,6 +66,8 @@ export function exitPrecombat() {
   // Stop all walking and clear movement targets
   units.forEach(u => {
     u._pcTarget   = null;
+    u._pcLeader   = null;
+    u._pcBlocked  = false;
     u._patrolWait = 0;
     setUnitWalking(u, false);
   });
@@ -80,14 +91,19 @@ function _crossesAnyBarrier(ax, az, bx, bz, layer) {
   return false;
 }
 
-export function movePCHeroTo(hero, x, z) {
+// `leader` (optional) marks this as a group follower: it will funnel toward the
+// leader when blocked rather than dead-stopping. Solo/leader moves pass null and
+// keep the up-front "can't path there" rejection.
+export function movePCHeroTo(hero, x, z, leader = null) {
   if (!hero || !_active) return;
   const zone  = getActiveZone();
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   const cx = Math.max(-halfGS, Math.min(halfGS, x));
   const cz = Math.max(-halfGS, Math.min(halfGS, z));
-  if (_crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
-  hero._pcTarget = { x: cx, z: cz };
+  if (!leader && _crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
+  hero._pcTarget  = { x: cx, z: cz };
+  hero._pcLeader  = leader;
+  hero._pcBlocked = false;
   setUnitWalking(hero, true);
 }
 
@@ -105,18 +121,58 @@ export function tickPrecombat(dt) {
 function _tickHeroes(dt) {
   for (const hero of units) {
     if (hero.team !== 'blue' || !hero._pcTarget || hero.hp <= 0) continue;
-    const { x, z } = hero._pcTarget;
-    const heroResult = _stepToward(hero, x, z, WALK_SPEED, dt);
+    const dest   = hero._pcTarget;
+    const leader = hero._pcLeader;
+    const hasLeader = !!(leader && leader.hp > 0);
+
+    // Beacon: aim at the formation slot normally; a follower that was blocked last
+    // frame or has fallen too far behind steers toward the leader's live position
+    // to thread the same gap. It always re-spreads toward `dest` once unobstructed.
+    let bx = dest.x, bz = dest.z;
+    if (hasLeader) {
+      const lx = leader.grp.position.x - hero.grp.position.x;
+      const lz = leader.grp.position.z - hero.grp.position.z;
+      if (hero._pcBlocked || (lx * lx + lz * lz) > FUNNEL_LAG_SQ) {
+        bx = leader.grp.position.x;
+        bz = leader.grp.position.z;
+      }
+    }
+
+    const heroResult = _stepToward(hero, bx, bz, WALK_SPEED, dt, true);
+
     if (heroResult === 'arrived') {
-      hero.grp.position.x = x;
-      hero.grp.position.z = z;
-      hero.anchor.x       = x;
-      hero.anchor.z       = z;
-      hero._pcTarget      = null;
-      setUnitWalking(hero, false);
+      // Only finish when we've reached our own slot — reaching the leader beacon
+      // just means keep going (next frame re-aims at the slot to re-spread).
+      const ddx = dest.x - hero.grp.position.x, ddz = dest.z - hero.grp.position.z;
+      if (ddx * ddx + ddz * ddz < 0.25) {
+        hero.grp.position.x = dest.x;
+        hero.grp.position.z = dest.z;
+        hero.anchor.x       = dest.x;
+        hero.anchor.z       = dest.z;
+        hero._pcTarget = null;
+        hero._pcLeader = null;
+        setUnitWalking(hero, false);
+      }
+      hero._pcBlocked = false;
     } else if (heroResult === 'blocked') {
-      hero._pcTarget = null;
-      setUnitWalking(hero, false);
+      hero._pcBlocked = true;
+      // A follower keeps trying (funnels next frame) unless it's already hugging
+      // the leader and still boxed in — then give up, as before. Leaderless moves
+      // stop immediately on a true block, matching the old behavior.
+      if (hasLeader) {
+        const lx = leader.grp.position.x - hero.grp.position.x;
+        const lz = leader.grp.position.z - hero.grp.position.z;
+        if ((lx * lx + lz * lz) < 4) {
+          hero._pcTarget = null;
+          hero._pcLeader = null;
+          setUnitWalking(hero, false);
+        }
+      } else {
+        hero._pcTarget = null;
+        setUnitWalking(hero, false);
+      }
+    } else {
+      hero._pcBlocked = false;
     }
   }
 }
@@ -159,27 +215,39 @@ function _tickPatrol(dt) {
   }
 }
 
-// Move `unit` one frame toward (tx, tz).
-// Returns 'arrived' when close enough, 'blocked' when a barrier/boundary blocks the step, false otherwise.
-function _stepToward(unit, tx, tz, speed, dt) {
-  const dx = tx - unit.grp.position.x;
-  const dz = tz - unit.grp.position.z;
+// True if stepping from (px,pz) to (nx,nz) hits a barrier or leaves the ground.
+function _blockedStep(px, pz, nx, nz, unit) {
+  if (_crossesAnyBarrier(px, pz, nx, nz, unit.caveLayer)) return true;
+  const zone   = getActiveZone();
+  const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
+  return Math.abs(nx) > halfGS || Math.abs(nz) > halfGS;
+}
+
+// Move `unit` one frame toward (tx, tz). With `deflect`, a blocked straight step
+// retries at rotated headings (slides around corners/props) before giving up.
+// Returns 'arrived' when close enough, 'blocked' when nothing clears, false otherwise.
+function _stepToward(unit, tx, tz, speed, dt, deflect = false) {
+  const px = unit.grp.position.x, pz = unit.grp.position.z;
+  const dx = tx - px, dz = tz - pz;
   const distSq = dx * dx + dz * dz;
   if (distSq < 0.022) return 'arrived';   // 0.15 wu threshold
   const dist = Math.sqrt(distSq);
   const step = Math.min(speed * dt, dist);
-  const nx = unit.grp.position.x + (dx / dist) * step;
-  const nz = unit.grp.position.z + (dz / dist) * step;
-  if (_crossesAnyBarrier(unit.grp.position.x, unit.grp.position.z, nx, nz, unit.caveLayer)) return 'blocked';
-  const zone2   = getActiveZone();
-  const halfGS2 = ((zone2?.groundSize ?? GROUND_SIZE) / 2) - 2;
-  if (Math.abs(nx) > halfGS2 || Math.abs(nz) > halfGS2) return 'blocked';
-  unit.grp.position.x = nx;
-  unit.grp.position.z = nz;
-  unit.anchor.x        = nx;
-  unit.anchor.z        = nz;
-  unit.grp.rotation.y  = Math.atan2(dx, dz);
-  return false;
+  const baseAng = Math.atan2(dx, dz);
+  const angles = deflect ? DEFLECT_ANGLES : [0];
+  for (const off of angles) {
+    const a  = baseAng + off;
+    const nx = px + Math.sin(a) * step;
+    const nz = pz + Math.cos(a) * step;
+    if (_blockedStep(px, pz, nx, nz, unit)) continue;
+    unit.grp.position.x = nx;
+    unit.grp.position.z = nz;
+    unit.anchor.x       = nx;
+    unit.anchor.z       = nz;
+    unit.grp.rotation.y = a;
+    return false;
+  }
+  return 'blocked';
 }
 
 // ── Proximity aggro ───────────────────────────────────────────────────────────

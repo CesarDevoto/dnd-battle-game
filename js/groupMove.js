@@ -27,7 +27,7 @@ function _rallyToBox() {
   const BOX = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
   heroes.forEach((hero, i) => {
     const [ox, oz] = BOX[i % BOX.length];
-    movePCHeroTo(hero, cx + ox, cz + oz);
+    movePCHeroTo(hero, cx + ox, cz + oz, hero === leader ? null : leader);
   });
 }
 
