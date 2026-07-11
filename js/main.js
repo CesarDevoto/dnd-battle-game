@@ -179,6 +179,12 @@ initWorldMap();
 initDevMode();
 initCutsceneUI();
 
+// Must run for ALL players, not just dev: initTerrainPaint() patches the ground
+// material's shader so painted roads/dirt/tint render in production. The painting
+// TOOL is dev-gated internally (terrainPaint.js `if (!IS_DEV) return`). Leaving
+// this inside the IS_DEV block below made painted roads invisible in the prod build.
+initTerrainPaint();
+
 if (IS_DEV) {
   initPropEditor();
   initNpcEditor();
@@ -186,7 +192,6 @@ if (IS_DEV) {
   initSpawnEditor();
   initTerrainEditor();
   initBarrierEditor();
-  initTerrainPaint();
   initReferenceOverlay();
   initTrenchEditor();
   initCaveEntranceEditor();
