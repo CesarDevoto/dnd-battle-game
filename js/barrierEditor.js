@@ -13,12 +13,16 @@ let _visibleInDev  = false;  // only true while terrain editor is open
 // Shift+click drag state: { idx, which: 'dot1'|'dot2' } or null
 let _dragDot = null;
 
+// Plain-click selection (for delete). Index into _barriers, or -1.
+let _selIdx = -1;
+
 // Live preview objects while placing second point
 let _previewLine = null;
 let _startDot    = null;
 
 const COL_BARRIER  = 0xffdd00;
 const COL_PREVIEW  = 0xffee88;
+const COL_SELECT   = 0xff3344;   // highlight for the click-selected barrier
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
@@ -86,10 +90,14 @@ function _removeAt(idx) {
   if (b.dot2) _disposeObj(b.dot2);
   _barriers.splice(idx, 1);
   barrierSegments.splice(idx, 1);
+  // Keep the selection index valid as the array shifts underneath it.
+  if      (idx === _selIdx) _selIdx = -1;
+  else if (idx <   _selIdx) _selIdx--;
   _updateCounter();
 }
 
 function _clearAll() {
+  _selIdx = -1;
   for (let i = _barriers.length - 1; i >= 0; i--) _removeAt(i);
   _dragDot = null;
   _cancelDraw();
@@ -127,6 +135,7 @@ export function undoLastBarrier() {
 
 function _setDrawMode(on) {
   _drawMode = on;
+  if (on) clearBarrierSelection();   // don't hold a selection while drawing
   if (!on) _cancelDraw();
   const btn = document.getElementById('te-barrier-draw-btn');
   if (btn) {
@@ -180,6 +189,7 @@ export function pickBarrierDotAt(cx, cy) {
   if (!hits.length) return false;
   const found = candidates.find(c => c.mesh === hits[0].object);
   if (!found) return false;
+  clearBarrierSelection();
   _dragDot = { idx: found.idx, which: found.which };
   _updateStatus();
   return true;
@@ -221,10 +231,58 @@ export function cancelBarrierDotDrag() {
   _updateStatus();
 }
 
+// ── Click-select & delete (for already-placed barriers) ──────────────────────
+// A plain click on a barrier line selects it (highlighted); Delete removes it.
+// Mirrors the trench-point select/delete flow.
+
+export function hasSelectedBarrier() { return _selIdx >= 0; }
+
+function _applyBarrierColor(idx, color) {
+  const b = _barriers[idx];
+  if (!b) return;
+  b.line?.material.color.set(color);
+  b.dot1?.material.color.set(color);
+  b.dot2?.material.color.set(color);
+}
+
+export function clearBarrierSelection() {
+  if (_selIdx >= 0) _applyBarrierColor(_selIdx, COL_BARRIER);
+  _selIdx = -1;
+}
+
+// Raycasts against visible barrier lines. Selects + highlights on hit.
+// Returns true if a barrier was hit (so the caller skips its own click action).
+export function selectBarrierAt(cx, cy) {
+  if (!_visibleInDev || !IS_DEV) return false;
+  const ndc = new THREE.Vector2((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  const rc  = new THREE.Raycaster();
+  rc.params.Line.threshold = 0.7;   // WU pick tolerance around the thin line
+  rc.setFromCamera(ndc, camera);
+  const lines = _barriers.map(b => b.line).filter(l => l && l.visible);
+  const hits  = rc.intersectObjects(lines, false);
+  if (!hits.length) return false;
+  const idx = _barriers.findIndex(b => b.line === hits[0].object);
+  if (idx < 0) return false;
+  clearBarrierSelection();
+  _selIdx = idx;
+  _applyBarrierColor(idx, COL_SELECT);
+  _updateStatus();
+  return true;
+}
+
+export function deleteSelectedBarrier() {
+  if (_selIdx < 0) return;
+  const idx = _selIdx;
+  _selIdx = -1;             // clear first so _removeAt's index fix-up is a no-op
+  _removeAt(idx);
+  _updateStatus();
+}
+
 // ── Load barriers from zone (called by zoneLoader) ────────────────────────────
 
 export function loadBarrierVisuals(arr) {
   // Clear existing visuals + collision data, then restore from zone array
+  _selIdx = -1;
   for (let i = _barriers.length - 1; i >= 0; i--) _removeAt(i);
   _dragDot = null;
   _cancelDraw();
@@ -273,10 +331,11 @@ async function _saveBarriers() {
 function _updateStatus() {
   const el = document.getElementById('te-barrier-status');
   if (!el) return;
-  if (_dragDot)        el.textContent = 'Moving dot — click to place · Esc to cancel';
-  else if (!_drawMode) el.textContent = 'Click DRAW · Shift+click dot to move';
-  else if (!_startPt)  el.textContent = 'Click terrain — start point…';
-  else                 el.textContent = 'Click terrain — end point…';
+  if (_dragDot)                  el.textContent = 'Moving dot — click to place · Esc to cancel';
+  else if (hasSelectedBarrier()) el.textContent = 'Barrier selected — Del removes it · Esc deselects';
+  else if (!_drawMode)           el.textContent = 'Click DRAW · click a barrier to select · Shift+click dot to move';
+  else if (!_startPt)            el.textContent = 'Click terrain — start point…';
+  else                           el.textContent = 'Click terrain — end point…';
 }
 
 function _updateCounter() {
@@ -308,6 +367,7 @@ function _groundPt(cx, cy) {
 export function setBarrierVisualsVisible(visible) {
   _visibleInDev = visible;
   if (!visible && _dragDot) cancelBarrierDotDrag();
+  if (!visible) clearBarrierSelection();
   for (const b of _barriers) {
     if (b.line) b.line.visible = visible;
     if (b.dot1) b.dot1.visible = visible;
@@ -349,7 +409,12 @@ export function initBarrierEditor() {
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'Escape') {
       if (_dragDot) { cancelBarrierDotDrag(); return; }
+      if (hasSelectedBarrier()) { clearBarrierSelection(); _updateStatus(); return; }
       if (_drawMode) _setDrawMode(false);
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelectedBarrier()) {
+      deleteSelectedBarrier();
     }
   });
 

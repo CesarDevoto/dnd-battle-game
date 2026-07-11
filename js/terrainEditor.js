@@ -3,7 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag } from './barrierEditor.js';
+import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag, selectBarrierAt, clearBarrierSelection } from './barrierEditor.js';
 import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench, selectTrenchPointAt, clearTrenchSelection } from './trenchEditor.js';
 import { isPaintModeActive } from './terrainPaint.js';
 import { isRefMoveActive } from './referenceOverlay.js';
@@ -453,12 +453,22 @@ export function initTerrainEditor() {
     if (!e.shiftKey && selectTrenchPointAt(e.clientX, e.clientY)) {
       _selectedIdx = -1;
       _selRing.visible = false;
+      clearBarrierSelection();
       return;
     }
     clearTrenchSelection();
 
     // Shift+click: start dragging a barrier dot if one is under cursor
     if (e.shiftKey && pickBarrierDotAt(e.clientX, e.clientY)) return;
+
+    // Plain click on a barrier line: select it (for Delete). Do this before the
+    // control-point pick/place so clicking a barrier never drops a control point.
+    if (!e.shiftKey && selectBarrierAt(e.clientX, e.clientY)) {
+      _selectedIdx = -1;
+      _selRing.visible = false;
+      return;
+    }
+    clearBarrierSelection();
 
     const idx = _pickMarker(e.clientX, e.clientY);
     if (idx >= 0) {
