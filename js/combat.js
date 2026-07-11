@@ -7,7 +7,7 @@ import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -140,6 +140,19 @@ function playSleepEffect(caster) {
   })();
 }
 
+// ── Conforming-ring surface sampling ──────────────────────────────────────────
+// The active/range/hover rings drape their vertices over the ground. In a cave
+// zone a hero on the blanket stands on the UNCARVED roof (getGroundHeight('surface')
+// = uncarved + CEIL_LIFT), while getSurfaceHeight returns the CARVED floor below —
+// so sampling getSurfaceHeight buries the ring under the blanket and it gets clipped.
+// _conformLayer tracks the layer of the unit the rings currently belong to; set it
+// whenever the ring owner changes (turn start, selection, move). Non-cave zones fall
+// back to getSurfaceHeight so the water-plane float behaviour is preserved.
+let _conformLayer = 'surface';
+function _ringSurfaceH(x, z) {
+  return caveLayersActive() ? getGroundHeight(x, z, _conformLayer) : getSurfaceHeight(x, z);
+}
+
 // ── Active ring ───────────────────────────────────────────────────────────────
 
 export const activeRing = new THREE.Mesh(
@@ -214,10 +227,10 @@ function _makeConformingGeo(cx, cz, inner, outer, segs, lift) {
     const theta = (i / segs) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     pos[vi++] = inner * cos;
-    pos[vi++] = getSurfaceHeight(cx + inner * cos, cz + inner * sin) + lift;
+    pos[vi++] = _ringSurfaceH(cx + inner * cos, cz + inner * sin) + lift;
     pos[vi++] = inner * sin;
     pos[vi++] = outer * cos;
-    pos[vi++] = getSurfaceHeight(cx + outer * cos, cz + outer * sin) + lift;
+    pos[vi++] = _ringSurfaceH(cx + outer * cos, cz + outer * sin) + lift;
     pos[vi++] = outer * sin;
   }
   for (let i = 0; i < segs; i++) {
@@ -240,8 +253,8 @@ function updateConformingRingGeo(ring, cx, cz) {
     const theta = (i / segs) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     const base = i * 6;
-    arr[base + 1] = getSurfaceHeight(cx + inner * cos, cz + inner * sin) + lift;
-    arr[base + 4] = getSurfaceHeight(cx + outer * cos, cz + outer * sin) + lift;
+    arr[base + 1] = _ringSurfaceH(cx + inner * cos, cz + inner * sin) + lift;
+    arr[base + 4] = _ringSurfaceH(cx + outer * cos, cz + outer * sin) + lift;
   }
   ring.geometry.attributes.position.needsUpdate = true;
 }
@@ -372,10 +385,10 @@ function buildHoverRingGeo(cx, cz) {
     const theta = (i / _HOVER_SEGS) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     pos[vi++] = _HOVER_INNER * cos;
-    pos[vi++] = getSurfaceHeight(cx + _HOVER_INNER * cos, cz + _HOVER_INNER * sin) + _HOVER_LIFT;
+    pos[vi++] = _ringSurfaceH(cx + _HOVER_INNER * cos, cz + _HOVER_INNER * sin) + _HOVER_LIFT;
     pos[vi++] = _HOVER_INNER * sin;
     pos[vi++] = _HOVER_OUTER * cos;
-    pos[vi++] = getSurfaceHeight(cx + _HOVER_OUTER * cos, cz + _HOVER_OUTER * sin) + _HOVER_LIFT;
+    pos[vi++] = _ringSurfaceH(cx + _HOVER_OUTER * cos, cz + _HOVER_OUTER * sin) + _HOVER_LIFT;
     pos[vi++] = _HOVER_OUTER * sin;
   }
   for (let i = 0; i < _HOVER_SEGS; i++) {
@@ -389,6 +402,7 @@ function buildHoverRingGeo(cx, cz) {
 }
 
 function showRangeRings(u) {
+  _conformLayer = u.caveLayer ?? 'surface';
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = def.attacks ?? [];
   const meleeA = atks.find(a => a.type === 'melee');
@@ -438,6 +452,7 @@ function moveRangeRings(x, z) {
 }
 
 function showSpellRangeRing(caster, rangeFt) {
+  _conformLayer = caster.caveLayer ?? 'surface';
   const radius = atkRangeWU(rangeFt);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
   spellRangeRing.geometry.dispose();
@@ -787,6 +802,7 @@ function animatePath(unit, path, onComplete) {
     unit.anchor.x = unit.grp.position.x;
     unit.anchor.z = unit.grp.position.z;
     unit.anchor.y = unit.grp.position.y + unit.anchorY;
+    _conformLayer = unit.caveLayer ?? 'surface';
     updateConformingRingGeo(activeRing, unit.grp.position.x, unit.grp.position.z);
     activeRing.position.set(unit.grp.position.x, 0, unit.grp.position.z);
     moveRangeRings(unit.grp.position.x, unit.grp.position.z);
@@ -866,6 +882,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
 }
 
 function showMoveRange(u, overrideFt) {
+  _conformLayer = u.caveLayer ?? 'surface';
   const def      = UNIT_TYPES[u.type] ?? {};
   const remainFt = overrideFt !== undefined ? overrideFt : (def.speed ?? 30) - turnMovedFt;
   if (remainFt <= 0) { hideMoveRange(); return; }
@@ -3307,6 +3324,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       savedRingZ:          activeRing.position.z,
       savedRingColor:      activeRing.material.color.getHex(),
       savedRingVisible:    activeRing.visible,
+      savedRingLayer:      _conformLayer,
       cont: () => _fireNext(idx + 1),
     };
     _showDelayInterrupt(matches[idx]);
@@ -3378,6 +3396,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   endTurnBtn.disabled = false;
 
   // Move active ring to this hero with their ring colour
+  _conformLayer = hero.caveLayer ?? 'surface';
   updateConformingRingGeo(activeRing, hero.grp.position.x, hero.grp.position.z);
   activeRing.position.set(hero.grp.position.x, 0, hero.grp.position.z);
   activeRing.material.color.set(HERO_RING_COLORS[hero.type] ?? COLORS.activeRing);
@@ -3419,7 +3438,7 @@ function _endDelayInterrupt() {
   _readyAutoCloseTimer = null;
   if (!_readyCtx) return;
   const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
-          savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
+          savedRingX, savedRingZ, savedRingColor, savedRingVisible, savedRingLayer, cont } = _readyCtx;
   _readyCtx = null;
 
   const banner = document.getElementById('ready-banner');
@@ -3439,6 +3458,7 @@ function _endDelayInterrupt() {
   endTurnBtn.disabled = true;  // back to enemy's turn — button stays locked
 
   // Restore the active ring to the enemy that was acting
+  _conformLayer = savedRingLayer ?? 'surface';
   updateConformingRingGeo(activeRing, savedRingX, savedRingZ);
   activeRing.position.set(savedRingX, 0, savedRingZ);
   activeRing.material.color.set(savedRingColor);
@@ -4034,6 +4054,7 @@ export function activateTurn(index) {
     );
     if ((u.team === 'blue' || u.familiar) && !unawareEnemy) setFollowUnit(u);
     if (u.team === 'blue' || u.familiar) u.barForced = true;
+    _conformLayer = u.caveLayer ?? 'surface';
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
     activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
     activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : u.familiar ? 0xc9a0e6 : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));

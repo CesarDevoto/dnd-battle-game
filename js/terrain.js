@@ -552,6 +552,7 @@ function _insideEntrance(x, z) {
 // are meant to be walked *in*, not over.
 let _layersActive = false;
 export function setCaveLayersActive(on) { _layersActive = on; }
+export function caveLayersActive() { return _layersActive; }
 
 const LAYER_MERGE_EPS = 0.6;   // WU: below this the two surfaces are "the same" (mouth / open ground)
 
