@@ -1,10 +1,10 @@
 export const ZONE = {
-  fogColor: 0x221839,
+  fogColor: 0x692b2b,
   id:        'warrens',
   name:      'The Warrens',
   biome: 'forest',
   groundSize: 432,   // 4x the default (108) — doubled twice; large open map, same cave in the middle
-  fogDensity: 0.022,
+  fogDensity: 0.031,
   // Cave test: an outdoor hillside with a cave mouth leading into a straight
   // tunnel that ends in a room. The hill is a terrain control point; the tunnel
   // and room are carved with trenches; `cave` turns on the underside-of-rock roof.
@@ -72,7 +72,10 @@ export const ZONE = {
     { x: 6.78, z: 129.01, h: 45, r: 20, pr: 7 },
     { x: 1.69, z: 3.93, h: 3, r: 8 },
   ],
-  trenches: [],
+  trenches: [
+    { points: [{x:139.84,z:110.66,h:15}, {x:141.72,z:108.9,h:15}, {x:142.75,z:103.99,h:15}, {x:142.76,z:100.74,h:15}, {x:142.39,z:97.15,h:15}, {x:142.15,z:93.74,h:15}, {x:141.81,z:90.53,h:15}, {x:138.86,z:87.19,h:15}, {x:135.11,z:83.36,h:15}, {x:131.28,z:79.55,h:15}, {x:131.4,z:72.49,h:15}, {x:135.4,z:69.49,h:15}, {x:143.91,z:69.1,h:15}, {x:147.96,z:65.73,h:15}, {x:141.85,z:62.34,h:15}, {x:136.76,z:60.76,h:15}, {x:133.1,z:63.2,h:15}], r: 6, pr: 6 },
+    { points: [{x:129.99,z:58.5,h:15}, {x:127.6,z:55.91,h:15}, {x:123.27,z:49.78,h:15}, {x:121.55,z:45.68,h:15}, {x:129.29,z:40.74,h:15}, {x:141.85,z:32.57,h:15}, {x:156.12,z:25.17,h:15}, {x:168.04,z:37.28,h:15}, {x:175.77,z:52.55,h:15}, {x:165.83,z:63.02,h:15}, {x:156.72,z:65.81,h:15}, {x:152.46,z:66.91,h:15}, {x:148.99,z:64.46,h:15}], r: 6, pr: 6 },
+  ],
   heroEntry: [
     { x: -2, z: -9,  type: 'dwarf'    },
     { x:  2, z: -9,  type: 'human'    },
@@ -86,6 +89,7 @@ export const ZONE = {
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
+    { x: 139.41, z: 110.35, r: 4, seed: 4.037 },
   ],
   exits: [
     // Corner wall-gate connecting out to Bleakmire Woods. notchHalfWidth widens the
@@ -96,6 +100,13 @@ export const ZONE = {
   ],
   terrainSeed: { ph: [1.235351,5.315199,3.684424,4.448136,2.85367,3.903505,3.981039,2.110116,3.782323,3.722617,6.034926,3.710996], fx: [1.013656,2.181118,6.165918,19.294515,26.431867,52.685326], fz: [1.479916,3.90371,8.060919,16.160476,58.968719,92.188009], sharpExp: 1.256837, scale: 7.874184 },
   props: [],
-  barriers: [],
+  barriers: [
+    { x1: 122.8, z1: 39.64, x2: 125.98, z2: 37.11 },
+    { x1: 125.98, z1: 37.11, x2: 128.6, z2: 37.14 },
+    { x1: 128.6, z1: 37.14, x2: 132.14, z2: 33.82 },
+    { x1: 132.14, z1: 33.82, x2: 135.34, z2: 30.73 },
+    { x1: 135.34, z1: 30.73, x2: 137.88, z2: 30.83 },
+    { x1: 137.88, z1: 30.83, x2: 141.81, z2: 27.94 },
+  ],
   visionBlockers: [],
 };
