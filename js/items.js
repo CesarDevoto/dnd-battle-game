@@ -2818,7 +2818,7 @@ export const ITEMS = {
     icon:        'assets/items/materials/goblin key.png',
     material:    true,
     value:       0,
-    description: "A crude iron key wrenched from a goblin jailer in the Warrens. It fits the shackles binding the prisoner Solrac. Carry it to him to set him free.",
+    description: "A crude iron key wrenched from a goblin jailer in the Warrens.",
   },
 };
 

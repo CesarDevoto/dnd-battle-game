@@ -556,17 +556,29 @@ const _BUST_SRC = {
   Rasec:   '/assets/Pictures%20Cutscenes%20Icons/Rasecbust.jpg',
   Floosh:  '/assets/Pictures%20Cutscenes%20Icons/grassling.jpg',
   Morvath: '/assets/Pictures%20Cutscenes%20Icons/morvathbust.jpg',
+  Solrac:  '/assets/Pictures%20Cutscenes%20Icons/Solrac.jpg',
 };
 
 function _renderLine() {
   const l = _lines[_lineIdx];
-  const isDagna   = l.s === 'Dagna';
-  const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec', Floosh: 'dlg-speaker-floosh' };
   const speakerEl = _dlgEl.querySelector('.dagna-dlg-speaker');
-  speakerEl.textContent = l.s;
-  speakerEl.className   = 'dagna-dlg-speaker' + (isDagna ? '' : ` ${_SPEAKER_CLS[l.s] ?? 'dlg-speaker-leugren'}`);
+  const bustEl    = _dlgEl.querySelector('#dagna-bust');
+  // Narration line (no speaker) — hide the name + portrait, show italic prose only.
+  if (l.narration || !l.s) {
+    speakerEl.textContent   = '';
+    speakerEl.className      = 'dagna-dlg-speaker';
+    speakerEl.style.display  = 'none';
+    bustEl.style.display     = 'none';
+  } else {
+    const isDagna = l.s === 'Dagna';
+    const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec', Floosh: 'dlg-speaker-floosh', Solrac: 'dlg-speaker-solrac' };
+    speakerEl.style.display = '';
+    bustEl.style.display    = '';
+    speakerEl.textContent   = l.s;
+    speakerEl.className      = 'dagna-dlg-speaker' + (isDagna ? '' : ` ${_SPEAKER_CLS[l.s] ?? 'dlg-speaker-leugren'}`);
+    bustEl.src              = _BUST_SRC[l.s] ?? _BUST_SRC.Dagna;
+  }
   _dlgEl.querySelector('.dagna-dlg-text').textContent = l.t;
-  _dlgEl.querySelector('#dagna-bust').src = _BUST_SRC[l.s] ?? _BUST_SRC.Dagna;
   const isLast = _lineIdx === _lines.length - 1;
   _dlgEl.querySelector('.dagna-dlg-btn').textContent = isLast ? 'Close' : 'Continue';
 }

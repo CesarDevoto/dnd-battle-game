@@ -1,12 +1,15 @@
 // js/warrensEvent.js — Warrens zone events (dialogue, NPC quests, triggers)
 //
 // Solrac quest:
-//   1. Solrac spawns shackled, hanging from wall shackles → plays Bar_Hang_Idle.   ✅
-//   2. A Warrens goblin drops the Goblin Key (loot.js guaranteed one-time drop);    ✅
+//   0. On first entry to the Warrens, an intro dialogue plays (distant cries →       ✅
+//      Milo/Leugren) and the "Free the Prisoner" quest opens.
+//   1. Solrac spawns shackled, hanging from wall shackles → plays Bar_Hang_Idle.      ✅
+//   2. A Warrens goblin drops the Goblin Key (loot.js guaranteed one-time drop);      ✅
 //      the party loots it into a hero's bag.
-//   3. Carry the key to Solrac → Leugren tells Gobo to unshackle him (dialogue) →   ✅
-//      he crossfades from the hang pose to a standing idle and is freed for good.
-//   4. Out of combat, Solrac auto-follows Leugren ~10ft; hangs back in a fight.     ← TODO (next step)
+//   3. Carry the key to Solrac → the unshackle dialogue (Leugren → Gobo) → he         ✅
+//      crossfades from the hang pose to a standing idle, is freed, "Free the
+//      Prisoner" completes, and the "Find Mirael Thorne" quest springs.
+//   4. Out of combat, Solrac auto-follows Leugren ~10ft; hangs back in a fight.       ← TODO (next step)
 //
 // Alignment of Solrac vs the shackle props is done by hand in-editor.
 
@@ -18,14 +21,12 @@ const HANG_CLIP = 'Bar_Hang_Idle';
 const IDLE_CLIP = 'Idle_11';
 
 const FREED_KEY = 'dnd-solrac-freed';   // Solrac has been released (persists)
-const SEEN_KEY  = 'dnd-solrac-seen';    // player has met the shackled prisoner
+const INTRO_KEY = 'dnd-warrens-intro';  // first-entry intro dialogue has played
 const QUEST_ID  = 'free_solrac';
+const MIRAEL_ID = 'find_mirael';
 const KEY_ITEM  = 'goblin_key';         // items.js id looted from the goblin
 
-const GOBLIN_TYPES = new Set(['goblin', 'goblin2', 'hobgoblin']);
-
-const DISCOVER_R = 10;   // WU (~25ft) — close enough to notice the prisoner
-const RELEASE_R  = 6;    // WU (~15ft) — close enough to work the shackles
+const RELEASE_R = 6;    // WU (~15ft) — close enough to work the shackles
 
 let _solrac  = null;
 let _hung    = false;
@@ -75,12 +76,25 @@ function _anyHeroHasKey() {
   return false;
 }
 
+// ── First-entry intro ─────────────────────────────────────────────────────────
+const _INTRO_LINES = [
+  { narration: true, t: "Distant cries for succour echo through a wooded canyon, spoken in the Common tongue." },
+  { s: 'Milo',    t: "They draw nigh! Onward, ahead — we must make haste!" },
+  { s: 'Leugren', t: "Bless the grassling's guidance as true! Hold fast thy faith, cousin — we come for thee!" },
+];
+
+// ── The unshackle scene (fires once the key reaches Solrac) ────────────────────
 const _RELEASE_LINES = [
   { s: 'Leugren', t: "Hold. There's a man chained to the rock here — still breathing, if only just." },
   { s: 'Solrac',  t: "You're... you're no goblin. The key — one of those brutes carried it. Please, the lock is a simple thing." },
-  { s: 'Leugren', t: "Gobo. Your fingers are quicker than mine. Get those shackles off him." },
+  { s: 'Leugren', t: "Gobo, take the key! Unbind those irons from his wrists and set him free!" },
   { s: 'Gobo',    t: "Aye, hold still, friend — this'll only pinch a little." },
-  { s: 'Solrac',  t: "Nnngh— ...there. Free. I owe you my life. The name's Solrac. Let me walk with you a while — I know these tunnels." },
+  { s: 'Solrac',  t: "Nnngh— ...there. Free. I owe thee my life. I am called Solrac Thorn. Hast thou seen a woman… Mirael? My sister Mirael Thorne? She was with me when these foul fiends set upon our trade caravan on the Triboar Trail!" },
+  { s: 'Leugren', t: "Alas, we have not seen her. Yet tell me — on thy part, didst thou see any dwarves the goblins carried off as captives? We seek my cousin." },
+  { s: 'Solrac',  t: "I heard the bitter protests of dwarven voices passing outside earlier in the day, yet in my shackled state I saw them not." },
+  { s: 'Solrac',  t: "It seems we share a common cause, dear saviors. May I join thee in the search for thy kin and mine own? Other goblin caves lie near, of this I am certain." },
+  { s: 'Rasec',   t: "Canst thou handle thyself in battle, Solrac?" },
+  { s: 'Solrac',  t: "I have mine own ways. Onward! Time is of the essence!" },
 ];
 
 function _freeSolrac(u) {
@@ -95,14 +109,30 @@ function _freeSolrac(u) {
   }
   setUnitAnimLocked(u, false);
   _setFlag(FREED_KEY);
-  // Ensure the quest exists (discovery may have been skipped) then mark it done.
-  // No XP reward for now — avoids tripping the known level-up modal bugs unattended.
-  addQuest(QUEST_ID, 'Free the Prisoner', 'Free Solrac from the goblins\' shackles in the Warrens.');
+}
+
+// Called when the unshackle dialogue closes: free him, close the rescue quest, and
+// open the search for his sister. No XP reward for now (avoids the level-up bugs).
+function _onReleaseDone(u) {
+  _freeSolrac(u);
+  addQuest(QUEST_ID, 'Free the Prisoner', 'Free the shackled prisoner in the Warrens.');
   completeQuest(QUEST_ID);
+  addQuest(MIRAEL_ID, 'Find Mirael Thorne',
+    "Solrac Thorn's sister Mirael was taken when goblins ambushed their caravan on the Triboar Trail. Search the goblin caves for her — and for the dwarven captives Leugren seeks.");
 }
 
 export function tickWarrens(dt) {
-  if (!_active || _isFreed()) return;
+  if (!_active) return;
+
+  // First-entry intro — plays once ever, opens the rescue quest.
+  if (!_flag(INTRO_KEY)) {
+    _setFlag(INTRO_KEY);
+    addQuest(QUEST_ID, 'Free the Prisoner',
+      'Cries for help echo through the Warrens. Fight past the goblins, take the key one of them carries, and free the shackled prisoner.');
+    showQuickDialogue(_INTRO_LINES);
+  }
+
+  if (_isFreed()) return;
 
   if (!_solrac) _solrac = _findSolrac();
   if (!_solrac) return;
@@ -110,25 +140,12 @@ export function tickWarrens(dt) {
   // Keep him locked in the hanging pose until freed (retries until the GLB is ready).
   if (!_hung && playUnitClip(_solrac, HANG_CLIP, { loop: true, lock: true })) _hung = true;
 
+  if (_combat || _releaseFired) return;
+
+  // Release: carry the looted key close to Solrac → the unshackle scene, then free.
   const near = _nearestHero(_solrac.grp.position.x, _solrac.grp.position.z);
-  if (!near || _combat) return;
-
-  const hasKey = _anyHeroHasKey();
-
-  // Discovery: first time the party finds the shackled prisoner (no key yet) — he
-  // pleads for help and the quest opens.
-  if (!hasKey && !_flag(SEEN_KEY) && near.dist <= DISCOVER_R) {
-    _setFlag(SEEN_KEY);
-    addQuest(QUEST_ID, 'Free the Prisoner', 'A man hangs shackled in the Warrens. One of the goblins carries the key to his chains — find it and set him free.');
-    showQuickDialogue([
-      { s: 'Solrac', t: "You there — you're no goblin! Please, free me. One of those brutes carries the key to these shackles." },
-    ]);
-    return;
-  }
-
-  // Release: carry the looted key close to Solrac → the unshackle scene, then he's free.
-  if (!_releaseFired && hasKey && near.dist <= RELEASE_R) {
+  if (near && _anyHeroHasKey() && near.dist <= RELEASE_R) {
     _releaseFired = true;
-    showQuickDialogue(_RELEASE_LINES, () => _freeSolrac(_solrac));
+    showQuickDialogue(_RELEASE_LINES, () => _onReleaseDone(_solrac));
   }
 }

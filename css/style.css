@@ -8022,6 +8022,10 @@ td.bst-col-retired { color: #343228 !important; }
   color: #cc55ee;
   text-shadow: 0 0 10px rgba(180,44,238,0.55);
 }
+.dlg-speaker-solrac {
+  color: #e0863a;
+  text-shadow: 0 0 10px rgba(224,134,58,0.55);
+}
 .dagna-dlg-text {
   flex: 1;
   overflow: hidden;
