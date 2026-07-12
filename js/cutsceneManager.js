@@ -88,7 +88,7 @@ function _loadSlide(idx) {
       setTimeout(() => {
         _promptEl.classList.add('cs-prompt-in');
         _locked = false;
-      }, 250);
+      }, 110);
     });
   };
 
@@ -104,7 +104,7 @@ function _loadSlide(idx) {
       // Don't let a slow first-load image (it competes with the game's own asset
       // loading at game_start) hold the Continue button hostage — reveal after a
       // short cap; the image fades in on its own onload when ready.
-      setTimeout(_reveal, 450);
+      setTimeout(_reveal, 200);
     }
   } else {
     setTimeout(_reveal, 120);

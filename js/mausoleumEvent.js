@@ -27,3 +27,33 @@ window.addEventListener('zone:loaded', e => {
     onTrigger: () => showQuickDialogue(_LINES),
   });
 });
+
+// ── Morvath — encounter intro (mausoleum) ─────────────────────────────────────
+// He had no start-of-fight dialogue (only a death taunt). It CANNOT fire on
+// combat:start — that hits dagnaEvent's _combatActive deferral (the dialogue would
+// be parked until combat ends, like the Dagna-TPK bug). So trigger it out of combat
+// on approach, placed short of Morvath so it lands before he aggros.
+// NOTE: lines are drafted from his death-taunt voice — rewrite to taste. The trigger
+// x/z + radius may need nudging so it fires before the fight starts.
+const _MORVATH_INTRO_ID = 'morvath_intro';
+const _MORVATH_X = 24, _MORVATH_Z = -22;   // short of Morvath (35.99, -31.64), on the approach
+const _MORVATH_INTRO_LINES = [
+  { s: 'Morvath', t: "So... the Forge-god's little sparks come crawling into my tomb. Did the withered dwarf send you here to die in my dark?" },
+  { s: 'Leugren', t: "Foul thing! 'Tis you who withers these lands. By Moradin's hammer, your corruption ends here!" },
+  { s: 'Morvath', t: "Ends? Child, I am only the shadow at the threshold. Come, then — feed the oblivion, and learn what your faith is worth." },
+];
+registerDialogueScene({ id: 'dlg_morvath_intro', name: 'Morvath — Encounter Intro', lines: _MORVATH_INTRO_LINES });
+
+window.addEventListener('zone:loaded', e => {
+  if (e.detail?.id !== 'mausoleum') return;
+  if (isMarkerSeen(_MORVATH_INTRO_ID)) return;
+
+  const marker = mkExclamationMarker();
+  marker.position.set(_MORVATH_X, getTerrainHeight(_MORVATH_X, _MORVATH_Z) + 2.5, _MORVATH_Z);
+  scene.add(marker);
+
+  trackExclamation(marker, _MORVATH_X, _MORVATH_Z, {
+    id:        _MORVATH_INTRO_ID,
+    onTrigger: () => showQuickDialogue(_MORVATH_INTRO_LINES),
+  });
+});
