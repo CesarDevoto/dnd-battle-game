@@ -405,15 +405,25 @@ export function setSelectedTrenchH(h) {
 // r/pr are stored on the path, so these always were trench-wide.
 export function adjustSelectedTrenchR(delta) {
   if (!_selPath) return;
-  _selPath.r = Math.max(1, +(_selPath.r + delta).toFixed(2));
-  _refreshTerrain();
-  _updateStatus();
+  setSelectedTrenchR(_selPath.r + delta);
 }
 
 export function adjustSelectedTrenchPR(delta) {
   if (!_selPath) return;
-  const newPR = Math.max(0, +((_selPath.pr ?? 0) + delta).toFixed(2));
-  if (newPR > 0) _selPath.pr = newPR; else delete _selPath.pr;
+  setSelectedTrenchPR((_selPath.pr ?? 0) + delta);
+}
+
+export function setSelectedTrenchR(r) {
+  if (!_selPath || !Number.isFinite(+r)) return;
+  _selPath.r = Math.max(1, +(+r).toFixed(2));
+  _refreshTerrain();
+  _updateStatus();
+}
+
+export function setSelectedTrenchPR(pr) {
+  if (!_selPath || !Number.isFinite(+pr)) return;
+  const v = Math.max(0, +(+pr).toFixed(2));
+  if (v > 0) _selPath.pr = v; else delete _selPath.pr;
   _refreshTerrain();
   _updateStatus();
 }
@@ -488,6 +498,7 @@ async function _saveTrenches() {
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 function _updateStatus() {
+  _syncSelInputs();   // every mutation and selection change funnels through here
   const el = document.getElementById('te-trench-status');
   if (!el) return;
   if (hasSelectedTrench()) {
@@ -500,11 +511,8 @@ function _updateStatus() {
           : `${Math.min(...hs).toFixed(2)}…${Math.max(...hs).toFixed(2)}`)
       : (pts[_selIdx].h ?? _selPath.h ?? 0).toFixed(2);
     el.innerHTML =
-      `<b>${whole ? `Whole trench (${pts.length} pts)` : `Point ${_selIdx + 1}/${pts.length}`}</b> ` +
-      `h:${hTxt} &nbsp; r:${_selPath.r.toFixed(2)} &nbsp; pr:${(_selPath.pr ?? 0).toFixed(2)}<br>` +
-      `←→↑↓ move &nbsp; [/] h &nbsp; H sets h &nbsp; -/= r &nbsp; ,/. pr &nbsp; ` +
-      `Del ${whole ? 'removes TRENCH' : 'removes point'}<br>` +
-      `<i>r/pr are always trench-wide. Click the line = whole trench, a dot = one point.</i>`;
+      `<b>${whole ? `Whole trench · ${pts.length} pts` : `Point ${_selIdx + 1}/${pts.length}`}</b> h:${hTxt}<br>` +
+      `←→↑↓ move &nbsp; [/] h &nbsp; Del ${whole ? 'removes trench' : 'removes point'}`;
     return;
   }
   if (!_drawMode)         el.textContent = 'Click DRAW TRENCH, then click a chain of points — or click a point (one) / the line (whole trench) to edit';
@@ -513,6 +521,38 @@ function _updateStatus() {
     const last = _currentPath.points[_currentPath.points.length - 1];
     el.textContent = `Click terrain — next point… (${_currentPath.points.length} so far, last h=${last.h}) — change h to rise/fall`;
   }
+}
+
+// The h/r/pr boxes for the current trench selection. These are the SELECTION's
+// values — distinct from the "Default:" row at the top of the panel, which only
+// seeds newly-placed points and does nothing to anything that already exists.
+// Whichever box is focused is skipped, so a sync never clobbers mid-typing input.
+function _syncSelInputs() {
+  const row = document.getElementById('te-trench-sel-row');
+  if (!row) return;
+  if (!hasSelectedTrench() || !_visibleInDev) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+
+  const whole = _selScope === 'path';
+  const lbl   = document.getElementById('te-trench-sel-lbl');
+  if (lbl) lbl.textContent = whole ? `Trench (${_selPath.points.length}):` : `Point ${_selIdx + 1}:`;
+
+  // In whole-trench scope the points may hold different heights; show "mixed"
+  // rather than a lie. Typing a number then flattens them all to it — use [ and ]
+  // instead to shift every point while keeping the drawn rise/fall.
+  const hs  = _targetPoints().map(p => p.h ?? _selPath.h ?? 0);
+  const hEl = document.getElementById('te-trench-sel-h');
+  if (hEl && hEl !== document.activeElement) {
+    const mixed = hs.length > 1 && Math.min(...hs) !== Math.max(...hs);
+    hEl.value       = mixed ? '' : (hs[0] ?? 0);
+    hEl.placeholder = mixed ? 'mixed' : '';
+  }
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && el !== document.activeElement) el.value = v;
+  };
+  set('te-trench-sel-r',  _selPath.r);
+  set('te-trench-sel-pr', _selPath.pr ?? 0);
 }
 
 function _flashStatus(msg) {
@@ -557,6 +597,7 @@ export function setTrenchVisualsVisible(visible) {
   if (_previewLine) _previewLine.visible = visible;
   if (!visible) { _setDrawMode(false); clearTrenchSelection(); } // don't persist on reopen
   else _syncSelectionRing();
+  _syncSelInputs();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -580,6 +621,22 @@ export function initTrenchEditor() {
 
   document.getElementById('te-trench-scope-btn')
     ?.addEventListener('click', () => setTrenchScope(_selScope === 'path' ? 'point' : 'path'));
+
+  // Live h/r/pr editors for the selected trench — the counterpart of the control
+  // point row above. h honours the scope (one point vs every point); r/pr are
+  // trench-wide by nature.
+  document.getElementById('te-trench-sel-h')?.addEventListener('input', e => {
+    if (e.target.value !== '') setSelectedTrenchH(e.target.value);
+  });
+  document.getElementById('te-trench-sel-r')?.addEventListener('input', e => {
+    if (e.target.value !== '') setSelectedTrenchR(e.target.value);
+  });
+  document.getElementById('te-trench-sel-pr')?.addEventListener('input', e => {
+    if (e.target.value !== '') setSelectedTrenchPR(e.target.value);
+  });
+  ['te-trench-sel-h', 'te-trench-sel-r', 'te-trench-sel-pr'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', _syncSelInputs);
+  });
 
   document.getElementById('te-trench-save-btn')
     ?.addEventListener('click', _saveTrenches);

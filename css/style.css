@@ -6817,7 +6817,9 @@ td.bst-col-retired { color: #343228 !important; }
   bottom: 220px;
   right: 160px;
   z-index: 200;
-  width: 250px;
+  /* 300, not 250: the trench selection row carries a label plus three number
+     boxes, which overflowed the old width and painted over the text below it. */
+  width: 300px;
   background: var(--panel-bg);
   border: 1px solid rgba(180,110,30,0.30);
   border-radius: 5px;
@@ -6853,10 +6855,18 @@ td.bst-col-retired { color: #343228 !important; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 520px;
+  max-height: 65vh;
   overflow-y: auto;
+  overflow-x: hidden;   /* nothing may spill sideways over the text */
   transition: max-height 0.3s ease, opacity 0.2s ease;
 }
+/* The panel's content is far taller than its max-height, so as a flex column it
+   SHRINKS its children (flex-shrink defaults to 1). A flex item normally refuses to
+   shrink below its content, but the status rows set an explicit `min-height`, which
+   overrides that protection — so a multi-line status collapsed to a 14px box while
+   its text carried on rendering outside it, straight over the row beneath. Pin every
+   child to its natural height and let the panel scroll instead. */
+#te-body > * { flex-shrink: 0; }
 #te-body.collapsed { max-height: 0; opacity: 0; padding: 0 8px; }
 #te-defaults-row {
   display: flex;
@@ -6898,6 +6908,18 @@ td.bst-col-retired { color: #343228 !important; }
   font-size: 0.65rem;
   margin-bottom: 4px;
 }
+/* Trench selection h/r/pr — same shape as the control-point row above. Wraps
+   rather than overflowing if the label runs long ("Trench (12):"). Shown/hidden
+   from trenchEditor by flipping display between none and flex. */
+#te-trench-sel-row {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 6px;
+  font-size: 0.65rem;
+  margin: 2px 0 4px;
+}
+#te-trench-sel-row .te-num { width: 44px; }
+#te-trench-sel-row .te-lbl { flex-shrink: 0; }
 #te-sel-del {
   margin-left: auto;
   width: 20px;
