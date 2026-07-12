@@ -609,8 +609,11 @@ function crossesBarrier(ax, az, bx, bz, layer) {
     const qpx = s.x1 - ax, qpz = s.z1 - az;
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 &&
-        barrierBlocksLayer((s.x1 + s.x2) * 0.5, (s.z1 + s.z2) * 0.5, layer)) return true;
+    if (t < 0 || t > 1 || u < 0 || u > 1) continue;
+    // Layer-test the actual CROSSING point, not the segment's midpoint: a long wall
+    // running from open ground into a tunnel would otherwise be classified by
+    // whatever its middle happens to sit on, and leak along the rest of its length.
+    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer)) return true;
   }
   return false;
 }

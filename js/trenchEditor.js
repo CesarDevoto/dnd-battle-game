@@ -11,14 +11,22 @@ let _visibleInDev  = false;  // only true while terrain editor is open
 
 let _previewLine = null;     // rubber-band from last committed point to cursor
 
-// Selected point on an already-finalized trench, for post-hoc editing —
-// independent of _currentPath (the in-progress draw) and of terrainEditor's
-// own control-point selection. { path, idx } refers into that path's points[].
-let _selPath = null;
-let _selIdx  = -1;
+// Selection on an already-finalized trench, for post-hoc editing — independent of
+// _currentPath (the in-progress draw) and of terrainEditor's own control-point
+// selection.
+//   _selScope 'point' → edits hit the one selected point (_selIdx into _selPath.points)
+//   _selScope 'path'  → edits hit EVERY point on _selPath
+// r and pr live on the path itself, so they were always trench-wide; scope only
+// changes what h, the arrow-key nudge, and Delete apply to.
+// Click a dot to select a point; click the connecting line to select the whole
+// trench. (Shift+click is already spoken for — it drags barrier dots.)
+let _selPath  = null;
+let _selIdx   = -1;
+let _selScope = 'point';
 
 const COL_TRENCH  = 0xcc6633;
 const COL_PREVIEW = 0xffaa77;
+const COL_SEL     = 0xffdd44;  // whole-trench selection — matches the selection ring
 const COL_HILL    = 0xff8833;  // positive h (rise)
 const COL_VALLEY  = 0x3388ff;  // negative h (dip) — matches terrainEditor's control-point convention
 
@@ -120,7 +128,7 @@ function _disposePathVisual(path) {
 function _rebuildPathVisual(path) {
   _disposePathVisual(path);
   if (!IS_DEV) return;
-  const line = _pathLineMesh(path.points, COL_TRENCH);
+  const line = _pathLineMesh(path.points, _isPathSelected(path) ? COL_SEL : COL_TRENCH);
   const dots = path.points.map((p, idx) => {
     const d = _dotMesh(p.x, p.z, _dotColor(p.h ?? path.h ?? 0));
     d.visible = _visibleInDev;
@@ -133,6 +141,16 @@ function _rebuildPathVisual(path) {
 
 function _disposeAllVisuals() {
   for (const path of _visuals.keys()) _disposePathVisual(path);
+}
+
+// The whole trench lights up when it's the thing being edited, so it's obvious
+// that an h/nudge/Delete is about to hit every point rather than one.
+function _isPathSelected(path) { return path === _selPath && _selScope === 'path'; }
+
+function _refreshLineColors() {
+  for (const [path, v] of _visuals) {
+    v.line?.material.color.setHex(_isPathSelected(path) ? COL_SEL : COL_TRENCH);
+  }
 }
 
 // ── Terrain mesh refresh ────────────────────────────────────────────────────────
@@ -248,6 +266,33 @@ function _clearAll() {
 // adjusting them here edits the whole selected path, not just the one point.
 
 export function hasSelectedTrenchPoint() { return !!_selPath && _selIdx >= 0; }
+export function hasSelectedTrench()      { return !!_selPath; }
+
+// Points the current edit applies to: every point on the trench in 'path' scope,
+// just the clicked one in 'point' scope.
+function _targetPoints() {
+  if (!_selPath) return [];
+  if (_selScope === 'path') return _selPath.points;
+  return _selIdx >= 0 ? [_selPath.points[_selIdx]] : [];
+}
+
+export function setTrenchScope(scope) {
+  _selScope = scope === 'path' ? 'path' : 'point';
+  // Selecting via the line gives no point index; falling back to the first point
+  // keeps 'point' scope usable without forcing another click.
+  if (_selScope === 'point' && _selPath && _selIdx < 0) _selIdx = 0;
+  _refreshLineColors();
+  _syncSelectionRing();
+  _updateScopeBtn();
+  _updateStatus();
+}
+
+function _updateScopeBtn() {
+  const btn = document.getElementById('te-trench-scope-btn');
+  if (!btn) return;
+  btn.textContent = _selScope === 'path' ? 'SCOPE: WHOLE TRENCH' : 'SCOPE: POINT';
+  btn.classList.toggle('active', _selScope === 'path');
+}
 
 function _syncSelectionRing() {
   if (!hasSelectedTrenchPoint() || !_visibleInDev) { _selRing.visible = false; return; }
@@ -258,9 +303,11 @@ function _syncSelectionRing() {
 }
 
 export function clearTrenchSelection() {
+  const had = _selPath;
   _selPath = null;
   _selIdx  = -1;
   _selRing.visible = false;
+  if (had) _refreshLineColors();
   _updateStatus();
 }
 
@@ -273,39 +320,89 @@ function _pickTrenchDot(cx, cy) {
   return hits.length ? hits[0].object.userData : null;
 }
 
-// Called from terrainEditor's click handler (outside draw mode). Returns
-// true if a point was hit and selected, so the caller can skip its own
-// control-point pick/place for this click.
+// Which trench's line is under the cursor, if any. Lines are infinitely thin, so
+// picking needs a threshold; keep it tight or it swallows clicks meant for the
+// terrain underneath.
+function _pickTrenchLine(cx, cy) {
+  _ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  _rc.setFromCamera(_ndc, camera);
+  const prev = _rc.params.Line.threshold;
+  _rc.params.Line.threshold = 0.35;
+  let best = null, bestDist = Infinity;
+  for (const [path, v] of _visuals) {
+    if (!v.line?.visible) continue;
+    const hits = _rc.intersectObject(v.line, false);
+    if (hits.length && hits[0].distance < bestDist) { bestDist = hits[0].distance; best = path; }
+  }
+  _rc.params.Line.threshold = prev;
+  return best;
+}
+
+// Called from terrainEditor's click handler (outside draw mode). Returns true if a
+// trench was hit, so the caller skips its own control-point pick/place this click.
+// A dot selects that one point; the connecting line selects the whole trench.
 export function selectTrenchPointAt(cx, cy) {
   const hit = _pickTrenchDot(cx, cy);
-  if (!hit) return false;
-  _selPath = hit.path;
-  _selIdx  = hit.idx;
+  if (hit) {
+    _selPath = hit.path;
+    _selIdx  = hit.idx;
+    _refreshLineColors();
+    _syncSelectionRing();
+    _updateScopeBtn();
+    _updateStatus();
+    return true;
+  }
+  const path = _pickTrenchLine(cx, cy);
+  if (!path) return false;
+  _selPath  = path;
+  _selIdx   = -1;
+  _selScope = 'path';   // clicking the line means "this whole trench"
+  _refreshLineColors();
   _syncSelectionRing();
+  _updateScopeBtn();
   _updateStatus();
   return true;
 }
 
 export function nudgeSelectedTrenchPoint(dx, dz) {
-  if (!hasSelectedTrenchPoint()) return;
-  const p = _selPath.points[_selIdx];
-  p.x = +(p.x + dx).toFixed(2);
-  p.z = +(p.z + dz).toFixed(2);
+  const pts = _targetPoints();
+  if (!pts.length) return;
+  for (const p of pts) {
+    p.x = +(p.x + dx).toFixed(2);
+    p.z = +(p.z + dz).toFixed(2);
+  }
   _rebuildPathVisual(_selPath);
   _refreshTerrain();
   _updateStatus();
 }
 
+// Delta, not an absolute set, so raising a whole trench keeps the rise/fall shape
+// its points were drawn with.
 export function adjustSelectedTrenchPointH(delta) {
-  if (!hasSelectedTrenchPoint()) return;
-  const p = _selPath.points[_selIdx];
-  const base = p.h ?? _selPath.h ?? 0;
-  p.h = +(base + delta).toFixed(2);
+  const pts = _targetPoints();
+  if (!pts.length) return;
+  for (const p of pts) {
+    const base = p.h ?? _selPath.h ?? 0;
+    p.h = +(base + delta).toFixed(2);
+  }
   _rebuildPathVisual(_selPath);
   _refreshTerrain();
   _updateStatus();
 }
 
+// Flatten every point on the trench to one height — the "make this whole trench
+// h = X" case that a delta can't express.
+export function setSelectedTrenchH(h) {
+  if (!_selPath) return;
+  const v = +(+h).toFixed(2);
+  if (!Number.isFinite(v)) return;
+  for (const p of _targetPoints()) p.h = v;
+  _rebuildPathVisual(_selPath);
+  _refreshTerrain();
+  _updateStatus();
+}
+
+// r/pr are stored on the path, so these always were trench-wide.
 export function adjustSelectedTrenchR(delta) {
   if (!_selPath) return;
   _selPath.r = Math.max(1, +(_selPath.r + delta).toFixed(2));
@@ -321,9 +418,24 @@ export function adjustSelectedTrenchPR(delta) {
   _updateStatus();
 }
 
+// Point scope removes the one point (and the trench with it if too few remain);
+// whole-trench scope removes the trench outright — confirmed, since that can be a
+// lot of work to lose to a stray keypress.
 export function deleteSelectedTrenchPoint() {
-  if (!hasSelectedTrenchPoint()) return;
+  if (!_selPath) return;
   const path = _selPath;
+
+  if (_selScope === 'path') {
+    if (!confirm(`Delete this entire trench (${path.points.length} points)?`)) return;
+    setTerrainTrenches(getTerrainTrenches().filter(p => p !== path));
+    _disposePathVisual(path);
+    clearTrenchSelection();
+    _refreshTerrain();
+    _updateCounter();
+    return;
+  }
+
+  if (_selIdx < 0) return;
   path.points.splice(_selIdx, 1);
   if (path.points.length < 2) {
     setTerrainTrenches(getTerrainTrenches().filter(p => p !== path));
@@ -378,14 +490,24 @@ async function _saveTrenches() {
 function _updateStatus() {
   const el = document.getElementById('te-trench-status');
   if (!el) return;
-  if (hasSelectedTrenchPoint()) {
-    const p = _selPath.points[_selIdx];
+  if (hasSelectedTrench()) {
+    const pts   = _selPath.points;
+    const whole = _selScope === 'path';
+    const hs    = pts.map(p => p.h ?? _selPath.h ?? 0);
+    const hTxt  = whole
+      ? (Math.min(...hs) === Math.max(...hs)
+          ? Math.min(...hs).toFixed(2)
+          : `${Math.min(...hs).toFixed(2)}…${Math.max(...hs).toFixed(2)}`)
+      : (pts[_selIdx].h ?? _selPath.h ?? 0).toFixed(2);
     el.innerHTML =
-      `<b>Trench point</b> h:${(p.h ?? _selPath.h ?? 0).toFixed(2)} &nbsp; path r:${_selPath.r.toFixed(2)} &nbsp; path pr:${(_selPath.pr ?? 0).toFixed(2)}<br>` +
-      `←→↑↓ move &nbsp; [/] h &nbsp; -/= path r &nbsp; ,/. path pr &nbsp; Del removes point`;
+      `<b>${whole ? `Whole trench (${pts.length} pts)` : `Point ${_selIdx + 1}/${pts.length}`}</b> ` +
+      `h:${hTxt} &nbsp; r:${_selPath.r.toFixed(2)} &nbsp; pr:${(_selPath.pr ?? 0).toFixed(2)}<br>` +
+      `←→↑↓ move &nbsp; [/] h &nbsp; H sets h &nbsp; -/= r &nbsp; ,/. pr &nbsp; ` +
+      `Del ${whole ? 'removes TRENCH' : 'removes point'}<br>` +
+      `<i>r/pr are always trench-wide. Click the line = whole trench, a dot = one point.</i>`;
     return;
   }
-  if (!_drawMode)         el.textContent = 'Click DRAW TRENCH, then click a chain of points — or click an existing point to edit it';
+  if (!_drawMode)         el.textContent = 'Click DRAW TRENCH, then click a chain of points — or click a point (one) / the line (whole trench) to edit';
   else if (!_currentPath) el.textContent = 'Click terrain — start point… (uses current h)';
   else {
     const last = _currentPath.points[_currentPath.points.length - 1];
@@ -456,6 +578,9 @@ export function initTrenchEditor() {
       _clearAll();
     });
 
+  document.getElementById('te-trench-scope-btn')
+    ?.addEventListener('click', () => setTrenchScope(_selScope === 'path' ? 'point' : 'path'));
+
   document.getElementById('te-trench-save-btn')
     ?.addEventListener('click', _saveTrenches);
 
@@ -472,7 +597,7 @@ export function initTrenchEditor() {
       if (_drawMode) { _setDrawMode(false); return; }
       if (hasSelectedTrenchPoint()) { clearTrenchSelection(); return; }
     }
-    if (!hasSelectedTrenchPoint()) return;
+    if (!hasSelectedTrench()) return;
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); nudgeSelectedTrenchPoint(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);  break;
       case 'ArrowRight': e.preventDefault(); nudgeSelectedTrenchPoint( (e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);  break;
@@ -480,6 +605,17 @@ export function initTrenchEditor() {
       case 'ArrowDown':  e.preventDefault(); nudgeSelectedTrenchPoint(0,  (e.ctrlKey ? MICRO_NUDGE : NUDGE));  break;
       case '[': e.preventDefault(); adjustSelectedTrenchPointH(-HSTEP); break;
       case ']': e.preventDefault(); adjustSelectedTrenchPointH( HSTEP); break;
+      case 'h': case 'H': {
+        e.preventDefault();
+        const cur = _selScope === 'path'
+          ? (_selPath.points[0].h ?? _selPath.h ?? 0)
+          : (_selPath.points[_selIdx].h ?? _selPath.h ?? 0);
+        const v = prompt(_selScope === 'path'
+          ? `Set h for all ${_selPath.points.length} points of this trench:`
+          : 'Set h for this point:', String(cur));
+        if (v !== null && v.trim() !== '') setSelectedTrenchH(v);
+        break;
+      }
       case '-':                     adjustSelectedTrenchR(-RSTEP);     break;
       case '=': case '+':           adjustSelectedTrenchR( RSTEP);     break;
       case ',':                     adjustSelectedTrenchPR(-PRSTEP);   break;
@@ -488,6 +624,7 @@ export function initTrenchEditor() {
     }
   });
 
+  _updateScopeBtn();
   _updateStatus();
   _updateCounter();
 }

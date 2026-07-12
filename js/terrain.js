@@ -599,15 +599,29 @@ export function initialCaveLayer(x, z) {
   return (getUncarvedHeight(x, z) - getTerrainHeight(x, z)) > LAYER_MERGE_EPS ? 'under' : 'surface';
 }
 
-// Whether a barrier at (mx,mz) should block a unit on `layer`. Auto-derived: in a
-// cave zone a barrier sitting over a tunnel (headroom overhead) only blocks 'under'
-// units, and a barrier on open ground only blocks 'surface' units — so tunnel walls
-// don't stop a hero walking over the hill above them. Non-cave zones (or an unknown
-// layer) block everyone, exactly as before.
+// Whether a barrier at (mx,mz) should block a unit on `layer`. Non-cave zones (or an
+// unknown layer) block everyone. In a cave zone it hinges on whether there is rock
+// OVERHEAD at that spot:
+//
+//   headroom > EPS  → two walkable surfaces exist here, and the barrier is a TUNNEL
+//                     wall: it blocks units down in the tunnel, and must not stop a
+//                     hero walking over the hill above it.
+//   headroom ≤ EPS  → the two surfaces are merged; there is only ONE floor here, so
+//                     the barrier blocks EVERYONE standing on it.
+//
+// That second case used to read `barrierLayer === 'surface'`, i.e. an open-ground
+// barrier only blocked 'surface' units — which meant it silently stopped existing for
+// a unit carrying layer 'under'. resolveCaveLayer() pins a unit to 'under' for as long
+// as it is inside an entrance region, INCLUDING while it stands on open ground by the
+// mouth, so heroes walked clean through open-ground barriers near every cave mouth and
+// were then stranded on the far side once their layer flipped back. There is no second
+// surface to walk on at a merged point, so there is nothing for a barrier to be
+// "the wrong layer" for.
 export function barrierBlocksLayer(mx, mz, layer) {
   if (!_layersActive || layer == null) return true;
-  const barrierLayer = (getUncarvedHeight(mx, mz) - getTerrainHeight(mx, mz)) > LAYER_MERGE_EPS ? 'under' : 'surface';
-  return barrierLayer === layer;
+  const headroom = getUncarvedHeight(mx, mz) - getTerrainHeight(mx, mz);
+  if (headroom <= LAYER_MERGE_EPS) return true;   // merged — one floor, blocks all
+  return layer === 'under';                       // tunnel wall — blocks who's inside
 }
 
 // Per-frame transition. A surface unit drops under only by stepping into a punched

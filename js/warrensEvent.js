@@ -9,13 +9,16 @@
 //   3. Carry the key to Solrac → the unshackle dialogue (Leugren → Gobo) → he         ✅
 //      crossfades from the hang pose to a standing idle, is freed, "Free the
 //      Prisoner" completes, and the "Find Mirael Thorne" quest springs.
-//   4. Out of combat, Solrac auto-follows Leugren ~10ft; hangs back in a fight.       ← TODO (next step)
+//   4. Out of combat, Solrac auto-follows Leugren at 5 ft and hangs back in a       ✅
+//      fight. He's a breadcrumb follower (js/follower.js), so he retraces
+//      Leugren's own footsteps and can't wedge himself against a cave wall.
 //
 // Alignment of Solrac vs the shackle props is done by hand in-editor.
 
 import { units, playUnitClip, setUnitAnimLocked } from './units.js';
 import { showQuickDialogue } from './dagnaEvent.js';
 import { addQuest, completeQuest } from './quests.js';
+import { addFollower, snapBehindLeader } from './follower.js';
 
 const HANG_CLIP = 'Bar_Hang_Idle';
 const IDLE_CLIP = 'Idle_11';
@@ -30,18 +33,40 @@ const KEY_ITEM  = 'goblin_key';         // items.js id looted from the goblin
 const DISCOVER_R = 11;  // WU (~27ft) — close enough to notice the shackled prisoner
 const RELEASE_R  = 6;   // WU (~15ft) — close enough to work the shackles
 
+// 1 WU = 2.5 ft, so 5 ft = 2 WU. He starts closing again at 3 WU (7.5 ft) — the
+// gap between the two is a deadband, without which he twitches between his walk
+// and idle clips every time Leugren shifts her weight.
+const FOLLOW_STOP   = 2;
+const FOLLOW_RESUME = 3;
+
 let _solrac  = null;
 let _hung    = false;
 let _active  = false;    // currently in the Warrens
 let _combat  = false;
 let _pleaded = false;    // approach plea shown this session
 let _releaseFired = false;
+let _following    = false;
 
 function _flag(k)    { try { return localStorage.getItem(k) === '1'; } catch { return false; } }
 function _setFlag(k) { try { localStorage.setItem(k, '1'); } catch {} }
 const _isFreed = () => _flag(FREED_KEY);
 
-function _reset() { _solrac = null; _hung = false; _pleaded = false; _releaseFired = false; }
+function _reset() {
+  _solrac = null; _hung = false; _pleaded = false; _releaseFired = false; _following = false;
+}
+
+const _leugren = () => units.find(u => u.type === 'dwarf' && u.team === 'blue' && u.hp > 0) ?? null;
+
+// He walks at Leugren's heel out of combat. `arriveWithParty` is for re-entering
+// the zone after he's already been freed: he travels with the heroes now, so he
+// should turn up beside them rather than back at the shackles he was cut from.
+function _beginFollow(arriveWithParty) {
+  const leader = _leugren();
+  if (!leader) return;                 // heroes not built yet — retry next tick
+  addFollower(_solrac, _leugren, { stop: FOLLOW_STOP, resume: FOLLOW_RESUME });
+  if (arriveWithParty) snapBehindLeader(_solrac, leader, FOLLOW_STOP);
+  _following = true;
+}
 
 window.addEventListener('zone:loading', () => { _active = false; _reset(); });
 window.addEventListener('zone:loaded', e => { _active = e.detail?.id === 'warrens'; _reset(); });
@@ -119,6 +144,7 @@ function _freeSolrac(u) {
 // open the search for his sister. No XP reward for now (avoids the level-up bugs).
 function _onReleaseDone(u) {
   _freeSolrac(u);
+  _beginFollow(false);   // he's standing right next to them — just start walking
   addQuest(QUEST_ID, 'Free the Prisoner', 'Free the shackled prisoner in the Warrens.');
   completeQuest(QUEST_ID);
   addQuest(MIRAEL_ID, 'Find Mirael Thorne',
@@ -136,10 +162,16 @@ export function tickWarrens(dt) {
     showQuickDialogue(_INTRO_LINES);
   }
 
-  if (_isFreed()) return;
-
   if (!_solrac) _solrac = _findSolrac();
   if (!_solrac) return;
+
+  // Already freed — either just now, or on a later visit to the zone. He travels
+  // with the party from here on; follower.js does the walking (and holds him in
+  // place during a fight).
+  if (_isFreed()) {
+    if (!_following) _beginFollow(true);
+    return;
+  }
 
   // Keep him locked in the hanging pose until freed (retries until the GLB is ready).
   if (!_hung && playUnitClip(_solrac, HANG_CLIP, { loop: true, lock: true })) _hung = true;

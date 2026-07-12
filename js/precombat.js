@@ -23,6 +23,20 @@ const FUNNEL_LAG_SQ = 36;   // >6 WU behind leader → funnel toward the leader
 // hugs around a corner/prop. Each candidate is still barrier/bounds-validated.
 const DEFLECT_ANGLES = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4];
 
+// Leash. A group-move follower that slips to the WRONG SIDE of a barrier (hairline
+// gap at a segment junction, or a cave-layer flip that makes a wall stop blocking
+// it) can never path back — every route home crosses the wall it just went through,
+// so it grinds along the far face and wanders off. Rather than trust the barrier
+// data to be perfect, watch for the symptom and yank them back: a follower that is
+// either flat-out lost (beyond LEASH_DIST) or walled off from its leader, AND has
+// stopped closing the gap for LEASH_TIME, is teleported to a free slot beside the
+// leader. Requiring the stall as well as the distance means a follower legitimately
+// walking a long way around a corridor is left alone.
+const LEASH_DIST = 14;    // WU (~35 ft) — beyond this a follower is lost, wall or no wall
+const LEASH_TIME = 1.5;   // s of making no progress before we yank
+const LEASH_EPS  = 0.15;  // WU — closing less than this doesn't count as progress
+const SNAP_SLOTS = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1.5], [0, 1.5], [-1.5, 0], [1.5, 0]];
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let _active   = false;
@@ -68,6 +82,8 @@ export function exitPrecombat() {
     u._pcTarget   = null;
     u._pcLeader   = null;
     u._pcBlocked  = false;
+    u._pcLostT    = 0;
+    u._pcLastD    = Infinity;
     u._patrolWait = 0;
     setUnitWalking(u, false);
   });
@@ -76,7 +92,7 @@ export function exitPrecombat() {
 export function selectPCHero(hero)  { _selected = hero; }
 export function deselectPCHero()    { _selected = null; }
 
-function _crossesAnyBarrier(ax, az, bx, bz, layer) {
+export function crossesAnyBarrier(ax, az, bx, bz, layer) {
   for (const s of barrierSegments) {
     const rx = bx - ax, rz = bz - az;
     const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
@@ -85,8 +101,10 @@ function _crossesAnyBarrier(ax, az, bx, bz, layer) {
     const qpx = s.x1 - ax, qpz = s.z1 - az;
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
-    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 &&
-        barrierBlocksLayer((s.x1 + s.x2) * 0.5, (s.z1 + s.z2) * 0.5, layer)) return true;
+    if (t < 0 || t > 1 || u < 0 || u > 1) continue;
+    // Layer-test the actual CROSSING point rather than the segment's midpoint — see
+    // the matching note in combat.js crossesBarrier().
+    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer)) return true;
   }
   return false;
 }
@@ -100,10 +118,12 @@ export function movePCHeroTo(hero, x, z, leader = null) {
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   const cx = Math.max(-halfGS, Math.min(halfGS, x));
   const cz = Math.max(-halfGS, Math.min(halfGS, z));
-  if (!leader && _crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
+  if (!leader && crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
   hero._pcTarget  = { x: cx, z: cz };
   hero._pcLeader  = leader;
   hero._pcBlocked = false;
+  hero._pcLostT   = 0;
+  hero._pcLastD   = Infinity;
   setUnitWalking(hero, true);
 }
 
@@ -124,6 +144,8 @@ function _tickHeroes(dt) {
     const dest   = hero._pcTarget;
     const leader = hero._pcLeader;
     const hasLeader = !!(leader && leader.hp > 0);
+
+    if (hasLeader && _leash(hero, leader, dt)) continue;
 
     // Beacon: aim at the formation slot normally; a follower that was blocked last
     // frame or has fallen too far behind steers toward the leader's live position
@@ -177,6 +199,51 @@ function _tickHeroes(dt) {
   }
 }
 
+// Watch a follower for the "stranded on the far side of a wall" symptom and snap it
+// back to the leader if it shows. Returns true if the hero was snapped (its move is
+// finished for this frame).
+function _leash(hero, leader, dt) {
+  const hx = hero.grp.position.x,   hz = hero.grp.position.z;
+  const lx = leader.grp.position.x, lz = leader.grp.position.z;
+  const d  = Math.hypot(lx - hx, lz - hz);
+
+  if (d < (hero._pcLastD ?? Infinity) - LEASH_EPS) {
+    hero._pcLastD = d;                       // still closing — all is well
+    hero._pcLostT = 0;
+    return false;
+  }
+  hero._pcLostT = (hero._pcLostT ?? 0) + dt;
+  if (hero._pcLostT < LEASH_TIME) return false;
+
+  const stranded = d > LEASH_DIST || crossesAnyBarrier(hx, hz, lx, lz, hero.caveLayer);
+  if (!stranded) return false;               // stalled but reachable — let it keep trying
+
+  // Land on the leader's own cave layer, not whatever layer the wall it slipped
+  // through put it on; main.js re-resolves from there.
+  let sx = lx, sz = lz;
+  for (const [ox, oz] of SNAP_SLOTS) {
+    const x = lx + ox, z = lz + oz;
+    if (crossesAnyBarrier(lx, lz, x, z, leader.caveLayer)) continue;
+    if (units.some(o => o !== hero && o.hp > 0 &&
+        Math.hypot(o.grp.position.x - x, o.grp.position.z - z) < 0.9)) continue;
+    sx = x; sz = z;
+    break;
+  }
+  hero.grp.position.x = sx;
+  hero.grp.position.z = sz;
+  hero.anchor.x       = sx;
+  hero.anchor.z       = sz;
+  hero.caveLayer      = leader.caveLayer;
+  hero._pcTarget = null;
+  hero._pcLeader = null;
+  hero._pcBlocked = false;
+  hero._pcLostT   = 0;
+  hero._pcLastD   = Infinity;
+  setUnitWalking(hero, false);
+  addLog(`${unitLabel(hero)} was left behind and rejoins the party.`, 'move');
+  return true;
+}
+
 // ── Enemy patrol ──────────────────────────────────────────────────────────────
 
 function _tickPatrol(dt) {
@@ -217,7 +284,7 @@ function _tickPatrol(dt) {
 
 // True if stepping from (px,pz) to (nx,nz) hits a barrier or leaves the ground.
 function _blockedStep(px, pz, nx, nz, unit) {
-  if (_crossesAnyBarrier(px, pz, nx, nz, unit.caveLayer)) return true;
+  if (crossesAnyBarrier(px, pz, nx, nz, unit.caveLayer)) return true;
   const zone   = getActiveZone();
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   return Math.abs(nx) > halfGS || Math.abs(nz) > halfGS;
