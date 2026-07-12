@@ -21,24 +21,27 @@ const HANG_CLIP = 'Bar_Hang_Idle';
 const IDLE_CLIP = 'Idle_11';
 
 const FREED_KEY = 'dnd-solrac-freed';   // Solrac has been released (persists)
+const SEEN_KEY  = 'dnd-solrac-seen';    // player has approached the shackled prisoner
 const INTRO_KEY = 'dnd-warrens-intro';  // first-entry intro dialogue has played
 const QUEST_ID  = 'free_solrac';
 const MIRAEL_ID = 'find_mirael';
 const KEY_ITEM  = 'goblin_key';         // items.js id looted from the goblin
 
-const RELEASE_R = 6;    // WU (~15ft) — close enough to work the shackles
+const DISCOVER_R = 11;  // WU (~27ft) — close enough to notice the shackled prisoner
+const RELEASE_R  = 6;   // WU (~15ft) — close enough to work the shackles
 
 let _solrac  = null;
 let _hung    = false;
 let _active  = false;    // currently in the Warrens
 let _combat  = false;
+let _pleaded = false;    // approach plea shown this session
 let _releaseFired = false;
 
 function _flag(k)    { try { return localStorage.getItem(k) === '1'; } catch { return false; } }
 function _setFlag(k) { try { localStorage.setItem(k, '1'); } catch {} }
 const _isFreed = () => _flag(FREED_KEY);
 
-function _reset() { _solrac = null; _hung = false; _releaseFired = false; }
+function _reset() { _solrac = null; _hung = false; _pleaded = false; _releaseFired = false; }
 
 window.addEventListener('zone:loading', () => { _active = false; _reset(); });
 window.addEventListener('zone:loaded', e => { _active = e.detail?.id === 'warrens'; _reset(); });
@@ -81,6 +84,7 @@ const _INTRO_LINES = [
   { narration: true, t: "Distant cries for succour echo through a wooded canyon, spoken in the Common tongue." },
   { s: 'Milo',    t: "They draw nigh! Onward, ahead — we must make haste!" },
   { s: 'Leugren', t: "Bless the grassling's guidance as true! Hold fast thy faith, cousin — we come for thee!" },
+  { s: 'Milo',    t: "The cries come from along the path up ahead, to the right. This way!" },
 ];
 
 // ── The unshackle scene (fires once the key reaches Solrac) ────────────────────
@@ -142,9 +146,24 @@ export function tickWarrens(dt) {
 
   if (_combat || _releaseFired) return;
 
-  // Release: carry the looted key close to Solrac → the unshackle scene, then free.
   const near = _nearestHero(_solrac.grp.position.x, _solrac.grp.position.z);
-  if (near && _anyHeroHasKey() && near.dist <= RELEASE_R) {
+  if (!near) return;
+  const hasKey = _anyHeroHasKey();
+
+  // Approach plea: a hero comes near the shackled prisoner before finding the key —
+  // he calls out for help (one-shot). Skipped if you already hold the key (go straight
+  // to the release scene instead).
+  if (!hasKey && !_pleaded && !_flag(SEEN_KEY) && near.dist <= DISCOVER_R) {
+    _pleaded = true;
+    _setFlag(SEEN_KEY);
+    showQuickDialogue([
+      { s: 'Solrac', t: "You there — you're no goblin! Please, free me. One of those brutes carries the key to these shackles." },
+    ]);
+    return;
+  }
+
+  // Release: carry the looted key close to Solrac → the unshackle scene, then free.
+  if (hasKey && near.dist <= RELEASE_R) {
     _releaseFired = true;
     showQuickDialogue(_RELEASE_LINES, () => _onReleaseDone(_solrac));
   }

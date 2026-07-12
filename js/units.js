@@ -521,7 +521,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   }
 
   // Ranged/spell anim rotation: elf spell faces forward with CCW (+π/2); all others CW (-π/2)
-  const rangedRotY = type === 'elf' ? 0 : -Math.PI / 2;
+  const rangedRotY = UNIT_TYPES[type]?.rangedRotY ?? (type === 'elf' ? 0 : -Math.PI / 2);
 
   const _phaseOff = team === 'blue'
     ? units.filter(u => u.team === 'blue').length * 0.3

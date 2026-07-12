@@ -1348,7 +1348,7 @@ function activateMageArmor() {
   u.spellSlots--;
   turnAttacked  = true;
 
-  addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) until long rest`, 'spell');
+  addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) for this combat`, 'spell');
   showMageArmorFloat(u);
   pulseMageArmorAura(u);
   updateCombatStatus();
@@ -1821,7 +1821,7 @@ function _teardownCombat() {
   hideSoulShardPrompt();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
-  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; });
+  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
   meleeRangeRing.visible = false;

@@ -1703,15 +1703,20 @@ export function getWaterEnvMap() {
 export function mkWaterDisc(s, ry) {
   const geo = new THREE.CircleGeometry(6, 64);
 
+  // A near-black high-metalness surface with no scene envMap just renders as a dark
+  // hole. Use a VISIBLE dark-teal dielectric (low metalness so its diffuse colour
+  // shows) + a faint emissive so it never goes black in shadow + the shared envMap
+  // for a moonlit glint. Reads as water from any angle.
   const mat = new THREE.MeshStandardMaterial({
-    color:           0x061726,
-    roughness:       0.14,
-    metalness:       0.7,
+    color:           0x123c54,
+    roughness:       0.22,
+    metalness:       0.25,
     transparent:     true,
-    opacity:         0.85,
+    opacity:         0.86,
     depthWrite:      false,
+    emissive:        0x06192a,
     envMap:          getWaterEnvMap(),
-    envMapIntensity: 1.4,
+    envMapIntensity: 1.7,
   });
 
   const mesh          = new THREE.Mesh(geo, mat);

@@ -914,6 +914,7 @@ export const UNIT_TYPES = {
     name: 'Gobo',
     class: 'Human Barbarian',
     team: 'blue',
+    rangedRotY: 0,   // face the target (12 o'clock) on thrown-axe attack; non-elf default (-π/2) pointed him at 3 o'clock
     dark: 0x252535, mid: 0x40405a, bright: 0x7878a0, emissive: 0x050508,
     legH: 0.58, torsoW: 0.70, headS: 0.44, wpnH: 1.28, wpnColor: 0xccccdd,
     scale: [1.496, 1.496, 1.496],

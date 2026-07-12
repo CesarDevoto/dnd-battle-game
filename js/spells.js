@@ -49,7 +49,7 @@ export const SPELLS = {
     actionType:    'action',
     concentration: true,
     imgSrc:        'assets/spells and skills/bless.jpg',
-    desc:          'Party · all allies · +1d2 to atk & saves · conc',
+    desc:          'Party · all allies · +1d2×5% to atk & saves · conc',
   },
 };
 

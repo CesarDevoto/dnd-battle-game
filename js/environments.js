@@ -541,14 +541,15 @@ const SWAMP_WATER_Y = 0.75;
 function buildSwampWater() {
   _surfaceY = SWAMP_WATER_Y;
   const waterMat = new THREE.MeshStandardMaterial({
-    color:           0x061726,
-    roughness:       0.14,
-    metalness:       0.7,
+    color:           0x123c54,           // visible dark teal (dielectric shows its colour)
+    roughness:       0.22,
+    metalness:       0.25,
     transparent:     true,
     opacity:         0.95,
     depthWrite:      false,
-    envMap:          getWaterEnvMap(),   // reflect a faint sky glint — scene has no envMap
-    envMapIntensity: 1.4,
+    emissive:        0x06192a,           // faint glow so it never goes black in shadow
+    envMap:          getWaterEnvMap(),   // moonlit glint — scene has no envMap
+    envMapIntensity: 1.7,
   });
   const waterPlane = new THREE.Mesh(new THREE.PlaneGeometry(74, 74), waterMat);
   waterPlane.rotation.x = -Math.PI / 2;
