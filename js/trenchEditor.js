@@ -26,7 +26,8 @@ let _selScope = 'point';
 
 const COL_TRENCH  = 0xcc6633;
 const COL_PREVIEW = 0xffaa77;
-const COL_SEL     = 0xffdd44;  // whole-trench selection — matches the selection ring
+const COL_SEL     = 0xcc0000;  // whole-trench selection — dark red, so it can't be
+                               // mistaken for the orange-brown of an unselected trench
 const COL_HILL    = 0xff8833;  // positive h (rise)
 const COL_VALLEY  = 0x3388ff;  // negative h (dip) — matches terrainEditor's control-point convention
 
