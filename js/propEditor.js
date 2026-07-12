@@ -446,6 +446,27 @@ function _rescale(factor) {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
+// Copy a prop's non-transform metadata (waystoneId / mapTab) onto the object about
+// to be serialized, preferring the entry but FALLING BACK TO THE MESH's userData.
+//
+// This is the fix for a bug that has now round-tripped into the repo three times:
+// the waystone kept getting written out with its `waystoneId` and `mapTab` missing,
+// silently killing its activation, teleport and map pin. Every previous fix patched
+// one path that builds an entry (load, adopt, duplicate) and the bug came straight
+// back through another, because the SAVE trusted the entry object — and the entry is
+// the one thing in the chain that can lose the data (a stale entry from before an
+// earlier strip, an HMR desync, a re-adopt). The mesh's userData cannot: the waystone
+// builder stamps both fields at construction from the zone data, so it is the
+// authoritative copy for as long as the mesh exists. Read from there and no entry
+// path can drop them again.
+function _carryMetadata(entry, obj) {
+  const ud  = entry.mesh?.userData ?? {};
+  const wid = entry.waystoneId ?? ud.waystoneId;
+  const tab = entry.mapTab     ?? ud.mapTab;
+  if (wid != null) obj.waystoneId = wid;
+  if (tab != null) obj.mapTab     = tab;
+}
+
 async function _saveToZone() {
   if (!_activeZoneId) {
     _setSaveStatus('No active zone loaded', 'error');
@@ -465,10 +486,20 @@ async function _saveToZone() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
-      if (p.waystoneId != null) obj.waystoneId = p.waystoneId;
-      if (p.mapTab     != null) obj.mapTab     = p.mapTab;
+      _carryMetadata(p, obj);
       return obj;
     });
+
+  // A waystone with no id is a dead waystone (no activation, no teleport, no map
+  // pin). If one is about to be written out that way, refuse the save rather than
+  // quietly corrupt the zone file — this bug has round-tripped into the repo twice.
+  const orphan = props.find(o => o.model === 'waystone' && o.waystoneId == null);
+  if (orphan) {
+    console.error('[propEditor] Waystone at', orphan.x, orphan.z, 'has no waystoneId — save aborted.');
+    _setSaveStatus('Waystone is missing its id — save aborted', 'error');
+    return;
+  }
+
   _setSaveStatus('Saving…', '');
   try {
     const r    = await fetch('/__save_zone_props', {
@@ -509,8 +540,7 @@ function _exportJSON() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
-      if (p.waystoneId != null) obj.waystoneId = p.waystoneId;
-      if (p.mapTab     != null) obj.mapTab     = p.mapTab;
+      _carryMetadata(p, obj);
       return obj;
     });
   return JSON.stringify(arr, null, 2);
