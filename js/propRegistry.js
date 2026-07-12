@@ -1,4 +1,4 @@
-import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
+import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
 
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
@@ -96,6 +96,7 @@ export const PROP_MODELS = {
   arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
 
   fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
+  campfire:         { label: 'Campfire',           builderFn: () => mkCampfire(1, 0),     defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
   darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.8  },
 
   // ── Special interactive markers ───────────────────────────────────────────────

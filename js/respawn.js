@@ -112,7 +112,7 @@ function _noteKill(detail) {
 // ── Zone entry — decide which spawns are still on cooldown ────────────────────
 // Returns the subset of enemyDefs that should spawn right now. Call from the
 // zone loader in place of iterating zone.enemies directly.
-export function filterZoneSpawns(zoneId, enemyDefs) {
+export function filterZoneSpawns(zoneId, enemyDefs, { fresh = false } = {}) {
   _zoneId   = zoneId;
   _defsById = new Map();
   const list = enemyDefs ?? [];
@@ -124,6 +124,10 @@ export function filterZoneSpawns(zoneId, enemyDefs) {
     _defsById.set(id, def);
     validIds.add(id);
   }
+
+  // Arena zones (zone.freshEnemies, e.g. River Styx) present the FULL encounter every
+  // visit — wipe any respawn cooldowns so a same-day return isn't an empty room.
+  if (fresh && _kills[zoneId]) { delete _kills[zoneId]; _saveKills(); }
 
   const zoneKills = _kills[zoneId] ?? {};
   let dirty = false;

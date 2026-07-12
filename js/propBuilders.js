@@ -1681,16 +1681,37 @@ export function mkRoadSegment(s, ry) {
   return grp;
 }
 
+// Shared faint "sky/void" reflection for water. The scene has no environment map,
+// so a metallic surface has nothing to reflect and renders near-black (the "dark
+// hole" look). Giving the water its OWN envMap makes it catch a glint and read as a
+// shiny surface, without touching any other material in the game.
+let _waterEnv = null;
+export function getWaterEnvMap() {
+  if (_waterEnv) return _waterEnv;
+  const c = document.createElement('canvas'); c.width = 8; c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0.00, '#4a6a96');  // sky glint (bright top)
+  g.addColorStop(0.45, '#16273d');
+  g.addColorStop(1.00, '#03080f');  // deep water (dark bottom)
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 8, 64);
+  _waterEnv = new THREE.CanvasTexture(c);
+  _waterEnv.mapping = THREE.EquirectangularReflectionMapping;
+  return _waterEnv;
+}
+
 export function mkWaterDisc(s, ry) {
   const geo = new THREE.CircleGeometry(6, 64);
 
   const mat = new THREE.MeshStandardMaterial({
-    color:       0x020b18,
-    roughness:   0.18,
-    metalness:   0.62,
-    transparent: true,
-    opacity:     0.72,
-    depthWrite:  false,
+    color:           0x061726,
+    roughness:       0.14,
+    metalness:       0.7,
+    transparent:     true,
+    opacity:         0.85,
+    depthWrite:      false,
+    envMap:          getWaterEnvMap(),
+    envMapIntensity: 1.4,
   });
 
   const mesh          = new THREE.Mesh(geo, mat);
@@ -1703,6 +1724,108 @@ export function mkWaterDisc(s, ry) {
   grp.add(mesh);
   grp.scale.setScalar(s);
   grp.rotation.y = ry;
+  return grp;
+}
+
+// Soft, camera-facing flame texture (a blurred teardrop with a bright core). Drawn
+// once and shared. Additive sprites using it read as fire from any angle — unlike a
+// literal cone mesh.
+let _flameTex = null;
+function _getFlameTex() {
+  if (_flameTex) return _flameTex;
+  const W = 64, H = 128;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.filter = 'blur(3px)';
+  // Teardrop silhouette: point at top, rounded base.
+  ctx.beginPath();
+  ctx.moveTo(W * 0.5, H * 0.04);
+  ctx.bezierCurveTo(W * 0.94, H * 0.44, W * 0.80, H * 0.97, W * 0.5, H * 0.97);
+  ctx.bezierCurveTo(W * 0.20, H * 0.97, W * 0.06, H * 0.44, W * 0.5, H * 0.04);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, H, 0, 0);         // base → tip
+  g.addColorStop(0.00, 'rgba(255,110,20,0.00)');          // base fades into the embers/logs
+  g.addColorStop(0.18, 'rgba(255,90,15,0.85)');           // orange
+  g.addColorStop(0.48, 'rgba(255,180,55,0.98)');          // yellow-orange body
+  g.addColorStop(0.74, 'rgba(255,240,170,0.90)');         // hot core
+  g.addColorStop(1.00, 'rgba(255,255,235,0.00)');         // tip licks out
+  ctx.fillStyle = g;
+  ctx.fill();
+  _flameTex = new THREE.CanvasTexture(c);
+  return _flameTex;
+}
+
+// Small procedural campfire — soft camera-facing flame sprites + rising embers + a
+// warm flickering light. Self-animates via RAF and cleans up through
+// userData.destroy (called by clearProps on zone teardown).
+export function mkCampfire(s = 1, ry = 0) {
+  const grp = new THREE.Group();
+
+  const mkFlame = (color, opacity) => {
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: _getFlameTex(), color, transparent: true, opacity, depthWrite: false,
+      blending: THREE.AdditiveBlending, fog: false,   // additive + fog:false (fog-patch note)
+    }));
+    spr.center.set(0.5, 0.04);   // anchor at the base so it grows/licks upward
+    return spr;
+  };
+  const outer = mkFlame(0xff5210, 0.75);  // broad orange flame
+  const inner = mkFlame(0xffd452, 0.95);  // tight hot core
+  const midd  = mkFlame(0xff8a1e, 0.7);   // extra tongue for lively layering
+
+  // Rising embers (the part you liked — kept as-is).
+  const N = 22;
+  const pos = new Float32Array(N * 3), vel = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    pos[i*3] = (Math.random()-0.5)*0.34; pos[i*3+1] = Math.random()*0.9; pos[i*3+2] = (Math.random()-0.5)*0.34;
+    vel[i]  = 0.45 + Math.random()*0.6;
+  }
+  const emGeo = new THREE.BufferGeometry();
+  emGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const embers = new THREE.Points(emGeo, new THREE.PointsMaterial({
+    color: 0xffab44, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false,
+  }));
+
+  const light = new THREE.PointLight(0xff7722, 1.5, 8, 2);
+  light.position.y = 0.6;
+
+  grp.add(outer, midd, inner, embers, light);
+  grp.scale.setScalar(s);
+  grp.rotation.y = ry;
+
+  let alive = true, t = 0;
+  const arr = emGeo.attributes.position.array;
+  // Each flame layer flickers on its own phase so they lick independently.
+  const layers = [
+    { spr: outer, w: 0.85, h: 1.35, base: 0.05, hz: 17, sway: 0.05, ph: 0.0 },
+    { spr: midd,  w: 0.60, h: 1.05, base: 0.05, hz: 25, sway: 0.07, ph: 1.7 },
+    { spr: inner, w: 0.42, h: 0.80, base: 0.05, hz: 31, sway: 0.04, ph: 3.1 },
+  ];
+  (function step() {
+    if (!alive) return;
+    t += 0.016;
+    const f = 0.86 + Math.sin(t*23)*0.08 + Math.sin(t*7.1)*0.06;
+    light.intensity = 1.5 * f;
+    for (const L of layers) {
+      const flick = 0.82 + Math.sin(t*L.hz + L.ph)*0.16 + Math.sin(t*6.3 + L.ph)*0.06;
+      L.spr.scale.set(L.w * (0.92 + (1-flick)*0.4), L.h * flick, 1);
+      L.spr.position.x = Math.sin(t*L.hz*0.4 + L.ph) * L.sway;
+      L.spr.position.y = L.base;
+    }
+    for (let i = 0; i < N; i++) {
+      arr[i*3+1] += vel[i]*0.016;
+      if (arr[i*3+1] > 1.15) { arr[i*3+1] = 0; arr[i*3] = (Math.random()-0.5)*0.34; arr[i*3+2] = (Math.random()-0.5)*0.34; }
+    }
+    emGeo.attributes.position.needsUpdate = true;
+    requestAnimationFrame(step);
+  })();
+
+  grp.userData.destroy = () => {
+    alive = false;
+    emGeo.dispose(); embers.material.dispose();
+    outer.material.dispose(); midd.material.dispose(); inner.material.dispose();
+  };
   return grp;
 }
 

@@ -453,7 +453,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // knows every spawn point.
   const enemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') === 'red');
   const nonEnemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') !== 'red');
-  const spawnNow = filterZoneSpawns(id, enemyDefs);
+  const spawnNow = filterZoneSpawns(id, enemyDefs, { fresh: !!zone.freshEnemies });
   spawnNow.forEach(_spawnZoneEnemy);
   nonEnemyDefs.forEach(_spawnZoneEnemy);
 

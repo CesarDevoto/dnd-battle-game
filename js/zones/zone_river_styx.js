@@ -4,6 +4,7 @@ export const ZONE = {
   biome: 'dungeon',
   ambient: 'river_styx',
   heroSkin: 'ghost',
+  freshEnemies: true,   // arena: the full encounter respawns on every visit (no cooldowns)
   heroEntry: [
     { x: -1, z: 29, type: 'dwarf' },
     { x:  1, z: 29, type: 'human' },
@@ -36,6 +37,8 @@ export const ZONE = {
   terrainSeed: { ph: [0.490123,3.000296,1.409989,2.976615,3.974492,1.266537,0.405445,4.320983,6.025224,1.37175,4.236491,4.632965], fx: [1.630533,3.700089,9.578522,19.437501,65.627281,212.709444], fz: [1.5482,3.283454,8.327148,16.575466,64.273738,121.496875], sharpExp: 1.069227, scale: 5.915403 },
   props: [
     { model: 'bloodpool', x: 2.91, z: -20.3, y: -4.7, yOff: 4.5, rotY: 0, scale: 10 },
+    { model: 'campfire', x: 0.5, z: -18.5, y: 0, yOff: 5.3, rotY: 0, scale: 1.1 },
+    { model: 'campfire', x: 5.5, z: -22, y: 0, yOff: 5.3, rotY: 0, scale: 0.9 },
     { model: 'fogpatch', x: 5.74, z: 28.5, y: 1.2421, yOff: 0.25, rotY: 0, scale: 1 },
     { model: 'fogpatch', x: -12.17, z: 19.5, y: 0.6374, yOff: 0.25, rotY: 0, scale: 1 },
     { model: 'fogpatch', x: -36.59, z: -4.34, y: 0.05, yOff: 0.25, rotY: 0, scale: 1 },

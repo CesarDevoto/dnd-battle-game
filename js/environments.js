@@ -17,6 +17,7 @@ import {
   mkIce, mkLog, mkTunnelPillar, mkTunnelWall, mkBrokenStatue,
   _makeMapleLeafGeo,
   clearPointLightOrbs,
+  getWaterEnvMap,
 } from './propBuilders.js';
 
 let t = 0;
@@ -540,12 +541,14 @@ const SWAMP_WATER_Y = 0.75;
 function buildSwampWater() {
   _surfaceY = SWAMP_WATER_Y;
   const waterMat = new THREE.MeshStandardMaterial({
-    color:       0x020b18,
-    roughness:   0.18,
-    metalness:   0.62,
-    transparent: true,
-    opacity:     0.95,
-    depthWrite:  false,
+    color:           0x061726,
+    roughness:       0.14,
+    metalness:       0.7,
+    transparent:     true,
+    opacity:         0.95,
+    depthWrite:      false,
+    envMap:          getWaterEnvMap(),   // reflect a faint sky glint — scene has no envMap
+    envMapIntensity: 1.4,
   });
   const waterPlane = new THREE.Mesh(new THREE.PlaneGeometry(74, 74), waterMat);
   waterPlane.rotation.x = -Math.PI / 2;
@@ -1747,4 +1750,4 @@ document.getElementById('biomes-btn').addEventListener('click', () => {
 setEnv('forest');
 
 // ── Re-exports for propRegistry.js and other consumers ───────────────────────
-export { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, setPointLightOrbsVisible, mkDarknessPlane, mkWaystoneDisc } from './propBuilders.js';
+export { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, setPointLightOrbsVisible, mkDarknessPlane, mkWaystoneDisc } from './propBuilders.js';
