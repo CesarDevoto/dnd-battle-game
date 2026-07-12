@@ -2722,9 +2722,33 @@ shakeAwakeBtn.addEventListener('click', e => {
   updateCombatStatus();
 });
 
+// Out-of-combat target cycling: enemies within scout range of a living hero AND in
+// line of sight (fog/walls block) — the same limits as Milo's hide vision.
+const OOC_TARGET_RANGE = 10 * WORLD_UNITS_PER_SQUARE;   // 10 squares, matches MAX_SCOUT_RANGE
+function _cycleOOCTarget() {
+  const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+  if (!heroes.length) return;
+  const visible = units.filter(en => {
+    if (en.team !== 'red' || en.hp <= 0 || en.aggro === false) return false;
+    return heroes.some(h => {
+      const dx = en.grp.position.x - h.grp.position.x, dz = en.grp.position.z - h.grp.position.z;
+      if (dx * dx + dz * dz > OOC_TARGET_RANGE * OOC_TARGET_RANGE) return false;
+      return hasLineOfSight(h.grp.position.x, h.grp.position.z, en.grp.position.x, en.grp.position.z);
+    });
+  });
+  if (!visible.length) { hideTargetMarker(); return; }
+  const curIdx = selectedTarget ? visible.indexOf(selectedTarget) : -1;
+  _ringHoverActive = false;
+  showTargetMarker(visible[(curIdx + 1) % visible.length]);
+}
+
 document.addEventListener('keydown', e => {
-  if (!combatPhase || isAnimating) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // Out-of-combat Tab: cycle the target marker through enemies the party can actually
+  // see — within scout range and with line of sight (fog/walls block), mirroring the
+  // limits on Milo's hide vision. Lets the player scan threats before engaging.
+  if (!combatPhase && e.key === 'Tab') { e.preventDefault(); _cycleOOCTarget(); return; }
+  if (!combatPhase || isAnimating) return;
 
   if (e.key === 'Escape') {
     if (selectedTarget) hideTargetMarker();
