@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar } from './familiar.js';
+import { playWebEffect } from './webEffect.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
@@ -896,6 +897,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
 }
 
 function showMoveRange(u, overrideFt) {
+  if (u.webStuck) { hideMoveRange(); return; }   // restrained by web this turn — speed 0
   _conformLayer = u.caveLayer ?? 'surface';
   const def      = UNIT_TYPES[u.type] ?? {};
   const remainFt = overrideFt !== undefined ? overrideFt : (def.speed ?? 30) - turnMovedFt;
@@ -1821,7 +1823,7 @@ function _teardownCombat() {
   hideSoulShardPrompt();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
-  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; });
+  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; u.webRestrained = false; u.webStuck = false; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
   meleeRangeRing.visible = false;
@@ -2337,6 +2339,17 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     return;
   }
 
+  // Web (giant spider): a hit deals no damage — it ensnares the target, which rolls
+  // DC <restrainDC> STR at the start of its next turn to break free.
+  if (atk.web) {
+    target.webRestrained = true;
+    target.webRestrainDC = atk.restrainDC ?? 8;
+    playWebEffect(attacker, target);
+    addLog(`${tLabel} is caught in ${aLabel}'s webbing! (DC ${target.webRestrainDC} STR to break free)`, 'move');
+    showFloatingDamage(target, 'WEBBED', '#e6e6ff');
+    onSettled?.();
+    return;
+  }
 
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
   const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, target, atkResult);
@@ -4084,6 +4097,23 @@ export function activateTurn(index) {
     turnReactionUsed = false;
     sneakAttackUsed = false;
     u.dodging       = false;
+    // Web restraint: at the start of its turn a webbed unit rolls STR to break free.
+    // Success frees it but spends its Action (it keeps Move / Bonus Action / reaction);
+    // failure leaves it stuck (no movement) this turn, to try again next turn.
+    if (u.webRestrained) {
+      const strMod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.str ?? 10) - 10) / 2);
+      const dc     = u.webRestrainDC ?? 8;
+      const res    = rollSave(strMod, dc);
+      if (res.isSave) {
+        u.webRestrained = false; u.webStuck = false; turnAttacked = true;
+        addLog(`${unitLabel(u)} tears free of the webbing! (${saveBreakdown(res, 'str')}) — Action spent`, 'move');
+      } else {
+        u.webStuck = true;
+        addLog(`${unitLabel(u)} struggles, still caught in the web (${saveBreakdown(res, 'str')})`, 'move');
+      }
+    } else {
+      u.webStuck = false;
+    }
     hideSoulShardPrompt();
     // If this hero's delayed action never fired, it expires at turn start
     if (u.team === 'blue' && _readied.has(u)) {

@@ -43,7 +43,19 @@ export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, at
   const dx = target.grp.position.x - u.grp.position.x;
   const dz = target.grp.position.z - u.grp.position.z;
   const dist = Math.sqrt(dx * dx + dz * dz);
-  if (meleeA && dist <= atkTriggerWU(meleeA)) return meleeA;
+
+  // Web (giant spider): the ranged branch below already fires it from range; here we
+  // let the spider ALSO spit web ~50% of the time when in melee (if the target isn't
+  // already ensnared and there's line of sight), instead of biting.
+  const webA = atks.find(a => a.web);
+  const canWeb = webA && !target.webRestrained &&
+    dist <= atkRangeWU(webA.range) &&
+    hasLineOfSight(u.grp.position.x, u.grp.position.z, target.grp.position.x, target.grp.position.z);
+
+  if (meleeA && dist <= atkTriggerWU(meleeA)) {
+    if (canWeb && Math.random() < 0.5) return webA;
+    return meleeA;
+  }
   const hasJ = rangdA && atkHasQty(u, rangdA);
   const los  = hasJ && hasLineOfSight(u.grp.position.x, u.grp.position.z,
                                       target.grp.position.x, target.grp.position.z);

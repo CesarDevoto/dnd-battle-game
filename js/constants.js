@@ -313,6 +313,10 @@ export const UNIT_TYPES = {
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'dex',
         note: 'DC 11 CON or 2d8 poison dmg' },
+      // Ranged web: dex(+3)+prof(+2) = +5 to hit. No damage — restrains on hit; the
+      // target rolls DC 8 STR at the start of its next turn to break free.
+      { name: 'Web', type: 'ranged', range: 40, statMod: 'dex', web: true, restrainDC: 8,
+        note: 'Restrain on hit; DC 8 STR to break free' },
     ],
   },
 
