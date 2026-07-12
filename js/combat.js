@@ -688,6 +688,19 @@ function atkHasQty(unit, atk) {
   return (unit.atkQty?.[atk.name] ?? atk.qty) > 0;
 }
 
+// Recover limited-qty attacks (thrown weapons like Gobo's Handaxes) to their base
+// count. Called at the start of each combat so every fight begins fully stocked.
+function _refreshAttackQty() {
+  for (const u of units) {
+    if (!u.atkQty) continue;
+    const atks = UNIT_TYPES[u.type]?.attacks;
+    if (!atks) continue;
+    for (const atk of atks) {
+      if (atk.qty !== undefined) u.atkQty[atk.name] = atk.qty;
+    }
+  }
+}
+
 // Decrement qty counter only — no log (call when the projectile is launched).
 function _consumeAtkQty(unit, atk) {
   if (atk.qty === undefined || !(atk.name in (unit.atkQty ?? {}))) return;
@@ -709,11 +722,12 @@ function _logAtkQtyMsg(unit, atk) {
 function atkRangeWU(rangeFt) {
   return (rangeFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE + 1.0;
 }
-// Distance at which an attack can trigger. A 5 ft melee resolves to 3 WU =
-// ADJACENT_WU, so melee reach (and its range ring) match the engagement/Sneak
-// Attack adjacency exactly — a target must be in an adjacent square. Reach
-// weapons (10 ft) scale up naturally via atkRangeWU.
+// Distance at which an attack can trigger. Melee (≤ 1 square / 5 ft) uses the shared
+// ADJACENT_WU adjacency radius, so melee reach (and its range ring) match the
+// engagement lock and Sneak Attack adjacency EXACTLY — bumping ADJACENT_WU moves all
+// three together. Reach weapons (> 5 ft) scale up naturally via atkRangeWU.
 function atkTriggerWU(atk) {
+  if ((atk.range ?? GRID_SQUARE_FEET) <= GRID_SQUARE_FEET) return ADJACENT_WU;
   return atkRangeWU(atk.range);
 }
 
@@ -3069,6 +3083,7 @@ export function rollInitiative() {
   );
   turnIndex = 0;
   round     = 1;
+  _refreshAttackQty();      // recover thrown weapons (e.g. Gobo's Handaxes) each combat
   _clearOwlHelp();          // no stale distract-mark carried in from a prior fight
   enterCombatFamiliar();    // owl leaves the shoulder to become a combatant
   { const _owl = getFamiliar(); if (_owl) _placeFamiliarForCombat(_owl); }
