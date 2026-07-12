@@ -104,7 +104,7 @@ export const ZONE = {
   terrainSeed: { ph: [1.235351,5.315199,3.684424,4.448136,2.85367,3.903505,3.981039,2.110116,3.782323,3.722617,6.034926,3.710996], fx: [1.013656,2.181118,6.165918,19.294515,26.431867,52.685326], fz: [1.479916,3.90371,8.060919,16.160476,58.968719,92.188009], sharpExp: 1.256837, scale: 7.874184 },
   props: [
     { model: 'cavemouth1', x: 141.99, z: 98.06, y: 13.125, yOff: -1.875, rotY: 6.152, scale: 14.172 },
-    { model: 'waystone', x: 107.64, z: 177.55, y: 0.5643, yOff: 0.45, rotY: 0, scale: 1, waystoneId: 'warrens', mapTab: 'I' },
+    { model: 'waystone', x: 169.89, z: 175.05, y: 2.5595, yOff: 0.45, rotY: 0, scale: 1, waystoneId: 'warrens', mapTab: 'I' },
     { model: 'shackles', x: 136.7, z: 57.43, y: 17.5, yOff: 2.5, rotY: 3.142, scale: 0.513 },
     { model: 'shackles', x: 136.71, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
     { model: 'shackles', x: 136.73, z: 57.43, y: 17.5, yOff: 2.5, rotY: 6.284, scale: 0.513 },
