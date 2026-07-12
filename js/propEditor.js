@@ -529,7 +529,16 @@ export function getPlacedProps() { return _placedProps; }
 export function clearEditorProps() {
   clearAllExclamations();
 
+  const removed = new Set(_placedProps.map(p => p.mesh));
   _placedProps.forEach(p => scene.remove(p.mesh));
+  // Also drop these meshes from the shared prop arrays, so re-syncing (e.g. the dev
+  // zone-file HMR reload, which skips the biome rebuild that would otherwise clear
+  // them) doesn't leave stale scene-removed props behind as phantom LOS/collision.
+  // Safe in every caller — each is a zone-load/reset boundary, not editor open/close.
+  if (removed.size) {
+    for (let i = activeProps.length - 1;      i >= 0; i--) if (removed.has(activeProps[i]))      activeProps.splice(i, 1);
+    for (let i = losBlockerMeshes.length - 1; i >= 0; i--) if (removed.has(losBlockerMeshes[i])) losBlockerMeshes.splice(i, 1);
+  }
   _placedProps = [];
   _selectedIdx = -1;
   _selRing.visible = false;

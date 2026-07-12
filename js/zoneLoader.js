@@ -6,7 +6,7 @@ import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js'
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight, setZoneFogDensity } from './environments.js';
-import { loadZoneProps, clearEditorProps, prewarmGLBs } from './propEditor.js';
+import { loadZoneProps, clearEditorProps, prewarmGLBs, isPropEditorOpen } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
 import { loadPaint } from './terrainPaint.js';
 import { loadTrenchVisuals } from './trenchEditor.js';
@@ -869,4 +869,35 @@ function _showSetupAfterTransition() {
   // immediately so raycasting and camera are correct from the first frame.
   const firstHero = units.find(u => u.team === 'blue' && u.hp > 0);
   if (firstHero) snapCameraToUnit(firstHero);
+}
+
+// ── Dev: live-reload zone data on file edit ───────────────────────────────────
+// When a zone module is hand-edited (or pulled), Vite hot-swaps the module but the
+// registry/active-zone bindings + the prop editor's in-memory prop list stay stale —
+// so an in-editor save would clobber the file edit (the recurring waystoneId strip).
+// Here we rebind the registry to the fresh ZONE and, for the active zone, re-run
+// loadZoneProps so both the rendered props AND the editor's list match the file.
+// NOTE: this reloads from disk, so any UNSAVED in-editor placements are discarded —
+// save before hand-editing. Dev-only (import.meta.hot is undefined in prod builds).
+if (import.meta.hot) {
+  import.meta.hot.accept([
+    './zones/zone_road_to_phandelver.js',
+    './zones/zone_bleakmire_woods.js',
+    './zones/zone_haunted_wood.js',
+    './zones/zone_mausoleum.js',
+    './zones/zone_river_styx.js',
+    './zones/zone_warrens.js',
+    './zones/zone_phandalin.js',
+  ], (mods) => {
+    for (const mod of mods) {              // aligned with the deps array; unchanged = undefined
+      const zone = mod?.ZONE;
+      if (!zone) continue;
+      _registry[zone.id] = zone;
+      if (_active && zone.id === _active.id) {
+        _active = zone;
+        loadZoneProps(zone.props);
+        console.info(`[zoneLoader] '${zone.id}' reloaded from file — editor props re-synced${isPropEditorOpen() ? ' (editor open)' : ''}.`);
+      }
+    }
+  });
 }
