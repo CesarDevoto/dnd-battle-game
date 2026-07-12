@@ -121,6 +121,12 @@ export function onHeroDied(u) {
 // fallen party to River Styx, where a victory revives them all. Individual
 // deaths are recovered with a short rest instead.
 export function onCombatEnd() {
+  // A total party kill ends combat, but endBattle() (our only caller) does NOT fire
+  // the combat:ended event, so _combatActive would stay true and _showLines would
+  // DEFER Dagna's dialogue forever (she appears, but no lines ever show). Clear it
+  // here — and drop any stale mid-combat deferred dialogue — so her lines appear.
+  _combatActive = false;
+  _deferredDlg  = null;
   _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
   setTimeout(_startIntroA, 800);
 }
