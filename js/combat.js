@@ -2310,6 +2310,12 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, precisionBonus);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
+  // Stealth ends here — after the roll (so the hidden bonus/advantage still applied):
+  // making an attack breaks the ATTACKER's hide (hit or miss), and being attacked
+  // reveals a hidden DEFENDER. Either way, Milo drops out of hide.
+  if (attacker.stealthed) { setUnitStealth(attacker, false); addLog(`${aLabel} breaks stealth with the attack!`, 'move'); }
+  if (target.stealthed)   { setUnitStealth(target, false);   addLog(`${tLabel} is spotted and breaks stealth!`, 'move'); }
+
   const D            = 0;
   const FAST_ROLL_MS = 0;
   const FAST_SETTLE  = 0;
@@ -2331,11 +2337,6 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     return;
   }
 
-
-  if (attacker.stealthed) {
-    setUnitStealth(attacker, false);
-    addLog(`${unitLabel(attacker)} breaks stealth with the attack!`, 'move');
-  }
 
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
   const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, target, atkResult);
@@ -3039,10 +3040,13 @@ export function rollInitiative() {
     units.forEach(u => { if (u.team === 'red' && u.aggro !== false) u.aggro = true; });
   }
 
-  // Snap heroes to grid — precombat movement stops mid-step on aggro trigger,
-  // leaving fractional positions that won't match showMoveRange's tile keys.
+  // Snap all combatants to grid-tile centres. Heroes stop mid-step on the aggro
+  // trigger; enemies spawn at arbitrary zone coords — either way an off-grid start
+  // makes grid-based moves land off-grid, so a "diagonally adjacent" foe ends up just
+  // out of melee reach. Snapping both keeps everyone on centres (odd coords; even for
+  // large units) so adjacency is reliable. Familiars/NPCs keep their own positioning.
   units.forEach(u => {
-    if (u.team !== 'blue') return;
+    if ((u.team !== 'blue' && u.team !== 'red') || u.familiar) return;
     const large = UNIT_TYPES[u.type]?.large ?? false;
     const snapV = v => large ? Math.round(v / 2) * 2 : Math.round((v - 1) / 2) * 2 + 1;
     u.grp.position.x = snapV(u.grp.position.x);

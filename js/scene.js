@@ -20,7 +20,7 @@ export const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(...SCENE.cameraPos);
 
-export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
