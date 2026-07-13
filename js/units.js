@@ -27,7 +27,11 @@ const MODEL_PATHS = {
   orc:        'assets/models/orc.glb',
   ogre:       'assets/models/ogre.glb',
   elf:        'assets/models/elf.glb',
-  dwarf:      'assets/models/dwarf.glb',
+  // Leugren carrying a shield. Same rig and the same six clips as the old dwarf.glb —
+  // only the mesh differs — so the `dwarf` clip mapping below still resolves unchanged.
+  // The old dwarf.glb / dwarf1.glb were deleted once this was adopted (recoverable from
+  // git history if ever needed).
+  dwarf:      'assets/models/leugrenshield.glb',
   human:      'assets/models/barbarian.glb',
   halfling:   'assets/models/halfling.glb',
   snake:                   'assets/models/snake.glb',
@@ -214,7 +218,7 @@ const ANIM_CLIP_NAMES = {
   },
   // No dedicated archery clip in this export (verified: Dead, Idle_8,
   // Right_Hand_Sword_Slash, Running, Unsteady_Walk, Walking — same gap as
-  // dwarf.glb) — without rangedAttack:null, autoMapAnimClips grabs Walking
+  // the dwarf rig) — without rangedAttack:null, autoMapAnimClips grabs Walking
   // for it, so a Shortbow shot plays a walk cycle while standing still.
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
