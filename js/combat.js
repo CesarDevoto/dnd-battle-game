@@ -2207,6 +2207,16 @@ function performAttack(attacker, target, atk, onSettled = null) {
       playUnitAttackAnim(attacker, 'ranged', () => {
         fireThrownAxe(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
       });
+    } else if (UNIT_TYPES[attacker.type]?.rangedReleaseMs != null) {
+      // Loose the arrow PARTWAY INTO the animation rather than after it finishes, so the
+      // shot doesn't visibly lag the draw. Same trick the spell branch above uses: let the
+      // clip play out on its own (it still restores rotation and returns to idle when it
+      // ends) and drive the projectile off a fixed delay instead of the 'finished' event.
+      playUnitAttackAnim(attacker, 'ranged');
+      setTimeout(() => {
+        if (!units.includes(attacker) || attacker.hp <= 0) { onSettled?.(); return; }
+        fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
+      }, UNIT_TYPES[attacker.type].rangedReleaseMs);
     } else {
       // Arrow launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from the arrow's onImpact callback.

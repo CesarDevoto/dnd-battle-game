@@ -286,7 +286,15 @@ export const UNIT_TYPES = {
 
   gnoll: {
     name: 'Gnoll', team: 'red',
-    scale: [1.1, 1.1, 1.1], anchorY: 2.0,
+    // 1.47× the base export. anchorY tracks the scale, or the HP bar sits at his chest.
+    scale: [1.62, 1.62, 1.62], anchorY: 2.94,
+    // Face the target (12 o'clock) when shooting. The non-elf default (-π/2) rotates the
+    // model 90° CW for the ranged anim, which aimed him at 3 o'clock — same fix Gobo
+    // needed for his thrown axe (see human below).
+    rangedRotY: 0,
+    // Loose the arrow partway INTO the swing instead of after the clip ends (the default),
+    // so the shot doesn't lag behind the animation. See performAttack's ranged branch.
+    rangedReleaseMs: 400,
     hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 11, int: 6, wis: 10, cha: 7 },
     attacks: [
@@ -436,6 +444,10 @@ export const UNIT_TYPES = {
   gnoll_pack_lord: {
     name: 'Gnoll Pack Lord', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,
+    // Same GLB and the same Longbow as the base gnoll, so it needs the same two fixes:
+    // face the target when shooting, and loose the arrow partway into the swing.
+    rangedRotY: 0,
+    rangedReleaseMs: 400,
     hp: 49, ac: 15, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 11, cha: 9 },
     attacks: [
