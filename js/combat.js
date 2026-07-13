@@ -2018,6 +2018,8 @@ function _applyOwlHelp(target) {
     familiarHelpGesture(() => {
       _owlHelpTarget = target;
       addLog(`${unitLabel(owlU)} distracts ${unitLabel(target)} — Rasec has advantage against it until the end of his next turn!`, 'move');
+      // Rasec may be holding his action for exactly this (readied 'owl_helped').
+      _checkDelayedTriggers('owl_helped', target, false, () => {});
     });
     const rem = (UNIT_TYPES.owl?.speed ?? 60) - turnMovedFt;
     if (rem > 0) { heroMode = 'move'; showMoveRange(owlU); } else { heroMode = null; }
@@ -3224,8 +3226,19 @@ const _READY_LABELS = {
   enemy_in_melee_range:  'Enemy enters melee range',
   enemy_in_ranged_range: 'Enemy enters spell or ranged attack range',
   ally_in_enemy_melee:   'Ally enters enemy melee range',
+  owl_helped:            'Iffir uses the Help action',
   ally_loses_hp:         'Ally loses hit points',
 };
+
+// Can this trigger still possibly fire? The automated ready-action picker takes the FIRST
+// trigger in the hero's priority list, so a trigger that cannot fire strands the hero:
+// he readies, waits, and never acts. That's fatal for 'owl_helped' now that Iffir is
+// once-per-combat — if he's dead, no Help is ever coming. Skip to the next trigger.
+function _triggerViable(trigger) {
+  if (trigger !== 'owl_helped') return true;
+  const owlU = getFamiliar();
+  return !!owlU && owlU.hp > 0 && units.includes(owlU);
+}
 
 // The enemy that some OTHER living hero is standing adjacent to — i.e. the enemy that
 // `hero` could Sneak Attack right now (see _allyAdjacentToTarget, the same ADJACENT_WU
@@ -3314,6 +3327,14 @@ export function updateReadyIcons() {
 function _openReadyModal(hero) {
   const modal = document.getElementById('ready-action-modal');
   if (!modal) return;
+  // Hide triggers this hero can't use, rather than letting them arm an action that can
+  // never fire: "Iffir uses the Help action" is Rasec's alone, and only means anything
+  // while the owl is actually alive to Help (he's once-per-combat now).
+  modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
+    const t = btn.dataset.trigger;
+    const usable = t !== 'owl_helped' || (hero.type === 'elf' && _triggerViable('owl_helped'));
+    btn.style.display = usable ? '' : 'none';
+  });
   modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
     btn.onclick = () => {
       const trigger = btn.dataset.trigger;
@@ -3410,6 +3431,16 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       if (engaged) matches.push({ hero, trigger, enemy: engaged });
     }
 
+    // "Iffir uses Help action" — the owl distracts a foe, giving Rasec ADVANTAGE against
+    // it. The helped enemy rides along so the readied cantrip fires at THAT foe; any
+    // other target would spend the readied action and throw the advantage away.
+    if (eventType === 'owl_helped' && trigger === 'owl_helped') {
+      const helped = eventCtx;
+      if (helped && units.includes(helped) && helped.hp > 0) {
+        matches.push({ hero, trigger, enemy: helped });
+      }
+    }
+
     if (eventType === 'ally_damaged' && trigger === 'ally_loses_hp') {
       const victim = eventCtx;
       // Only fire if a blue unit actually lost HP (includes the delayed hero themselves)
@@ -3474,11 +3505,12 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
     endTurnBtn.disabled = true;
     setTimeout(() => _runAutomatedHeroTurn(hero, {
       noMove: true,
-      // The enemy that fired the trigger. For 'ally_in_enemy_melee' this is the foe an
-      // ally is engaging — Milo MUST shoot that one or the Sneak Attack he readied for
-      // never lands. Without it he'd re-pick from his target priorities and could pick a
-      // different foe, firing the trigger and forfeiting the very damage it set up.
-      preferTarget: trigger === 'ally_in_enemy_melee' ? enemy : null,
+      // The enemy that fired the trigger. Milo MUST shoot the foe his ally is engaging or
+      // the Sneak Attack he readied for never lands; Rasec MUST hit the foe Iffir Helped
+      // or he throws away the advantage. Left to their own target priorities they could
+      // re-pick a different enemy, spending the readied action and forfeiting the very
+      // bonus it existed to set up.
+      preferTarget: (trigger === 'ally_in_enemy_melee' || trigger === 'owl_helped') ? enemy : null,
       onEnd: () => {
         // Restore the interrupted turn's state before resuming
         turnIndex         = savedIdx;
@@ -4601,6 +4633,7 @@ function _runAutomatedFamiliarTurn(u) {
         familiarHelpGesture(() => {
           _owlHelpTarget = target;
           addLog(`${unitLabel(u)} distracts ${unitLabel(target)} — Rasec has advantage against it!`, 'move');
+          _checkDelayedTriggers('owl_helped', target, false, () => {});
         });
       }
       // 2) Retreat back toward Rasec with any leftover movement, then end turn.
@@ -4643,10 +4676,21 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
     const forced = (preferTarget && units.includes(preferTarget) && preferTarget.hp > 0)
       ? preferTarget : null;
 
+    // Enemies this hero could Sneak Attack right now. Built HERE, from the same helpers
+    // the damage code consults (hasSneakAttackCondition = advantage || ally adjacent ||
+    // hidden), so the 'sneak_possible' tendency can't promise a target the dice then
+    // refuse. Advantage is omitted deliberately: Milo's only advantage source is Smoke &
+    // Mirrors, which itself requires an adjacent ally, so it adds no targets — and the
+    // owl's Help advantage is elf-only.
+    const sneakable = UNIT_TYPES[heroType]?.sneakAttack
+      ? new Set(enemies.filter(e => _allyAdjacentToTarget(u, e) || _isHiddenForSneak(u)))
+      : null;
+    const pickCtx = { helpTarget: _owlHelpTarget, sneakable };
+
     // movTarget drives positioning (may be an ally for Leugren)
-    const movTarget   = forced ?? pickAutoTarget(heroType, heroPos, enemies, allies);
+    const movTarget   = forced ?? pickAutoTarget(heroType, heroPos, enemies, allies, pickCtx);
     // enemyTarget is always an enemy — used for actual attacks
-    const enemyTarget = forced ?? pickAutoTarget(heroType, heroPos, enemies, []);
+    const enemyTarget = forced ?? pickAutoTarget(heroType, heroPos, enemies, [], pickCtx);
 
     // Nothing to do
     if (!movTarget && !allyWounded) { onEnd ? onEnd() : setTimeout(doEndTurn, END_PAUSE); return; }
@@ -4877,7 +4921,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'ready_action') {
         const triggerList = getTendency(heroType, 'ready_trigger_priority');
         const triggers    = Array.isArray(triggerList) ? triggerList : [triggerList];
-        const trigger     = triggers[0];
+        // First trigger that can actually fire — not just the first one listed.
+        const trigger     = triggers.find(_triggerViable) ?? triggers[0];
         _readied.set(u, trigger);
         _readiedBonusActioned.set(u, turnBonusActioned);
         _readiedAutomated.add(u);

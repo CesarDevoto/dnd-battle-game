@@ -25,8 +25,18 @@ const CATEGORIES = [
           { value: 'nearest',         label: 'Nearest enemy'        },
           { value: 'most_dangerous',  label: 'Most dangerous enemy' },
           { value: 'most_clustered',  label: 'Most clustered enemy' },
-          // Sneak Attack setup — an enemy an ally is already engaging.
+          // Generic focus-fire: an enemy an ally is already engaging. (For Milo this is
+          // also a Sneak Attack setup, but 'sneak_possible' below covers that better.)
           { value: 'engaged_by_ally', label: 'Enemy in melee range of ally' },
+          // Milo only: ANY foe that currently satisfies a Sneak Attack condition — ally
+          // adjacent to it, OR Milo hidden. A superset of engaged_by_ally, and it tracks
+          // the real condition rather than one instance of it, so any condition added to
+          // hasSneakAttackCondition later flows straight into his targeting.
+          { value: 'sneak_possible',  label: 'Enemy I can Sneak Attack', heroes: ['halfling'] },
+          // Rasec only: the foe Iffir has Helped on. He has ADVANTAGE against it, so it
+          // is nearly always his best shot. Elf-only, and hidden until L4 Find Familiar.
+          { value: 'helped_by_owl',   label: 'Enemy Helped by Iffir',
+            heroes: ['elf'], requires: 'find_familiar' },
         ],
         optionsFor: {
           dwarf: [
@@ -40,12 +50,13 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
+          // Rasec leads with the Helped foe — advantage beats every other consideration.
+          elf:      ['helped_by_owl', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
           dwarf:    ['ally_lowest_hp', 'ally_any_wounded', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
           human:    ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
-          // Milo leads with it: an engaged enemy is a Sneak Attack, which is worth far
-          // more than shaving the last HP off a different foe.
-          halfling: ['engaged_by_ally', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
+          // Milo leads with it: sneak dice are worth far more than shaving the last HP
+          // off some other foe. engaged_by_ally is left out — sneak_possible contains it.
+          halfling: ['sneak_possible', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
         },
         appliesTo: () => true,
       },
@@ -203,10 +214,14 @@ const CATEGORIES = [
           // _allyAdjacentToTarget). Holding his shot until a hero engages, then shooting
           // THAT enemy, turns a readied action into a guaranteed Sneak Attack.
           { value: 'ally_in_enemy_melee',    label: 'Ally enters enemy melee range' },
+          // Rasec only: hold the cantrip until Iffir distracts something, then fire on
+          // that foe with advantage. Hidden until L4 Find Familiar.
+          { value: 'owl_helped',             label: 'Iffir uses Help action',
+            heroes: ['elf'], requires: 'find_familiar' },
           { value: 'ally_loses_hp',          label: 'Ally takes damage'         },
         ],
         defaults: {
-          elf:      ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
+          elf:      ['owl_helped', 'enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
           dwarf:    ['ally_loses_hp', 'enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los', 'ally_in_enemy_melee'],
           human:    ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
           // Milo leads with it — it's the whole point of him readying an action.
@@ -220,7 +235,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 12;   // 12: added the ally_in_enemy_melee ready trigger
+const TENDENCIES_VERSION = 14;   // 14: sneak_possible (Milo), owl_helped + helped_by_owl (Rasec)
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
@@ -413,10 +428,24 @@ function _heroLevel(heroType) {
 // Options a hero can currently pick from — catalog entry, minus anything
 // gated behind a level they haven't reached yet (isAbilityUnlocked, shared
 // with the execution-time guards in combat.js — single source of truth).
+//
+// Two extra per-option gates:
+//   heroes:   ['elf']          — option belongs to one hero only (Iffir is Rasec's owl,
+//                                so his Help-related tendencies are meaningless to anyone
+//                                else and shouldn't clutter their table).
+//   requires: 'find_familiar'  — option depends on an ABILITY rather than being one. The
+//                                option's own value isn't a spell key, so isAbilityUnlocked
+//                                on it would return level 1 and always pass; gate on the
+//                                ability it actually needs. Rasec only sees the owl
+//                                tendencies once Find Familiar unlocks at L4.
 function _availableOpts(row, heroType) {
   const opts  = row.optionsFor?.[heroType] ?? row.options;
   const level = _heroLevel(heroType);
-  return opts.filter(o => isAbilityUnlocked(heroType, level, o.value));
+  return opts.filter(o => {
+    if (o.heroes && !o.heroes.includes(heroType)) return false;
+    if (o.requires && !isAbilityUnlocked(heroType, level, o.requires)) return false;
+    return isAbilityUnlocked(heroType, level, o.value);
+  });
 }
 
 function _buildTable(overlay) {
@@ -585,7 +614,7 @@ function _readTable(overlay) {
 // ─── Decision helpers (called from combat.js _runAutomatedHeroTurn) ──────────
 const _AOE_RADIUS_WU = (15 / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
 
-function _scoreEnemy(e, criterion, heroPos, enemies) {
+function _scoreEnemy(e, criterion, heroPos, enemies, helpTarget = null, sneakable = null) {
   const dx = e.grp.position.x - heroPos.x, dz = e.grp.position.z - heroPos.z;
   const dist = Math.sqrt(dx * dx + dz * dz);
   switch (criterion) {
@@ -621,11 +650,32 @@ function _scoreEnemy(e, criterion, heroPos, enemies) {
       );
       return engaged ? dist : Infinity;
     }
+    // The foe Iffir has Helped — Rasec attacks it with ADVANTAGE.
+    case 'helped_by_owl':
+      return e === helpTarget ? dist : Infinity;
+    // Any foe Milo could Sneak Attack right now — the SUPERSET of engaged_by_ally. The
+    // set is computed in combat.js by the same helpers the damage code consults, so a
+    // target this criterion picks is guaranteed to carry the sneak dice. Note that when
+    // Milo is HIDDEN every enemy qualifies (stealth is a condition of the attacker, not
+    // the target), so they all tie and this falls through to his next criterion — which
+    // is correct: with stealth up, any target sneaks, so pick on other merits.
+    case 'sneak_possible':
+      return sneakable?.has(e) ? dist : Infinity;
     default: return dist;
   }
 }
 
-export function pickAutoTarget(heroType, heroPos, enemies, allies = []) {
+// ctx carries facts only combat.js can compute, passed in rather than imported —
+// combat.js already imports this module, so reaching back into it would close an import
+// cycle:
+//   helpTarget — the enemy Iffir has Helped (_owlHelpTarget); Rasec attacks it with
+//                advantage.
+//   sneakable  — Set of enemies this hero could Sneak Attack RIGHT NOW, computed by
+//                combat.js from the same helpers the damage code uses
+//                (_allyAdjacentToTarget / _isHiddenForSneak), so the tendency and the
+//                dice can never disagree about what qualifies.
+export function pickAutoTarget(heroType, heroPos, enemies, allies = [], ctx = {}) {
+  const { helpTarget = null, sneakable = null } = ctx;
   if (!enemies.length && !allies.length) return null;
 
   let priority = getTendency(heroType, 'target_priority');
@@ -661,7 +711,7 @@ export function pickAutoTarget(heroType, heroPos, enemies, allies = []) {
     // ── Enemy criteria ─────────────────────────────────────────────────────
     if (!enemies.length) continue;
     const ranked = [...enemies]
-      .map(e => ({ unit: e, s: _scoreEnemy(e, criterion, heroPos, enemies) }))
+      .map(e => ({ unit: e, s: _scoreEnemy(e, criterion, heroPos, enemies, helpTarget, sneakable) }))
       .sort((a, b) => a.s - b.s);
     // Clear winner = strictly better score than runner-up (no tie)
     if (ranked.length === 1 || ranked[0].s < ranked[1].s) return ranked[0].unit;
