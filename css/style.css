@@ -4250,6 +4250,16 @@ td.bst-col-retired { color: #343228 !important; }
   margin-left: 24px;
   flex-shrink: 0;
 }
+/* Creature-wide trait (Multiattack) — sits above the attack list and qualifies all of
+   it, so it is NOT indented under a single attack the way .bst-atk-note is. */
+.bst-trait {
+  width: 100%;
+  font-size: 0.62rem;
+  color: #e0a050;
+  font-style: italic;
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
 .bst-atk-note {
   width: 100%;
   font-size: 0.60rem;

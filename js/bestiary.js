@@ -219,6 +219,12 @@ function statRow(def, cr) {
       ${atk.note ? `<div class="bst-atk-note">${atk.note}</div>` : ''}
     </div>`).join('');
 
+  // Creature-wide traits (Multiattack today) sit above the attack list — they qualify
+  // the whole block rather than any single attack.
+  const traitHTML = def.multiattackNote
+    ? `<div class="bst-trait">${def.multiattackNote}</div>`
+    : '';
+
   return `
     <tr class="bst-monster-row bst-stat-row" data-name="${nameLower}" data-cr="${cr}" data-ingame="1">
       <td class="bst-name-cell">${def.name}</td>
@@ -228,7 +234,7 @@ function statRow(def, cr) {
       <td class="bst-num">${def.speed ?? 30} ft</td>
       <td class="bst-num">${def.xpReward ?? 0}</td>
       ${abCells(def)}
-      <td class="bst-atks-cell">${atksHTML}</td>
+      <td class="bst-atks-cell">${traitHTML}${atksHTML}</td>
     </tr>`;
 }
 

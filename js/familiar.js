@@ -38,6 +38,15 @@ const FLIGHT_DUR    = 5.6;
 const FLIGHT_HEIGHT = 20;
 const FLIGHT_FLARE  = 36;
 
+// Re-summoned mid-combat, the owl drops into its combat tile instead of onto the
+// shoulder — and it gets a COMPRESSED version of the same dive. The 5.6s cinematic is
+// a moment worth having once, out of combat; replayed on a 1 HP creature that dies
+// often it would be six seconds of everyone watching a bird fall, every time. This
+// keeps the arrival-from-above identity (which bookends its death fly-up) at combat
+// tempo. Same easeOutCubic and braking flare, just tightened.
+const DIVE_DUR    = 1.0;
+const DIVE_HEIGHT = 6;
+
 // The owl is white but its PBR material reflects the biome's ambient light (green
 // in grassy zones). A soft white emissive makes its own colour read through
 // regardless of surroundings, without casting light onto anything else. Raise
@@ -152,7 +161,10 @@ export function isFamiliarSummoned() { return !!owl; }
 export function getFamiliar()        { return owl; }
 
 // Summon the owl and bind it to `ownerUnit`'s shoulder. No-op if already out.
-export function summonFamiliar(ownerUnit) {
+// inCombat: skip the shoulder-perch cinematic. The caller (combat.js) places the owl on
+// a free grid tile beside its owner and then calls startFamiliarDive() — we can't dive
+// to a tile we haven't been given yet.
+export function summonFamiliar(ownerUnit, { inCombat = false } = {}) {
   if (owl || !ownerUnit) return owl;
   owner = ownerUnit;
 
@@ -173,16 +185,32 @@ export function summonFamiliar(ownerUnit) {
   blob.visible = false;    // shown once it's off the shoulder / mid-descent
   scene.add(blob);
 
-  // Cinematic entrance: start high above the shoulder and drop straight down.
-  owl.bound     = false;
-  owl._arriving = true;
-  owl._arriveT  = 0;
-  computePerch();
-  owl.grp.position.set(_tgt.x, _tgt.y + FLIGHT_HEIGHT, _tgt.z);
+  if (inCombat) {
+    // Free combatant from the outset — no perch. combat.js positions it, then dives it.
+    owl.bound     = false;
+    owl._arriving = false;
+  } else {
+    // Cinematic entrance: start high above the shoulder and drop straight down.
+    owl.bound     = false;
+    owl._arriving = true;
+    owl._arriveT  = 0;
+    computePerch();
+    owl.grp.position.set(_tgt.x, _tgt.y + FLIGHT_HEIGHT, _tgt.z);
+  }
   setUnitWalking(owl, true);  // flap during the descent
   playSound('find_familiar'); // conjuration sound at the moment of the cast
 
   return owl;
+}
+
+// Drop the owl into the combat tile it has just been placed on. Called by combat.js
+// AFTER _placeFamiliarForCombat has set its x/z — the dive is purely vertical, layered
+// on top of the base y that main.js writes each frame (terrain + hoverY).
+export function startFamiliarDive() {
+  if (!owl) return;
+  owl._diving = true;
+  owl._diveT  = 0;
+  setUnitWalking(owl, true);   // flap on the way down
 }
 
 // Removes the owl from the world (state only — scene removal happens where the
@@ -278,6 +306,22 @@ export function updateFamiliar(dt) {
       owl.grp.position.copy(_tgt);
       owl.grp.rotation.set(-PERCH_PITCH * Math.PI / 180, yaw + PERCH_YAW, 0, 'YXZ');
     }
+    owl.anchor.set(owl.grp.position.x, owl.grp.position.y + owl.anchorY, owl.grp.position.z);
+    return;
+  }
+
+  // Compressed dive into its combat tile (re-summoned mid-fight). main.js has already
+  // written the base y for this frame (terrain + hoverY), so the dive is just a
+  // decaying offset on top of it — no need to know the ground height here.
+  if (owl._diving) {
+    owl._diveT += dt;
+    const p = Math.min(owl._diveT / DIVE_DUR, 1);
+    const e = 1 - Math.pow(1 - p, 3);          // easeOutCubic — decelerate into the landing
+    owl.grp.position.y += DIVE_HEIGHT * (1 - e);
+    const flareRad = -FLIGHT_FLARE * Math.PI / 180;
+    owl.grp.rotation.x = flareRad * (1 - e);   // head-up braking flare, easing back to level
+    setUnitWalking(owl, true);
+    if (p >= 1) { owl._diving = false; owl.grp.rotation.x = 0; }
     owl.anchor.set(owl.grp.position.x, owl.grp.position.y + owl.anchorY, owl.grp.position.z);
     return;
   }

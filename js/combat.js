@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
-import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar } from './familiar.js';
+import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
@@ -528,6 +528,8 @@ let _halfGroundSize = GROUND_SIZE / 2;
 export function setGroundBounds(half) { _halfGroundSize = half; }
 let turnMovedFt  = 0;   // feet used this turn (can interleave with attack)
 let turnAttacked = false;
+// Find Familiar: one summon per fight. Cleared in rollInitiative().
+let _familiarSummonedThisCombat = false;
 
 // Dungeon stealth: enemies must gain LOS to a hero before they act.
 // Populated on first sighting; cleared each new battle.
@@ -1908,6 +1910,11 @@ function removeDefeatedUnit(u, attacker = null) {
   if (u === _owlHelpTarget) _clearOwlHelp();  // distracted enemy died — advantage gone
   if (u.familiar) {
     startFamiliarDeath();  // owl flies straight up and vanishes; handles its own scene removal
+    // Falling counts against the once-per-combat summon, not just casting does. Otherwise
+    // an owl summoned BEFORE the fight could die in it and be re-summoned immediately —
+    // the flag would still be clear — and his death would cost nothing, which is the very
+    // thing the cap exists to prevent. Once he's down, he's down until the fight ends.
+    _familiarSummonedThisCombat = true;
   } else if (u.mixer) {
     playUnitDeathAnim(u);  // animated units leave a corpse; death anim plays and holds last frame
   } else {
@@ -2206,7 +2213,10 @@ function performAttack(attacker, target, atk, onSettled = null) {
       });
     }
   } else {
-    playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk, onSettled));
+    // atk.animClip lets a single creature give each weapon its own swing (the ettin's
+    // battleaxe is a right-arm slash, its morningstar a left hook). Undefined for every
+    // other attack in the game, which then plays the unit's default attack clip.
+    playUnitAttackAnim(attacker, 'melee', () => _executeAttack(attacker, target, atk, onSettled), atk.animClip ?? null);
   }
 }
 
@@ -3067,6 +3077,11 @@ renderer.domElement.addEventListener('mouseup', e => {
 
 export function rollInitiative() {
   combatPhase = true;
+  // Find Familiar is once per combat. Iffir has 1 HP and dies easily, and without a cap
+  // Rasec could reinstate the Help engine every round for the price of an action — which
+  // makes the owl's death cost nothing. Reset per fight, not per zone: an owl that
+  // SURVIVES a battle persists, and only a re-summon inside the same fight is blocked.
+  _familiarSummonedThisCombat = false;
   divider.visible = false;
   setGridVisible(true);
   _dungeonAwareEnemies.clear();
@@ -3754,12 +3769,17 @@ const _ABILITY_HANDLERS = {
       if (!caster || isFamiliarSummoned() || (caster.level ?? 1) < 4) return;
       if (combatPhase) {
         if (turnOrder[turnIndex] !== caster || turnAttacked || isAnimating) return;
+        if (_familiarSummonedThisCombat) return;   // once per combat — see below
         turnAttacked = true;
+        _familiarSummonedThisCombat = true;
       }
-      summonFamiliar(caster);
+      summonFamiliar(caster, { inCombat: !!combatPhase });
       if (combatPhase) {
         const owlU = getFamiliar();
-        if (owlU) _insertFamiliarIntoCombat(owlU);
+        if (owlU) {
+          _insertFamiliarIntoCombat(owlU);   // places it on a free tile beside the caster…
+          startFamiliarDive();               // …then it drops into that tile from above
+        }
       }
       addLog(`${unitLabel(caster)} casts Find Familiar — an owl spirit descends to fight at his side.`, 'heal');
       if (combatPhase) { updateCombatStatus(); _rebuildHotbar(caster); }
@@ -3767,7 +3787,10 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const caster = heroRoster.find(u => u.type === 'elf' && u.hp > 0);
       if (!caster || isFamiliarSummoned() || (caster.level ?? 1) < 4) return false;
-      if (combatPhase) return turnOrder[turnIndex] === caster && !turnAttacked && !isAnimating;
+      if (combatPhase) {
+        if (_familiarSummonedThisCombat) return false;
+        return turnOrder[turnIndex] === caster && !turnAttacked && !isAnimating;
+      }
       return true;  // out of combat: always castable until summoned
     },
   },
@@ -5089,6 +5112,8 @@ function runAITurn(u) {
   // tighter. Manual mode keeps the original pacing so enemy turns stay readable.
   const THINK_MS    = isAutomated() ? 150 : 600;    // pause before acting
   const PRE_ATK_MS  = isAutomated() ? 120 : 350;    // pause before swinging so player sees the target ring
+  // Beat between the swings of a Multiattack, so two hits don't read as one.
+  const MULTI_ATK_GAP_MS = isAutomated() ? 150 : 400;
   // Must outlast: anim_duration(~1030) + travel(~760) + death_window(400) ≈ 2190
   const ATK_RESOLVE = 2200;
   const END_PAUSE   = isAutomated() ? 100 : 300;    // breather before advancing to next turn
@@ -5109,25 +5134,106 @@ function runAITurn(u) {
       setTimeout(() => { doEndTurn(); }, END_PAUSE);
     }
 
+    // Multiattack — UNIT_TYPES[type].multiattack is an ordered list of attack NAMES the
+    // creature makes in ONE action, each its own to-hit roll.
+    //
+    // Per D&D, an action containing more than one weapon attack lets the creature BREAK
+    // UP ITS MOVEMENT between those attacks. So the ettin can walk to hero A, swing its
+    // battleaxe, walk on past A to hero B, and swing its morningstar. Between swings we
+    // therefore re-run the ordinary target-selection algorithm (aiPickTarget) — it may
+    // well pick the same hero again, in which case it simply swings twice — and if the
+    // new pick is out of reach we spend whatever movement is LEFT closing on it.
+    //
+    // That works because showMoveRange() recomputes the reachable set from
+    // `speed - turnMovedFt` at the unit's CURRENT position, and moveToAndThen() has
+    // already banked the first leg into turnMovedFt. With no movement left it clears
+    // validTiles outright, so aiPickDest returns null and no free steps can leak.
+    //
+    // Only fires when the AI chose a MELEE opener — a brute forced into a thrown/ranged
+    // fallback doesn't get the full flurry. A creature with no `multiattack` list is
+    // unaffected: one attack, no re-targeting, no mid-action movement.
     function doAttack(cb) {
       if (!units.includes(target)) { cb(); return; }
-      const atk = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
-      if (!atk) { cb(); return; }
-      showAttackTargets(u);          // briefly lights the orange ring on target
-      setTimeout(() => {
-        hideAttackTargets();
-        turnAttacked = true;
-        hideUndoBtn();
-        updateCombatStatus();
-        const hpBefore = target.hp;
-        performAttack(u, target, atk, () => {
-          _checkDelayedTriggers('ally_damaged', target, target.hp < hpBefore, cb);
-        });
-      }, PRE_ATK_MS);
+      const opener = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      if (!opener) { cb(); return; }
+
+      const def   = UNIT_TYPES[u.type] ?? {};
+      const names = def.multiattack;
+      let seq = [opener];
+      if (Array.isArray(names) && names.length && opener.type === 'melee') {
+        const resolved = names
+          .map(n => (def.attacks ?? []).find(a => a.name === n))
+          .filter(Boolean);
+        if (resolved.length) seq = resolved;
+      }
+
+      // The whole flurry is ONE action, so the flag is set once, up front.
+      turnAttacked = true;
+      hideUndoBtn();
+      updateCombatStatus();
+
+      let i   = 0;          // index into seq
+      let foe = target;     // first swing lands on the AI's standard pick
+
+      // The attacker itself can die mid-flurry: _checkDelayedTriggers doesn't merely
+      // test triggers, it lets readied heroes take their reaction attacks. Without this
+      // the corpse would keep swinging. Single-attack creatures never had a second swing
+      // in which to hit that window, which is why this could not happen before.
+      const gone = () => !combatPhase || !units.includes(u) || u.hp <= 0;
+
+      const swing = () => {
+        if (gone() || !units.includes(foe) || foe.hp <= 0) { cb(); return; }
+        const atk = seq[i++];
+        showAttackTargets(u);        // briefly lights the orange ring on the target
+        setTimeout(() => {
+          hideAttackTargets();
+          const hpBefore = foe.hp;
+          const victim   = foe;
+          performAttack(u, victim, atk, () => {
+            _checkDelayedTriggers('ally_damaged', victim, victim.hp < hpBefore, () => {
+              if (i < seq.length) setTimeout(nextAttack, MULTI_ATK_GAP_MS);
+              else                cb();
+            });
+          });
+        }, PRE_ATK_MS);
+      };
+
+      // Between swings: re-pick a target, and close on it with the movement that's left.
+      const nextAttack = () => {
+        if (gone() || i >= seq.length) { cb(); return; }
+
+        const t = aiPickTarget(u, units, hasLineOfSight);
+        if (!t) { cb(); return; }           // nobody left to hit
+        foe = t;
+
+        const atk  = seq[i];
+        const dx   = t.grp.position.x - u.grp.position.x;
+        const dz   = t.grp.position.z - u.grp.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (atk.type !== 'melee' || dist <= atkTriggerWU(atk)) { swing(); return; }  // already in reach
+
+        showMoveRange(u);                  // remaining budget, from where it now stands
+        const dest = aiPickDest(u, t, validTiles, atkTriggerWU, atkRangeWU);
+        hideMoveRange();
+        if (!dest) { cb(); return; }       // no movement left, or can't get there
+
+        moveToAndThen(dest, () => {
+          if (gone() || !units.includes(t) || t.hp <= 0) { cb(); return; }
+          const ndx = t.grp.position.x - u.grp.position.x;
+          const ndz = t.grp.position.z - u.grp.position.z;
+          // Closed the gap but still short — the movement is spent, so the flurry ends.
+          if (Math.sqrt(ndx * ndx + ndz * ndz) > atkTriggerWU(atk)) { cb(); return; }
+          setTimeout(swing, PRE_ATK_MS);
+        }, t);
+      };
+
+      swing();   // runPaths has already walked it into reach of the first target
     }
 
-    // Helper: move to dest then call cb
-    function moveToAndThen(dest, cb) {
+    // Helper: move to dest then call cb. `faceUnit` is who to turn toward on arrival —
+    // defaults to the turn's target, but a Multiattack leg mid-flurry may be chasing a
+    // freshly re-picked hero instead.
+    function moveToAndThen(dest, cb, faceUnit = target) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
       const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
       animatePath(u, path, () => {
@@ -5137,9 +5243,9 @@ function runAITurn(u) {
         ) * GRID_SQUARE_FEET;
         turnMovedFt += movedFt;
         addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'move');
-        if (units.includes(target)) {
-          const fdx = target.grp.position.x - u.grp.position.x;
-          const fdz = target.grp.position.z - u.grp.position.z;
+        if (faceUnit && units.includes(faceUnit)) {
+          const fdx = faceUnit.grp.position.x - u.grp.position.x;
+          const fdz = faceUnit.grp.position.z - u.grp.position.z;
           u.grp.rotation.y = Math.atan2(fdx, fdz);
         }
         updateCombatStatus();

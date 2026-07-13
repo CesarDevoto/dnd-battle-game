@@ -142,7 +142,7 @@ export const ELF_SPELLS = {
     ritual:     true,
     minLevel:   4,
     imgSrc:     'assets/spells and skills/find familiar.jpg',
-    desc:       'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target',
+    desc:       'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target · may be summoned only ONCE PER COMBAT, so if he falls he is gone until the fight ends',
   },
 };
 

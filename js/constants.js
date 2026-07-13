@@ -789,10 +789,18 @@ export const UNIT_TYPES = {
     scale: [1.8, 1.8, 1.8], large: true, anchorY: 3.8,
     hp: 85, ac: 12, speed: 40, initiative: 0, xpReward: 220, profBonus: 2,
     abilities: { str: 21, dex: 8, con: 17, int: 6, wis: 10, cha: 8 },
+    // animClip: each head/arm swings its own weapon — battleaxe in the right hand,
+    // morningstar in the left. Both clips are in ettin.glb; without these the generic
+    // 'Attack' clip plays for both and the two weapons look identical.
     attacks: [
-      { name: 'Battleaxe',   type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str', dmgBonus: 5 },
-      { name: 'Morningstar', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str', dmgBonus: 5 },
+      { name: 'Battleaxe',   type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str', dmgBonus: 5, animClip: 'Right_Hand_Sword_Slash' },
+      { name: 'Morningstar', type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str', dmgBonus: 5, animClip: 'Left_Hook_from_Guard' },
     ],
+    // Multiattack — an ordered list of attack names the creature makes in ONE turn,
+    // each its own to-hit roll (the first such creature in the game). The two-headed
+    // ettin swings both weapons: ~28 dmg a round on a full hit, so it hits hard.
+    multiattack: ['Battleaxe', 'Morningstar'],
+    multiattackNote: 'Multiattack. The ettin makes two attacks: one with its battleaxe and one with its morningstar.',
   },
 
   mane: {

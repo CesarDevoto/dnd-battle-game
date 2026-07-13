@@ -687,16 +687,36 @@ function _phaseTime(unit, action) {
   return dur > 0 ? off % dur : 0;
 }
 
-export function playUnitAttackAnim(unit, type = 'melee', onComplete = null) {
+// clipName: play a SPECIFIC clip for this swing instead of the unit's default attack
+// action — set per-attack via `animClip` in UNIT_TYPES[...].attacks[]. Lets one creature
+// give each weapon its own animation (the ettin swings its battleaxe with the right arm
+// and its morningstar with the left). Falls back to the default attack clip if the named
+// one isn't in this GLB, so a bad name degrades to the old look rather than to no
+// animation at all. Actions are cached by three.js per (mixer, clip), so re-requesting
+// the same clip every swing is cheap.
+export function playUnitAttackAnim(unit, type = 'melee', onComplete = null, clipName = null) {
   if (unit._scaleMode !== null) {
     unit._scaleMode    = 'attack';
     unit._scaleAttackT = 0;
     unit._scaleOnComplete = onComplete;
     return;
   }
-  const action = type === 'ranged' ? unit.rangedAttackAction
-               : type === 'spell'  ? (unit.spellCastAction ?? unit.rangedAttackAction)
-               :                     unit.attackAction;
+  let action = type === 'ranged' ? unit.rangedAttackAction
+             : type === 'spell'  ? (unit.spellCastAction ?? unit.rangedAttackAction)
+             :                     unit.attackAction;
+
+  if (clipName && unit.mixer) {
+    const clip = unit.clips?.find(c => c.name === clipName);
+    if (clip) {
+      const custom = unit.mixer.clipAction(clip);
+      custom.setLoop(THREE.LoopOnce, 1);
+      custom.clampWhenFinished = false;
+      action = custom;
+    } else {
+      console.warn(`[units] ${unit.type}: attack clip '${clipName}' not in GLB — using default attack anim`);
+    }
+  }
+
   if (!unit.mixer || !action) {
     onComplete?.();
     return;
