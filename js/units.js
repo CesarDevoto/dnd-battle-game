@@ -219,6 +219,28 @@ const ANIM_CLIP_NAMES = {
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
   },
+  // gnoll.glb (rigged re-export, 2026-07-13 — the previous export was static, 0 clips).
+  // Clips: Charged_Slash, Charged_Upward_Slash, Dead, ForwardLeft_Run_Fight, Idle_5,
+  // Running, Walking. Mapping per the user: melee = the upward slash, ranged = the flat
+  // slash, and the run is the FIGHT run (ForwardLeft_Run_Fight) rather than the plain
+  // 'Running' clip, which is left unused. ONE GLB SERVES THREE UNIT TYPES (gnoll,
+  // gnoll_pack_lord, gnoll_fang), and ANIM_CLIP_NAMES is keyed by type — so all three
+  // need the entry or the two without it fall back to auto-detection.
+  gnoll: {
+    idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Charged_Slash', death: 'Dead',
+  },
+  gnoll_pack_lord: {
+    idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Charged_Slash', death: 'Dead',
+  },
+  // Bite + Claw, both melee — no ranged attack, so the rangedAttack slot never plays.
+  // Mapped anyway for consistency; harmless, and it stops autoMapAnimClips grabbing a
+  // walk cycle for it if a ranged attack is ever added.
+  gnoll_fang: {
+    idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Charged_Slash', death: 'Dead',
+  },
   // hobgoblin.glb (re-exported 2026-07-13). Clips: Archery_Shot_1, Dead, Idle_8,
   // Right_Hand_Sword_Slash, Running, Walking. Same clip family as the skeleton above —
   // but this export DOES have the archery clip, and the hobgoblin actually carries a
