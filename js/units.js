@@ -235,10 +235,9 @@ const ANIM_CLIP_NAMES = {
   // Running, Walking.
   //
   // Ranged is now the real archery clip instead of a slash standing in for one — that swap is
-  // the whole point of this model. But losing Charged_Slash forces melee back onto
-  // Charged_Upward_Slash, which is the clip that was rejected as a melee swing on gnoll.glb
-  // (it read wrong in game, which is why the two were swapped in the first place). It is the
-  // only slash left in this export, so it is melee until the artist adds another.
+  // the whole point of this model. Losing Charged_Slash moves melee onto Charged_Upward_Slash,
+  // which had read wrong as a melee swing back on gnoll.glb; it reads fine here and is signed
+  // off, so this mapping is settled, not a stopgap.
   //
   // Run is the FIGHT run (ForwardLeft_Run_Fight); the plain 'Running' clip is left unused.
   // Pinned rather than auto-mapped for the usual reason: Archery_Shot_1 is 1.0s and ties
