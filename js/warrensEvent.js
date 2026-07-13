@@ -118,7 +118,7 @@ const _RELEASE_LINES = [
   { s: 'Solrac',  t: "You're... you're no goblin. The key — one of those brutes carried it. Please, the lock is a simple thing." },
   { s: 'Leugren', t: "Gobo, take the key! Unbind those irons from his wrists and set him free!" },
   { s: 'Gobo',    t: "Aye, hold still, friend — this'll only pinch a little." },
-  { s: 'Solrac',  t: "Nnngh— ...there. Free. I owe thee my life. I am called Solrac Thorn. Hast thou seen a woman… Mirael? My sister Mirael Thorne? She was with me when these foul fiends set upon our trade caravan on the Triboar Trail!" },
+  { s: 'Solrac',  t: "Nnngh— ...there. Free. I owe thee my life. I am called Solrac Thorne. Hast thou seen a woman… Mirael? My sister Mirael Thorne? She was with me when these foul fiends set upon our trade caravan on the Triboar Trail!" },
   { s: 'Leugren', t: "Alas, we have not seen her. Yet tell me — on thy part, didst thou see any dwarves the goblins carried off as captives? We seek my cousin." },
   { s: 'Solrac',  t: "I heard the bitter protests of dwarven voices passing outside earlier in the day, yet in my shackled state I saw them not." },
   { s: 'Solrac',  t: "It seems we share a common cause, dear saviors. May I join thee in the search for thy kin and mine own? Other goblin caves lie near, of this I am certain." },
@@ -148,7 +148,7 @@ function _onReleaseDone(u) {
   addQuest(QUEST_ID, 'Free the Prisoner', 'Free the shackled prisoner in the Warrens.');
   completeQuest(QUEST_ID);
   addQuest(MIRAEL_ID, 'Find Mirael Thorne',
-    "Solrac Thorn's sister Mirael was taken when goblins ambushed their caravan on the Triboar Trail. Search the goblin caves for her — and for the dwarven captives Leugren seeks.");
+    "Solrac Thorne's sister Mirael was taken when goblins ambushed their caravan on the Triboar Trail. Search the goblin caves for her — and for the dwarven captives Leugren seeks.");
 }
 
 export function tickWarrens(dt) {
