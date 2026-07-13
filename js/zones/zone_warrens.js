@@ -120,6 +120,7 @@ export const ZONE = {
     { model: 'corpse1', x: 140.34, z: 58.63, y: 15, rotY: 0, scale: 0.683 },
     { model: 'corpse1', x: 135.15, z: 57.49, y: 15, rotY: 3.272, scale: 0.683 },
     { model: 'cavemouth4', x: 0.49, z: 136.16, y: 42.5, yOff: -2.5, rotY: 3.142, scale: 10.648 },
+    { model: 'cavemouth2', x: -118.4, z: -8.18, y: 31, yOff: -4, rotY: 2.225, scale: 17.149 },
   ],
   barriers: [],
   visionBlockers: [],

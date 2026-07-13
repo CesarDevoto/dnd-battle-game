@@ -26,14 +26,33 @@ function saveZonePropsPlugin() {
               src = src.replace(/biome:\s*'[^']*'/, `biome: '${biome}'`);
             }
 
-            // Build the props block in the zone file's own style (no JSON quoting on keys)
+            // Build the props block in the zone file's own style (no JSON quoting on keys).
+            //
+            // ⚠ THIS WRITER IS THE WHOLE PROP-SAVE DATA-LOSS BUG. Anything not emitted
+            // here is DELETED from the zone file on every save, no matter what the
+            // browser sent. It used to write only model/x/z/y/yOff/rotY/rotX/scale, so:
+            //   • waystoneId + mapTab were erased from every waystone (killing its
+            //     activation, teleport and map pin) — hand-restored 4+ times, and
+            //     "fixed" three times on the CLIENT, which had been transmitting them
+            //     correctly all along.
+            //   • params was erased from every point_light (losing intensity/range).
+            // If you add a new persisted prop field, ADD IT HERE TOO or it will vanish.
             const itemLines = props.map(p => {
               let s = `    { model: '${p.model}', x: ${p.x}, z: ${p.z}`;
               if (p.y  != null)              s += `, y: ${p.y}`;
               if (p.yOff != null && p.yOff !== 0) s += `, yOff: ${p.yOff}`;
               s += `, rotY: ${p.rotY}`;
               if (p.rotX != null && p.rotX !== 0) s += `, rotX: ${p.rotX}`;
-              s += `, scale: ${p.scale} },`;
+              s += `, scale: ${p.scale}`;
+              if (p.params && Object.keys(p.params).length) {
+                const kv = Object.entries(p.params)
+                  .map(([k, v]) => `${k}: ${typeof v === 'string' ? `'${v}'` : v}`)
+                  .join(', ');
+                s += `, params: { ${kv} }`;
+              }
+              if (p.waystoneId != null) s += `, waystoneId: '${p.waystoneId}'`;
+              if (p.mapTab     != null) s += `, mapTab: '${p.mapTab}'`;
+              s += ' },';
               return s;
             });
             const propsBlock = props.length
