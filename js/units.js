@@ -52,9 +52,9 @@ const MODEL_PATHS = {
   stirge:       'assets/models/stirge.glb',
   giant_spider: 'assets/models/spider.glb',
   // Dedicated models
-  gnoll:          'assets/models/gnoll.glb',
-  gnoll_pack_lord:'assets/models/gnoll.glb',
-  gnoll_fang:     'assets/models/gnoll.glb',
+  gnoll:          'assets/models/gnoll2.glb',
+  gnoll_pack_lord:'assets/models/gnoll2.glb',
+  gnoll_fang:     'assets/models/gnoll2.glb',
   giant_rat:      'assets/models/giantrat.glb',
   hobgoblin:      'assets/models/hobgoblin.glb',
   goblin2:        'assets/models/goblin2.glb',
@@ -228,28 +228,38 @@ const ANIM_CLIP_NAMES = {
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
   },
-  // gnoll.glb (rigged re-export, 2026-07-13 — the previous export was static, 0 clips).
-  // Clips: Charged_Slash, Charged_Upward_Slash, Dead, ForwardLeft_Run_Fight, Idle_5,
-  // Running, Walking. Melee = Charged_Slash, ranged = Charged_Upward_Slash (swapped from
-  // the first pass — the upward slash read wrong as a melee swing in game). Run is the
-  // FIGHT run (ForwardLeft_Run_Fight); the plain 'Running' clip is left unused.
-  // ONE GLB SERVES THREE UNIT TYPES (gnoll,
-  // gnoll_pack_lord, gnoll_fang), and ANIM_CLIP_NAMES is keyed by type — so all three
-  // need the entry or the two without it fall back to auto-detection.
+  // gnoll2.glb (adopted 2026-07-13, replacing gnoll.glb). Same rig and same clip library as
+  // gnoll.glb — 1 skin / 24 joints / 28 nodes, and every shared clip is authored identically —
+  // with ONE swap: Charged_Slash is GONE, and a real Archery_Shot_1 takes its place.
+  // Clips: Archery_Shot_1, Charged_Upward_Slash, Dead, ForwardLeft_Run_Fight, Idle_5,
+  // Running, Walking.
+  //
+  // Ranged is now the real archery clip instead of a slash standing in for one — that swap is
+  // the whole point of this model. But losing Charged_Slash forces melee back onto
+  // Charged_Upward_Slash, which is the clip that was rejected as a melee swing on gnoll.glb
+  // (it read wrong in game, which is why the two were swapped in the first place). It is the
+  // only slash left in this export, so it is melee until the artist adds another.
+  //
+  // Run is the FIGHT run (ForwardLeft_Run_Fight); the plain 'Running' clip is left unused.
+  // Pinned rather than auto-mapped for the usual reason: Archery_Shot_1 is 1.0s and ties
+  // Walking on the loco tiebreak, so auto-detection can hand it the `walk` slot.
+  // ONE GLB SERVES THREE UNIT TYPES (gnoll, gnoll_pack_lord, gnoll_fang), and
+  // ANIM_CLIP_NAMES is keyed by type — so all three need the entry or the two without it
+  // fall back to auto-detection.
   gnoll: {
     idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
-    attack: 'Charged_Slash', rangedAttack: 'Charged_Upward_Slash', death: 'Dead',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   gnoll_pack_lord: {
     idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
-    attack: 'Charged_Slash', rangedAttack: 'Charged_Upward_Slash', death: 'Dead',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   // Bite + Claw, both melee — no ranged attack, so the rangedAttack slot never plays.
   // Mapped anyway for consistency; harmless, and it stops autoMapAnimClips grabbing a
   // walk cycle for it if a ranged attack is ever added.
   gnoll_fang: {
     idle: 'Idle_5', walk: 'Walking', run: 'ForwardLeft_Run_Fight',
-    attack: 'Charged_Slash', rangedAttack: 'Charged_Upward_Slash', death: 'Dead',
+    attack: 'Charged_Upward_Slash', rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   // hobgoblin.glb (re-exported 2026-07-13). Clips: Archery_Shot_1, Dead, Idle_8,
   // Right_Hand_Sword_Slash, Running, Walking. Same clip family as the skeleton above —
