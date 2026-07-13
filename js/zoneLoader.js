@@ -305,7 +305,7 @@ function _buildFogBreach(x, z, scale = 0.5) {
 // exactly the same setup it had originally. Returns the unit.
 function _spawnZoneEnemy(e) {
   const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
-  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
+  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null, e.caveLayer ?? null);
   if (e.yOff)                           u.hoverY = e.yOff;
   if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
   if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);

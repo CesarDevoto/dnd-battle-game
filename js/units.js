@@ -203,6 +203,15 @@ const ANIM_CLIP_NAMES = {
   twig_blight: {
     idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
   },
+  // ettin.glb (re-exported 2026-07-12). Clips: Archery_Shot_1, Attack, Dead, Idle_4,
+  // Left_Hook_from_Guard, Right_Hand_Sword_Slash, Running, Walking. Pinned rather than
+  // auto-mapped for the usual two reasons: Archery_Shot_1 ties Walking on the loco
+  // tiebreak and can steal `walk`, and the ettin has no ranged attack at all (two melee
+  // weapons), so rangedAttack must be null or autoMapAnimClips hands it a walk cycle.
+  // 'Attack' is the two-weapon swing; the hook/slash clips are left unused.
+  ettin: {
+    idle: 'Idle_4', walk: 'Walking', run: 'Running', attack: 'Attack', rangedAttack: null, death: 'Dead',
+  },
   // No dedicated archery clip in this export (verified: Dead, Idle_8,
   // Right_Hand_Sword_Slash, Running, Unsteady_Walk, Walking — same gap as
   // dwarf.glb) — without rangedAttack:null, autoMapAnimClips grabs Walking
@@ -333,14 +342,28 @@ const TEAM_TINT = {
 
 // ── Unit builder ──────────────────────────────────────────────────────────────
 
-export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null) {
+// layerOverride: 'surface' | 'under' — pins which walkable surface the unit stands on
+// in a cave zone. Without it, initialCaveLayer() auto-derives from headroom, which
+// always returns 'under' wherever there is rock above — so a unit placed on the HILL
+// ABOVE a tunnel would silently drop to the tunnel floor on zone load. Zone data may
+// now carry `caveLayer` per enemy/NPC to pin it to the surface instead.
+export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null, layerOverride = null) {
   const def   = UNIT_TYPES[type] ?? UNIT_TYPES.goblin;
   const gltf  = modelCache[type];
   const label = def.name ?? type;
   const src   = gltf?.scene ? MODEL_PATHS[type] : 'PLACEHOLDER BOX (model failed to load)';
   console.log(`[units] Building ${label} (${type}) for team ${team} → ${src}`);
 
-  const caveLayer = initialCaveLayer(worldX, worldZ);   // 'under' if spawned in a tunnel
+  const caveLayer = layerOverride ?? initialCaveLayer(worldX, worldZ);
+
+  // Where this unit was PLACED, as opposed to where it currently stands. The NPC
+  // editor's save must serialize this, never the live grp.position: a unit that moves
+  // at runtime (Solrac following Leugren, Floosh guiding, a patrolling or roaming
+  // enemy) would otherwise rewrite its own spawn point in the zone file to wherever it
+  // happened to be standing the moment you hit save. That is how Solrac ended up
+  // spawning at the hero entrance instead of in his shackles, and very likely how
+  // Floosh's spawn line was mangled back in July.
+  const spawn = { x: worldX, z: worldZ, layer: caveLayer };
   const terrainY  = getGroundHeight(worldX, worldZ, caveLayer);
   if (type === 'orc') {
     console.log('Orc spawned at position:', { x: worldX, y: terrainY, z: worldZ });
@@ -528,7 +551,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     : Math.random();
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
-              caveLayer,
+              caveLayer, spawn,
               familiar: def.familiar ?? false,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               spellSlots: def.spellSlots,

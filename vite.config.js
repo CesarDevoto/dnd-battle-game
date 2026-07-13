@@ -50,6 +50,7 @@ function saveZonePropsPlugin() {
                   .join(', ');
                 s += `, params: { ${kv} }`;
               }
+              if (p.layer      != null) s += `, layer: '${p.layer}'`;
               if (p.waystoneId != null) s += `, waystoneId: '${p.waystoneId}'`;
               if (p.mapTab     != null) s += `, mapTab: '${p.mapTab}'`;
               s += ' },';
@@ -120,6 +121,7 @@ function saveZoneEnemiesPlugin() {
                 s += `, patrol: [${pts}]`;
               }
               if (e.stealthed)                        s += `, stealthed: true`;
+              if (e.caveLayer)                        s += `, caveLayer: '${e.caveLayer}'`;
               if (e.attackPref)                       s += `, attackPref: '${e.attackPref}'`;
               if (e.animOverrides && Object.keys(e.animOverrides).length) {
                 const ovStr = Object.entries(e.animOverrides)

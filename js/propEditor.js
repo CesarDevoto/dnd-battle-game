@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { scene, camera, renderer, ground } from './scene.js';
 import { activeProps, propPositions, losBlockerMeshes, activeEnv } from './environments.js';
-import { getTerrainHeight } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, raySurfacePoint, caveLayersActive } from './terrain.js';
 import { PROP_MODELS } from './propRegistry.js';
 import { trackExclamation, untrackExclamation, clearAllExclamations } from './exclamationMarkers.js';
 
@@ -97,10 +97,27 @@ function _showSelRing(mesh) {
 const _rc   = new THREE.Raycaster();
 const _ndc  = new THREE.Vector2();
 
+// Which cave surface newly-placed props land on: 'under' = tunnel floor (the old,
+// only behaviour), 'surface' = the hilltop blanket over a tunnel.
+let _placeLayer = 'under';
+
+export function getPropPlaceLayer() { return _placeLayer; }
+
+export function setPropPlaceLayer(layer) {
+  _placeLayer = layer === 'surface' ? 'surface' : 'under';
+  document.getElementById('pe-layer-floor')?.classList.toggle('active', _placeLayer === 'under');
+  document.getElementById('pe-layer-blanket')?.classList.toggle('active', _placeLayer === 'surface');
+}
+
 function _screenToWorld(clientX, clientY) {
   _ndc.x =  (clientX / window.innerWidth)  * 2 - 1;
   _ndc.y = -(clientY / window.innerHeight) * 2 + 1;
   _rc.setFromCamera(_ndc, camera);
+  // Cave zones: raycasting the ground mesh returns a point on the CARVED terrain —
+  // i.e. under the blanket — so clicking a hilltop hands back an (x,z) shifted along
+  // the ray, and the prop lands somewhere else entirely. March to the chosen walkable
+  // surface instead, exactly as click-to-move does.
+  if (caveLayersActive()) return raySurfacePoint(_rc.ray, _placeLayer);
   const hits = _rc.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }
@@ -175,7 +192,7 @@ async function _placeAtPoint(pt) {
 
   _snapshot();
   const s = def.defaultScale;
-  const entry = { mesh, model: modelKey, x: pt.x, z: pt.z, yOff: def.defaultYOff ?? 0, rotY: 0, rotX: def.defaultRotX ?? 0, scaleF: s };
+  const entry = { mesh, model: modelKey, x: pt.x, z: pt.z, yOff: def.defaultYOff ?? 0, rotY: 0, rotX: def.defaultRotX ?? 0, scaleF: s, layer: _placeLayer };
   _applyTransform(entry);  // sets position/rotation/scale
   if (_propsHidden) mesh.visible = false;
   scene.add(mesh);
@@ -195,7 +212,12 @@ async function _placeAtPoint(pt) {
 // already have a confirmed visual position saved in the zone file).
 
 function _applyTransform(entry, savedY = null) {
-  const terrainH = getTerrainHeight(entry.x, entry.z);
+  // In a cave zone there are two walkable surfaces over the same (x,z): the tunnel
+  // floor ('under') and the hilltop blanket ('surface'). `entry.layer` says which one
+  // this prop belongs to. Legacy props have no layer and default to 'under', which is
+  // what getTerrainHeight used to give — so nothing pre-existing shifts. In a non-cave
+  // zone getGroundHeight ignores the layer entirely and this is a straight no-op.
+  const terrainH = getGroundHeight(entry.x, entry.z, entry.layer ?? 'under');
   const isGLB = !!(entry.model && PROP_MODELS[entry.model]?.path);
 
   entry.mesh.rotation.x = entry.rotX ?? 0;
@@ -405,6 +427,7 @@ async function _duplicateSelected(dx, dz) {
     rotY: src.rotY,
     rotX: src.rotX ?? 0,
     scaleF: src.scaleF,
+    layer: src.layer ?? 'under',
   };
   if (src.params)            entry.params     = { ...src.params };
   if (src.waystoneId != null) entry.waystoneId = src.waystoneId;
@@ -486,6 +509,7 @@ async function _saveToZone() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
+      if (p.layer === 'surface') obj.layer    = 'surface';   // 'under' is the default; omit it
       _carryMetadata(p, obj);
       return obj;
     });
@@ -540,6 +564,7 @@ function _exportJSON() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
+      if (p.layer === 'surface') obj.layer    = 'surface';   // 'under' is the default; omit it
       _carryMetadata(p, obj);
       return obj;
     });
@@ -614,6 +639,7 @@ export async function loadZoneProps(propsArray) {
       rotY:   p.rotY  ?? 0,
       rotX:   p.rotX  ?? def.defaultRotX ?? 0,
       scaleF: p.scale ?? def.defaultScale,
+      layer:  p.layer ?? 'under',   // legacy props had no layer — the floor is what they got
     };
     if (p.params)       { entry.params    = { ...p.params }; _applyLightParams(entry); }
     if (p.waystoneId != null) entry.waystoneId = p.waystoneId;
@@ -838,6 +864,10 @@ export function initPropEditor() {
       case 'Escape':                   _selectIdx(-1);                     break;
     }
   });
+
+  // FLOOR / BLANKET — which cave surface new props land on
+  document.getElementById('pe-layer-floor')?.addEventListener('click',   () => setPropPlaceLayer('under'));
+  document.getElementById('pe-layer-blanket')?.addEventListener('click', () => setPropPlaceLayer('surface'));
 
   // Hide/show all props toggle
   document.getElementById('pe-hide-props-btn')?.addEventListener('click', e => {

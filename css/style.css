@@ -7036,6 +7036,19 @@ td.bst-col-retired { color: #343228 !important; }
 #te-trench-save-status.te-save-status-error { color: #ff6644; }
 
 /* Paint layer target toggle (FLOOR / BLANKET) */
+/* FLOOR / BLANKET picker in the prop + NPC editors (reuses .tp-layer-btn styling). */
+.ed-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 5px;
+  flex-shrink: 0;
+}
+.ed-layer-lbl {
+  font-size: 0.62rem;
+  color: #6a4020;
+  letter-spacing: 0.5px;
+}
 .tp-layer-btn {
   flex: 1;
   font-family: var(--font-fantasy);
