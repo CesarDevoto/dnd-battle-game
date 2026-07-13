@@ -422,7 +422,9 @@ export const UNIT_TYPES = {
 
   hobgoblin: {
     name: 'Hobgoblin', team: 'red',
-    scale: [1.0, 1.0, 1.0], anchorY: 2.0,
+    // 50% larger than the base export — anchorY scales with it, or the HP bar would
+    // float at his chest instead of over his head.
+    scale: [1.5, 1.5, 1.5], anchorY: 3.0,
     hp: 11, ac: 18, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
     abilities: { str: 13, dex: 12, con: 12, int: 10, wis: 10, cha: 9 },
     attacks: [

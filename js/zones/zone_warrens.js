@@ -95,8 +95,10 @@ export const ZONE = {
     { type: 'goblin', x: -140.58, z: 144.41, caveLayer: 'surface' },
     { type: 'hobgoblin', x: -150.43, z: 154.71 },
     { type: 'hobgoblin', x: -144.53, z: 141.84, caveLayer: 'surface' },
+    { type: 'ettin', x: 17.88, z: 64.67, caveLayer: 'surface' },
+    { type: 'hobgoblin', x: -31.7, z: -65.29, caveLayer: 'surface' },
+    { type: 'hobgoblin', x: -0.56, z: 23.1, caveLayer: 'surface' },
     { type: 'solrac', x: 136.7, z: 57.34 },
-    { type: 'ettin', x: 17.88, z: 64.67 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
