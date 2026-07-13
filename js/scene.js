@@ -350,10 +350,14 @@ export function restoreCameraPose(key) {
 const TOP_VIEW_Y_DEFAULT = 50;
 const TOP_VIEW_Y_MIN     = 12;
 const TOP_VIEW_Y_MAX     = 62;
-// Regular view: 6 notches max, each tightens orbit by 1 WU and narrows FOV 2°
-const REG_ZOOM_MAX       = 6;
+// Regular view: each notch tightens orbit by 1 WU and narrows FOV 2°.
+// The zoom-in floor is SCENE.orbitMinDist, so the closest notch sits exactly on the orbit
+// distance the scene already declares as its minimum (20 WU default -> 10 WU, i.e. 10
+// notches). It used to stop at 6, which bottomed out at 14 WU — well short of that floor.
 const REG_ZOOM_ORBIT     = 1;    // WU closer per notch
 const REG_ZOOM_FOV       = 2;    // degrees narrower per notch
+const REG_ZOOM_MAX       = Math.floor(
+  (SCENE.orbitMaxDist - SCENE.orbitMinDist) / REG_ZOOM_ORBIT);
 
 let _topViewY    = TOP_VIEW_Y_DEFAULT;
 let _topViewActive  = false;
