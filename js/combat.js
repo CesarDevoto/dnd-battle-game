@@ -2946,6 +2946,12 @@ renderer.domElement.addEventListener('click', e => {
             else { heroMode = null; }
             showUndoBtn();
             updateCombatStatus();
+            // A hero finishing a move can put an ally in an enemy's face — which is what
+            // a readied 'ally_in_enemy_melee' (Milo's Sneak Attack setup) waits for. No
+            // hero-movement event existed before this: every delayed trigger fired off
+            // enemy movement or damage, so a hero charging in on his own turn notified
+            // nobody. Nothing follows this in the callback, so the continuation is a no-op.
+            _checkDelayedTriggers('hero_moved', curU, false, () => {});
           });
           return;
         }
@@ -3217,8 +3223,26 @@ const _READY_LABELS = {
   enemy_in_los:          'Enemy enters line of sight',
   enemy_in_melee_range:  'Enemy enters melee range',
   enemy_in_ranged_range: 'Enemy enters spell or ranged attack range',
+  ally_in_enemy_melee:   'Ally enters enemy melee range',
   ally_loses_hp:         'Ally loses hit points',
 };
+
+// The enemy that some OTHER living hero is standing adjacent to — i.e. the enemy that
+// `hero` could Sneak Attack right now (see _allyAdjacentToTarget, the same ADJACENT_WU
+// test the Sneak Attack condition itself uses). Returns null if no hero is engaged.
+// Prefers the enemy nearest to `hero`, so a readied shot goes to the closest flanked foe.
+function _enemyEngagedByAlly(hero) {
+  let best = null, bestSq = Infinity;
+  for (const enemy of units) {
+    if (enemy.team !== 'red' || enemy.hp <= 0) continue;
+    if (!_allyAdjacentToTarget(hero, enemy)) continue;   // excludes `hero` itself
+    const dx = enemy.grp.position.x - hero.grp.position.x;
+    const dz = enemy.grp.position.z - hero.grp.position.z;
+    const d  = dx * dx + dz * dz;
+    if (d < bestSq) { bestSq = d; best = enemy; }
+  }
+  return best;
+}
 
 // _readyCtx: null when idle; {savedIdx, savedHeroMode, cont} during active interrupt
 let _readyCtx = null;
@@ -3374,6 +3398,18 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       }
     }
 
+    // "Ally enters enemy melee range" — the Sneak Attack setup. Fires on EITHER approach:
+    // a hero walking into an enemy's reach (hero_moved, the case Milo is really waiting
+    // for) or an enemy walking into a hero's (enemy_moved). Both leave an ally adjacent
+    // to a foe, which is exactly the Sneak Attack condition. The engaged enemy rides
+    // along as `enemy` so the readied attack goes to THAT foe — shooting a different one
+    // would fire the trigger and forfeit the sneak damage it exists to set up.
+    if (trigger === 'ally_in_enemy_melee' &&
+        (eventType === 'hero_moved' || eventType === 'enemy_moved')) {
+      const engaged = _enemyEngagedByAlly(hero);
+      if (engaged) matches.push({ hero, trigger, enemy: engaged });
+    }
+
     if (eventType === 'ally_damaged' && trigger === 'ally_loses_hp') {
       const victim = eventCtx;
       // Only fire if a blue unit actually lost HP (includes the delayed hero themselves)
@@ -3438,6 +3474,11 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
     endTurnBtn.disabled = true;
     setTimeout(() => _runAutomatedHeroTurn(hero, {
       noMove: true,
+      // The enemy that fired the trigger. For 'ally_in_enemy_melee' this is the foe an
+      // ally is engaging — Milo MUST shoot that one or the Sneak Attack he readied for
+      // never lands. Without it he'd re-pick from his target priorities and could pick a
+      // different foe, firing the trigger and forfeiting the very damage it set up.
+      preferTarget: trigger === 'ally_in_enemy_melee' ? enemy : null,
       onEnd: () => {
         // Restore the interrupted turn's state before resuming
         turnIndex         = savedIdx;
@@ -4525,7 +4566,14 @@ function _familiarMoveToward(u, destPos, onDone) {
   if (!path.length) { onDone(); return; }
   const mdx = best.x - ux, mdz = best.z - uz;
   const movedFt = Math.round(Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE) * GRID_SQUARE_FEET;
-  animatePath(u, path, () => { turnMovedFt += movedFt; onDone(); });
+  // Same hero-movement notification as the manual move path: an automated hero closing
+  // to melee is exactly what a readied 'ally_in_enemy_melee' is waiting on. onDone is the
+  // continuation, so the interrupted turn resumes only after any readied hero has acted.
+  animatePath(u, path, () => {
+    turnMovedFt += movedFt;
+    if (u.team === 'blue') _checkDelayedTriggers('hero_moved', u, false, onDone);
+    else onDone();
+  });
 }
 
 // Automated owl turn: fly to the enemy nearest Rasec and Help it, then fly back
@@ -4564,7 +4612,10 @@ function _runAutomatedFamiliarTurn(u) {
   }, STEP_MS);
 }
 
-function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
+// preferTarget: force the attack onto this enemy instead of re-picking from the hero's
+// target priorities. Used by a readied 'ally_in_enemy_melee' so the shot lands on the
+// foe the ally is actually engaging (the Sneak Attack condition).
+function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget = null } = {}) {
   endTurnBtn.disabled = true;
 
   const THINK_MS   = 100;
@@ -4588,10 +4639,14 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null } = {}) {
       .filter(a => a.team === 'blue' && a.hp > 0 && a.hp <= a.maxHp * 0.75)
       .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
 
+    // A live, still-valid preferTarget overrides target selection entirely.
+    const forced = (preferTarget && units.includes(preferTarget) && preferTarget.hp > 0)
+      ? preferTarget : null;
+
     // movTarget drives positioning (may be an ally for Leugren)
-    const movTarget   = pickAutoTarget(heroType, heroPos, enemies, allies);
+    const movTarget   = forced ?? pickAutoTarget(heroType, heroPos, enemies, allies);
     // enemyTarget is always an enemy — used for actual attacks
-    const enemyTarget = pickAutoTarget(heroType, heroPos, enemies, []);
+    const enemyTarget = forced ?? pickAutoTarget(heroType, heroPos, enemies, []);
 
     // Nothing to do
     if (!movTarget && !allyWounded) { onEnd ? onEnd() : setTimeout(doEndTurn, END_PAUSE); return; }

@@ -1,4 +1,4 @@
-import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET } from './constants.js';
+import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU } from './constants.js';
 import { LEVEL_SPELLS, isAbilityUnlocked } from './spells.js';
 import { units } from './units.js';
 
@@ -21,10 +21,12 @@ const CATEGORIES = [
       {
         id: 'target_priority', label: 'Priority order', type: 'priority',
         options: [
-          { value: 'lowest_hp',      label: 'Lowest HP enemy'      },
-          { value: 'nearest',        label: 'Nearest enemy'        },
-          { value: 'most_dangerous', label: 'Most dangerous enemy' },
-          { value: 'most_clustered', label: 'Most clustered enemy' },
+          { value: 'lowest_hp',       label: 'Lowest HP enemy'      },
+          { value: 'nearest',         label: 'Nearest enemy'        },
+          { value: 'most_dangerous',  label: 'Most dangerous enemy' },
+          { value: 'most_clustered',  label: 'Most clustered enemy' },
+          // Sneak Attack setup — an enemy an ally is already engaging.
+          { value: 'engaged_by_ally', label: 'Enemy in melee range of ally' },
         ],
         optionsFor: {
           dwarf: [
@@ -34,13 +36,16 @@ const CATEGORIES = [
             { value: 'nearest',          label: 'Nearest enemy'            },
             { value: 'most_dangerous',   label: 'Most dangerous enemy'     },
             { value: 'most_clustered',   label: 'Most clustered enemy'     },
+            { value: 'engaged_by_ally',  label: 'Enemy in melee range of ally' },
           ],
         },
         defaults: {
-          elf:      ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
-          dwarf:    ['ally_lowest_hp', 'ally_any_wounded', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
-          human:    ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
-          halfling: ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
+          elf:      ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
+          dwarf:    ['ally_lowest_hp', 'ally_any_wounded', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
+          human:    ['lowest_hp', 'nearest', 'most_dangerous', 'most_clustered', 'engaged_by_ally'],
+          // Milo leads with it: an engaged enemy is a Sneak Attack, which is worth far
+          // more than shaving the last HP off a different foe.
+          halfling: ['engaged_by_ally', 'lowest_hp', 'nearest', 'most_dangerous', 'most_clustered'],
         },
         appliesTo: () => true,
       },
@@ -194,13 +199,18 @@ const CATEGORIES = [
           { value: 'enemy_in_los',          label: 'Enemy enters LOS'          },
           { value: 'enemy_in_ranged_range',  label: 'Enemy enters spell/ranged range' },
           { value: 'enemy_in_melee_range',   label: 'Enemy enters melee range'  },
+          // Milo's Sneak Attack needs an ally adjacent to his target (combat.js
+          // _allyAdjacentToTarget). Holding his shot until a hero engages, then shooting
+          // THAT enemy, turns a readied action into a guaranteed Sneak Attack.
+          { value: 'ally_in_enemy_melee',    label: 'Ally enters enemy melee range' },
           { value: 'ally_loses_hp',          label: 'Ally takes damage'         },
         ],
         defaults: {
-          elf:      ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_loses_hp'],
-          dwarf:    ['ally_loses_hp', 'enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los'],
-          human:    ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_loses_hp'],
-          halfling: ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_loses_hp'],
+          elf:      ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
+          dwarf:    ['ally_loses_hp', 'enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los', 'ally_in_enemy_melee'],
+          human:    ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
+          // Milo leads with it — it's the whole point of him readying an action.
+          halfling: ['ally_in_enemy_melee', 'enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_loses_hp'],
         },
         appliesTo: () => true,
       },
@@ -210,7 +220,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 11;
+const TENDENCIES_VERSION = 12;   // 12: added the ally_in_enemy_melee ready trigger
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
@@ -594,6 +604,22 @@ function _scoreEnemy(e, criterion, heroPos, enemies) {
         return Math.sqrt(odx * odx + odz * odz) <= _AOE_RADIUS_WU;
       }).length;
       return -(nearby + 1);
+    }
+    // An enemy some OTHER hero is standing next to — the Sneak Attack condition
+    // (combat.js _allyAdjacentToTarget), tested with the very same ADJACENT_WU, so what
+    // this criterion promises and what the damage code grants can't drift apart. Milo
+    // picking one of these means his shot carries sneak damage. Unengaged enemies score
+    // Infinity, so they never win this criterion and it falls through to the next one;
+    // among engaged foes the nearest wins.
+    case 'engaged_by_ally': {
+      const engaged = units.some(a =>
+        a.team === 'blue' && a.hp > 0 &&
+        // Exclude the scoring hero himself: standing next to a foe doesn't let YOU sneak
+        // attack it — an ALLY has to be the one flanking.
+        Math.hypot(a.grp.position.x - heroPos.x, a.grp.position.z - heroPos.z) > 0.1 &&
+        Math.hypot(a.grp.position.x - e.grp.position.x, a.grp.position.z - e.grp.position.z) <= ADJACENT_WU
+      );
+      return engaged ? dist : Infinity;
     }
     default: return dist;
   }
