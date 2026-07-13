@@ -21,11 +21,85 @@ export const camera = new THREE.PerspectiveCamera(
 camera.position.set(...SCENE.cameraPos);
 
 export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+// ── Adaptive resolution ───────────────────────────────────────────────────────
+// The render cost scales with the SQUARE of the pixel ratio: on a 4K laptop, a ratio of
+// 2 is 4× the fragment work of 1080p, which is why the game can run fine on one machine
+// and crawl on another with a nominally similar GPU. Cap at 1.5 rather than 2 (the
+// difference is barely visible, the cost is not), then adapt downward if frames are
+// actually slow — a weak GPU gets a playable game instead of a pretty slideshow.
+const MAX_DPR = Math.min(window.devicePixelRatio, 1.5);
+const MIN_DPR = 0.75;
+let _dpr = MAX_DPR;
+
+renderer.setPixelRatio(_dpr);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 document.getElementById('app').appendChild(renderer.domElement);
+
+// Sample frames and walk the pixel ratio down when the GPU can't keep up (and back up
+// when it can). Deliberately sluggish: it only acts on a ~45-frame average, waits out a
+// cooldown after every change, and ignores the first few seconds entirely — otherwise the
+// load-time hitches would drag the resolution down and it would never recover.
+const _RES = {
+  acc: 0, frames: 0, cooldown: 0, warmup: 4,
+  SAMPLE:   45,     // frames per decision
+  DOWN_FPS: 45,     // below this → drop resolution
+  UP_FPS:   75,     // comfortably above target → try raising it back
+  STEP:     0.25,
+};
+
+export function tickAdaptiveResolution(dt) {
+  if (_RES.warmup > 0) { _RES.warmup -= dt; return; }   // ignore the loading storm
+  if (_RES.cooldown > 0) _RES.cooldown -= dt;
+
+  _RES.acc += dt;
+  _RES.frames++;
+  if (_RES.frames < _RES.SAMPLE) return;
+
+  const fps = _RES.frames / _RES.acc;
+  _RES.acc = 0;
+  _RES.frames = 0;
+  if (_RES.cooldown > 0) return;
+
+  let next = _dpr;
+  if      (fps < _RES.DOWN_FPS && _dpr > MIN_DPR) next = Math.max(MIN_DPR, _dpr - _RES.STEP);
+  else if (fps > _RES.UP_FPS   && _dpr < MAX_DPR) next = Math.min(MAX_DPR, _dpr + _RES.STEP);
+  if (next === _dpr) return;
+
+  _dpr = next;
+  // setPixelRatio alone doesn't resize the drawing buffer — setSize must follow it.
+  renderer.setPixelRatio(_dpr);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  _RES.cooldown = fps < _RES.DOWN_FPS ? 3 : 6;   // slower to climb back than to bail out
+  console.info(`[perf] ${fps.toFixed(0)} fps → pixel ratio ${_dpr.toFixed(2)}`);
+}
+
+export function getPixelRatio() { return _dpr; }
+
+// Compile every shader program the current scene needs, NOW, instead of letting three.js
+// do it lazily on first draw.
+//
+// This is the fix for "choppy for the first few minutes, then fine". Three.js compiles a
+// GLSL program the first time each material/light combination is actually rendered, and
+// each compile stalls the main thread for tens of milliseconds. So the game hitches on
+// the first goblin, the first fire bolt, the first fog patch — and smooths out only once
+// everything has been drawn once. Doing it here moves those stalls behind the loading
+// screen, where nobody can see them.
+//
+// compileAsync yields between programs (no long frame-blocking stall); the sync compile()
+// is the fallback. Failures are swallowed — a precompile is an optimisation, and must
+// never be the reason the game won't start.
+export function precompileScene() {
+  try {
+    if (typeof renderer.compileAsync === 'function') {
+      return renderer.compileAsync(scene, camera).catch(() => {});
+    }
+    renderer.compile(scene, camera);
+  } catch { /* never block startup on a precompile */ }
+  return Promise.resolve();
+}
 
 export const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping  = true;

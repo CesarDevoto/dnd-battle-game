@@ -1,4 +1,5 @@
-import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera, ceiling } from './scene.js';
+import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera, ceiling,
+         precompileScene, tickAdaptiveResolution } from './scene.js';
 import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
@@ -462,6 +463,7 @@ let _prevNow = 0;
   tickPhandalin(dt);
   tickActivationRadius(getPlacedProps());
   tickHideScout();
+  tickAdaptiveResolution(dt);
   renderer.render(scene, camera);
 })();
 
@@ -488,7 +490,19 @@ function dismissOverlay() {
   }
 }
 
-Promise.all([modelsReady, evergreenReady]).then(dismissOverlay);
+// Precompile the scene's shaders BEFORE dropping the loading overlay, so the compile
+// stalls land behind it instead of hitching the first minutes of play. Any failure still
+// dismisses — a precompile must never be the reason the game won't start.
+Promise.all([modelsReady, evergreenReady])
+  .then(precompileScene)
+  .catch(() => {})
+  .then(dismissOverlay);
+
+// Each zone brings its own props, terrain materials and enemies — i.e. its own shader
+// programs — so compile those too, as the zone loads rather than on first sight of them.
+// Programs three.js has already built are cached, so re-running this is cheap.
+window.addEventListener('zone:loaded', () => { precompileScene(); });
+
 setTimeout(dismissOverlay, 8000);  // hard cap — dismiss no matter what after 8 s
 
 // Vite HMR: cancel the running rAF loop before the module is reloaded.
