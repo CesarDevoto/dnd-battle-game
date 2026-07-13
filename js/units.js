@@ -219,6 +219,15 @@ const ANIM_CLIP_NAMES = {
   skeleton: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
   },
+  // hobgoblin.glb (re-exported 2026-07-13). Clips: Archery_Shot_1, Dead, Idle_8,
+  // Right_Hand_Sword_Slash, Running, Walking. Same clip family as the skeleton above —
+  // but this export DOES have the archery clip, and the hobgoblin actually carries a
+  // Longbow, so rangedAttack is mapped rather than pinned null. Pinned explicitly
+  // because Archery_Shot_1 ties Walking on the loco tiebreak and can steal `walk`.
+  hobgoblin: {
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: 'Archery_Shot_1', death: 'Dead',
+  },
   // Slow_Orc_Walk used for patrol/normal movement; Running for combat charge; Walking unused
   ghoul: {
     idle: 'Idle_8', walk: 'Slow_Orc_Walk', run: 'Running', attack: 'Right_Hand_Sword_Slash', death: 'Dead',
