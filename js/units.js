@@ -32,7 +32,12 @@ const MODEL_PATHS = {
   // The old dwarf.glb / dwarf1.glb were deleted once this was adopted (recoverable from
   // git history if ever needed).
   dwarf:      'assets/models/leugrenshield.glb',
-  human:      'assets/models/barbarian.glb',
+  // Gobo. Rig-identical to the old barbarian.glb it replaced (same 24 joints, same seven
+  // clips) — only the mesh differs — so the `human` mapping below still resolves. That
+  // matters here: attack:'Skill_03' and rangedAttack:'mage_soell_cast_4' are user
+  // overrides, not clip-name matches, so a renamed clip would break him silently.
+  // The old barbarian/1/2 GLBs were deleted once this was adopted (recoverable from git).
+  human:      'assets/models/barbarian3.glb',
   halfling:   'assets/models/halfling.glb',
   snake:                   'assets/models/snake.glb',
   constrictor_snake:       'assets/models/snake.glb',
