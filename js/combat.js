@@ -3466,6 +3466,14 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       savedRingColor:      activeRing.material.color.getHex(),
       savedRingVisible:    activeRing.visible,
       savedRingLayer:      _conformLayer,
+      // Until the 'hero_moved' event existed, a readied action could only ever interrupt
+      // an ENEMY's turn — so both restore paths just hard-locked End Turn on the way out
+      // ("back to enemy's turn"). A readied action can now fire in the middle of a PLAYER
+      // hero's turn (Milo's shot firing while Gobo walks into melee), and locking the
+      // button there strands the player: they can't act and can't end their turn.
+      // Remember what the button actually was, and who was interrupted, and put both back.
+      savedEndTurnDisabled: endTurnBtn.disabled,
+      savedUnit:            turnOrder[turnIndex] ?? null,
       cont: () => _fireNext(idx + 1),
     };
     _showDelayInterrupt(matches[idx]);
@@ -3492,6 +3500,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   if (_readiedAutomated.has(hero)) {
     _readiedAutomated.delete(hero);
     addLog(`⚡ ${unitLabel(hero)}'s ready action fires (${_READY_LABELS[trigger] ?? trigger})!`, 'ready');
+    const saved = _readyCtx;
     const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
             savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
     _readyCtx      = null;
@@ -3521,7 +3530,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
         activeRing.position.set(savedRingX, 0, savedRingZ);
         activeRing.material.color.setHex(savedRingColor);
         activeRing.visible = savedRingVisible;
-        endTurnBtn.disabled = true;
+        _restoreInterruptedTurn(saved);   // NOT a blanket lock — the interrupted unit may be a player hero
         setTimeout(cont, 300);
       }
     }), 300);
@@ -3580,10 +3589,38 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   addLog(`⚡ ${unitLabel(hero)}'s Ready Action fires (${_READY_LABELS[trigger]})! Choose an action.`, 'ready');
 }
 
+// Put the interrupted turn back exactly as it was. MODULE SCOPE on purpose: both restore
+// paths call it (the automated-hero one inside _showDelayInterrupt, and the manual
+// _endDelayInterrupt below), so they can't drift apart.
+//
+// All of this only became reachable when readied actions started firing on 'hero_moved'.
+// Before that a readied action could interrupt nothing but an ENEMY's turn, so the
+// teardown could safely lock End Turn and leave the hotbar blank. Interrupting a PLAYER's
+// hero mid-turn needs three things put back:
+//   • endTurnBtn — restore what it ACTUALLY was, not a blanket lock.
+//   • the hotbar — the interrupt rebinds Digit5 to "SKIP ACTION" then clearAllHotkeys()s
+//     every slot. END TURN *is* Digit5, so without a rebuild the hero has no way to act
+//     and no way to end his turn.
+//   • the move ring — hideMoveRange() clears validTiles, so a hero interrupted mid-move
+//     comes back with heroMode 'move' but nothing clickable.
+function _restoreInterruptedTurn(saved) {
+  endTurnBtn.disabled = saved.savedEndTurnDisabled ?? true;
+
+  const u = saved.savedUnit;
+  if (!u || !units.includes(u) || u.team !== 'blue' || u.hp <= 0) return;
+
+  _rebuildHotbar(u);
+
+  if (saved.savedHeroMode !== 'move') return;
+  const remaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  if (remaining > 0) showMoveRange(u);
+}
+
 function _endDelayInterrupt() {
   clearTimeout(_readyAutoCloseTimer);
   _readyAutoCloseTimer = null;
   if (!_readyCtx) return;
+  const saved = _readyCtx;
   const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
           savedRingX, savedRingZ, savedRingColor, savedRingVisible, savedRingLayer, cont } = _readyCtx;
   _readyCtx = null;
@@ -3599,12 +3636,11 @@ function _endDelayInterrupt() {
 
   turnIndex         = savedIdx;
   heroMode          = savedHeroMode;
-  turnAttacked      = savedAttacked;  // restore enemy's pre-interrupt attack state
+  turnAttacked      = savedAttacked;  // restore the interrupted unit's pre-interrupt attack state
   turnMovedFt       = savedMovedFt;
   turnBonusActioned = savedBonusActioned;
-  endTurnBtn.disabled = true;  // back to enemy's turn — button stays locked
 
-  // Restore the active ring to the enemy that was acting
+  // Restore the active ring to whoever was acting
   _conformLayer = savedRingLayer ?? 'surface';
   updateConformingRingGeo(activeRing, savedRingX, savedRingZ);
   activeRing.position.set(savedRingX, 0, savedRingZ);
@@ -3613,6 +3649,12 @@ function _endDelayInterrupt() {
 
   _activeReadyHero = null;
   buildTurnList();
+
+  // Re-arm End Turn and the move ring for whoever was interrupted. Blanket-locking the
+  // button here used to be safe, back when only an enemy could ever be the interrupted
+  // unit; it now strands the player if the trigger fired mid-hero-turn.
+  _restoreInterruptedTurn(saved);
+  updateCombatStatus();
 
   if (cont) cont();
 }
