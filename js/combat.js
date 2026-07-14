@@ -21,6 +21,7 @@ import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
 import { fireThrownAxe }           from './thrownAxe.js';
+import { fireJavelin }             from './javelin.js';
 import { showTargetWindow, hideTargetWindow, updateTargetWindowHP } from './targetWindow.js';
 import { bindHotkey, unbindHotkey, clearAllHotkeys, updateHotkeyRanges, markHotkeyUnavailable, setSlotIcon } from './hotbar.js';
 import { hotbarIconHTML, ABILITY_META } from './abilityRegistry.js';
@@ -684,8 +685,12 @@ function _isHiddenForSneak(u) {
   return !!u.stealthed;
 }
 
-function hasSneakAttackCondition(attacker, target, atkResult) {
-  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || _isHiddenForSneak(attacker);
+// wasHidden must be SNAPSHOT BEFORE the attack breaks the attacker's stealth — see the
+// call in _executeAttack. Defaulting it to the live flag keeps the helper honest for any
+// caller testing the condition ahead of an attack (the hotbar's sneak_attack availability,
+// the 'sneak_possible' tendency), where nothing has been torn down yet.
+function hasSneakAttackCondition(attacker, target, atkResult, wasHidden = _isHiddenForSneak(attacker)) {
+  return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || wasHidden;
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -705,6 +710,21 @@ function _refreshAttackQty() {
       if (atk.qty !== undefined) u.atkQty[atk.name] = atk.qty;
     }
   }
+}
+
+// What a unit's ranged attack actually throws. Keyed off UNIT_TYPES[type].projectile so
+// giving a new creature a javelin (or an axe) is a data edit, not another branch in the
+// firing code — this used to be a chain of `attacker.type === ...` special cases.
+// Fire Bolt is NOT here: it's a spell with its own effect, handled separately.
+const _PROJECTILES = {
+  arrow:   fireRangedAttack,   // default — bows, crossbows, slings
+  axe:     fireThrownAxe,      // Gobo's tumbling handaxe
+  javelin: fireJavelin,        // the ogre's spear
+};
+
+function _projectileFor(attacker) {
+  const key = UNIT_TYPES[attacker.type]?.projectile ?? 'arrow';
+  return _PROJECTILES[key] ?? fireRangedAttack;
 }
 
 // Decrement qty counter only — no log (call when the projectile is launched).
@@ -867,6 +887,22 @@ function animatePath(unit, path, onComplete) {
 const SMOKE_RADIUS_FT  = 10;
 const SMOKE_ROUNDS_LOG = 2;   // for player-facing text only
 const SMOKE_TICKS      = 3;   // internal round-advance countdown (see comment above)
+const SMOKE_USES       = 2;   // castable twice per combat
+// Heavily obscured: attackers can't see him clearly inside the cloud. Modelled as a flat
+// AC bonus rather than blanket disadvantage-to-hit, which would stack badly with Dodge.
+const SMOKE_AC_BONUS   = 3;
+
+// Every Smoke & Mirrors benefit is POSITIONAL: it applies only while the unit stands within
+// SMOKE_RADIUS_FT of the centre of its own live cloud. These used to test the bare
+// u.smokeActive flag, so once Milo walked out, the obscurement, the free hide and the
+// advantage all followed him across the map for the cloud's remaining rounds.
+function _inOwnSmoke(u) {
+  if (!u?.smokeActive || !u.smokeCenter) return false;
+  const rWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const dx  = u.grp.position.x - u.smokeCenter.x;
+  const dz  = u.grp.position.z - u.smokeCenter.z;
+  return dx * dx + dz * dz <= rWU * rWU;
+}
 
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
@@ -914,16 +950,13 @@ function showMoveRange(u, overrideFt) {
   validTiles.clear();
   for (const k of _bfsReachable(ux, uz, maxDist, u, u.caveLayer)) validTiles.add(k);
 
-  // Smoke & Mirrors: Milo won't leave the cloud he threw down until it dissipates
-  if (u.smokeActive && u.smokeCenter) {
-    const smokeRadiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
-    const { x: scx, z: scz } = u.smokeCenter;
-    for (const k of [...validTiles]) {
-      const [tx, tz] = k.split(',').map(Number);
-      const dx = tx - scx, dz = tz - scz;
-      if (dx * dx + dz * dz > smokeRadiusWU * smokeRadiusWU) validTiles.delete(k);
-    }
-  }
+  // Milo used to be CONFINED to his own Smoke & Mirrors cloud — every tile outside its
+  // radius was pruned from validTiles until it dissipated. He can now walk out of it
+  // freely, and doing so costs him neither his hide nor his Sneak Attack: stealth is
+  // broken only by an enemy's Perception check (_checkHidePerception, rolled after each
+  // move) or by his own attack, never by leaving the smoke. u.smokeActive is a flag with
+  // a round countdown rather than a position test, so the cloud's advantage rides along
+  // with him for its remaining rounds.
 
   if (validTiles.size > 0) {
     moveRangeRing.geometry.dispose();
@@ -1370,9 +1403,9 @@ function activateHide() {
   if ((u.hideCooldown ?? 0) > 0) return;
 
   const ux = u.grp.position.x, uz = u.grp.position.z;
-  // Smoke & Mirrors: while inside his own smoke cloud, Milo has cover — he
-  // can attempt to hide even if an enemy would otherwise have line of sight.
-  const hasEnemyLOS = !u.smokeActive && units.some(e =>
+  // Smoke & Mirrors: standing in his own cloud, Milo has cover — he can attempt to hide
+  // even if an enemy would otherwise have line of sight.
+  const hasEnemyLOS = !_inOwnSmoke(u) && units.some(e =>
     e.team === 'red' && e.hp > 0 && e.aggro &&
     hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz)
   );
@@ -1383,9 +1416,9 @@ function activateHide() {
 
   const def    = UNIT_TYPES[u.type] ?? {};
   const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
-  // Auto-success: standing still inside his own Smoke & Mirrors cloud, the
-  // heavy obscurement fully conceals him — Hide succeeds with no roll.
-  const autoHide = !!u.smokeActive && turnMovedFt === 0;
+  // Auto-success: inside his own cloud the heavy obscurement fully conceals him — Hide
+  // succeeds with no roll. Standing still is NOT required; being in the smoke is enough.
+  const autoHide = _inOwnSmoke(u);
   const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
 
   turnBonusActioned = true;
@@ -1395,8 +1428,6 @@ function activateHide() {
   if (autoHide || stealth >= 10) {
     u.hideRoll = stealth;
     setUnitStealth(u, true);
-    u.stealthOriginX = ux;
-    u.stealthOriginZ = uz;
     addLog(autoHide
       ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
       : `${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
@@ -1409,17 +1440,21 @@ function activateHide() {
 }
 
 // ── Smoke & Mirrors (Rogue lvl 3) ─────────────────────────────────────────────
-// Action, once per combat. Throws a smoke bomb in a 10 ft radius around Milo;
-// the area is heavily obscured for 2 rounds. While inside: he can Hide as
-// though he has cover (see activateHide above) and gets advantage on sneak
-// attacks he'd otherwise qualify for (see _executeAttack below). He won't
-// move out of the cloud until it dissipates (see showMoveRange above).
+// Action, twice per combat. Throws a smoke bomb in a 10 ft radius around Milo; the area is
+// heavily obscured for 2 rounds. Every benefit below requires him to be standing WITHIN
+// that 10 ft of the cloud's centre (_inOwnSmoke) — he's free to walk out, he just takes
+// nothing with him:
+//   • +SMOKE_AC_BONUS AC — the heavy obscurement (see _executeAttack)
+//   • Hide as though he has cover, ignoring enemy line of sight (see activateHide above)
+//   • Hide auto-succeeds (ditto)
+//   • advantage on any attack that already qualifies for Sneak Attack (see _executeAttack)
+// Casting again re-centres the cloud on his current position, spending the second use.
 function activateSmokeMirrors() {
   if (isAnimating || turnAttacked) return;
   const u = turnOrder[turnIndex];
-  if (!u || u.type !== 'halfling' || u.smokeUsed) return;
+  if (!u || u.type !== 'halfling' || (u.smokeUses ?? 0) <= 0) return;
 
-  u.smokeUsed       = true;
+  u.smokeUses--;
   u.smokeActive     = true;
   u.smokeCenter     = { x: u.grp.position.x, z: u.grp.position.z };
   u.smokeRoundsLeft = SMOKE_TICKS;
@@ -1430,7 +1465,8 @@ function activateSmokeMirrors() {
   const radiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   u._smokeVFX = spawnSmokeCloud(u.grp.position.x, 0, u.grp.position.z, radiusWU);
 
-  addLog(`${unitLabel(u)} throws a smoke bomb! The area is heavily obscured for ${SMOKE_ROUNDS_LOG} rounds.`, 'spell');
+  addLog(`${unitLabel(u)} throws a smoke bomb! The area is heavily obscured for ${SMOKE_ROUNDS_LOG} rounds ` +
+         `(+${SMOKE_AC_BONUS} AC and free Hide while inside). ${u.smokeUses} use${u.smokeUses === 1 ? '' : 's'} left.`, 'spell');
   showFloatingDamage(u, 'SMOKE & MIRRORS', '#9a9ab0');
   updateCombatStatus();
 }
@@ -2200,28 +2236,25 @@ function performAttack(attacker, target, atk, onSettled = null) {
   }
   if (atk.type === 'ranged') {
     _consumeAtkQty(attacker, atk);
+    const _fire = _projectileFor(attacker);
     if (attacker.type === 'elf' && atk.name === 'Fire Bolt') {
       playUnitAttackAnim(attacker, 'ranged');
       playFireboltEffect(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
-    } else if (attacker.type === 'human') {
-      playUnitAttackAnim(attacker, 'ranged', () => {
-        fireThrownAxe(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
-      });
     } else if (UNIT_TYPES[attacker.type]?.rangedReleaseMs != null) {
-      // Loose the arrow PARTWAY INTO the animation rather than after it finishes, so the
+      // Loose the projectile PARTWAY INTO the animation rather than after it finishes, so the
       // shot doesn't visibly lag the draw. Same trick the spell branch above uses: let the
       // clip play out on its own (it still restores rotation and returns to idle when it
       // ends) and drive the projectile off a fixed delay instead of the 'finished' event.
       playUnitAttackAnim(attacker, 'ranged');
       setTimeout(() => {
         if (!units.includes(attacker) || attacker.hp <= 0) { onSettled?.(); return; }
-        fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
+        _fire(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
       }, UNIT_TYPES[attacker.type].rangedReleaseMs);
     } else {
-      // Arrow launches after the ranged animation finishes; all subsequent
-      // events (dice rolls, damage display) cascade from the arrow's onImpact callback.
+      // Projectile launches after the ranged animation finishes; all subsequent
+      // events (dice rolls, damage display) cascade from its onImpact callback.
       playUnitAttackAnim(attacker, 'ranged', () => {
-        fireRangedAttack(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
+        _fire(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
       });
     }
   } else {
@@ -2309,13 +2342,23 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
 
   const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to attack rolls
 
+  // Snapshot the unseen-attacker state NOW. Making the attack breaks the attacker's hide
+  // (further down, right after the to-hit roll), but the Sneak Attack test runs after THAT
+  // and reads attacker.stealthed — so by the time it looked, the flag was always already
+  // false and a hidden Milo silently lost the sneak dice his hide existed to set up. He
+  // only ever got them when an ally happened to be adjacent to the target, which masked it.
+  const attackerWasHidden = _isHiddenForSneak(attacker);
+
   // Long-range shot: beyond normal range but within longRange → disadvantage
   let hasAdvantage    = false;
   let hasDisadvantage = false;
   let atkDisadvReason = '';
-  // Smoke & Mirrors: Milo gets advantage on attacks that already qualify for
-  // Sneak Attack (ally adjacent to target) while he's inside his own smoke cloud.
-  if (attacker.type === 'halfling' && attacker.smokeActive && _allyAdjacentToTarget(attacker, target)) {
+  // Smoke & Mirrors: while standing in his own cloud, any attack that ALREADY qualifies for
+  // Sneak Attack is made with advantage. Derived from the sneak preconditions directly
+  // (ally adjacent to the target, or attacking unseen) rather than from
+  // hasSneakAttackCondition, which also ORs in advantage — that would be circular.
+  const sneakQualifies = _allyAdjacentToTarget(attacker, target) || attackerWasHidden;
+  if (attacker.type === 'halfling' && _inOwnSmoke(attacker) && sneakQualifies) {
     hasAdvantage = true;
   }
   // Owl's Help: Rasec has advantage against the enemy his familiar distracted.
@@ -2331,7 +2374,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // Advantage and disadvantage from different sources cancel out to a normal roll (D&D RAW).
   const atkMode = hasAdvantage && hasDisadvantage ? 'normal' : hasAdvantage ? 'advantage' : hasDisadvantage ? 'disadvantage' : 'normal';
 
-  const _acBonus   = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0);
+  // Smoke & Mirrors' heavy obscurement is the third term: a defender standing in his own
+  // cloud is hard to see, so he's harder to hit. Positional — it lapses the moment he
+  // steps out, and applies to whoever is being ATTACKED, not the attacker.
+  const _acBonus   = (target.defStanceActive ? 3 : 0) + (target.mageArmored ? 3 : 0) +
+                     (_inOwnSmoke(target) ? SMOKE_AC_BONUS : 0);
   const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
   const targetAC   = targetBase + _acBonus;
   const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, precisionBonus);
@@ -2377,7 +2424,8 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
-  const doSneak   = sneakDef && !sneakAttackUsed && hasSneakAttackCondition(attacker, target, atkResult);
+  const doSneak   = sneakDef && !sneakAttackUsed &&
+                    hasSneakAttackCondition(attacker, target, atkResult, attackerWasHidden);
 
   const isCrit    = atkResult.isCrit;
   const dmgResult = rollDnDDamage(atk, dmgMod, isCrit);
@@ -3139,8 +3187,8 @@ export function rollInitiative() {
     if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
     if (u.type === 'halfling') {
       u.hideCooldown = 0;
-      // Smoke & Mirrors: once per combat; clear any cloud left over from a previous fight
-      u.smokeUsed  = false;
+      // Smoke & Mirrors: charges refresh each combat; clear any cloud left from a previous fight
+      u.smokeUses   = SMOKE_USES;
       u.smokeActive = false;
       u.smokeCenter = null;
       if (u._smokeVFX) { u._smokeVFX.dispose(); u._smokeVFX = null; }
@@ -3758,7 +3806,7 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'halfling' || turnAttacked) return false;
-      return !curU.smokeUsed;
+      return (curU.smokeUses ?? 0) > 0;
     },
   },
   defensive_stance: {
@@ -4797,6 +4845,23 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         return;
       }
 
+      // ── Dodge (<33% HP) — main action, any hero ───────────────────────
+      // Self-gating, exactly like use_potion above: at or above 33% HP it SKIPS, so the
+      // priority list falls straight through to the next entry (an attack) and the option
+      // costs nothing to leave in the list. Below 33% it spends the action to turtle.
+      // Separate from the ungated 'dodge' handled in doNoRangeAction — that one fires
+      // whenever it's reached, and must keep doing so.
+      if (actionVal === 'dodge_hurt') {
+        if (turnAttacked) { onSkip(); return; }
+        if ((u.hp / u.maxHp) >= 0.33) { onSkip(); return; }
+        turnAttacked = true;
+        u.dodging    = true;
+        addLog(`${unitLabel(u)} takes the Dodge action — enemies have disadvantage to hit.`, 'move');
+        updateCombatStatus();
+        onDone();
+        return;
+      }
+
       // ── Healing Word ─────────────────────────────────────────────────
       if (actionVal === 'healing_word') {
         if (!allyWounded) { onSkip(); return; }
@@ -4911,11 +4976,13 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         return;
       }
 
-      // ── Smoke & Mirrors (halfling, level 3, once per combat) ──────────
+      // ── Smoke & Mirrors (halfling, level 3, twice per combat) ─────────
       if (actionVal === 'smoke_mirrors') {
         if (u.type !== 'halfling')       { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'smoke_mirrors')) { onSkip(); return; }
-        if (u.smokeUsed)                 { onSkip(); return; }
+        if ((u.smokeUses ?? 0) <= 0)     { onSkip(); return; }
+        // Already standing in a live cloud — don't burn the second charge re-throwing it.
+        if (_inOwnSmoke(u))              { onSkip(); return; }
         activateSmokeMirrors();
         setTimeout(onDone, 600);
         return;
@@ -4955,14 +5022,14 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (!isAbilityUnlocked(u.type, u.level, 'hide')) { onSkip(); return; }
         const ux = u.grp.position.x, uz = u.grp.position.z;
         // Smoke & Mirrors: cover from his own cloud bypasses the LOS block
-        const inEnemyLOS = !u.smokeActive && units.some(e => {
+        const inEnemyLOS = !_inOwnSmoke(u) && units.some(e => {
           if (e.team !== 'red' || e.hp <= 0 || !e.aggro) return false;
           return hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz);
         });
         if (inEnemyLOS) { onSkip(); return; }
         const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
-        // Auto-success while standing still in his own smoke cloud.
-        const autoHide = !!u.smokeActive && turnMovedFt === 0;
+        // Auto-success anywhere inside his own smoke cloud (no stand-still requirement).
+        const autoHide = _inOwnSmoke(u);
         const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
         u.hideCooldown    = 2;
         turnBonusActioned = true;
@@ -4970,8 +5037,6 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (autoHide || stealth >= 10) {
           u.hideRoll = stealth;
           setUnitStealth(u, true);
-          u.stealthOriginX = ux;
-          u.stealthOriginZ = uz;
           addLog(autoHide
             ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
             : `${unitLabel(u)} hides! Stealth ${stealth}`, 'move');

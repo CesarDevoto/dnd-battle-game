@@ -66,15 +66,14 @@ function _onCombatStart() {
   // Rings self-hide in combat (tick gates on !combatPhase). Milo keeps his
   // stealth into combat if he wasn't the one spotted — the in-combat stealth
   // system reads u.stealthed. Only clear the OOC scouting flag here.
+  //
+  // He carries the hide (and so the Sneak Attack it sets up) into the fight and keeps it
+  // while he moves. Only an enemy's Perception check (_checkHidePerception) or his own
+  // attack breaks it. This used to also pin a stealthOrigin for a "stationary hidden
+  // attacker" rule — that rule was never implemented (the field was written in three
+  // places and read in none), so it's gone.
   const m = _findMilo();
-  if (m && m.stealthedOOC) {
-    m.stealthedOOC = false;
-    // Carried hide into combat (wasn't the one spotted). Pin the stealth origin
-    // so the in-combat "stationary hidden attacker" sneak bonus is valid and is
-    // correctly forfeited the moment he moves (otherwise it defaults to his live
-    // position and would never clear).
-    if (m.stealthed) { m.stealthOriginX = m.grp.position.x; m.stealthOriginZ = m.grp.position.z; }
-  }
+  if (m && m.stealthedOOC) m.stealthedOOC = false;
 }
 
 // ── Scout rings — reduced enemy detection radius, shown while Milo is hidden ──

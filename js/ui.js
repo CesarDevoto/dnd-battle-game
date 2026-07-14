@@ -695,7 +695,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Sneak Attack</span>
             </div>
-            <div class="ss-spell-desc">+${sneakDef.dice}d${sneakDef.sides} damage on a hit when an ally is adjacent to the target · once per turn</div>
+            <div class="ss-spell-desc">+${sneakDef.dice}d${sneakDef.sides} damage on a hit when an ally is adjacent to the target, when attacking while Hidden, or with advantage · once per turn</div>
           </div>
           <img src="${ABILITY_META.sneak_attack.imgSrc}" class="ss-spell-inline-img" alt="Sneak Attack">
         </div>
@@ -709,7 +709,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Smoke &amp; Mirrors</span>
             </div>
-            <div class="ss-spell-desc">Once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside · Hide auto-succeeds while standing still in the cloud</div>
+            <div class="ss-spell-desc">Twice per combat · lasts for 2 rounds · 10 ft smoke cloud · while within 10 ft of its centre: heavily obscured (+3 AC), advantage on Sneak Attacks, and Hide auto-succeeds</div>
           </div>
           <img src="${ABILITY_META.smoke_mirrors.imgSrc}" class="ss-spell-inline-img" alt="Smoke & Mirrors">
         </div>

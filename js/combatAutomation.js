@@ -132,6 +132,11 @@ const CATEGORIES = [
           ],
           human: [
             { value: 'use_potion',        label: 'Use Healing Potion (<33% HP)' },
+            // Self-gating like use_potion: below 33% HP Gobo turtles instead of swinging;
+            // at or above it, the option is skipped and the list falls through to the next
+            // entry. Distinct value from the plain 'dodge' in the no-enemy-in-range list,
+            // which is ungated and must stay that way.
+            { value: 'dodge_hurt',        label: 'Dodge (<33% HP)'   },
             { value: 'rage',              label: 'Rage'              },
             { value: 'defensive_stance',  label: 'Defensive Stance'  },
             { value: 'greataxe',          label: 'Greataxe'          },
@@ -151,7 +156,10 @@ const CATEGORIES = [
         defaults: {
           elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff'],
           dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
-          human:    ['use_potion', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
+          // dodge_hurt sits above the attacks on purpose: only the FIRST action in this list
+          // that succeeds fires, so below it he'd never reach the dodge — Greataxe would
+          // always win. Potion first (healing beats turtling if he has one), then dodge.
+          human:    ['use_potion', 'dodge_hurt', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
         appliesTo: () => true,
@@ -252,7 +260,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 15;   // 15: drop magic_missile from Rasec's no-enemy-in-range list; engaged_by_ally off Milo's target list (sneak_possible supersedes it)
+const TENDENCIES_VERSION = 16;   // 16: Gobo's dodge_hurt (Dodge <33% HP) in the enemy-in-range list, above his attacks
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

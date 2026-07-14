@@ -63,7 +63,7 @@ const LEVEL_UNLOCKS = {
     3: [
       { name: 'Smoke & Mirrors',
         imgSrc: 'assets/spells and skills/smoke and mirrors.jpg',
-        desc: 'Action · once per combat · 10 ft smoke cloud, heavily obscured for 2 rounds · can hide as though in cover · advantage on sneak attacks while inside · Hide auto-succeeds while standing still in the cloud' },
+        desc: 'Action · twice per combat · lasts for 2 rounds · 10 ft smoke cloud · while within 10 ft of its centre: heavily obscured (+3 AC), advantage on Sneak Attacks, and Hide auto-succeeds' },
     ],
     4: [
       { name: 'Precision',

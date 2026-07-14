@@ -252,6 +252,11 @@ export const UNIT_TYPES = {
     yOffset: 0,
     modelRotY: Math.PI + Math.PI / 4 + Math.PI / 3 + Math.PI / 9 + Math.PI / 3,
     anchorY: 3.5,
+    // He throws a spear, not an arrow — see javelin.js.
+    projectile: 'javelin',
+    // 90° counter-clockwise from the non-elf default (-π/2 → 0), which had him throwing
+    // off to one side instead of at the target. Same correction Gobo needed.
+    rangedRotY: 0,
     // CR 2 — Hard
     detect: 20,
     hp: 59, ac: 11, speed: 40, initiative: 0, xpReward: 90,
@@ -945,6 +950,7 @@ export const UNIT_TYPES = {
     name: 'Gobo',
     class: 'Human Barbarian',
     team: 'blue',
+    projectile: 'axe',   // tumbling handaxe (thrownAxe.js), not an arrow
     rangedRotY: 0,   // face the target (12 o'clock) on thrown-axe attack; non-elf default (-π/2) pointed him at 3 o'clock
     dark: 0x252535, mid: 0x40405a, bright: 0x7878a0, emissive: 0x050508,
     legH: 0.58, torsoW: 0.70, headS: 0.44, wpnH: 1.28, wpnColor: 0xccccdd,
