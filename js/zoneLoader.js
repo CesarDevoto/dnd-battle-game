@@ -125,10 +125,22 @@ window.addEventListener('round:start', e => _tickSpawns(e.detail.round));
 
 // ── Exit markers ──────────────────────────────────────────────────────────────
 
+// scene.remove() only DETACHES — it frees nothing. Without these dispose() calls the fog
+// balls' geometries and materials (and, before the textures below were shared, their GPU
+// textures) leaked on every single zone transition and accumulated for the whole session.
+function _disposeFogObj(m) {
+  // Sprites are NOT disposed here: THREE.Sprite shares one module-level geometry across every
+  // sprite in the app, so disposing it would tear the rug out from under all the others.
+  if (m.isMesh && m.geometry) m.geometry.dispose();
+  const mats = Array.isArray(m.material) ? m.material : [m.material];
+  // .map is deliberately left alone — it's one of the two shared singletons from _fogBallTex().
+  mats.forEach(mat => mat?.dispose());
+}
+
 function _clearExits() {
-  _exitMeshes.forEach(m => scene.remove(m));
+  _exitMeshes.forEach(m => { scene.remove(m); _disposeFogObj(m); });
   _exitMeshes = [];
-  _breachMeshes.forEach(m => scene.remove(m));
+  _breachMeshes.forEach(m => { scene.remove(m); _disposeFogObj(m); });
   _breachMeshes = [];
   _exitsLive   = false;
   _postCombat  = false;
@@ -154,6 +166,17 @@ function _makeFogBallTex(bright) {
   return new THREE.CanvasTexture(cv);
 }
 
+// There are only ever TWO distinct fog images — bright and soft. They used to be re-generated
+// per exit and per breach (and once more per ground plane), so a zone with a few gates minted a
+// dozen identical 256x256 canvases + GPU textures, none of which were ever disposed. Build each
+// once, share it everywhere, and keep it for the life of the page. _disposeFogObj() knows not to
+// dispose these.
+const _fogTexCache = {};
+function _fogBallTex(bright) {
+  const k = bright ? 'bright' : 'soft';
+  return (_fogTexCache[k] ??= _makeFogBallTex(bright));
+}
+
 function _buildExitMarker(exit) {
   // Push fog position deeper into the wall notch along the exit direction
   const eDist = Math.sqrt(exit.x * exit.x + exit.z * exit.z);
@@ -167,8 +190,8 @@ function _buildExitMarker(exit) {
   const BALL_Y = exit.fogHeight ?? 1.8;    // float above ground — NOT scaled, so the ball
                                            // grows in place rather than riding up into the wall
 
-  const texBright = _makeFogBallTex(true);
-  const texSoft   = _makeFogBallTex(false);
+  const texBright = _fogBallTex(true);
+  const texSoft   = _fogBallTex(false);
 
   // Camera-facing sprites clustered into a sphere shape.
   // ox/oy/oz are offsets from ball centre; bp=bob phase; rs=material rotation speed.
@@ -223,7 +246,7 @@ function _buildExitMarker(exit) {
   [{ size: 11.4, yOff: 0.04, rotSpeed:  0.08, os: 0.40 },
    { size: 16.2, yOff: 0.10, rotSpeed: -0.05, os: 0.20 }].forEach(def => {
     const mat = new THREE.MeshBasicMaterial({
-      map:         _makeFogBallTex(false),
+      map:         _fogBallTex(false),
       transparent: true,
       opacity:     0,
       depthWrite:  false,
@@ -247,8 +270,8 @@ function _buildFogBreach(x, z, scale = 0.5) {
   const gy     = getTerrainHeight(x, z);
   const BALL_Y = 1.8 * scale;
 
-  const texBright = _makeFogBallTex(true);
-  const texSoft   = _makeFogBallTex(false);
+  const texBright = _fogBallTex(true);
+  const texSoft   = _fogBallTex(false);
 
   const sprDefs = [
     { ox:  0.00, oy:  0.00, oz:  0.00, s:  9.0, os: 1.00, bright: true,  bp: 0.0, rs:  0.11 },
@@ -284,7 +307,7 @@ function _buildFogBreach(x, z, scale = 0.5) {
   [{ size: 11.4, yOff: 0.04, rotSpeed:  0.08, os: 0.40 },
    { size: 16.2, yOff: 0.10, rotSpeed: -0.05, os: 0.20 }].forEach(def => {
     const mat = new THREE.MeshBasicMaterial({
-      map:         _makeFogBallTex(false),
+      map:         _fogBallTex(false),
       transparent: true,
       opacity:     0.55 * def.os,
       depthWrite:  false,
