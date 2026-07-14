@@ -175,8 +175,14 @@ export function updateHeroUI() {
       if (u && u.stealthed && u.team === 'blue')
         badges += `<span class="cond-badge cond-stealth">👁 Hidden · Stealth ${u.hideRoll ?? '?'}</span>`;
 
-      refs.condEl.innerHTML = badges;
-      refs.condEl.classList.toggle('has-content', badges.length > 0);
+      // Guarded: this runs for all 4 hero cards every frame, and `badges` is almost always
+      // the identical string (usually ''). An unconditional innerHTML write re-parses the
+      // markup and invalidates style 240x a second for no change at all.
+      if (badges !== refs._lastBadges) {
+        refs._lastBadges = badges;
+        refs.condEl.innerHTML = badges;
+        refs.condEl.classList.toggle('has-content', badges.length > 0);
+      }
 
       if (u === activeUnit && badges.length > 0) activeHasConds = true;
     }

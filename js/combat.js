@@ -2165,6 +2165,12 @@ function _formatLog(text) {
   return esc.replace(_HERO_RE, n => `<b style="color:${_HERO_COLORS[n]}">${n}</b>`);
 }
 
+// Oldest entries are dropped past this. The log had no cap at all: every attack, roll,
+// move and spell appended a permanent <div> for the life of the tab, and each write then
+// forced a synchronous reflow of an ever-taller list. Automated combat produces dozens of
+// entries per round, so it grew without bound.
+const MAX_LOG_ENTRIES = 300;
+
 export function addLog(text, cls = '') {
   const el = document.getElementById('log-entries');
   if (!el) return;
@@ -2172,6 +2178,7 @@ export function addLog(text, cls = '') {
   div.className = 'log-entry' + (cls ? ' log-' + cls : '');
   div.innerHTML = _formatLog(text);
   el.appendChild(div);
+  while (el.childElementCount > MAX_LOG_ENTRIES) el.removeChild(el.firstElementChild);
   el.scrollTop = el.scrollHeight;
 }
 

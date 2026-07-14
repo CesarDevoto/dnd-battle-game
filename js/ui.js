@@ -10,12 +10,22 @@ import { computeAC, equipItem } from './equipment.js';
 import { getXpProgress } from './progression.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
-// firstHitOnly stops traversal at the nearest terrain hit (early-exit).
 // _rayDir is normalised in-place so there are zero heap allocations per unit.
-
+//
+// NOTE: this used to set `_occluder.firstHitOnly = true` with a comment claiming it
+// early-exits at the nearest hit. It does NOT. `firstHitOnly` is a three-mesh-bvh
+// property, and three-mesh-bvh is not a dependency of this project — the flag was an
+// inert field on a plain Raycaster, so every call brute-forced all 32,768 triangles of
+// the terrain PlaneGeometry(128x128). Per unit. Per frame. That is millions of
+// ray/triangle tests a second on the main thread.
+//
+// Rather than take on a new dependency, the test is now STRIDED: each unit re-tests its
+// occlusion every OCCLUSION_STRIDE frames and reuses the previous answer in between. An
+// HP bar appearing from behind a hill 4 frames late is imperceptible.
 const _occluder = new THREE.Raycaster();
 const _rayDir   = new THREE.Vector3();
-_occluder.firstHitOnly = true;
+const OCCLUSION_STRIDE = 4;
+let _occFrame = 0;
 
 // ── HUD: project each unit's 3D anchor to screen coords ──────────────────────
 // Health bar visibility defaults:
@@ -38,7 +48,7 @@ export function updateHUD() {
   // during a swivel, then snapping when it stops). Refresh it here first.
   camera.updateMatrixWorld();
 
-  units.forEach(u => {
+  units.forEach((u, i) => {
     if (!u.barEl) return;  // NPCs have no hp bar
     _vec.copy(u.anchor).project(camera);
 
@@ -66,19 +76,25 @@ export function updateHUD() {
       return;
     }
 
-    // Terrain occlusion test — only run when bar is eligible to show.
-    // Stop the ray 1.5 WU short of the anchor so the terrain directly under
-    // the unit's feet never self-occludes it.
-    _rayDir.copy(u.anchor).sub(camera.position);
-    const dist = _rayDir.length();
-    _rayDir.divideScalar(dist);
+    // Terrain occlusion test — only run when bar is eligible to show, and only every
+    // OCCLUSION_STRIDE frames (see the raycaster comment above: this is an unaccelerated
+    // sweep of the whole terrain mesh, so it is by far the most expensive thing per unit).
+    // Units are staggered by index so they don't all re-test on the same frame.
+    if ((_occFrame + i) % OCCLUSION_STRIDE === 0) {
+      // Stop the ray 1.5 WU short of the anchor so the terrain directly under
+      // the unit's feet never self-occludes it.
+      _rayDir.copy(u.anchor).sub(camera.position);
+      const dist = _rayDir.length();
+      _rayDir.divideScalar(dist);
 
-    _occluder.set(camera.position, _rayDir);
-    _occluder.far = Math.max(0.5, dist - 1.5);
+      _occluder.set(camera.position, _rayDir);
+      _occluder.far = Math.max(0.5, dist - 1.5);
 
-    const hit = _occluder.intersectObject(ground, false);
-    u.barEl.style.opacity = hit.length > 0 ? '0' : '1';
+      u._occluded = _occluder.intersectObject(ground, false).length > 0;
+    }
+    u.barEl.style.opacity = u._occluded ? '0' : '1';
   });
+  _occFrame++;
   updateSpellBar();
 }
 
@@ -882,6 +898,43 @@ function _sbActionTagHTML(key) {
   return cls ? `<span class="hb-action-tag ${cls}">${txt}</span>` : '';
 }
 
+// What the spell bar's DOM actually depends on. Everything else that changes frame to
+// frame (cooldowns, range to a moving target, whether you've attacked yet) only affects
+// the greyed-out state, which is a class toggle — not a reason to rebuild the markup.
+function _spellBarSig(u) {
+  if (!u || u.team !== 'blue') return 'none';
+  const prepared = u.preparedSpells ?? STARTING_SPELLS[u.type] ?? new Set();
+  return [u.type, u.level, u.spellSlots ?? 0, u.spellSlotsMax ?? 2,
+          [...prepared].sort().join(',')].join('|');
+}
+
+// Per-frame pass: the ONLY thing that has to stay live. Reads data-ability off the
+// buttons already in the DOM, so it never touches innerHTML.
+function _refreshSpellBarAvailability() {
+  const apply = btn => {
+    const key = btn?.dataset.ability;
+    btn?.classList.toggle('sb-unavailable', !!key && !isAbilityAvailableNow(key));
+  };
+  for (let i = 0; i < 5; i++) {
+    apply(document.getElementById(`sb-skill-${i}`));
+    apply(document.getElementById(`sb-cant-${i}`));
+  }
+  document.getElementById('spell-bar-btns')?.querySelectorAll('.sb-btn').forEach(apply);
+}
+
+let _sbSig        = null;
+let _sbAvailTick  = 0;
+
+// This used to rebuild the ENTIRE spell bar's innerHTML — ~15 buttons plus the whole
+// spell grid — on every single frame, because per-ability availability has to stay live.
+// But that markup contains <img> tags, so it was minting hundreds of fresh
+// HTMLImageElements per second pointing at megapixel JPEGs, and re-running layout/paint
+// for all of it at 60 Hz. Collapsing the panel didn't help either: the CSS uses
+// max-height:0, not display:none, so the images stay in the render tree.
+//
+// Now the markup is rebuilt only when _spellBarSig() changes (hero, level, prepared set,
+// slot count), and the live availability state — the only genuinely per-frame part — is a
+// classList toggle handled by _refreshSpellBarAvailability().
 function updateSpellBar() {
   // Precombat: prefer selectedTarget (set by the always-on, mesh-raycast
   // "click any unit" handler in combat.js — the same click that shows a
@@ -893,12 +946,24 @@ function updateSpellBar() {
   // elsewhere in the UI.
   const pcHero = (selectedTarget?.team === 'blue' && selectedTarget.hp > 0) ? selectedTarget : getPCSelected();
   const u = combatPhase ? turnOrder[turnIndex] : pcHero;
-  // Deliberately no unit-identity caching/early-return here — per-ability
-  // availability (isAbilityAvailableNow) depends on live turn state
-  // (turnAttacked, cooldowns, range to a moving target, etc.), which can
-  // change every frame while the same hero is still active, so this has to
-  // re-run on every call to stay accurate.
 
+  const sig = _spellBarSig(u);
+  if (sig !== _sbSig) {
+    _sbSig = sig;
+    _rebuildSpellBar(u);
+    _sbAvailTick = 0;          // force an availability pass on the fresh markup
+  }
+
+  // isAbilityAvailableNow() is not free — Milo's sneak attack runs a line-of-sight test,
+  // which raycasts. Greying a button out 4 frames late is invisible; doing it 60x a second
+  // is not. (Clicking a stale-looking button is still validated at execution time.)
+  if (_sbAvailTick-- <= 0) {
+    _sbAvailTick = 4;
+    _refreshSpellBarAvailability();
+  }
+}
+
+function _rebuildSpellBar(u) {
   const spellBarBtnsEl = document.getElementById('spell-bar-btns');
 
   // Clear all buttons when no caster is active
