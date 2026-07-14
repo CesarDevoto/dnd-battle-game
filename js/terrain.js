@@ -297,12 +297,31 @@ const TRENCH_RISE_WU = 1.5;
 // Like _distSeg but also returns the clamped projection parameter t (0 at a,
 // 1 at b), so the caller can lerp a per-endpoint value (here: height) across
 // the segment instead of just measuring distance.
+// ── Allocation-free scratch ───────────────────────────────────────────────────
+// This whole trench/height path is one of the hottest things in the game: it's sampled
+// for every unit every frame (main.js), 12x per line-of-sight test (LOS_STEPS), 3x per
+// engaged pair per frame, and up to ~580x for a single raySurfacePoint click. It used to
+// return a fresh object from distSegT PER TRENCH SEGMENT, another from _nearestOnPath,
+// another via object-spread in _trenchHeight, and allocate a `new Set` at every level of
+// its recursion. All of it immediately garbage. Everything below writes into module-scoped
+// scratch instead — same math, zero allocations, so the GC stops being fed from the render
+// loop. (Safe because none of it is re-entrant: no async, no callbacks.)
+const _segOut  = { dist: 0, t: 0 };
+const _pathOut = { dist: 0, segH: 0, pr: 0 };
+const _exclStack = [];   // trench paths excluded down the current recursion, used as a stack
+
 function distSegT(px, pz, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az;
   const len2 = dx * dx + dz * dz;
-  if (len2 === 0) return { dist: Math.hypot(px - ax, pz - az), t: 0 };
+  if (len2 === 0) {
+    _segOut.dist = Math.hypot(px - ax, pz - az);
+    _segOut.t    = 0;
+    return _segOut;
+  }
   const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2));
-  return { dist: Math.hypot(px - (ax + t * dx), pz - (az + t * dz)), t };
+  _segOut.dist = Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
+  _segOut.t    = t;
+  return _segOut;
 }
 
 // `surroundingH` is the terrain height that would apply here with no trench
@@ -314,55 +333,67 @@ function distSegT(px, pz, ax, az, bx, bz) {
 // dominates the sum. Returns null when no path affects this point at all.
 // Nearest-segment distance + interpolated floor height for one path, or
 // null if the path doesn't reach this point at all.
+// Writes into _pathOut; returns it, or null if the path doesn't reach this point.
 function _nearestOnPath(wx, wz, path) {
   const pts = path.points;
   if (!pts || pts.length < 2) return null;
   let dist = Infinity, segH = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
-    const { dist: d, t } = distSegT(wx, wz, a.x, a.z, b.x, b.z);
-    if (d < dist) {
-      dist = d;
+    const seg = distSegT(wx, wz, a.x, a.z, b.x, b.z);   // → _segOut, reused
+    if (seg.dist < dist) {
+      dist = seg.dist;
       const ha = a.h ?? path.h ?? 0, hb = b.h ?? path.h ?? 0;
-      segH = ha + (hb - ha) * t;
+      segH = ha + (hb - ha) * seg.t;
     }
   }
   if (dist >= path.r) return null;
-  return { dist, segH, pr: path.pr ?? 0 };
+  _pathOut.dist = dist;
+  _pathOut.segH = segH;
+  _pathOut.pr   = path.pr ?? 0;
+  return _pathOut;
 }
 
-function _trenchHeight(wx, wz, surroundingH, excluded) {
+function _trenchHeight(wx, wz, surroundingH) {
   // Pick the dominant path at this point: closest centerline wins; ties prefer
   // the narrower (smaller r) path, since that's the more locally-specific one.
   const EPS = 1e-6;
-  let winner = null, bestDist = Infinity, bestR = Infinity;
+  let winPath = null, winSegH = 0, winPr = 0;
+  let bestDist = Infinity, bestR = Infinity;
+
   for (const path of _trenchPaths) {
-    if (excluded && excluded.has(path)) continue;
-    const hit = _nearestOnPath(wx, wz, path);
+    if (_exclStack.includes(path)) continue;   // linear scan, but _exclStack is ~0-2 deep
+    const hit = _nearestOnPath(wx, wz, path); // → _pathOut, reused — copy out before reusing
     if (!hit) continue;
-    const better = !winner
+    const better = !winPath
       || hit.dist < bestDist - EPS
       || (Math.abs(hit.dist - bestDist) <= EPS && path.r < bestR);
-    if (better) { winner = { path, ...hit }; bestDist = hit.dist; bestR = path.r; }
+    if (better) {
+      winPath = path;  winSegH = hit.segH;  winPr = hit.pr;
+      bestDist = hit.dist;  bestR = path.r;
+    }
   }
-  if (!winner) return null;
+  if (!winPath) return null;
 
-  if (winner.dist <= winner.pr) return winner.segH;
+  if (bestDist <= winPr) return winSegH;
 
   // In the falloff band, blend toward whatever terrain is actually here
   // WITHOUT this path — which may be another trench/wall, not just the raw
   // noise/rim/control-point base — so a trench's rising wall meets the real
   // surrounding rock instead of fading toward unrelated ambient terrain.
-  const band = Math.min(TRENCH_RISE_WU, winner.path.r - winner.pr);
-  const t = band > 0 ? Math.max(0, 1 - (winner.dist - winner.pr) / band) : 0;
+  const band = Math.min(TRENCH_RISE_WU, winPath.r - winPr);
+  const t = band > 0 ? Math.max(0, 1 - (bestDist - winPr) / band) : 0;
   const eased = t * t * (3 - 2 * t);
-  // Exclude this path AND every already-excluded one so overlapping trench
-  // falloff bands can't ping-pong forever — recursion is bounded by path count.
-  const nextExcluded = new Set(excluded);
-  nextExcluded.add(winner.path);
-  const without = _trenchHeight(wx, wz, surroundingH, nextExcluded);
+
+  // Exclude this path AND every already-excluded one so overlapping trench falloff bands
+  // can't ping-pong forever — recursion is bounded by path count. Push/pop a shared stack
+  // instead of cloning a Set at every level.
+  _exclStack.push(winPath);
+  const without = _trenchHeight(wx, wz, surroundingH);
+  _exclStack.pop();
+
   const blendTarget = without !== null ? without : surroundingH;
-  return winner.segH * eased + blendTarget * (1 - eased);
+  return winSegH * eased + blendTarget * (1 - eased);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

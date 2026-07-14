@@ -50,7 +50,20 @@ function _patchMat(mat) {
     );
   };
 
-  mat.customProgramCacheKey = () => mat.uuid;
+  // A CONSTANT, not mat.uuid. This used to key the program cache on each material's uuid,
+  // which forced three.js to compile and bind a SEPARATE GPU program for every prop material
+  // instance — hundreds per zone, and a program switch on every draw call.
+  //
+  // That was unnecessary. The shader code injected above is byte-identical for every patched
+  // material, so they can all share one compiled program. The per-prop uCutY value is safe:
+  // three.js stores `materialProperties.uniforms` PER MATERIAL (WebGLRenderer.getProgram —
+  // `properties.get(material)`, then `materialProperties.uniforms = parameters.uniforms`) and
+  // uploads it per material per draw, while `acquireProgram` shares only the compiled GLSL.
+  // Props still fade independently.
+  //
+  // The key is appended to three.js's own parameter list, not a replacement for it, so
+  // materials that genuinely differ (different maps, lights, etc.) still get their own program.
+  mat.customProgramCacheKey = () => 'envFade';
   mat.transparent = true;
   mat.needsUpdate = true;
   return uCutY;
