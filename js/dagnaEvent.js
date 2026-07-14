@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit, setGridVisible } from './scene.js';
+import { scene, ambient, moon, fire, setFollowUnit, focusCameraOnUnit } from './scene.js';
 import { units, corpses, heroRoster } from './units.js';
 import { getTerrainHeight } from './terrain.js';
 import { updateXPBar } from './progression.js';
@@ -740,7 +740,8 @@ function _doStyxTransition() {
   }
 
   if (_loadZoneFn) _loadZoneFn('river_styx', false);
-  setGridVisible(false);
+  // No forced grid reset here: this existed only to undo the grid that combat used to
+  // switch on by itself. Grid visibility is the player's call, via the grid button.
 
   // Restore XP/level on the freshly built heroes (buildUnit resets these to 0/1)
   units.filter(u => u.team === 'blue').forEach(u => {

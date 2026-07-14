@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit, setGridVisible } from './scene.js';
+import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
@@ -3149,7 +3149,10 @@ export function rollInitiative() {
   // SURVIVES a battle persists, and only a re-summon inside the same fight is blocked.
   _familiarSummonedThisCombat = false;
   divider.visible = false;
-  setGridVisible(true);
+  // Combat deliberately does NOT force the grid on any more. The grid button is the single
+  // authority on grid visibility — if the player turned it off, it stays off through the
+  // fight, and if they turned it on out of combat it stays on. (The matching forced-off on
+  // the post-wipe zone reload in dagnaEvent.js was removed with it.)
   _dungeonAwareEnemies.clear();
   _readied.clear();
   initSpellSlots(units);

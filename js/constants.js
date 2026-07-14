@@ -536,13 +536,31 @@ export const UNIT_TYPES = {
 
   owlbear: {
     name: 'Owlbear', team: 'red',
-    scale: [1.5, 1.5, 1.5], anchorY: 3.0,
+    // Three 20% bumps up from the original 1.5 (→ 1.8 → 2.16 → 2.59). anchorY tracks it
+    // (3.0 → 5.18) or the HP bar floats inside the model's head instead of above it.
+    scale: [2.59, 2.59, 2.59], anchorY: 5.18, large: true,
     hp: 59, ac: 13, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
     abilities: { str: 20, dex: 12, con: 17, int: 3, wis: 12, cha: 7 },
+    // Its loco clip (jump_push_up — see units.js) is authored far too slow for the ground
+    // speed it actually covers, so it skated. Play it at 300% when charging. Run only:
+    // walk uses the SAME clip and stays at authored speed.
+    runTimeScale: 3,
+    // jump_push_up leaves the body flat/belly-down. Carry the head end 45° above the feet
+    // end while moving so it reads as a charging beast rather than a push-up. Negative is
+    // nose-UP (see _applyLocoPitch); flip the sign if it ends up nose-down.
+    locoPitchDeg: -45,
+    // animClip: each attack drives its own clip out of the new owlbear.glb, the same way the
+    // ettin gives its battleaxe and morningstar different swings. The clip names lie (see the
+    // owlbear entry in units.js): Right_Hand_Sword_Slash is the claw swipe — there is no
+    // sword — and Zombie_Scream is the beak/bite lunge.
     attacks: [
-      { name: 'Beak',  type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str' },
-      { name: 'Claws', type: 'melee', range: 5, dice: 2, sides: 8,  statMod: 'str' },
+      { name: 'Claws', type: 'melee', range: 5, dice: 2, sides: 8,  statMod: 'str', animClip: 'Right_Hand_Sword_Slash' },
+      { name: 'Bite',  type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str', animClip: 'Zombie_Scream' },
     ],
+    // Multiattack — identical mechanics to the ettin: an ordered list of attack names made in
+    // ONE action, each rolling to hit separately, with movement allowed between the swings.
+    multiattack: ['Claws', 'Bite'],
+    multiattackNote: 'Multiattack. The owlbear makes two attacks: one with its claws and one with its bite.',
   },
 
   werewolf: {

@@ -185,9 +185,23 @@ const ANIM_CLIP_NAMES = {
   giant_constrictor_snake: {
     idle: 'Idle', walk: 'Side winding', attack: 'Bite', death: 'Death',
   },
-  // Angry_Ground_Stomp has a larger hip Y-range than Attack; pin Attack explicitly
+  // New owlbear.glb (Jul 2026, 2nd export). Clips, verified by reading the GLB rather than
+  // trusting the names: Dead, Idle_10, jump_push_up, Right_Hand_Sword_Slash, Running,
+  // Walking, Zombie_Scream — all seven are real 24-joint skeletal animations.
+  //
+  // Classic scrambled-Meshy naming: the names do NOT describe the content.
+  //   • walk AND run = jump_push_up. It is not a jump — it's the head-up run cycle, and it's
+  //     the locomotion we want (user-directed; the pin is the whole point of this mapping).
+  //   • attack = Right_Hand_Sword_Slash → the CLAW swipe. No sword involved.
+  //   • Bite   = Zombie_Scream, bound per-attack via animClip in UNIT_TYPES.owlbear.
+  //   • The plainly-named 'Running' and 'Walking' are left UNUSED on purpose. Don't "fix"
+  //     this by pointing the loco slots at them.
+  //
+  // rangedAttack pinned null: no archery clip here, and without the pin autoMapAnimClips
+  // grabs a loco clip for it (the recurring bug on the dwarf/skeleton rigs).
   owlbear: {
-    idle: 'Idle_7', walk: 'Walking', run: 'Running', attack: 'Attack', death: 'Dead',
+    idle: 'Idle_10', walk: 'jump_push_up', run: 'jump_push_up',
+    attack: 'Right_Hand_Sword_Slash', rangedAttack: null, death: 'Dead',
   },
   // Idle_03 has large hip rangeY (18.4) so auto-detection misclassifies it as attack;
   // null in attack slot explicitly clears the mis-detected slot.
@@ -425,6 +439,10 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 
   // Animation state — only populated for ANIMATED_TYPES
   let mixer = null, idleAction = null, walkAction = null, runAction = null, attackAction = null, rangedAttackAction = null, spellCastAction = null, deathAction = null;
+  // The cloned GLB root under grp. Kept on the unit so per-clip body pose (see the loco
+  // pitch in setUnitWalking) can tilt the MODEL without touching grp, which owns the unit's
+  // facing, its world position and the HP-bar anchor.
+  let modelRoot = null;
   let unitClips = null;   // raw gltf.animations, exposed so events can play unmapped clips (e.g. Solrac's Bar_Hang_Idle)
 
   if (gltf?.scene) {
@@ -485,6 +503,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     model.position.y = def.yOffset ?? 0;
     if (def.modelRotY != null) model.rotation.y = def.modelRotY;
     grp.add(model);
+    modelRoot = model;
 
     // ── Skeletal animation setup ─────────────────────────────────────────────
     if (ANIMATED_TYPES.has(type) && !SCALE_ANIMATE_TYPES.has(type) && gltf.animations?.length) {
@@ -607,6 +626,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               spellSlots: def.spellSlots,
               _animPhaseOffset: _phaseOff,
               mixer, idleAction, walkAction, runAction, attackAction, rangedAttackAction, spellCastAction, deathAction, isWalking: false,
+              model: modelRoot,
               clips: unitClips,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {},
               // scale-animate state (only used when SCALE_ANIMATE_TYPES.has(type))
@@ -670,6 +690,43 @@ export function updateMixers(dt) {
   }
 }
 
+// Playback rate for the locomotion clips, per unit type (UNIT_TYPES.runTimeScale /
+// .walkTimeScale — 1 = as authored, 3 = 300% speed). Some rigs' loco clips are authored far
+// slower than the speed the unit actually crosses the ground at, so the feet skate.
+//
+// MUST be re-applied on EVERY transition, not set once when the actions are built: when a
+// type points walk and run at the SAME clip (the owlbear — both are jump_push_up), three.js
+// hands back the same cached AnimationAction for that clip, so unit.walkAction ===
+// unit.runAction. A one-time assignment would therefore leak the run's speed into the walk.
+// Note also that AnimationAction.reset() does NOT clear timeScale, so set it after reset().
+function _locoTimeScale(unit, walking, run) {
+  if (!walking) return 1;
+  const def = UNIT_TYPES[unit.type] ?? {};
+  return (run ? def.runTimeScale : def.walkTimeScale) ?? 1;
+}
+
+// Body pitch for the locomotion clips, per unit type (UNIT_TYPES.locoPitchDeg, degrees).
+// Tilts the whole model nose-up so a clip authored flat/prone reads as a charging animal:
+// the owlbear's jump_push_up leaves it belly-down and level, and it wants its head end
+// carried ~45° above its feet end while it runs.
+//
+// Applied to unit.model (the GLB root), NEVER to unit.grp: grp carries world position, the
+// facing yaw, and the HP-bar anchor, so tilting it would swing the health bar and the ring
+// through the air with the body. As a child of grp the pitch is in the unit's own local
+// space, so "nose up" stays nose-up whichever way it happens to be facing.
+//
+// Sign: NEGATIVE is nose-up for a model whose forward axis is +Z (which is how enemies are
+// built — grp.rotation.y = 0 faces +Z). If a rig turns out to face the other way it will
+// tilt nose-DOWN; flip the sign of locoPitchDeg for that type, nothing else.
+//
+// Zeroed whenever the unit is not in its loco clip, so the tilt can't bleed into idle,
+// attack or death poses — see the resets in playUnitAttackAnim / playUnitDeathAnim.
+function _applyLocoPitch(unit, walking) {
+  if (!unit.model) return;
+  const deg = walking ? (UNIT_TYPES[unit.type]?.locoPitchDeg ?? 0) : 0;
+  unit.model.rotation.x = deg * (Math.PI / 180);
+}
+
 export function setUnitWalking(unit, walking, run = false) {
   if (unit._scaleMode !== null) {
     if (unit._scaleMode === 'attack' || unit._scaleMode === 'death' || unit._scaleMode === 'dead') return;
@@ -693,6 +750,8 @@ export function setUnitWalking(unit, walking, run = false) {
     // (e.g. LoopOnce clip that slipped through, or external stopAllAction).
     if (!action.isRunning()) {
       action.reset().setEffectiveWeight(1);
+      action.timeScale = _locoTimeScale(unit, walking, run);
+      _applyLocoPitch(unit, walking);
       if (walking) action.time = _phaseTime(unit, action);
       action.play();
     }
@@ -703,6 +762,8 @@ export function setUnitWalking(unit, walking, run = false) {
   unit._runMode  = run;
   unit.mixer.stopAllAction();
   action.reset().setEffectiveWeight(1);
+  action.timeScale = _locoTimeScale(unit, walking, run);
+  _applyLocoPitch(unit, walking);
   if (walking) action.time = _phaseTime(unit, action);
   action.play();
 }
@@ -773,6 +834,7 @@ export function playUnitAttackAnim(unit, type = 'melee', onComplete = null, clip
   }
   unit.isWalking = false;
   unit.mixer.stopAllAction();
+  _applyLocoPitch(unit, false);   // drop any loco body tilt — this pose stands upright
 
   const rot = type === 'ranged' ? (unit.rangedRotY ?? -Math.PI / 2) : 0;
   if (rot) unit.grp.rotation.y += rot;
@@ -798,6 +860,7 @@ export function playUnitDeathAnim(unit) {
   if (!unit.mixer) return;
   unit.isWalking = false;
   unit.mixer.stopAllAction();
+  _applyLocoPitch(unit, false);   // a corpse must lie flat, not tilted from the run pose
   if (unit.deathAction) {
     unit.deathAction.reset().setEffectiveWeight(1).play();
   }
