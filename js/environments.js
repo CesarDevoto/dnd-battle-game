@@ -1233,6 +1233,14 @@ function _mangroveEdgePos() {
 // Shared loader with the meshopt decoder set — every environment GLB is
 // meshopt-compressed, so a bare GLTFLoader throws "setMeshoptDecoder must be
 // called before loading compressed files" and the asset silently goes missing.
+// ── Environment prop GLBs ─────────────────────────────────────────────────────
+// Each _loadX() below memoizes its own promise, and each is already called lazily by the
+// biome builder that needs it (`_loadLog().then(...)` etc). The nine bare `_loadX();` calls
+// that used to sit at module top-level were therefore pure EAGER PREFETCH: every page load
+// pulled down mangrove + dungeon rock wall + forest tree + dead tree + evergreen + savanna
+// tree + log + broken tree + stalactite and held their decompressed geometry and textures
+// forever, no matter which single biome you were standing in. They're gone — a biome's props
+// now arrive when that biome is first built.
 const _envLoader = new GLTFLoader();
 _envLoader.setMeshoptDecoder(MeshoptDecoder);
 
@@ -1261,7 +1269,7 @@ function _loadMangrove() {
   return _mangrovePromise;
 }
 
-_loadMangrove();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _dungeonRockWallGltf    = null;
 let _dungeonRockWallPromise = null;
@@ -1288,7 +1296,7 @@ function _loadDungeonRockWall() {
   return _dungeonRockWallPromise;
 }
 
-_loadDungeonRockWall();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _forestTreeGltf    = null;
 let _forestTreePromise = null;
@@ -1315,7 +1323,7 @@ function _loadForestTree() {
   return _forestTreePromise;
 }
 
-_loadForestTree();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _deadTreeGltf    = null;
 let _deadTreePromise = null;
@@ -1342,7 +1350,7 @@ function _loadDeadTree() {
   return _deadTreePromise;
 }
 
-_loadDeadTree();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _evergreenTreeGltf    = null;
 let _evergreenTreePromise = null;
@@ -1369,7 +1377,7 @@ function _loadEvergreenTree() {
   return _evergreenTreePromise;
 }
 
-_loadEvergreenTree();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _savannaTreeGltf    = null;
 let _savannaTreePromise = null;
@@ -1396,7 +1404,7 @@ function _loadSavannaTree() {
   return _savannaTreePromise;
 }
 
-_loadSavannaTree();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _tombstoneGltf    = null;
 let _tombstonePromise = null;
@@ -1450,7 +1458,7 @@ function _loadLog() {
   return _logPromise;
 }
 
-_loadLog();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _brokenTreeGltf    = null;
 let _brokenTreePromise = null;
@@ -1477,7 +1485,7 @@ function _loadBrokenTree() {
   return _brokenTreePromise;
 }
 
-_loadBrokenTree();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 let _stalactiteGltf    = null;
 let _stalactitePromise = null;
@@ -1504,7 +1512,7 @@ function _loadStalactite() {
   return _stalactitePromise;
 }
 
-_loadStalactite();
+// (eager prefetch removed — see note at _loadMangrove; this loads lazily via its biome builder)
 
 // ── biomePropBuilders map ─────────────────────────────────────────────────────
 // Matches original: only atmospheric/water layers run automatically on biome switch.

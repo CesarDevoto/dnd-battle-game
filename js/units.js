@@ -393,7 +393,31 @@ function loadOne(type) {
   });
 }
 
-export const modelsReady = Promise.all(Object.keys(MODEL_PATHS).map(loadOne));
+// ── Model loading: per-zone, not everything up front ─────────────────────────
+// This used to be Promise.all over EVERY entry in MODEL_PATHS — all ~80 unit GLBs, plus
+// environments.js eagerly loading its props, on every single page load regardless of which
+// zone you were in. Decompressed geometry + animation tracks + the CPU-side copies of all
+// those textures is most of what was left of the tab's memory footprint after the texture
+// resize, and you paid for every enemy in the game while standing in one zone.
+//
+// Now a type is fetched the first time something actually needs it. _pending memoizes the
+// in-flight promise so N callers asking for the same type share one network fetch.
+const _pending = {};
+
+export function ensureModels(types) {
+  return Promise.all(
+    [...new Set(types)]
+      .filter(t => MODEL_PATHS[t])
+      .map(t => (_pending[t] ??= loadOne(t)))
+  );
+}
+
+// The only models resident from boot: the four heroes (on screen in every zone) and the
+// owl familiar (Rasec can summon it anywhere). buildUnit falls back to a placeholder box
+// for a type whose GLB hasn't arrived, so anything built off these must be loaded first —
+// zoneLoader awaits modelsReady before the first loadZone().
+const ALWAYS_LOADED = ['dwarf', 'human', 'elf', 'halfling', 'owl'];
+export const modelsReady = ensureModels(ALWAYS_LOADED);
 
 // ── Team colour tint ──────────────────────────────────────────────────────────
 

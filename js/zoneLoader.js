@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive, rebuildGrid } from './scene.js';
-import { units, buildUnit, corpses, modelsReady, setUnitStealth } from './units.js';
+import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
@@ -31,9 +31,13 @@ const _registry = {};
 const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS, ZONE_PHANDALIN, ZONE_HIDE_OUT];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
-// Kick off parallel GLB fetches for every prop in every zone immediately at
-// module load time — cache is warm before the user ever switches zones.
-prewarmGLBs([...new Set(ZONE_ORDER.flatMap(z => (z.props ?? []).map(p => p.model)))]);
+// Warm the prop GLBs for ONE zone. This used to prewarm every prop in every zone at module
+// load time, which meant a player standing in the first zone was holding the decompressed
+// geometry and textures for every prop in the game. loadZone() now warms only the zone it
+// is loading (props it misses still load on demand inside loadZoneProps).
+function _prewarmZoneProps(zone) {
+  prewarmGLBs([...new Set((zone?.props ?? []).map(p => p.model))]);
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -356,6 +360,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   _active = zone;
   _transitioning = false;
+  _prewarmZoneProps(zone);   // fetch THIS zone's prop GLBs, not every zone's
   window.dispatchEvent(new CustomEvent('zone:loading'));
   _clearExits();
   _pendingSpawns = (zone.spawns ?? []).slice();  // fresh copy for this zone
@@ -478,8 +483,24 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   const enemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') === 'red');
   const nonEnemyDefs = zone.enemies.filter(e => (e.team ?? UNIT_TYPES[e.type]?.team ?? 'red') !== 'red');
   const spawnNow = filterZoneSpawns(id, enemyDefs, { fresh: !!zone.freshEnemies });
-  spawnNow.forEach(_spawnZoneEnemy);
-  nonEnemyDefs.forEach(_spawnZoneEnemy);
+
+  // Unit GLBs are no longer all preloaded at boot (see ensureModels in units.js), so this
+  // zone's models may not be in hand yet. Fetch exactly what it needs — its enemies/NPCs
+  // plus the types its round-based `spawns` will conjure mid-fight — and place them once
+  // they land. buildUnit falls back to a PLACEHOLDER BOX for a type whose GLB is missing,
+  // so spawning before the fetch resolves would litter the zone with grey cubes.
+  //
+  // Everything downstream of here (exits, fog, zone:loaded) still runs synchronously; only
+  // the bodies wait. The guard catches the player leaving again before the models arrive.
+  const zoneTypes = [
+    ...zone.enemies.map(e => e.type),
+    ...(zone.spawns ?? []).map(s => s.type),
+  ];
+  ensureModels(zoneTypes).then(() => {
+    if (_active !== zone) return;   // zone changed while we were fetching — drop it
+    spawnNow.forEach(_spawnZoneEnemy);
+    nonEnemyDefs.forEach(_spawnZoneEnemy);
+  });
 
   // Build exit markers — visible whenever outside combat (tickZone drives this)
   zone.exits.forEach(exit => _buildExitMarker(exit));
