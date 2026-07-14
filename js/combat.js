@@ -2454,6 +2454,12 @@ function _checkConcentration(unit, dmgTaken, willDie) {
 //
 // done() is ALWAYS called exactly once, on every path including a lethal poison — the caller
 // is waiting on it to advance the turn.
+// Beat between the venom save landing and its result showing. The timing constants inside
+// _executeAttack (SLOW_SETTLE et al.) are locals of THAT function and are NOT in scope here —
+// referencing SLOW_SETTLE was a ReferenceError thrown silently inside the setTimeout, which is
+// exactly why the poison save produced no log, no damage, and no effect. They are all 0
+// anyway; use an explicit local so this function stands on its own.
+const _POISON_BEAT = 0;
 function _resolvePoison(target, poison, done) {
   if (!target || target.hp <= 0) { done(); return; }   // the bite already killed them
 
@@ -2470,7 +2476,7 @@ function _resolvePoison(target, poison, done) {
       addLog(`${label} resists the venom (${saveBreakdown(res, stat)})`, 'save');
       showFloatingDamage(target, 'RESIST', '#88cc88');
       done();
-    }, SLOW_SETTLE);
+    }, _POISON_BEAT);
     return;
   }
 
@@ -2494,7 +2500,7 @@ function _resolvePoison(target, poison, done) {
     } else {
       setTimeout(done, 150);
     }
-  }, SLOW_SETTLE);
+  }, _POISON_BEAT);
 }
 
 function _executeAttack(attacker, target, atk, onSettled = null) {
