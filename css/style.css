@@ -1100,7 +1100,16 @@ body {
 }
 .log-alert  { color: var(--gold); }
 .log-turn   { color: #88aaff; }
-.log-move   { display: none; }
+/* `move` used to be `display: none`, which was quietly swallowing 29 different log calls —
+   and only about four of them were actual movement. Dash, Dodge, Defensive Stance, "breaks
+   stealth with the attack", "spots the heroes!", "emerges from the shadows!", the owl's
+   distract, a failed Hide, a web restraining you and the save to break out of it were ALL
+   being written to the log and then hidden. The class was doing double duty: "a unit did a
+   non-attack thing" and "a unit walked". Those are now split — `move` is the visible one,
+   and the walk spam ("moves 25 ft", "undoes move") moved to `walk`, which stays hidden. */
+.log-move   { color: #9db8cc; }
+.log-walk   { display: none; }
+.log-save   { color: #ffa0f0; }
 .log-hit    { color: #ff9966; }
 .log-crit   { color: #ffdd44; font-weight: bold; text-shadow: 0 0 6px rgba(255,220,60,0.45); }
 .log-miss   { color: #5a5a78; }

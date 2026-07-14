@@ -570,7 +570,7 @@ function handleUndo() {
   const path = findPath(u.grp.position.x, u.grp.position.z, x, z, u.caveLayer);
   animatePath(u, path, () => {
     turnMovedFt = movedFt;
-    addLog(`${unitLabel(u)} undoes move`, 'move');
+    addLog(`${unitLabel(u)} undoes move`, 'walk');
     heroMode = 'move';
     const remaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
     if (remaining > 0) showMoveRange(u);
@@ -2397,7 +2397,7 @@ function _attemptActionSave(u) {
   if (res.isSave) {
     clearActionSave(u);
     s.onEscape?.(u);
-    addLog(`${label} ${s.escapeMsg ?? 'breaks free!'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'move');
+    addLog(`${label} ${s.escapeMsg ?? 'breaks free!'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'save');
     showFloatingDamage(u, 'FREE!', '#88ff88');
     // Speed is back. They spent the Action, but they can still walk with what's left.
     if (u.team === 'blue' && turnOrder[turnIndex] === u) {
@@ -2405,7 +2405,7 @@ function _attemptActionSave(u) {
       showMoveRange(u);
     }
   } else {
-    addLog(`${label} ${s.stuckMsg ?? 'fails to break free'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'move');
+    addLog(`${label} ${s.stuckMsg ?? 'fails to break free'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'save');
     showFloatingDamage(u, 'STILL HELD', '#ff5555');
   }
 
@@ -2597,9 +2597,17 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
       stuckMsg:   'struggles, still caught in the web',
     });
     playWebEffect(attacker, target);
-    addLog(`${tLabel} is caught in ${aLabel}'s webbing! (Action + DC ${target.actionSave.dc} STR to break free)`, 'move');
-    showFloatingDamage(target, 'WEBBED', '#e6e6ff');
-    onSettled?.();
+    // This branch returns before the normal hit log further down, so the web attack was
+    // logging NEITHER the to-hit roll NOR the fact that it connected — the whole attack was
+    // invisible. Log it here, on the same beat the miss branch uses, so the roll has settled.
+    const _webDC = target.actionSave.dc;
+    setTimeout(() => {
+      playSound('arrow_hit');
+      addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'hit');
+      addLog(`${tLabel} is caught in ${aLabel}'s webbing! (Action + DC ${_webDC} STR to break free)`, 'alert');
+      showFloatingDamage(target, 'WEBBED', '#e6e6ff');
+      onSettled?.();
+    }, D + FAST_ROLL_MS);
     return;
   }
 
@@ -3185,7 +3193,7 @@ renderer.domElement.addEventListener('click', e => {
           }
           animatePath(curU, path, () => {
             turnMovedFt += movedFt;
-            addLog(`${unitLabel(curU)} moves ${movedFt} ft`, 'move');
+            addLog(`${unitLabel(curU)} moves ${movedFt} ft`, 'walk');
             _checkProximityAggro(curU);
             _checkHidePerception(curU);
             const remaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
@@ -5450,7 +5458,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         ) * GRID_SQUARE_FEET;
         if (movedFt > 0) {
           turnMovedFt += movedFt;
-          addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'move');
+          addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'walk');
         }
         if (movTarget && units.includes(movTarget)) {
           const tdx = movTarget.grp.position.x - u.grp.position.x;
@@ -5720,7 +5728,7 @@ function runAITurn(u) {
           Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE
         ) * GRID_SQUARE_FEET;
         turnMovedFt += movedFt;
-        addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'move');
+        addLog(`${unitLabel(u)} moves ${movedFt} ft`, 'walk');
         if (faceUnit && units.includes(faceUnit)) {
           const fdx = faceUnit.grp.position.x - u.grp.position.x;
           const fdz = faceUnit.grp.position.z - u.grp.position.z;
