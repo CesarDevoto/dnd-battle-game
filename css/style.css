@@ -5774,6 +5774,13 @@ td.bst-col-retired { color: #343228 !important; }
   color: #ffb0a8;
   text-shadow: none;
 }
+/* No condition to shake — the slot still holds its place (so the player always knows where
+   the save lives) but reads as dormant rather than urgent. */
+.hb-save-throw.hb-save-idle {
+  color: #7a5f5c;
+  text-shadow: none;
+  animation: none;
+}
 @keyframes hb-save-pulse {
   0%, 100% { opacity: 0.82; }
   50%      { opacity: 1; }

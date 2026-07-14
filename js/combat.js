@@ -2169,11 +2169,15 @@ function _formatLog(text) {
   return esc.replace(_HERO_RE, n => `<b style="color:${_HERO_COLORS[n]}">${n}</b>`);
 }
 
-// Oldest entries are dropped past this. The log had no cap at all: every attack, roll,
-// move and spell appended a permanent <div> for the life of the tab, and each write then
-// forced a synchronous reflow of an ever-taller list. Automated combat produces dozens of
-// entries per round, so it grew without bound.
-const MAX_LOG_ENTRIES = 300;
+// Oldest entries are dropped past this. The log had no cap at all: every attack, roll, move
+// and spell appended a permanent <div> for the life of the TAB, and each write forced a
+// reflow of an ever-taller list.
+//
+// 300 was far too tight — a single long automated fight blows past it, and the player scrolls
+// up to find the start of the battle already gone. The cap exists to stop unbounded growth
+// across a whole session, not to truncate the fight you are currently reading. A few thousand
+// small divs costs almost nothing; keep this generous.
+const MAX_LOG_ENTRIES = 1500;
 
 export function addLog(text, cls = '') {
   const el = document.getElementById('log-entries');
@@ -4174,7 +4178,15 @@ const _ABILITY_HANDLERS = {
 // letter row (KeyQ..KeyY) is also where autoAssignHotbarSlots seeds each hero's
 // signature abilities on level-up — Ready Action was moved off KeyR to Digit4
 // so R can join the auto-fill order.
-const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'Digit1', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT']);
+//
+// Digit1 is RESERVED for the SAVING THROW slot and is deliberately NOT in here. It was
+// assignable at first, with the save button temporarily taking the slot over — but a player
+// who had dragged a spell there would watch it get displaced mid-fight, which is exactly the
+// kind of thing you can't have happen on the one turn where the bar matters. The slot is now
+// permanently the save's, and shows a greyed placeholder when the hero has no condition to
+// shake. assignHotbarSlot() rejects anything aimed at it, so the drag-drop can't reach it.
+const SAVE_SLOT = 'Digit1';
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT']);
 
 // The QWERTY letter-row slots the auto-assigner fills, in order (Q→W→E→R→T→Y).
 const AUTO_FILL_SLOTS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY'];
@@ -4434,27 +4446,31 @@ function _rebuildHotbar(u) {
   // (fire_bolt→Q, then each level's new spell/ability), then bind every slot —
   // both the auto-seeded ones and any the player dragged in from the Skills &
   // Spells window. autoAssign is non-destructive, so manual arrangements stay put.
+  // Digit1 is the reserved SAVING THROW slot now. Any ability a hero had bound there from
+  // before that rule existed gets dropped, so it can't fight the save button for the slot;
+  // autoAssignHotbarSlots re-seeds it into a free QWERTY slot on the next pass.
+  if (u.hotbarSlots?.[SAVE_SLOT]) delete u.hotbarSlots[SAVE_SLOT];
+
   autoAssignHotbarSlots(u);
   for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
 
-  // ── SAVING THROW slot ───────────────────────────────────────────────────────
-  // Only exists while the hero is held by an action-save (web, grapple, …). It takes over
-  // Digit1 for the duration, which is safe precisely BECAUSE the condition locks the turn:
-  // every other slot is greyed out anyway, so nothing usable is being displaced. Bound LAST
-  // so it wins over whatever the player had dragged onto that slot.
-  //
-  // This is the whole reason the save isn't auto-rolled — spending your Action to struggle
-  // has to be the player's call.
-  if (u.actionSave) {
+  // ── SAVING THROW slot (permanently Digit1) ──────────────────────────────────
+  // Always bound, so its position never moves and the player learns where it lives — greyed
+  // out with no condition to shake, red and live the moment something grabs them. This is the
+  // whole reason the save isn't auto-rolled: spending your Action to struggle is the player's
+  // call, so they need a button that is reliably THERE.
+  {
     const s = u.actionSave;
-    bindHotkey('Digit1', false,
-      `<span class="hb-save-throw">${s.label ?? 'SAVING<br>THROW'}` +
-      `<span class="hb-save-dc">${s.stat.toUpperCase()} DC ${s.dc}</span></span>`,
+    bindHotkey(SAVE_SLOT, false,
+      s
+        ? `<span class="hb-save-throw">${s.label ?? 'SAVING<br>THROW'}` +
+          `<span class="hb-save-dc">${s.stat.toUpperCase()} DC ${s.dc}</span></span>`
+        : `<span class="hb-save-throw hb-save-idle">SAVING<br>THROW</span>`,
       () => {
         const curU = turnOrder[turnIndex];
-        if (curU !== u) return;
+        if (curU !== u || !u.actionSave) return;
         _attemptActionSave(u);
       },
       () => {
