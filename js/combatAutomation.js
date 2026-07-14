@@ -25,8 +25,10 @@ const CATEGORIES = [
           { value: 'nearest',         label: 'Nearest enemy'        },
           { value: 'most_dangerous',  label: 'Most dangerous enemy' },
           { value: 'most_clustered',  label: 'Most clustered enemy' },
-          // Generic focus-fire: an enemy an ally is already engaging. (For Milo this is
-          // also a Sneak Attack setup, but 'sneak_possible' below covers that better.)
+          // Generic focus-fire: an enemy an ally is already engaging. Carries no mechanical
+          // bonus — this combat has no flanking — it just concentrates damage on whatever the
+          // frontline is holding. Milo never sees it (see optionsFor.halfling): for him it's
+          // strictly dominated by sneak_possible.
           { value: 'engaged_by_ally', label: 'Enemy in melee range of ally' },
           // Milo only: ANY foe that currently satisfies a Sneak Attack condition — ally
           // adjacent to it, OR Milo hidden. A superset of engaged_by_ally, and it tracks
@@ -47,6 +49,19 @@ const CATEGORIES = [
             { value: 'most_dangerous',   label: 'Most dangerous enemy'     },
             { value: 'most_clustered',   label: 'Most clustered enemy'     },
             { value: 'engaged_by_ally',  label: 'Enemy in melee range of ally' },
+          ],
+          // Milo gets sneak_possible INSTEAD OF engaged_by_ally, never both: sneak_possible
+          // is a strict superset (same ADJACENT_WU ally test, plus the hidden case), so for
+          // him engaged_by_ally can't select a target sneak_possible wouldn't. Offering both
+          // is a trap — it reads like two knobs but the lower one could only ever be dead
+          // weight below the upper. Other heroes keep engaged_by_ally as plain focus-fire,
+          // which for them has nothing to do with Sneak Attack.
+          halfling: [
+            { value: 'sneak_possible',  label: 'Enemy I can Sneak Attack', heroes: ['halfling'] },
+            { value: 'lowest_hp',       label: 'Lowest HP enemy'      },
+            { value: 'nearest',         label: 'Nearest enemy'        },
+            { value: 'most_dangerous',  label: 'Most dangerous enemy' },
+            { value: 'most_clustered',  label: 'Most clustered enemy' },
           ],
         },
         defaults: {
@@ -151,10 +166,12 @@ const CATEGORIES = [
           { value: 'dash',         label: 'Dash'         },
         ],
         optionsFor: {
+          // No Magic Missile here: it needs a target, so in the no-enemy-in-range branch
+          // it can never fire — it would only sit in the list burning a priority slot.
+          // Mage Armor stays: it's a self-buff, exactly the thing to cast with no foe up.
           elf: [
             { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
             { value: 'mage_armor',    label: 'Mage Armor'    },
-            { value: 'magic_missile', label: 'Magic Missile' },
             { value: 'dodge',         label: 'Dodge'         },
             { value: 'ready_action',  label: 'Ready Action'  },
             { value: 'end_turn',      label: 'End turn'      },
@@ -190,7 +207,7 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'ready_action', 'dodge', 'end_turn'],
+          elf:      ['use_potion', 'mage_armor', 'ready_action', 'dodge', 'end_turn'],
           dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
           human:    ['use_potion', 'defensive_stance', 'ready_action', 'dodge', 'end_turn'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'ready_action', 'dodge', 'end_turn'],
@@ -235,7 +252,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 14;   // 14: sneak_possible (Milo), owl_helped + helped_by_owl (Rasec)
+const TENDENCIES_VERSION = 15;   // 15: drop magic_missile from Rasec's no-enemy-in-range list; engaged_by_ally off Milo's target list (sneak_possible supersedes it)
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

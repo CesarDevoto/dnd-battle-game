@@ -43,10 +43,10 @@ const SPELL_DATA = [
     spellClass: 'Cleric',
     actionType: 'Action',
     range:      'Touch',
-    effect:     '1d8+2 HP',
+    effect:     '2d6+2 HP',
     effectNote: 'healing',
     conc:       false,
-    desc: 'A creature you touch regains 1d8 + 2 hit points. No effect on undead or constructs.',
+    desc: 'A creature you touch regains 2d6 + 2 hit points. No effect on undead or constructs.',
   },
   {
     name:       'Healing Word',

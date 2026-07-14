@@ -1082,7 +1082,7 @@ function castHeal(caster, target, spellKey) {
 
   const _onHealLand = () => {
     showFloatingDamage(target, `+${healed}`, '#44ff88');
-    addLog(`${unitLabel(caster)} heals ${unitLabel(target)} for ${healed} hp (${spell.name})`, 'heal');
+    addLog(`${unitLabel(caster)} heals ${unitLabel(target)} for ${healed} hp (${spell.name} · ${dmgBreakdown(healRoll)})`, 'heal');
   };
 
   if (spellKey === 'healing_word') {
@@ -3613,11 +3613,18 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
 //     and no way to end his turn.
 //   • the move ring — hideMoveRange() clears validTiles, so a hero interrupted mid-move
 //     comes back with heroMode 'move' but nothing clickable.
+//
+// The interrupted unit can also be the OWL, whose team is 'familiar', not 'blue' (it's its
+// own faction — see UNIT_TYPES.owl). Iffir's Help action is itself a readied-action trigger
+// ('owl_helped'), so the owl interrupting its own turn is a routine case, not an edge one.
+// A blue-only guard here left it with a cleared hotbar and no move ring for the rest of its
+// turn. _rebuildHotbar already routes familiars to _rebuildFamiliarHotbar, so let them through.
 function _restoreInterruptedTurn(saved) {
   endTurnBtn.disabled = saved.savedEndTurnDisabled ?? true;
 
   const u = saved.savedUnit;
-  if (!u || !units.includes(u) || u.team !== 'blue' || u.hp <= 0) return;
+  if (!u || !units.includes(u) || u.hp <= 0) return;
+  if (u.team !== 'blue' && !u.familiar) return;
 
   _rebuildHotbar(u);
 
@@ -4794,20 +4801,29 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'healing_word') {
         if (!allyWounded) { onSkip(); return; }
         turnAttacked = true;
-        const healRoll = Math.ceil(Math.random() * 4) + 3; // 1d4+3
+        // Roll from SPELLS, exactly as the manual cast does (castHealSpell). This used to
+        // hardcode 1d4+3 while the spell — and Leugren's own sheet — said 1d8+WIS, so he
+        // healed differently depending on who was driving him.
+        const hw       = SPELLS.healing_word;
+        const hwWisMod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.wis ?? 10) - 10) / 2);
+        const healRoll = roll({
+          sides:    hw.healSides,
+          count:    hw.healDice,
+          modifier: hw.healMod ?? hwWisMod,
+        });
         // Bug fix: this used to read the hero's base UNIT_TYPES hp (stale
         // once they've leveled up) instead of their real current maxHp,
         // capping — or even reducing — HP for anyone past their starting max.
         const maxHp    = allyWounded.maxHp ?? UNIT_TYPES[allyWounded.type]?.hp ?? allyWounded.hp;
         const before   = allyWounded.hp;
-        allyWounded.hp = Math.min(allyWounded.hp + healRoll, maxHp);
+        allyWounded.hp = Math.min(allyWounded.hp + healRoll.total, maxHp);
         const healed   = allyWounded.hp - before;
         allyWounded.barShowUntil = Date.now() + 4000;
         hideUndoBtn();
         updateCombatStatus();
         playHealingWordEffect(u, allyWounded, () => {
           showFloatingDamage(allyWounded, `+${healed}`, '#44ff88');
-          addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP`, 'heal');
+          addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP (${dmgBreakdown(healRoll)})`, 'heal');
           buildTurnList();
           onDone();
         });
@@ -4828,16 +4844,16 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         turnAttacked = true;
         u.spellSlots--;
         const cw       = SPELLS.cure_wounds;
-        const healRoll = Math.ceil(Math.random() * (cw.healSides ?? 8)) + (cw.healMod ?? 2); // 1d8+2
+        const healRoll = roll({ sides: cw.healSides, count: cw.healDice, modifier: cw.healMod });
         const before   = critAlly.hp;
-        critAlly.hp    = Math.min(critAlly.hp + healRoll, critAlly.maxHp);
+        critAlly.hp    = Math.min(critAlly.hp + healRoll.total, critAlly.maxHp);
         const healed   = critAlly.hp - before;
         critAlly.barShowUntil = Date.now() + 4000;
         hideUndoBtn();
         updateCombatStatus();
         playHealingWordEffect(u, critAlly, () => {
           showFloatingDamage(critAlly, `+${healed}`, '#44ff88');
-          addLog(`${unitLabel(u)} casts Cure Wounds on ${unitLabel(critAlly)}, restoring ${healed} HP`, 'heal');
+          addLog(`${unitLabel(u)} casts Cure Wounds on ${unitLabel(critAlly)}, restoring ${healed} HP (${dmgBreakdown(healRoll)})`, 'heal');
           buildTurnList();
           onDone();
         });

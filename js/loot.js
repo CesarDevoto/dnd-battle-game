@@ -219,8 +219,14 @@ function _makeSprite(text, color) {
   c.fillText(text, PAD_X, cv.height / 2);
 
   const tex = new THREE.CanvasTexture(cv);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
   const spr = new THREE.Sprite(mat);
+
+  // depthTest:false alone isn't enough: the cave-roof blanket is a TRANSPARENT
+  // material (renderOrder 1), so with the default order 0 the label draws first
+  // and the blanket simply paints over it. A high renderOrder puts the label last
+  // in the transparent pass, above the blanket, water, fog and every other layer.
+  spr.renderOrder = 900;
 
   const worldH = 0.48;
   spr.scale.set((cv.width / cv.height) * worldH, worldH, 1);

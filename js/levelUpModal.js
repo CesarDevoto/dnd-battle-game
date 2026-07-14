@@ -29,7 +29,7 @@ const LEVEL_UNLOCKS = {
     4: [
       { name: 'Cure Wounds',
         imgSrc: 'assets/spells and skills/cure wounds.jpg',
-        desc: 'Touch · 1d8+2 HP restored · costs 1 spell slot' },
+        desc: 'Touch · 2d6+2 HP restored · costs 1 spell slot' },
     ],
   },
   human: {
