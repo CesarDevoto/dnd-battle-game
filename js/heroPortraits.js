@@ -178,8 +178,11 @@ export function updateHeroUI() {
       // ── Debuffs. Everything above is a buff; these are the bad ones, and they all carry
       // cond-debuff, which is what paints them red. Any future debuff goes here with that
       // class so the colour stays a rule rather than a per-badge decision.
-      if (u && u.webRestrained)
-        badges += `<span class="cond-badge cond-debuff cond-restrained">🕸 Restrained<span class="cond-turns">DC ${u.webRestrainDC ?? 12} STR</span></span>`;
+      // Action-save conditions (web/grapple/…) — generic, driven off u.actionSave, so any
+      // future one shows up here for free.
+      if (u && u.actionSave)
+        badges += `<span class="cond-badge cond-debuff cond-restrained">🕸 ${u.actionSave.name}` +
+                  `<span class="cond-turns">${u.actionSave.stat.toUpperCase()} DC ${u.actionSave.dc}</span></span>`;
 
       // Guarded: this runs for all 4 hero cards every frame, and `badges` is almost always
       // the identical string (usually ''). An unconditional innerHTML write re-parses the

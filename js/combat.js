@@ -969,7 +969,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
 }
 
 function showMoveRange(u, overrideFt) {
-  if (u.webStuck) { hideMoveRange(); return; }   // restrained by web this turn — speed 0
+  if (_saveImmobilizes(u)) { hideMoveRange(); return; }   // held by an unbroken action-save — speed 0
   _conformLayer = u.caveLayer ?? 'surface';
   const def      = UNIT_TYPES[u.type] ?? {};
   const remainFt = overrideFt !== undefined ? overrideFt : (def.speed ?? 30) - turnMovedFt;
@@ -1329,7 +1329,7 @@ function handleSpellBtnClick(spellKey) {
   const spell = SPELLS[spellKey];
   // Restrained: nothing at all this turn, not even a bonus action. turnAttacked (set by the
   // break-free struggle) already blocks the Action path, so this is what closes the bonus one.
-  if (u.webStuck) return;
+  if (_saveLocksTurn(u)) return;   // restrained/grappled: the save is the only legal action
   if (spell.actionType === 'action' && turnAttacked)      return;
   if (spell.actionType === 'bonus'  && turnBonusActioned) return;
 
@@ -1897,7 +1897,7 @@ function _teardownCombat() {
   hideSoulShardPrompt();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
-  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; u.webRestrained = false; u.webStuck = false; });
+  units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; u.actionSave = null; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
   meleeRangeRing.visible = false;
@@ -2338,6 +2338,77 @@ function atkBreakdown(r) {
   return `${adv}d100 rolled ${dieStr}, needed ≥ ${r.threshold}`;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  ACTION SAVES
+// ═════════════════════════════════════════════════════════════════════════════
+// A condition you spend your ACTION trying to shake off with a saving throw.
+//
+// This is deliberately split from the saves that already existed. There are two kinds:
+//   • REACTIVE  — forced on you, no choice: spider venom, a fireball's DEX save, a
+//     concentration check. These auto-roll at the moment they happen. Unchanged.
+//   • ACTION    — you decide whether to spend your turn on it: tearing out of a web,
+//     escaping a grapple. Auto-rolling these robs the player of the decision, so they
+//     get a hotbar button instead.
+//
+// Generic on purpose. The spider's web is the first, but grapple / entangle / paralysis /
+// being swallowed are all the same shape — set u.actionSave and a SAVING THROW button
+// appears on the bar; a successful save clears it.
+//
+//   u.actionSave = {
+//     key,        // identity ('web'), for effects that key off the condition
+//     name,       // badge text ('Restrained')
+//     label,      // hotbar button text — may contain <br>
+//     stat,       // ability score for the save ('str')
+//     dc,
+//     immobilize, // true → speed 0 while it holds
+//     locksTurn,  // true → this is the ONLY action available; everything else greys out
+//     escapeMsg,  // log line on success ('tears free of the webbing!')
+//     stuckMsg,   // log line on failure
+//     onEscape,   // optional fn(u) on a successful save
+//   }
+export function setActionSave(u, save) {
+  if (!u) return;
+  u.actionSave = save;
+}
+export function clearActionSave(u) {
+  if (u) u.actionSave = null;
+}
+// Is this unit barred from acting/moving by a condition it hasn't shaken yet?
+function _saveLocksTurn(u)  { return !!u?.actionSave?.locksTurn; }
+function _saveImmobilizes(u) { return !!u?.actionSave?.immobilize; }
+
+// Spend the Action attempting the save. Shared by the hotbar button (player) and by the
+// automated-hero / enemy-AI turn (which have no UI to click).
+function _attemptActionSave(u) {
+  const s = u?.actionSave;
+  if (!s || turnAttacked || isAnimating) return;
+
+  turnAttacked = true;   // the attempt costs your Action whether it lands or not
+  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[s.stat] ?? 10) - 10) / 2);
+  const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal');
+  const label = unitLabel(u);
+
+  showRoll(`${label} · ${s.name} (${s.stat.toUpperCase()} DC ${s.dc})`, res, { autoDismiss: false });
+
+  if (res.isSave) {
+    clearActionSave(u);
+    s.onEscape?.(u);
+    addLog(`${label} ${s.escapeMsg ?? 'breaks free!'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'move');
+    showFloatingDamage(u, 'FREE!', '#88ff88');
+    // Speed is back. They spent the Action, but they can still walk with what's left.
+    if (u.team === 'blue' && turnOrder[turnIndex] === u) {
+      heroMode = 'move';
+      showMoveRange(u);
+    }
+  } else {
+    addLog(`${label} ${s.stuckMsg ?? 'fails to break free'} (${saveBreakdown(res, s.stat)}) — Action spent`, 'move');
+    showFloatingDamage(u, 'STILL HELD', '#ff5555');
+  }
+
+  updateCombatStatus();
+  if (u.team === 'blue') _rebuildHotbar(u);
+}
+
 function saveBreakdown(r, saveType) {
   const label  = (saveType ?? 'con').toUpperCase();
   const adv    = r.mode === 'advantage' ? 'ADV ' : r.mode === 'disadvantage' ? 'DIS ' : '';
@@ -2507,13 +2578,22 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     return;
   }
 
-  // Web (giant spider): a hit deals no damage — it ensnares the target, which rolls
-  // DC <restrainDC> STR at the start of its next turn to break free.
+  // Web (giant spider): a hit deals no damage — it ensnares the target, who must SPEND AN
+  // ACTION on their turn attempting a STR save to tear loose (see setActionSave).
   if (atk.web) {
-    target.webRestrained = true;
-    target.webRestrainDC = atk.restrainDC ?? 8;
+    setActionSave(target, {
+      key:        'web',
+      name:       'Restrained',
+      label:      'BREAK<br>FREE',
+      stat:       'str',
+      dc:         atk.restrainDC ?? 12,
+      immobilize: true,   // speed 0 while it holds
+      locksTurn:  true,   // struggling is the ONLY thing they may do
+      escapeMsg:  'tears free of the webbing!',
+      stuckMsg:   'struggles, still caught in the web',
+    });
     playWebEffect(attacker, target);
-    addLog(`${tLabel} is caught in ${aLabel}'s webbing! (DC ${target.webRestrainDC} STR to break free)`, 'move');
+    addLog(`${tLabel} is caught in ${aLabel}'s webbing! (Action + DC ${target.actionSave.dc} STR to break free)`, 'move');
     showFloatingDamage(target, 'WEBBED', '#e6e6ff');
     onSettled?.();
     return;
@@ -4174,7 +4254,8 @@ export function getAbilityActionType(abilityKey) {
 // Skills & Spells window to grey out boxes for the currently active hero.
 export function isAbilityAvailableNow(abilityKey) {
   // Still tangled in webbing — struggling was the whole turn. Everything greys out.
-  if (turnOrder[turnIndex]?.webStuck) return false;
+  const _cu = turnOrder[turnIndex];
+  if (_saveLocksTurn(_cu) && abilityKey !== 'action_save') return false;
   return _ABILITY_HANDLERS[abilityKey]?.isAvailable?.() ?? true;
 }
 
@@ -4262,7 +4343,7 @@ function _rebuildHotbar(u) {
       else { heroMode = null; }
       updateCombatStatus();
     }, () => {
-      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      if (!selectedTarget || turnAttacked || _saveLocksTurn(turnOrder[turnIndex]) || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return false;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
@@ -4284,7 +4365,7 @@ function _rebuildHotbar(u) {
       else { heroMode = null; }
       updateCombatStatus();
     }, () => {
-      if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
+      if (!selectedTarget || turnAttacked || _saveLocksTurn(turnOrder[turnIndex]) || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return false;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
@@ -4300,8 +4381,8 @@ function _rebuildHotbar(u) {
   const spellPanel = document.getElementById('blue-spell-panel');
   if (spellPanel) {
     buildHeroSpellPanel(u, spellPanel, {
-      turnAttacked,
-      turnBonusActioned,
+      turnAttacked: turnAttacked || _saveLocksTurn(u),
+      turnBonusActioned: turnBonusActioned || _saveLocksTurn(u),
       onSpellBtn:    handleSpellBtnClick,
       onRageBtn:     handleRageBtnClick,
       onElfSpellBtn: handleElfSpellBtnClick,
@@ -4328,7 +4409,7 @@ function _rebuildHotbar(u) {
       },
       () => {
         const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_readyCtx;
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_readyCtx && !_saveLocksTurn(curU);
       },
       'action'
     );
@@ -4340,7 +4421,7 @@ function _rebuildHotbar(u) {
       () => _useHealingPotion(u),
       () => {
         const curU = turnOrder[turnIndex];
-        return !!curU && curU.team === 'blue' && !isAnimating && !turnBonusActioned && !!_heroPotion(curU);
+        return !!curU && curU.team === 'blue' && !isAnimating && !turnBonusActioned && !!_heroPotion(curU) && !_saveLocksTurn(curU);
       },
       'bonus'
     );
@@ -4356,6 +4437,32 @@ function _rebuildHotbar(u) {
   autoAssignHotbarSlots(u);
   for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
+  }
+
+  // ── SAVING THROW slot ───────────────────────────────────────────────────────
+  // Only exists while the hero is held by an action-save (web, grapple, …). It takes over
+  // Digit1 for the duration, which is safe precisely BECAUSE the condition locks the turn:
+  // every other slot is greyed out anyway, so nothing usable is being displaced. Bound LAST
+  // so it wins over whatever the player had dragged onto that slot.
+  //
+  // This is the whole reason the save isn't auto-rolled — spending your Action to struggle
+  // has to be the player's call.
+  if (u.actionSave) {
+    const s = u.actionSave;
+    bindHotkey('Digit1', false,
+      `<span class="hb-save-throw">${s.label ?? 'SAVING<br>THROW'}` +
+      `<span class="hb-save-dc">${s.stat.toUpperCase()} DC ${s.dc}</span></span>`,
+      () => {
+        const curU = turnOrder[turnIndex];
+        if (curU !== u) return;
+        _attemptActionSave(u);
+      },
+      () => {
+        const curU = turnOrder[turnIndex];
+        return curU === u && !!u.actionSave && !turnAttacked && !isAnimating;
+      },
+      'action',
+    );
   }
   // clearAllHotkeys() above marks every non-permanent slot hb-disabled; slots
   // just rebound above (like Digit5/End Turn, which has no rangeFn) never get
@@ -4441,29 +4548,11 @@ export function activateTurn(index) {
     turnReactionUsed = false;
     sneakAttackUsed = false;
     u.dodging       = false;
-    // Web restraint: struggling IS the whole turn. At the start of its turn a webbed unit
-    // rolls DC 12 STR; whether it breaks free or not, it can take no other action and cannot
-    // move. turnAttacked=true is what enforces that — every action gate in this file already
-    // checks it — and webStuck zeroes movement (see the hideMoveRange guard). Freeing
-    // yourself only pays off on your NEXT turn.
-    if (u.webRestrained) {
-      const strMod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.str ?? 10) - 10) / 2);
-      const dc     = u.webRestrainDC ?? 12;
-      const res    = rollSave(strMod, dc);
-      turnAttacked = true;   // no action either way — the struggle consumes the turn
-      showRoll(`${unitLabel(u)} · Break Free (STR DC ${dc})`, res, { autoDismiss: false });
-      if (res.isSave) {
-        u.webRestrained = false; u.webStuck = false;
-        addLog(`${unitLabel(u)} tears free of the webbing! (${saveBreakdown(res, 'str')}) — Action spent, but they can move`, 'move');
-        showFloatingDamage(u, 'FREE!', '#88ff88');
-      } else {
-        u.webStuck = true;
-        addLog(`${unitLabel(u)} struggles, still caught in the web (${saveBreakdown(res, 'str')})`, 'move');
-        showFloatingDamage(u, 'RESTRAINED', '#ff5555');
-      }
-    } else {
-      u.webStuck = false;
-    }
+    // NOTE: action saves (the web, and anything shaped like it) are deliberately NOT rolled
+    // here. They cost the unit its Action and the PLAYER decides whether to spend it — see
+    // the SAVING THROW hotbar slot and _attemptActionSave(). Reactive saves (venom, a
+    // fireball's DEX save, concentration) are forced on you and still auto-roll where they
+    // happen; that distinction is the whole point of the split.
     hideSoulShardPrompt();
     // If this hero's delayed action never fired, it expires at turn start
     if (u.team === 'blue' && _readied.has(u)) {
@@ -4515,11 +4604,13 @@ export function activateTurn(index) {
     if (combatPhase) {
       heroMode = null;
       if (u.team === 'red') {
-        // webStuck: the failed break-free struggle already consumed the turn. Nothing left to
-        // do but end it — runAITurn would otherwise try to move/attack with an action it no
-        // longer has, and could hang the turn waiting on a step that never resolves.
-        if (u.dormant || u.webStuck) {
-          setTimeout(() => doEndTurn(), u.webStuck ? 900 : 60);
+        // An enemy held by a turn-locking action-save has no UI to click, so it spends its
+        // Action on the save itself and then ends the turn. Handing it to runAITurn would
+        // have it try to move/attack with an Action it cannot use, and could hang the round.
+        if (u.dormant) {
+          setTimeout(() => doEndTurn(), 60);
+        } else if (_saveLocksTurn(u)) {
+          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), 900); }, 300);
         } else {
           runAITurn(u);
         }
@@ -4532,12 +4623,15 @@ export function activateTurn(index) {
           heroMode = 'move';
           showMoveRange(u);
         }
-      } else if (u.webStuck) {
-        // Restrained hero. Manual or automated, there is no action available; an automated
-        // hero must not stall the round waiting for one. Manual players get the End Turn
-        // button (and the red RESTRAINED badge) and a beat to read the log.
-        if (isAutomated()) setTimeout(() => doEndTurn(), 900);
-        else               endTurnBtn.disabled = false;
+      } else if (_saveLocksTurn(u)) {
+        // Hero held by a web/grapple/etc. MANUAL: the SAVING THROW button is the one legal
+        // action — hand them the bar and let them choose to spend it (that choice is the
+        // whole point; auto-rolling it takes the decision away). AUTOMATED: no one is there
+        // to click, so roll it for them, then end the turn.
+        endTurnBtn.disabled = false;
+        if (isAutomated()) {
+          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), 1100); }, 400);
+        }
       } else if (isAutomated()) {
         _runAutomatedHeroTurn(u);
       } else {

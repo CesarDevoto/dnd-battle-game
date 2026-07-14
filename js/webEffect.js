@@ -1,6 +1,6 @@
 // js/webEffect.js — giant spider's Web attack visual: a white ball spat at the target, then
 // a web splayed FLAT ON THE GROUND beneath it — a disk, not a billboard — that stays while
-// the target is restrained (target.webRestrained) and fades once it breaks free.
+// the target is restrained (target.actionSave.key === 'web') and fades once it breaks free.
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getGroundHeight, caveLayersActive } from './terrain.js';
@@ -160,10 +160,10 @@ export function playWebEffect(from, to) {
       ball.visible = false;
       // Web clings to the ground under the target while restrained, then fades once free.
       _groundWeb(web, to);
-      if (to.webRestrained) web.material.opacity = Math.min(0.85, web.material.opacity + 0.07);
+      if (to.actionSave?.key === 'web') web.material.opacity = Math.min(0.85, web.material.opacity + 0.07);
       else                  web.material.opacity -= 0.035;
     }
-    if (t >= FLY && !to.webRestrained && web.material.opacity <= 0) {
+    if (t >= FLY && !to.actionSave?.key === 'web' && web.material.opacity <= 0) {
       scene.remove(ball); scene.remove(web);
       ball.material.dispose(); web.material.dispose();
       web.geometry.dispose();

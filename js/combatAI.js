@@ -55,7 +55,7 @@ export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, at
   // let the spider ALSO spit web ~50% of the time when in melee (if the target isn't
   // already ensnared and there's line of sight), instead of biting.
   const webA = atks.find(a => a.web);
-  const canWeb = webA && !target.webRestrained &&
+  const canWeb = webA && !target.actionSave &&
     dist <= atkRangeWU(webA.range) &&
     losBetween(u, target);
 

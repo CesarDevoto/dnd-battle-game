@@ -338,9 +338,10 @@ export const UNIT_TYPES = {
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'dex',
         poison: { saveStat: 'con', saveDC: 11, dice: 2, sides: 8 },
         note: 'DC 11 CON or 2d8 poison dmg' },
-      // Ranged web: dex(+3)+prof(+2) = +5 to hit. No damage — restrains on hit. A restrained
-      // unit can do NOTHING but struggle: it rolls DC 12 STR at the start of its turn, and
-      // both outcomes cost it the whole turn (see the webRestrained block in turn start).
+      // Ranged web: dex(+3)+prof(+2) = +5 to hit. No damage — restrains on hit. Restrained is
+      // an ACTION SAVE (setActionSave in combat.js): the victim can do nothing but SPEND ITS
+      // ACTION on a DC 12 STR save to tear loose, via the SAVING THROW hotbar button. It is
+      // deliberately not auto-rolled — whether to burn the turn struggling is the player's call.
       { name: 'Web', type: 'ranged', range: 40, statMod: 'dex', web: true, restrainDC: 12,
         note: 'Restrain on hit; DC 12 STR to break free' },
     ],

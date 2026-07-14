@@ -5750,6 +5750,34 @@ td.bst-col-retired { color: #343228 !important; }
   line-height: 1.15;
   letter-spacing: 0.8px;
 }
+
+/* Saving-throw slot — only present while an action-save (web/grapple/…) holds the hero.
+   Red like the debuff badge it corresponds to, and it pulses, because while it is on the bar
+   it is the ONLY legal action they have. */
+.hb-save-throw {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: #ff7a70;
+  text-shadow: 0 0 8px rgba(255, 60, 50, 0.65);
+  white-space: normal;
+  line-height: 1.1;
+  letter-spacing: 0.6px;
+  animation: hb-save-pulse 1.2s ease-in-out infinite;
+}
+.hb-save-dc {
+  font-size: 0.42rem;
+  letter-spacing: 0.3px;
+  opacity: 0.85;
+  color: #ffb0a8;
+  text-shadow: none;
+}
+@keyframes hb-save-pulse {
+  0%, 100% { opacity: 0.82; }
+  50%      { opacity: 1; }
+}
 .hb-sprint {
   font-size: 0.48rem;
   letter-spacing: 0.5px;
