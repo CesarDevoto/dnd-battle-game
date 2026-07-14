@@ -8,7 +8,7 @@ import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive, layersCanSee } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -631,24 +631,40 @@ const LOS_STEPS    = 12;    // terrain height samples along the ray
 
 // Returns true if terrain rises above the eye-level line between the two points.
 // Catches cliff walls and raised ridges that the prop raycaster never sees.
-function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
+//
+// `layer` picks WHICH surface to sample in a cave zone. This used to be hard-wired to
+// getTerrainHeight — the CARVED floor — which is right for two units down in a tunnel but
+// wrong for two units up on the blanket: it sampled the tunnel floor far below them, so no
+// ridge ever registered and surface units could see straight through hills that had a tunnel
+// running under them. getGroundHeight samples whichever surface the pair is actually on.
+function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY, layer) {
   for (let i = 1; i < LOS_STEPS; i++) {
     const t  = i / LOS_STEPS;
-    const th = getTerrainHeight(ax + (tx - ax) * t, az + (tz - az) * t);
+    const th = getGroundHeight(ax + (tx - ax) * t, az + (tz - az) * t, layer);
     if (th > fromY + (toY - fromY) * t) return true;
   }
   return false;
 }
 
-export function hasLineOfSight(ax, az, tx, tz) {
+// aLayer/tLayer are the cave layers of the two endpoints ('surface' | 'under'). They default
+// to 'surface', which is a no-op outside cave zones (getGroundHeight falls through to
+// getTerrainHeight when layers are inactive). Prefer unitsHaveLOS() below wherever both ends
+// are units — it fills these in for you and is the only form that is correct in a cave.
+export function hasLineOfSight(ax, az, tx, tz, aLayer = 'surface', tLayer = 'surface') {
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
 
-  const fromY = getTerrainHeight(ax, az) + LOS_EYE_H;
-  const toY   = getTerrainHeight(tx, tz) + LOS_EYE_H;
+  // Solid rock between them: someone on the blanket cannot see someone in the tunnel below,
+  // unless the one underground is standing in a mouth and so open to the sky.
+  if (!layersCanSee(aLayer, ax, az, tLayer, tx, tz)) return false;
+
+  // Past that gate the two are on the same walkable surface (or at a merged mouth, where the
+  // surfaces coincide and either sample gives the same answer), so one layer samples both.
+  const fromY = getGroundHeight(ax, az, aLayer) + LOS_EYE_H;
+  const toY   = getGroundHeight(tx, tz, tLayer) + LOS_EYE_H;
 
   // Terrain check: cheap height sampling along the ray
-  if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY)) return false;
+  if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY, aLayer)) return false;
 
   // Prop check: raycaster against placed scene objects
   if (!losBlockerMeshes.length) return true;
@@ -661,6 +677,20 @@ export function hasLineOfSight(ax, az, tx, tz) {
   // Any hit at or below the canopy threshold blocks LOS; hits above it are foliage overhead
   const ceilY = Math.max(fromY, toY) + LOS_CANOPY_Y;
   return !_losRay.intersectObjects(losBlockerMeshes, true).some(h => h.point.y <= ceilY);
+}
+
+// Layer-aware LOS between two UNITS — the form to use anywhere both ends are units, which is
+// every LOS test in the game (attack validity, AI targeting, readied triggers, hide checks).
+// The bare hasLineOfSight(x,z,x,z) call defaults both ends to 'surface' and so cannot tell a
+// hero in a tunnel from one on the hill above it; this reads each unit's live caveLayer,
+// which main.js keeps current every frame.
+export function unitsHaveLOS(a, b) {
+  if (!a?.grp || !b?.grp) return false;
+  return hasLineOfSight(
+    a.grp.position.x, a.grp.position.z,
+    b.grp.position.x, b.grp.position.z,
+    a.caveLayer ?? 'surface', b.caveLayer ?? 'surface',
+  );
 }
 
 // True when a conscious blue ally (not the attacker) is within 3 WU of target (covers diagonal adjacency)
@@ -998,8 +1028,7 @@ function showAttackTargets(u) {
     if (meleeA && dist <= atkTriggerWU(meleeA)) {
       chosenAtk = meleeA; color = 0xCC6644;  // orange — melee
     } else if (rangdA && atkHasQty(u, rangdA) && dist <= atkRangeWU(rangdA.range) &&
-               hasLineOfSight(u.grp.position.x, u.grp.position.z,
-                              enemy.grp.position.x, enemy.grp.position.z)) {
+               unitsHaveLOS(u, enemy)) {
       chosenAtk = rangdA; color = 0x22ccaa;  // teal — ranged
     }
     if (!chosenAtk || ri >= MAX_ATK_RINGS) continue;
@@ -1141,7 +1170,7 @@ function showSacredFlameTargets(caster) {
     if (ri >= MAX_ATK_RINGS) return;
     const dx = enemy.grp.position.x - ux, dz = enemy.grp.position.z - uz;
     if (Math.sqrt(dx * dx + dz * dz) > rangeWU) return;
-    if (!hasLineOfSight(ux, uz, enemy.grp.position.x, enemy.grp.position.z)) return;
+    if (!unitsHaveLOS(caster, enemy)) return;
     const ring = atkRings[ri++];
     ring.material.color.set(0xffcc33);
     ring.position.set(enemy.grp.position.x, enemy.grp.position.y + 0.07, enemy.grp.position.z);
@@ -1231,7 +1260,7 @@ function handleSneakAttackBtnClick() {
   if (meleeA && dist <= atkTriggerWU(meleeA)) {
     atk = meleeA;
   } else if (rangedA && dist <= atkRangeWU(rangedA.range) &&
-             hasLineOfSight(ux, uz, tx, tz)) {
+             unitsHaveLOS(u, selectedTarget)) {
     atk = rangedA;
   }
   if (!atk) return;
@@ -1407,7 +1436,7 @@ function activateHide() {
   // even if an enemy would otherwise have line of sight.
   const hasEnemyLOS = !_inOwnSmoke(u) && units.some(e =>
     e.team === 'red' && e.hp > 0 && e.aggro &&
-    hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz)
+    unitsHaveLOS(e, u)
   );
   if (hasEnemyLOS) {
     addLog(`${unitLabel(u)}: Can't hide — enemies have line of sight!`, 'dmg');
@@ -1476,7 +1505,7 @@ function _checkHidePerception(hero) {
   const hx = hero.grp.position.x, hz = hero.grp.position.z;
   for (const e of units) {
     if (e.team !== 'red' || e.hp <= 0 || !e.aggro) continue;
-    if (!hasLineOfSight(e.grp.position.x, e.grp.position.z, hx, hz)) continue;
+    if (!unitsHaveLOS(e, hero)) continue;
     const def        = UNIT_TYPES[e.type] ?? {};
     const wisMod     = Math.floor(((def.abilities?.wis ?? 10) - 10) / 2);
     const dx = hx - e.grp.position.x, dz = hz - e.grp.position.z;
@@ -1575,7 +1604,7 @@ function showMagicMissileTargets(caster) {
     if (ri >= MAX_ATK_RINGS) return;
     const dx = enemy.grp.position.x - ux, dz = enemy.grp.position.z - uz;
     if (Math.sqrt(dx * dx + dz * dz) > rangeWU) return;
-    if (!hasLineOfSight(ux, uz, enemy.grp.position.x, enemy.grp.position.z)) return;
+    if (!unitsHaveLOS(caster, enemy)) return;
     const ring = atkRings[ri++];
     ring.material.color.set(0x9944ff);
     ring.position.set(enemy.grp.position.x, enemy.grp.position.y + 0.07, enemy.grp.position.z);
@@ -2652,8 +2681,7 @@ function showTargetMarker(enemy) {
     const dx   = enemy.grp.position.x - u.grp.position.x;
     const dz   = enemy.grp.position.z - u.grp.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    const los  = hasLineOfSight(u.grp.position.x, u.grp.position.z,
-                                enemy.grp.position.x, enemy.grp.position.z);
+    const los  = unitsHaveLOS(u, enemy);
     const eligible = (def.attacks ?? [])
       .filter(a => dist <= atkTriggerWU(a) && (a.type === 'melee' || (los && atkHasQty(u, a))))
       .sort((a, b) => a.range - b.range);
@@ -2806,7 +2834,7 @@ function _cycleOOCTarget() {
     return heroes.some(h => {
       const dx = en.grp.position.x - h.grp.position.x, dz = en.grp.position.z - h.grp.position.z;
       if (dx * dx + dz * dz > OOC_TARGET_RANGE * OOC_TARGET_RANGE) return false;
-      return hasLineOfSight(h.grp.position.x, h.grp.position.z, en.grp.position.x, en.grp.position.z);
+      return unitsHaveLOS(h, en);
     });
   });
   if (!visible.length) { hideTargetMarker(); return; }
@@ -3460,10 +3488,7 @@ function _enemyInHeroLOS(enemy, hero) {
   const dz = enemy.grp.position.z - hero.grp.position.z;
   const dist = Math.sqrt(dx * dx + dz * dz);
   if (dist > rangeWU) return false;
-  return hasLineOfSight(
-    enemy.grp.position.x, enemy.grp.position.z,
-    hero.grp.position.x,  hero.grp.position.z
-  );
+  return unitsHaveLOS(enemy, hero);
 }
 
 function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
@@ -3799,7 +3824,7 @@ const _ABILITY_HANDLERS = {
       const _rangedA = _atks.find(a => a.type === 'ranged');
       const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
                       (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
-                       hasLineOfSight(ux, uz, ttx, ttz));
+                       unitsHaveLOS(curU, selectedTarget));
       if (!inRange) return false;
       return _allyAdjacentToTarget(curU, selectedTarget) || _isHiddenForSneak(curU);
     },
@@ -3881,8 +3906,7 @@ const _ABILITY_HANDLERS = {
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
+             unitsHaveLOS(curU, selectedTarget);
     },
   },
   fire_bolt: {
@@ -3914,8 +3938,7 @@ const _ABILITY_HANDLERS = {
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       return dist <= atkRangeWU(atk.range) &&
-             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
+             unitsHaveLOS(curU, selectedTarget);
     },
   },
   bless: {
@@ -3948,8 +3971,7 @@ const _ABILITY_HANDLERS = {
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
-             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                            selectedTarget.grp.position.x, selectedTarget.grp.position.z);
+             unitsHaveLOS(curU, selectedTarget);
     },
   },
   // Find Familiar — ritual summon, castable BOTH out of combat (from the Skills &
@@ -4192,8 +4214,7 @@ function _rebuildHotbar(u) {
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       return dist <= atkRangeWU(firstRanged.range) &&
-             hasLineOfSight(curU.grp.position.x, curU.grp.position.z,
-                            selectedTarget.grp.position.x, selectedTarget.grp.position.z) &&
+             unitsHaveLOS(curU, selectedTarget) &&
              atkHasQty(curU, firstRanged);
     }, 'action');
   } else {
@@ -4961,7 +4982,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
-        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
         castSacredFlame(u, enemyTarget, onDone);
         return;
       }
@@ -4987,7 +5008,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
-        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
         castMagicMissile(u, enemyTarget, onDone);
         return;
       }
@@ -5040,7 +5061,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         // Smoke & Mirrors: cover from his own cloud bypasses the LOS block
         const inEnemyLOS = !_inOwnSmoke(u) && units.some(e => {
           if (e.team !== 'red' || e.hp <= 0 || !e.aggro) return false;
-          return hasLineOfSight(e.grp.position.x, e.grp.position.z, ux, uz);
+          return unitsHaveLOS(e, u);
         });
         if (inEnemyLOS) { onSkip(); return; }
         const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
@@ -5100,7 +5121,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const rangdAtk = atks.find(a =>
           a.type === 'ranged' &&
           atkHasQty(u, a) &&
-          hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z) &&
+          unitsHaveLOS(u, enemyTarget) &&
           eDist <= atkRangeWU(a.longRange ?? a.range)
         );
         const atk = meleeAtk ?? rangdAtk;
@@ -5116,7 +5137,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         const eDist = Math.sqrt(edx * edx + edz * edz);
-        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
         if (eDist > atkRangeWU(atk.range)) { onSkip(); return; }
         _executeAttack(atk, onDone); return;
       }
@@ -5133,7 +5154,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (eDist > atkTriggerWU(atk)) { onSkip(); return; }
       } else {
         if (!atkHasQty(u, atk)) { onSkip(); return; }
-        if (!hasLineOfSight(u.grp.position.x, u.grp.position.z, enemyTarget.grp.position.x, enemyTarget.grp.position.z)) { onSkip(); return; }
+        if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
         if (eDist > atkRangeWU(atk.longRange ?? atk.range)) { onSkip(); return; }
       }
       _executeAttack(atk, onDone);
@@ -5203,7 +5224,13 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
       } else {
-        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, hasLineOfSight,
+        // Candidate TILES, not units — so this one keeps the coordinate LOS form. Bind the
+        // two layers into the closure: the tiles all belong to u's layer (validTiles is
+        // built for it), and the target sits on its own, so a hero can't score a kiting
+        // tile whose "clear shot" actually runs through the cave roof.
+        const _tileLOS = (kx, kz, tx2, tz2) => hasLineOfSight(
+          kx, kz, tx2, tz2, u.caveLayer ?? 'surface', movTarget.caveLayer ?? 'surface');
+        dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, _tileLOS,
                                u.type === 'elf' ? _fireBoltAtk() : null);
       }
       hideMoveRange();
@@ -5254,7 +5281,7 @@ function runAITurn(u) {
   if (u.stealthed && !_dungeonAwareEnemies.has(u)) {
     const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
     const spotted = heroes.some(h =>
-      hasLineOfSight(u.grp.position.x, u.grp.position.z, h.grp.position.x, h.grp.position.z)
+      unitsHaveLOS(u, h)
     );
     if (spotted) {
       _dungeonAwareEnemies.add(u);
@@ -5343,7 +5370,7 @@ function runAITurn(u) {
     } else {
       const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
       const spotted = heroes.some(h =>
-        hasLineOfSight(u.grp.position.x, u.grp.position.z, h.grp.position.x, h.grp.position.z)
+        unitsHaveLOS(u, h)
       );
       if (spotted) {
         _dungeonAwareEnemies.add(u);
@@ -5373,7 +5400,7 @@ function runAITurn(u) {
       return;
     }
 
-    const target = aiPickTarget(u, units, hasLineOfSight);
+    const target = aiPickTarget(u, units, unitsHaveLOS);
     if (!target) {
       setTimeout(doEndTurn, END_PAUSE);
       return;
@@ -5403,7 +5430,7 @@ function runAITurn(u) {
     // unaffected: one attack, no re-targeting, no mid-action movement.
     function doAttack(cb) {
       if (!units.includes(target)) { cb(); return; }
-      const opener = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      const opener = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, unitsHaveLOS);
       if (!opener) { cb(); return; }
 
       const def   = UNIT_TYPES[u.type] ?? {};
@@ -5451,7 +5478,7 @@ function runAITurn(u) {
       const nextAttack = () => {
         if (gone() || i >= seq.length) { cb(); return; }
 
-        const t = aiPickTarget(u, units, hasLineOfSight);
+        const t = aiPickTarget(u, units, unitsHaveLOS);
         if (!t) { cb(); return; }           // nobody left to hit
         foe = t;
 
@@ -5506,7 +5533,7 @@ function runAITurn(u) {
     // Spell-first, range-keeping, kiting behavior. Activated by aiStyle:'spellcaster'.
     function doSpellcastAttack(cb) {
       if (!units.includes(target)) { cb(); return; }
-      const atk = aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      const atk = aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, atkRangeWU, unitsHaveLOS);
       if (!atk) { cb(); return; }
       showAttackTargets(u);
       setTimeout(() => {
@@ -5602,7 +5629,7 @@ function runAITurn(u) {
       }
 
       // Path 2: In ranged range (not melee) → throw javelin, then close to melee
-      const rangedAtk = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight);
+      const rangedAtk = aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, unitsHaveLOS);
       if (rangedAtk?.type === 'ranged') {
         showAttackTargets(u);
         setTimeout(() => {

@@ -1,6 +1,6 @@
 import { units, setUnitWalking } from './units.js';
 import { UNIT_TYPES, GROUND_SIZE, MILO_HIDE_DETECT_MULT } from './constants.js';
-import { rollInitiative, showCenterAlert, addLog, unitLabel } from './combat.js';
+import { rollInitiative, showCenterAlert, addLog, unitLabel, unitsHaveLOS } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
 import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
@@ -335,6 +335,17 @@ function _checkAggro() {
       const dx = hero.grp.position.x - enemy.grp.position.x;
       const dz = hero.grp.position.z - enemy.grp.position.z;
       if (dx * dx + dz * dz <= range * range) {
+        // Enemies must actually SEE the hero, not merely be near them. Aggro used to be a
+        // pure 2D distance test, so a creature up on the cave-roof blanket would pile onto a
+        // party walking the tunnel underneath it — through solid rock — and enemies aggroed
+        // straight through walls and boulders besides. unitsHaveLOS is layer-aware (it reads
+        // both units' caveLayer), which is the part that makes this work at all: the raw
+        // coordinate LOS samples the CARVED floor for both eyes and would have put the
+        // surface enemy's eye down inside the tunnel and reported a clear view.
+        //
+        // Deliberately AFTER the range test: LOS costs a terrain walk plus a prop raycast, so
+        // it only runs for the handful of pairs already close enough to matter.
+        if (!unitsHaveLOS(enemy, hero)) continue;
         if (hidden) window.dispatchEvent(new CustomEvent('milo:spotted', { detail: { hero } }));
         _triggerAggro(enemy);
         return;

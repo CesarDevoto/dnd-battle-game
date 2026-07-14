@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
-import { getTerrainHeight, setTerrainControlPoints, getTerrainControlPoints,
+import { getTerrainHeight, getUncarvedHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
 import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag, selectBarrierAt, clearBarrierSelection } from './barrierEditor.js';
@@ -56,7 +56,7 @@ function _markerColor(h) {
 }
 
 function _createMarker(cp, idx) {
-  const y = getTerrainHeight(cp.x, cp.z);
+  const y = _markerY(cp);
 
   // Sphere at centre
   const sphere = new THREE.Mesh(
@@ -107,6 +107,15 @@ function _removeMarker(idx) {
   _markers[idx] = null;
 }
 
+// Height to float a control point HANDLE at. Deliberately the UNCARVED rock surface rather
+// than getTerrainHeight: a control point whose centre falls inside a TRENCH would otherwise
+// have its handle parked down on the trench floor - buried inside the very mound it
+// controls, unclickable and undeletable. Outside a trench the two are identical, so no
+// existing handle moves.
+function _markerY(cp) {
+  return Math.max(getTerrainHeight(cp.x, cp.z), getUncarvedHeight(cp.x, cp.z));
+}
+
 function _rebuildAllMarkers() {
   // Dispose all existing
   _markers.forEach((_, i) => _removeMarker(i));
@@ -121,7 +130,7 @@ function _refreshMarkerPositions() {
   pts.forEach((cp, i) => {
     const m = _markers[i];
     if (!m) return;
-    const y = getTerrainHeight(cp.x, cp.z);
+    const y = _markerY(cp);
     m.sphere.position.set(cp.x, y + 0.4, cp.z);
     m.ring.position.set(cp.x, y + 0.08, cp.z);
     if (m.innerRing) m.innerRing.position.set(cp.x, y + 0.12, cp.z);
@@ -141,7 +150,7 @@ function _updateMarkerRadius(idx) {
   if (m.innerRing) { scene.remove(m.innerRing); m.innerRing.geometry.dispose(); m.innerRing.material.dispose(); m.innerRing = null; }
   const pr = cp.pr ?? 0;
   if (pr > 0) {
-    const y = getTerrainHeight(cp.x, cp.z);
+    const y = _markerY(cp);
     m.innerRing = new THREE.Mesh(
       new THREE.RingGeometry(Math.max(0.05, pr - 0.12), pr + 0.12, 64),
       new THREE.MeshBasicMaterial({ color: 0xffee44, transparent: true,
@@ -157,7 +166,7 @@ function _syncSelRing() {
   const pts = getTerrainControlPoints();
   if (_open && _markersVisible && _selectedIdx >= 0 && pts[_selectedIdx]) {
     const cp = pts[_selectedIdx];
-    const y  = getTerrainHeight(cp.x, cp.z);
+    const y  = _markerY(cp);
     _selRing.position.set(cp.x, y + 0.5, cp.z);
     _selRing.visible = true;
   } else {

@@ -20,7 +20,7 @@ import { UNIT_TYPES, MILO_HIDE_DETECT_MULT, WORLD_UNITS_PER_SQUARE } from './con
 // aggro ring beyond this range — so in high-fog / darkness zones he doesn't get
 // indefinite LOS. 10 grid squares.
 const MAX_SCOUT_RANGE = 10 * WORLD_UNITS_PER_SQUARE;
-import { combatPhase, addLog, hasLineOfSight } from './combat.js';
+import { combatPhase, addLog, unitsHaveLOS } from './combat.js';
 import { capDetectRange } from './zoneLoader.js';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
@@ -110,7 +110,7 @@ export function tickHideScout() {
     const showR = Math.min(base * 3, MAX_SCOUT_RANGE);
     let mesh = _rings.get(enemy);
     const visible = dx * dx + dz * dz <= showR * showR &&
-                    hasLineOfSight(milo.grp.position.x, milo.grp.position.z, cx, cz);
+                    unitsHaveLOS(milo, enemy);
     if (!visible) { if (mesh) _disposeRing(enemy, mesh); continue; }
 
     if (!mesh) {

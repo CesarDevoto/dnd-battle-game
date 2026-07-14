@@ -633,6 +633,25 @@ export function barrierBlocksLayer(mx, mz, layer) {
   return layer === 'under';                       // tunnel wall — blocks who's inside
 }
 
+// Can a unit on `layerA` at (ax,az) see a unit on `layerB` at (bx,bz), or is the cave roof
+// between them? Same layer → always yes (ordinary LOS/terrain rules still apply on top).
+//
+// Different layers → the blanket is solid rock between them, and the ONLY thing that decides
+// it is whether the unit that's UNDERGROUND has rock overhead. If it does, the roof blocks
+// the sightline no matter where the surface unit stands. If it doesn't — it's in a cave mouth
+// or out on open ground where the two surfaces merge — it's exposed to the sky and can be
+// seen, which is what should happen to a party walking out of a tunnel into daylight.
+//
+// The surface unit's OWN headroom is deliberately not consulted: rock BENEATH someone
+// standing on the blanket says nothing about whether they can see sideways to a mouth.
+export function layersCanSee(layerA, ax, az, layerB, bx, bz) {
+  if (!_layersActive) return true;
+  if (!layerA || !layerB || layerA === layerB) return true;
+  const ux = layerA === 'under' ? ax : bx;
+  const uz = layerA === 'under' ? az : bz;
+  return (getUncarvedHeight(ux, uz) - getTerrainHeight(ux, uz)) <= LAYER_MERGE_EPS;
+}
+
 // Per-frame transition. A surface unit drops under only by stepping into a punched
 // mouth; an under unit returns to the surface only once it's clear of the mouth AND
 // back where the two surfaces meet (the open-air lip), so it can't pop up mid-hill.

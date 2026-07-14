@@ -2,8 +2,15 @@ import { UNIT_TYPES } from './constants.js';
 
 // Pure AI query helpers — no combat module state, dependencies injected via params.
 // runAITurn() remains in combat.js as the orchestrator that wires state in.
+//
+// `losBetween(a, b)` is a UNIT-PAIR line-of-sight test (combat.js's unitsHaveLOS), not the
+// raw coordinate form. It has to be: in a cave zone the same x/z exists on two layers, so
+// coordinates alone cannot say whether an enemy up on the blanket can see a hero in the
+// tunnel underneath it — only the units' caveLayer can. aiPickHeroDest is the exception and
+// still takes a coordinate hasLOS, because it tests candidate TILES rather than units; its
+// caller binds the layers into the closure it passes.
 
-export function aiPickTarget(u, units, hasLineOfSight) {
+export function aiPickTarget(u, units, losBetween) {
   // Familiars (Rasec's owl) are valid targets but VASTLY de-prioritized, so
   // enemies only rarely bother with the fragile 1-HP owl. A real hero is almost
   // always preferred; the owl only gets picked on unlucky rolls or when it's the
@@ -19,7 +26,7 @@ export function aiPickTarget(u, units, hasLineOfSight) {
     const dx = h.grp.position.x - ux, dz = h.grp.position.z - uz;
     const dist = Math.sqrt(dx * dx + dz * dz);
     const distScore = 1 / ((dist + 1) * (dist + 1));
-    const losBonus = hasLineOfSight(ux, uz, h.grp.position.x, h.grp.position.z) ? 1.5 : 1.0;
+    const losBonus = losBetween(u, h) ? 1.5 : 1.0;
     const jitter = 0.90 + Math.random() * 0.20;
     const familiarPen = h.familiar ? FAMILIAR_AGGRO : 1;
     return { h, score: distScore * losBonus * jitter * familiarPen };
@@ -34,7 +41,7 @@ export function aiPickTarget(u, units, hasLineOfSight) {
   return scored[scored.length - 1].h;
 }
 
-export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, hasLineOfSight) {
+export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, atkRangeWU, losBetween) {
   if (turnAttacked) return null;
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = def.attacks ?? [];
@@ -50,15 +57,14 @@ export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, at
   const webA = atks.find(a => a.web);
   const canWeb = webA && !target.webRestrained &&
     dist <= atkRangeWU(webA.range) &&
-    hasLineOfSight(u.grp.position.x, u.grp.position.z, target.grp.position.x, target.grp.position.z);
+    losBetween(u, target);
 
   if (meleeA && dist <= atkTriggerWU(meleeA)) {
     if (canWeb && Math.random() < 0.5) return webA;
     return meleeA;
   }
   const hasJ = rangdA && atkHasQty(u, rangdA);
-  const los  = hasJ && hasLineOfSight(u.grp.position.x, u.grp.position.z,
-                                      target.grp.position.x, target.grp.position.z);
+  const los  = hasJ && losBetween(u, target);
   if (rangdA && los && dist <= atkRangeWU(rangdA.range))                        return rangdA;
   if (rangdA && los && rangdA.longRange && dist <= atkRangeWU(rangdA.longRange)) return rangdA;
   return null;
@@ -66,7 +72,7 @@ export function aiGetAttack(u, target, turnAttacked, atkHasQty, atkTriggerWU, at
 
 // Attack picker for spellcaster AI (e.g. Morvath).
 // Priority: aoe_save spell (if slots + range + LOS) → melee spell (if slots + melee) → physical melee fallback.
-export function aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, atkRangeWU, hasLineOfSight) {
+export function aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, atkRangeWU, losBetween) {
   if (turnAttacked) return null;
   const def   = UNIT_TYPES[u.type] ?? {};
   const atks  = def.attacks ?? [];
@@ -74,8 +80,7 @@ export function aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, at
   const dx = target.grp.position.x - u.grp.position.x;
   const dz = target.grp.position.z - u.grp.position.z;
   const dist = Math.sqrt(dx * dx + dz * dz);
-  const los  = hasLineOfSight(u.grp.position.x, u.grp.position.z,
-                               target.grp.position.x, target.grp.position.z);
+  const los  = losBetween(u, target);
   if (slots > 0) {
     const aoeSave = atks.find(a => a.type === 'aoe_save');
     if (aoeSave && los && dist <= atkRangeWU(aoeSave.range)) return aoeSave;
