@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive, rebuildGrid } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, clearCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -422,6 +422,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   ceiling.visible = !!zone.cave;
   setCeilingGridActive(!!zone.cave);   // show the blanket grid only in cave zones
   if (zone.cave) rebuildCeiling(ceiling, zone.biome);
+  else           clearCeiling(ceiling);   // don't hold a half-million-triangle roof for a zone with no cave
 
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);

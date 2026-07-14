@@ -696,10 +696,18 @@ export function resolveCaveLayer(current, x, z) {
   return _insideEntrance(x, z) ? 'under' : 'surface';
 }
 
-// Denser than the ground (128) so punched cave-mouth edges are fine-grained, not
-// boxy. UVs stay 0..1 across the plane regardless of resolution and the material
-// textures triplanar from world position, so it still matches the terrain exactly.
-const CEIL_SEGS = 512;
+// Denser than the ground (128) so punched cave-mouth edges are fine-grained, not boxy.
+// UVs stay 0..1 across the plane regardless of resolution and the material textures
+// triplanar from world position, so it still matches the terrain exactly.
+//
+// Was 512 — a 513x513 grid, i.e. 524,288 triangles covering the whole zone, drawn with a
+// TRANSPARENT DoubleSide standard material (so no early-z; every fragment shades). That is
+// what made cave zones like the Warrens feel heavy. 256 is still 2x the ground's density,
+// which keeps the punched mouth edges smooth, at a QUARTER of the triangles — the count
+// scales with the square. It also makes buildCeilGeo 4x cheaper: it samples the heightfield
+// (getUncarvedHeight + getTerrainHeight, both of which walk the trench paths) once per
+// vertex, and that was 263k vertices per cave-zone load.
+const CEIL_SEGS = 256;
 
 function buildCeilGeo(biome) {
   const SEGS = CEIL_SEGS;
@@ -737,8 +745,13 @@ function buildCeilGeo(biome) {
 
 // Build the cave roof. Share the ground material (set to DoubleSide) so texture,
 // splatmap and biome tint match the terrain exactly. Rotated like the ground.
+//
+// Starts EMPTY. Only cave zones ever show the blanket, but this runs at scene init on every
+// page load — so a player who never enters a cave was still paying the full heightfield
+// sample at startup and holding the geometry for the life of the tab. zoneLoader calls
+// rebuildCeiling() when it loads a zone with cave:true, and clearCeiling() when it doesn't.
 export function buildCeilingMesh(material) {
-  const mesh = new THREE.Mesh(buildCeilGeo(_lastBiome), material);
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
   mesh.rotation.x = -Math.PI / 2;
   mesh.receiveShadow = true;
   mesh.renderOrder = 1;
@@ -748,4 +761,11 @@ export function buildCeilingMesh(material) {
 export function rebuildCeiling(mesh, biome) {
   mesh.geometry.dispose();
   mesh.geometry = buildCeilGeo(biome ?? _lastBiome);
+}
+
+// Drop the blanket's geometry on the way into a non-cave zone — half a million triangles
+// should not sit in memory for a zone that never draws them.
+export function clearCeiling(mesh) {
+  mesh.geometry.dispose();
+  mesh.geometry = new THREE.BufferGeometry();
 }

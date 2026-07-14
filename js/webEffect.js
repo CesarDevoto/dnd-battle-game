@@ -33,6 +33,30 @@ function _getWebTex() {
   return _webTex;
 }
 
+// The spat projectile. A SpriteMaterial with NO map renders as a flat white SQUARE — which is
+// what the spider was actually firing. This gives it a soft radial falloff so it reads as a
+// round ball of webbing.
+//
+// AdditiveBlending + fog:false is deliberate and load-bearing: a CanvasTexture drawn with
+// NormalBlending shows up as a black square, because the canvas alpha is premultiplied. Same
+// trap the fog patches hit.
+let _ballTex = null;
+function _getBallTex() {
+  if (_ballTex) return _ballTex;
+  const S = 64;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0.00, 'rgba(255,255,255,1.00)');   // hot core
+  g.addColorStop(0.45, 'rgba(255,255,255,0.90)');
+  g.addColorStop(0.75, 'rgba(235,240,255,0.35)');   // faint bluish-white halo
+  g.addColorStop(1.00, 'rgba(220,230,255,0.00)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  _ballTex = new THREE.CanvasTexture(c);
+  return _ballTex;
+}
+
 const _pos = (u) => (u.anchor ? u.anchor : u.grp.position);
 
 const WEB_RADIUS = 1.9;    // WU — a bit wider than the unit it snares
@@ -99,11 +123,13 @@ export function playWebEffect(from, to) {
   const start = _pos(from).clone();
 
   const ball = new THREE.Sprite(new THREE.SpriteMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.95,
+    map: _getBallTex(), color: 0xffffff, transparent: true, opacity: 0.95,
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   }));
-  ball.scale.setScalar(0.45);
+  ball.scale.setScalar(0.7);   // the radial falloff eats the outer edge, so it needs to be
+                               // bigger than the old hard-edged square to read the same size
   ball.position.copy(start);
+  ball.renderOrder = 10;       // don't let the cave-roof blanket paint over it in the Warrens
   scene.add(ball);
 
   // A ground DECAL, not a billboard: a terrain-conforming disk splayed across the dirt under
