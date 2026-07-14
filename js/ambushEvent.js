@@ -69,10 +69,16 @@ registerPostCombatHandler(30, (ctx, done) => {
   if (isMarkerSeen('horses_road')) { done(); return; }
   if (_getActiveZoneIdFn?.() !== 'road_to_phandelver') { done(); return; }
   dismissExclamation('horses_road');
-  setTimeout(() => showQuickDialogue(_LINES, () => {
-    _onAftermathClosed();
-    done();
-  }), 400);
+  setTimeout(() => {
+    const shown = showQuickDialogue(_LINES, () => {
+      _onAftermathClosed();
+      done();
+    });
+    // Banked behind the dead-hero gate — Milo is the one who spots the tracks, and he
+    // can't do that from a corpse. The dialogue (and the footsteps + quest it drops)
+    // waits for the short rest; let the post-combat chain move on without it.
+    if (!shown) done();
+  }, 400);
 });
 
 // ── Footprint texture (canvas-drawn silhouette) ───────────────────────────────

@@ -646,7 +646,15 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       }
     }
     if (!u.currency)  u.currency  = { copper: 0, silver: 0, gold: 5, platinum: 0 };
-    if (!heroRoster.includes(u)) heroRoster.push(u);
+    // One roster entry per hero type, always the LIVE object. buildUnit hands back a brand
+    // new object every call, and two paths rebuild the heroes from scratch (_fullReset, and
+    // Dagna's River Styx transition) without pruning the roster. Appending blindly left the
+    // dead pre-Styx objects in here forever, which broke every find-by-type consumer (they
+    // take the FIRST match — the stale one) and made short rest reviveUnit() the ghosts
+    // straight back into units[] as phantom duplicate heroes.
+    const ri = heroRoster.findIndex(h => h.type === type);
+    if (ri >= 0) heroRoster[ri] = u;
+    else         heroRoster.push(u);
   }
   return u;
 }

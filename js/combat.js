@@ -1971,7 +1971,13 @@ function removeDefeatedUnit(u, attacker = null) {
     }));
     _checkSoulShardProc(attacker, u);
   }
-  if (u.team === 'blue') onHeroDied(u);
+  if (u.team === 'blue') {
+    onHeroDied(u);
+    // Event-based (not a direct import) for the same circular-dependency reason as
+    // 'unit:defeated' above — shortRest.js listens for this to arm the one-time
+    // "rest to raise your fallen hero" tutorial arrow.
+    window.dispatchEvent(new CustomEvent('hero:died', { detail: { type: u.type } }));
+  }
   if (u === _owlHelpTarget) _clearOwlHelp();  // distracted enemy died — advantage gone
   if (u.familiar) {
     startFamiliarDeath();  // owl flies straight up and vanishes; handles its own scene removal

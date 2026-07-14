@@ -392,12 +392,14 @@ function _showQuestReminderDialogue() {
 
 // onDone: called after the full sequence completes; used by post-combat handler
 // to advance the post-combat chain. Omit for immediate precombat triggers.
+// Returns false if the dialogue was banked behind a gate (see showQuickDialogue) —
+// onDone will still run, but not until the dialogue actually plays.
 function _startQuestDialogue(onDone = null) {
   _watchingProximity  = false;
   _flooshQuestPending = false;
   _removeFlooshExcl();
   setMarkerSeen(_MARKER_ID);
-  showQuickDialogue(_QUEST_LINES, () => {
+  return showQuickDialogue(_QUEST_LINES, () => {
     showChoiceUI([
       { label: 'Accept Quest', onPick: () => showQuickDialogue(_ACCEPT_LINES, () => {
           setQuestFlag('floosh_accepted');
@@ -461,7 +463,11 @@ function _onReachWestWall() {
 
 registerPostCombatHandler(5, (ctx, done) => {
   if (!_flooshQuestPending) { done(); return; }
-  _startQuestDialogue(done);
+  // If the quest dialogue is banked behind the dead-hero gate it won't call done() until
+  // the player short-rests. Advance now regardless — this handler sits in front of the
+  // loot panel (priority 10), and holding loot behind a fallen hero's revival is not the
+  // trade we want. done() is idempotent, so the banked replay calling it again is a no-op.
+  if (!_startQuestDialogue(done)) done();
 });
 
 // ── Footprint texture (canvas-drawn bare-foot silhouette) ─────────────────────

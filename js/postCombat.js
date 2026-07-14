@@ -33,7 +33,17 @@ export function runPostCombat(ctx) {
       window.dispatchEvent(new CustomEvent('postcombat:done', { detail: ctx }));
       return;
     }
-    queue[i++].fn(ctx, next);
+    // Each handler's done() advances the chain AT MOST ONCE. A handler whose dialogue got
+    // banked behind the dead-hero gate calls done() right away so the chain (loot panel!)
+    // isn't held hostage until the player short-rests — but that same dialogue still owns an
+    // onDone that calls done() when it finally plays. Without this guard that second call
+    // would re-run the rest of the chain from where it left off.
+    let advanced = false;
+    queue[i++].fn(ctx, () => {
+      if (advanced) return;
+      advanced = true;
+      next();
+    });
   }
 
   next();

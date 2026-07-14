@@ -31,6 +31,7 @@ let _clock     = 0;      // game-world seconds (monotonic)
 let _sinceSave = 0;
 let _kills     = {};     // { zoneId: { spawnId: killClock } }
 let _inCombat  = false;
+let _resetting = false;  // New Game in progress — stop persisting, we're about to be wiped
 
 // Active-zone live state
 let _zoneId   = null;
@@ -60,6 +61,7 @@ function _loadClock() {
   } catch { /* corrupt / disabled storage — start the clock at 0 */ }
 }
 function _saveClock() {
+  if (_resetting) return;
   try { localStorage.setItem(CLOCK_KEY, JSON.stringify({ t: _clock, saved: Date.now() })); } catch {}
 }
 function _loadKills() {
@@ -67,6 +69,7 @@ function _loadKills() {
   catch { _kills = {}; }
 }
 function _saveKills() {
+  if (_resetting) return;
   try { localStorage.setItem(KILLS_KEY, JSON.stringify(_kills)); } catch {}
 }
 
@@ -84,6 +87,16 @@ export function initRespawn() {
   window.addEventListener('zone:loading',  () => { _ready = false; _zoneId = null; _defsById.clear(); });
   // Best-effort final save so a clean close loses no more than a few seconds.
   window.addEventListener('beforeunload',  () => _saveClock());
+
+  // New Game: resetGame.js wipes our keys and reloads, and that reload fires 'beforeunload'
+  // — which would re-save the world clock we just deleted. Latch here so both savers go
+  // quiet for the rest of this page's life, and drop the live state so nothing in flight
+  // (the tickRespawn autosave) can resurrect it either.
+  window.addEventListener('game:reset', () => {
+    _resetting = true;
+    _clock = 0;
+    _kills = {};
+  });
 
   // Console testing helpers — 15-min timers are painful to wait out live.
   //   __respawn.advance(900)  → fast-forward the world clock 15 min (mobs pop back)

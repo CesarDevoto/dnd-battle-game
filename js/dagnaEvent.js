@@ -75,33 +75,58 @@ let _lineIdx      = 0;
 let _dlgOnDone    = null;
 let _forcePreview = false;  // set before async sequence so _showLines picks it up
 
-// ── Combat gating ─────────────────────────────────────────────────────────────
-// No dialogue box while a fight is on. A dialogue requested during combat is
-// deferred; a dialogue already open when combat starts is stashed (with its
-// current line) and hidden — both replay when combat ends. Dev previews are
-// never gated. Tracked via the global combat:start / combat:ended events so we
-// don't import combat.js (avoids a circular dependency).
+// ── Dialogue gating ───────────────────────────────────────────────────────────
+// Two conditions bank a dialogue instead of showing it:
+//
+//   1. A fight is on. A dialogue requested mid-combat is banked; one already open
+//      when combat starts is banked WITH its current line and hidden.
+//   2. A hero is lying dead. A corpse must not deliver a line — if Milo goes down
+//      in the goblin ambush, he can't pipe up about the tracks while face-first in
+//      the dirt. The short rest is what puts a fallen hero back on their feet, so
+//      anything banked during a fatal fight waits for that rest (see shortRest.js,
+//      which fires 'shortrest:taken' and also draws the tutorial arrow pointing at
+//      the widget the first time a hero ever dies).
+//
+// Banked dialogues replay FIFO once BOTH gates clear. Dev previews are never gated,
+// and Dagna's own sequences bypass gate 2 — she only ever appears over a wiped party,
+// so gating her on a live party would mean her lines never show at all.
+//
+// Tracked via the global combat:start / combat:ended events so we don't import
+// combat.js (avoids a circular dependency).
 let _combatActive = false;
-let _deferredDlg  = null;   // { lines, onDone, lineIdx } to replay after combat
+const _dlgQueue   = [];   // [{ lines, onDone, lineIdx }] — replayed once the gates clear
+
+function _partyIsDown() {
+  return heroRoster.some(h => (h.hp ?? 0) <= 0);
+}
+
+function _dlgGated() {
+  return _combatActive || _partyIsDown();
+}
 
 window.addEventListener('combat:start', () => {
   _combatActive = true;
   if (_dlgEl && _dlgEl.style.display !== 'none' && _lines?.length && !_isPreview) {
-    _deferredDlg = { lines: _lines, onDone: _dlgOnDone, lineIdx: _lineIdx };
+    // Front of the queue: an interrupted dialogue resumes before anything banked behind it.
+    _dlgQueue.unshift({ lines: _lines, onDone: _dlgOnDone, lineIdx: _lineIdx });
     _hideDlg();
   }
 });
 
-window.addEventListener('combat:ended', () => {
-  _combatActive = false;
-  const d = _deferredDlg;
-  _deferredDlg = null;
-  if (d && d.lines?.length) {
-    _showLines(d.lines, d.onDone);
-    _lineIdx = Math.min(Math.max(0, d.lineIdx ?? 0), d.lines.length - 1);
-    _renderLine();   // resume from the interrupted line
-  }
-});
+window.addEventListener('combat:ended',    () => { _combatActive = false; _flushDlgQueue(); });
+window.addEventListener('shortrest:taken', () => _flushDlgQueue());
+
+// Plays the next banked dialogue, if the gates are clear and nothing is on screen.
+// Each dialogue pulls the one behind it when it closes (see _onContinue).
+function _flushDlgQueue() {
+  if (_dlgGated() || !_dlgQueue.length) return;
+  if (_dlgEl && _dlgEl.style.display !== 'none') return;   // busy — it'll chain on close
+  const d = _dlgQueue.shift();
+  if (!d?.lines?.length) return;
+  _showLines(d.lines, d.onDone);
+  _lineIdx = Math.min(Math.max(0, d.lineIdx ?? 0), d.lines.length - 1);
+  _renderLine();   // resume from the interrupted line
+}
 
 // ── Kill counter element ──────────────────────────────────────────────────────
 let _killsEl = null;
@@ -124,9 +149,10 @@ export function onCombatEnd() {
   // A total party kill ends combat, but endBattle() (our only caller) does NOT fire
   // the combat:ended event, so _combatActive would stay true and _showLines would
   // DEFER Dagna's dialogue forever (she appears, but no lines ever show). Clear it
-  // here — and drop any stale mid-combat deferred dialogue — so her lines appear.
+  // here — and drop any stale mid-combat banked dialogue — so her lines appear.
+  // (Her own lines also pass bypassDownGate, since the whole party is dead by now.)
   _combatActive = false;
-  _deferredDlg  = null;
+  _dlgQueue.length = 0;
   _freezePrecombatFn?.(true); // lock movement/aggro for the entire Dagna sequence
   setTimeout(_startIntroA, 800);
 }
@@ -427,7 +453,12 @@ function _buildDlgUI() {
   _dlgEl.querySelector('.dagna-dlg-btn').addEventListener('click', _onContinue);
 }
 
-export function showQuickDialogue(lines, onDone) { _showLines(lines, onDone); }
+// Returns TRUE if the dialogue is on screen now, FALSE if it was banked behind a gate
+// (combat in progress, or a hero still dead). Callers that thread a post-combat done()
+// through onDone must check this: a banked dialogue's onDone doesn't run until the player
+// takes their short rest, and stalling the post-combat chain that long would hold up the
+// loot panel behind it.
+export function showQuickDialogue(lines, onDone) { return _showLines(lines, onDone); }
 
 // Shows a set of lines then replaces the Continue button with labelled choice buttons.
 // choices = [{ label: string, onPick: fn }]
@@ -459,13 +490,19 @@ export function showChoiceUI(choices) {
   }
 }
 
-function _showLines(lines, onDone, preview = false) {
-  // Mid-combat: never pop the box — stash and replay it once the fight ends.
-  if (_combatActive && !(preview || _forcePreview)) {
-    _deferredDlg = { lines, onDone, lineIdx: 0 };
-    return;
+// bypassDownGate: for Dagna's own sequences only — she appears BECAUSE the party is
+// wiped, so the dead-hero gate would silence her permanently.
+// Returns true if shown, false if banked. See showQuickDialogue.
+function _showLines(lines, onDone, preview = false, bypassDownGate = false) {
+  const isPrev = preview || _forcePreview;
+  const gated  = _combatActive || (!bypassDownGate && _partyIsDown());
+  // Gated: never pop the box — bank it and replay once the fight is over and the
+  // party is back on its feet.
+  if (gated && !isPrev) {
+    _dlgQueue.push({ lines, onDone, lineIdx: 0 });
+    return false;
   }
-  _isPreview = preview || _forcePreview;
+  _isPreview = isPrev;
   _forcePreview = false;
   _buildDlgUI();
   _lines     = lines;
@@ -473,6 +510,7 @@ function _showLines(lines, onDone, preview = false) {
   _dlgOnDone = onDone;
   _renderLine();
   _dlgEl.style.display = 'flex';
+  return true;
 }
 
 const _SEQ_DEFS = [
@@ -611,6 +649,10 @@ function _onContinue() {
     _dlgOnDone = null;
     if (_isPreview) _previewCleanup();
     cb?.();
+    // cb may have opened a follow-up box (a choice prompt, a chained scene) — _flushDlgQueue
+    // sees that and holds off, so the next banked dialogue waits its turn rather than
+    // stomping the one cb just put up.
+    _flushDlgQueue();
   } else {
     _renderLine();
   }
@@ -711,7 +753,9 @@ function _startIntroA() {
     const pp = _portalSpot(lp);
     _addPortalLight(pp);          // 2. Portal glow appears in darkness
     _openPortalAndWalk(pp, lp, () => {
-      _showLines(_LINES_A, null); // 3. Dagna (with her own light) has arrived
+      // 3. Dagna (with her own light) has arrived. bypassDownGate — the party is
+      // wiped, which is the entire reason she's here.
+      _showLines(_LINES_A, null, false, true);
     });
   });
 }
@@ -778,12 +822,15 @@ function _startIntroB() {
   const lp = _getLeugrenPos();
   const pp = _portalSpot(lp);
   _openPortalAndWalk(pp, lp, () => {
+    // bypassDownGate — heroes arrive at Styx still dead; they're only restored by
+    // the victory outro, so the gate would otherwise swallow the briefing that
+    // tells them how to earn it.
     _showLines(_LINES_B, () => {
       _removeDagna();
       _removePortal();
       _showKills();
       _freezePrecombatFn?.(false);  // enemies can now roam, detect, and aggro
-    });
+    }, false, true);
   });
 }
 

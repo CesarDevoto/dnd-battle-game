@@ -4759,6 +4759,64 @@ td.bst-col-retired { color: #343228 !important; }
 }
 #srw-btn:disabled { opacity: 0.32; cursor: not-allowed; }
 
+/* ── First-death tutorial arrow (points down at the REST button) ──────────── */
+/* Sized 5x. The widget lives in the bottom-RIGHT corner, so a label this large can't be
+   centred on it — half of it would hang off the right edge of the screen. The label is
+   therefore pinned to the widget's right edge and grows leftward, while the arrow stays
+   centred over the REST button it's pointing at. Hence the two absolutely-positioned
+   children rather than a simple centred column. */
+#sr-widget { position: relative; }
+#srw-tutorial {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 0;              /* pure anchor — both children are positioned off it */
+  margin-bottom: 6px;
+  pointer-events: none;   /* never steal the click meant for REST */
+  animation: srw-tut-bob 1.1s ease-in-out infinite;
+}
+.srw-tut-label {
+  position: absolute;
+  bottom: 6.6rem;         /* clears the arrow glyph below it */
+  right: 0;
+  font-family: var(--font-fantasy);
+  font-size: 1.75rem;     /* ~33% down from 2.6rem; the arrow stays at full size */
+  line-height: 1.25;
+  letter-spacing: 1.5px;
+  text-align: right;
+  white-space: nowrap;
+  color: #ffe9a8;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.98),
+               0 0 22px rgba(0, 0, 0, 0.90),
+               0 0 40px rgba(212, 175, 55, 0.80);
+}
+.srw-tut-arrow {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 5.75rem;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 0 16px rgba(212, 175, 55, 0.95),
+               0 0 38px rgba(212, 175, 55, 0.75),
+               0 0 70px rgba(255, 200, 60, 0.50);
+  animation: srw-tut-glow 1.1s ease-in-out infinite;
+}
+/* Bobs the whole anchor, so label and arrow move together. */
+@keyframes srw-tut-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+@keyframes srw-tut-glow {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #srw-tutorial, .srw-tut-arrow { animation: none; }
+}
+
 /* ── Spell bar ───────────────────────────────────────────────────────── */
 #spell-bar {
   position: relative;
