@@ -214,9 +214,18 @@ function _gateSuppress(wx, wz) {
   for (const gate of _gateNotches) {
     const gLen = Math.sqrt(gate.x * gate.x + gate.z * gate.z);
     if (gLen < 0.001) continue;
+    const dirX = gate.x / gLen;
+    const dirZ = gate.z / gLen;
+    // HALF-line, not line: only suppress on the gate's own side of the zone centre.
+    // The perpendicular test below is symmetric about the origin, so without this the
+    // notch was MIRRORED THROUGH THE CENTRE and cut a second, identical opening in the
+    // opposite wall. Warrens' Bleakmire gate at (183,183) was quietly flattening the
+    // entire (-,-) corner — a 28 WU wall down to 0, all the way out to the map edge —
+    // and the same phantom hole existed in every other zone that has a gate.
+    if (wx * dirX + wz * dirZ <= 0) continue;
     // Unit perpendicular to the ray from centre → gate
-    const perpX = -gate.z / gLen;
-    const perpZ =  gate.x / gLen;
+    const perpX = -dirZ;
+    const perpZ =  dirX;
     const perp  = Math.abs(wx * perpX + wz * perpZ);
     const t = Math.min(1, perp / gate.halfWidth);
     const s = t * t * (3 - 2 * t);   // smoothstep: 0 at centre, 1 at edge

@@ -164,6 +164,7 @@ const _MARKER_ID      = 'floosh_quest';         // shared with exclamationMarker
 const _KEY_QUEST_DONE = 'dnd-floosh-quest-done';
 const _KEY_ARRIVAL    = 'dnd-floosh-arrival-seen';
 const _KEY_RETURN     = 'dnd-floosh-return-ready';
+const _KEY_WARRENS    = 'dnd-floosh-warrens-farewell-seen';
 
 let _quickTraveling = false;
 
@@ -271,10 +272,20 @@ const _ARRIVAL_LINES = [
   { s: 'Floosh', t: "Beyond the blight hath taken grievous hold upon our ancient woods. The wellspring of this decay most assuredly lieth yonder. Good fortune heroes. Our kingdom and all friends of the wild rest their hope upon thee. Seek me here upon thy return." },
 ];
 
+// Second journey's payoff: Floosh has walked the party to the wall gate to the Warrens and
+// parts company here — the goblins' trail runs on without him.
+const _WARRENS_FAREWELL_LINES = [
+  { s: 'Floosh',  t: "Here endeth my road, friends of the wild. My roots know these woods and no further. The goblins went this way. Their spoor is fresh upon the soil, and it runs deep. Good fortune, heroes." },
+  { s: 'Milo',    t: "He's right. Dozens of 'em, and not long gone.." },
+  { s: 'Leugren', t: "Thank ye kindly Floosh. May Moradin keep the green in your woods." },
+  { s: 'Gobo',    t: "Aye. Farewell, little sprout." },
+];
+
 registerDialogueScene({ id: 'dlg_floosh_intro',    name: 'Floosh — Zone Entry',    lines: _INTRO_LINES });
 registerDialogueScene({ id: 'dlg_floosh_quest',    name: 'Floosh — Quest Offer',   lines: _QUEST_LINES });
 registerDialogueScene({ id: 'dlg_floosh_accept',   name: 'Floosh — Accept Quest',  lines: _ACCEPT_LINES });
 registerDialogueScene({ id: 'dlg_floosh_arrival',  name: 'Floosh — Zone Farewell', lines: _ARRIVAL_LINES });
+registerDialogueScene({ id: 'dlg_floosh_warrens',  name: 'Floosh — Warrens Farewell', lines: _WARRENS_FAREWELL_LINES });
 
 function _fireArrivalDialogue() {
   try { if (localStorage.getItem(_KEY_ARRIVAL)) return; } catch {}
@@ -429,9 +440,20 @@ function _startWelcomeBackDialogue() {
   });
 }
 
-// Arrival hook for the second journey — no dialogue specified yet; Floosh
-// just stops and waits here, ready for the future west-wall waygate feature.
-function _onReachWestWall() {}
+// Arrival hook for the second journey: Floosh has led the party to the wall gate to the
+// Warrens. He points them at the goblins' trail and turns back. Same one-shot shape as
+// _fireArrivalDialogue — the localStorage key survives reloads, the in-memory flag stops a
+// repeat inside the current session (the guide can complete more than once per load if the
+// player replays the walk).
+let _warrensFarewellFired = false;
+
+function _onReachWestWall() {
+  try { if (localStorage.getItem(_KEY_WARRENS)) return; } catch {}
+  if (_warrensFarewellFired) return;
+  _warrensFarewellFired = true;
+  try { localStorage.setItem(_KEY_WARRENS, '1'); } catch {}
+  showQuickDialogue(_WARRENS_FAREWELL_LINES);
+}
 
 // ── Post-combat deferred quest trigger ────────────────────────────────────────
 // If a hero was already within 15 ft of Floosh when combat started, the ! stays

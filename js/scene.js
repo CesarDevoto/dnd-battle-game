@@ -401,6 +401,15 @@ export function flipCamera() {
 }
 
 export function toggleTopView() {
+  // No-op while the editor is active. Top view pins controls.min/maxDistance to _topViewY and
+  // re-pins them EVERY FRAME (updateCameraFocus below), which overrides the editor's free
+  // camera (devMode's 0.3–1200 dolly + pan/rotate) and snaps it back the moment you move it.
+  // Worse, toggling back OUT restores the PLAY-view limits — it has no idea the editor was on
+  // — so the free camera stays clamped afterwards and only recovers by cycling dev mode.
+  // The editor already has free look, so top-down adds nothing there. Guarded HERE rather
+  // than on the keybind so every caller is covered, not just the G key.
+  if (isEditModeActive()) return;
+
   _topViewActive = !_topViewActive;
   if (_topViewActive) {
     _topViewSavedPos = camera.position.clone();
@@ -431,6 +440,16 @@ export function toggleTopView() {
 const _prevTarget = new THREE.Vector3();
 
 export function updateCameraFocus() {
+  // Opening the editor WHILE top view is on would otherwise strand the camera: the pin below
+  // runs every frame, and toggleTopView is now a no-op in the editor, so G couldn't undo it.
+  // Release top view and let devMode own the camera — don't touch min/maxDistance on the way
+  // out, since devMode's _applyCamera has already set its own free-dolly limits.
+  if (_topViewActive && isEditModeActive()) {
+    _topViewActive   = false;
+    _topViewSavedPos = null;
+    _topViewSavedTgt = null;
+  }
+
   if (_topViewActive) {
     // Keep camera pinned above follow unit at the scroll-adjusted height.
     // Set min/max distance so controls.update() (called in main.js) positions

@@ -3125,10 +3125,23 @@ renderer.domElement.addEventListener('mouseleave', () => {
 
 function rayHitAnyUnit() {
   for (const target of units) {
-    if (target.hp <= 0) continue;
+    // NPCs are built with hp = 0 ON PURPOSE (they have no stat block), so the usual
+    // `hp <= 0` liveness test reads every one of them as a corpse and skipped them here —
+    // which is why clicking a townsfolk or a quest-giver never selected anything.
+    if (target.team !== 'npc' && target.hp <= 0) continue;
     if (_ray.intersectObject(target.grp, true).length) return target;
   }
   return null;
+}
+
+// The unit under the pointer that is NOT one of the player's heroes — an enemy, an NPC, or
+// the familiar. army.js asks this before it moves anyone: out of combat both this module and
+// army.js listen on the canvas, and army.js used to treat a click on a creature as a click on
+// the ground beneath it, so targeting an enemy ALSO marched the party into its lap.
+export function pointerOverNonHeroUnit(clientX, clientY) {
+  groundHit(clientX, clientY);        // primes _ray, which rayHitAnyUnit reuses
+  const hit = rayHitAnyUnit();
+  return hit && hit.team !== 'blue' ? hit : null;
 }
 
 // Suppress browser context menu; movement is handled by mouseup below.

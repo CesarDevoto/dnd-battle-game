@@ -326,6 +326,9 @@ export const UNIT_TYPES = {
   giant_spider: {
     name: 'Giant Spider', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 1.6,
+    // Web shot was landing 45° clockwise of the target. Rotate the ranged clip 45°
+    // counter-clockwise from the non-elf default (-π/2 → -π/4).
+    rangedRotY: -Math.PI / 4,
     hp: 26, ac: 14, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 14, dex: 16, con: 12, int: 2, wis: 11, cha: 4 },
     attacks: [

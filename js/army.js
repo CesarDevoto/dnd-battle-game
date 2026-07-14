@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, controls, ground, ceiling, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
 import { raySurfacePoint } from './terrain.js';
 import { units, buildUnit } from './units.js';
-import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking } from './combat.js';
+import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking, pointerOverNonHeroUnit } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
 import { isGroupMove, setGroupMove } from './groupMove.js';
 import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, SCENE } from './constants.js';
@@ -268,6 +268,12 @@ renderer.domElement.addEventListener('click', e => {
 
   // ── Precombat: hero selection + free movement ─────────────────────────────
   if (isPrecombat()) {
+    // Clicked an enemy / NPC / the familiar → that's a TARGETING click, and combat.js's own
+    // listener has already selected it. Bail out before the ground-move below, which would
+    // otherwise read the same click as "walk to the patch of dirt that creature is standing
+    // on" and send the party charging at it.
+    if (pointerOverNonHeroUnit(e.clientX, e.clientY)) return;
+
     const pt = groundHit(e.clientX, e.clientY);
     if (!pt) return; // clicked void / off-mesh — ignore, keep current selection
     // Click on a hero → select
@@ -324,6 +330,11 @@ function _issueHoldMove(x, z, sel) {
 
 renderer.domElement.addEventListener('mousedown', e => {
   if (e.button !== 0 || !isPrecombat() || isOOCHealPicking()) return;
+  // Pressing on an enemy / NPC / the familiar is a targeting click, not a move order. This
+  // guard has to live HERE and not only in the 'click' listener: mousedown issues the move
+  // immediately (_issueHoldMove below), so without it the party sets off the instant the
+  // button goes down and the later click handler is too late to stop them.
+  if (pointerOverNonHeroUnit(e.clientX, e.clientY)) return;
   const pt = groundHit(e.clientX, e.clientY);
   if (!pt) return;
   // Pressing on a hero selects it (handled by the 'click' listener) — not a move.

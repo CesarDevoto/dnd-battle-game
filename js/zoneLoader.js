@@ -23,11 +23,12 @@ import { ZONE as ZONE_MAUSOLEUM } from './zones/zone_mausoleum.js';
 import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
 import { ZONE as ZONE_WARRENS } from './zones/zone_warrens.js';
 import { ZONE as ZONE_PHANDALIN } from './zones/zone_phandalin.js';
+import { ZONE as ZONE_HIDE_OUT } from './zones/zone_hide_out.js';
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const _registry = {};
-const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS, ZONE_PHANDALIN];
+const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS, ZONE_PHANDALIN, ZONE_HIDE_OUT];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
 // Kick off parallel GLB fetches for every prop in every zone immediately at

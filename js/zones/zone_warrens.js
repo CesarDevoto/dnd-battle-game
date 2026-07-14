@@ -4,7 +4,7 @@ export const ZONE = {
   name:      'The Warrens',
   biome: 'forest',
   groundSize: 432,   // 4x the default (108) — doubled twice; large open map, same cave in the middle
-  fogDensity: 0.031,
+  fogDensity: 0.019,
   // Cave test: an outdoor hillside with a cave mouth leading into a straight
   // tunnel that ends in a room. The hill is a terrain control point; the tunnel
   // and room are carved with trenches; `cave` turns on the underside-of-rock roof.
@@ -75,14 +75,27 @@ export const ZONE = {
     { x: -12.02, z: -43.51, h: 47, r: 29.5, pr: 8.5 },
     { x: -136.9, z: 39.6, h: 3, r: 8 },
     { x: -145.31, z: 62.64, h: 3, r: 8 },
+    { x: -183.35, z: 181.36, h: 90, r: 28, pr: 7 },
+    { x: -179.99, z: 171.33, h: 80, r: 8, pr: 6 },
+    { x: -181.89, z: 176.2, h: 80, r: 8, pr: 6 },
+    { x: -182.41, z: 158.1, h: 90, r: 8, pr: 8 },
+    { x: -166.9, z: 152.79, h: 90, r: 8, pr: 8 },
+    { x: -152.53, z: 152.93, h: 90, r: 8, pr: 8 },
+    { x: -141.6, z: 153.79, h: 90, r: 8, pr: 8 },
+    { x: -129.9, z: 155.28, h: 90, r: 8, pr: 8 },
+    { x: -124.39, z: 165.8, h: 90, r: 8, pr: 8 },
+    { x: -120.7, z: 180.73, h: 90, r: 8, pr: 8 },
+    { x: -118.17, z: 189.77, h: 90, r: 8, pr: 8 },
+    { x: -145.74, z: 144.52, h: 63, r: 7, pr: 7 },
+    { x: -144.72, z: 146.5, h: 81, r: 7, pr: 7 },
   ],
   trenches: [
     { points: [{x:139.84,z:110.66,h:15}, {x:141.72,z:108.9,h:15}, {x:142.75,z:103.99,h:15}, {x:142.76,z:100.74,h:15}, {x:142.39,z:97.15,h:15}, {x:142.15,z:93.74,h:15}, {x:141.81,z:90.53,h:15}, {x:138.86,z:87.19,h:15}, {x:135.11,z:83.36,h:15}, {x:131.28,z:79.55,h:15}, {x:131.4,z:72.49,h:15}, {x:135.4,z:69.49,h:15}, {x:143.91,z:69.1,h:15}, {x:147.96,z:65.73,h:15}, {x:141.85,z:62.34,h:15}, {x:136.76,z:60.76,h:15}, {x:133.1,z:63.2,h:15}], r: 6.5, pr: 8 },
     { points: [{x:129.99,z:58.5,h:15}, {x:127.6,z:55.91,h:15}, {x:123.27,z:49.78,h:15}, {x:121.55,z:45.68,h:15}, {x:129.29,z:40.74,h:15}, {x:141.85,z:32.57,h:15}, {x:156.12,z:25.17,h:15}, {x:168.04,z:37.28,h:15}, {x:175.77,z:52.55,h:15}, {x:165.83,z:63.02,h:15}, {x:156.72,z:65.81,h:15}, {x:152.46,z:66.91,h:15}, {x:148.99,z:64.46,h:15}], r: 6.5, pr: 7.5 },
-    { points: [{x:-0.83,z:130.16,h:45}, {x:-3.49,z:137.58,h:45}, {x:-2.61,z:142.52,h:45}, {x:-2.23,z:148.22,h:45}, {x:-7.09,z:160.92,h:45}, {x:-16.62,z:170.25,h:45}, {x:-30.31,z:171.91,h:45}, {x:-43.93,z:172.06,h:45}, {x:-59.34,z:170.68,h:45}, {x:-73.85,z:172.86,h:45}, {x:-76.8,z:163.25,h:45}, {x:-77.2,z:155.81,h:45}, {x:-83.08,z:149.74,h:45}, {x:-87.89,z:154.08,h:45}, {x:-85.99,z:161.29,h:45}, {x:-85.17,z:167.12,h:45}, {x:-83.59,z:177.89,h:45}, {x:-90.68,z:176.48,h:45}, {x:-99.21,z:170.62,h:45}, {x:-100.35,z:160.1,h:45}, {x:-97.72,z:152.77,h:45}, {x:-96.84,z:144.63,h:45}, {x:-100.94,z:133.15,h:45}, {x:-107.14,z:127.93,h:45}, {x:-115.06,z:124.71,h:45}, {x:-122.28,z:123.67,h:45}, {x:-137.45,z:129.3,h:45}, {x:-143.83,z:139.66,h:45}], r: 7, pr: 7 },
-    { points: [{x:-145.59,z:142.35,h:45}, {x:-141.47,z:152.92,h:45}, {x:-140.39,z:162.33,h:45}, {x:-148.8,z:167.67,h:45}, {x:-162.52,z:166.87,h:45}, {x:-173.03,z:164,h:45}, {x:-179.63,z:156.63,h:45}, {x:-182.43,z:139.84,h:45}, {x:-169.35,z:129.06,h:45}, {x:-154.51,z:133.71,h:45}, {x:-159.26,z:148.98,h:45}, {x:-167.18,z:145.16,h:45}], r: 9, pr: 9 },
+    { points: [{x:-0.83,z:130.16,h:45}, {x:-3.49,z:137.58,h:47}, {x:-2.61,z:142.52,h:49}, {x:-2.23,z:148.22,h:52}, {x:-7.09,z:160.92,h:55}, {x:-16.62,z:170.25,h:57}, {x:-30.31,z:171.91,h:60}, {x:-43.93,z:172.06,h:60}, {x:-59.34,z:170.68,h:60}, {x:-73.85,z:172.86,h:60}, {x:-76.8,z:163.25,h:60}, {x:-77.2,z:155.81,h:60}, {x:-83.08,z:149.74,h:60}, {x:-87.89,z:154.08,h:60}, {x:-85.99,z:161.29,h:60}, {x:-85.17,z:167.12,h:60}, {x:-83.59,z:177.89,h:60}, {x:-90.68,z:176.48,h:60}, {x:-99.21,z:170.62,h:60}, {x:-100.35,z:160.1,h:60}, {x:-97.72,z:152.77,h:60}, {x:-96.84,z:144.63,h:60}, {x:-100.94,z:133.15,h:60}, {x:-107.14,z:127.93,h:60}, {x:-115.06,z:124.71,h:60}, {x:-122.28,z:123.67,h:60}, {x:-137.45,z:129.3,h:60}, {x:-143.83,z:139.66,h:60}], r: 7, pr: 7 },
     { points: [{x:-112.18,z:-16.23,h:35}, {x:-114.38,z:-15.02,h:35}, {x:-118.72,z:-12.5,h:35}, {x:-124.69,z:-6.97,h:35}, {x:-133.57,z:-5.74,h:35}, {x:-138.88,z:1.5,h:35}, {x:-139.34,z:8.71,h:35}, {x:-139.26,z:15.64,h:35}, {x:-132.9,z:27.43,h:35}, {x:-138.21,z:37.96,h:35}, {x:-147.99,z:33.8,h:37}, {x:-162.87,z:26.58,h:39}, {x:-167.81,z:10.63,h:41}, {x:-164.04,z:5.77,h:43.5}, {x:-152.14,z:6.04,h:45}, {x:-148.2,z:-1.47,h:45}, {x:-157.11,z:-1.87,h:45}], r: 8, pr: 8 },
-    { points: [{x:-143.73,z:40.41,h:35}, {x:-138.24,z:46.8,h:35}, {x:-127.74,z:53.78,h:33}, {x:-123.96,z:66.54,h:30}, {x:-134.52,z:73.41,h:27}, {x:-140.42,z:78.05,h:24}, {x:-150.91,z:84.42,h:23}, {x:-162.77,z:79.99,h:20}, {x:-172.33,z:78.31,h:20}, {x:-174.93,z:70.72,h:20}, {x:-169.29,z:59.22,h:20}, {x:-157.91,z:62.42,h:20}, {x:-168.79,z:53.4,h:20}, {x:-176.1,z:55.88,h:20}], r: 8, pr: 8 },
+    { points: [{x:-145.67,z:144.44,h:60}, {x:-143.72,z:150.53,h:60}, {x:-139.19,z:156.3,h:63}, {x:-137.64,z:161.35,h:66}, {x:-137.29,z:165.97,h:69}, {x:-132.91,z:170.68,h:72}, {x:-132.25,z:176.4,h:75}, {x:-136.47,z:179.83,h:78}], r: 7, pr: 7 },
+    { points: [{x:-170.57,z:172.96,h:76}, {x:-172.5,z:176.25,h:76}, {x:-176.03,z:178.67,h:76}, {x:-178.98,z:180.02,h:76}, {x:-183.3,z:182.76,h:76}, {x:-186.54,z:185.71,h:76}, {x:-197.02,z:195.42,h:76}, {x:-198.98,z:196.89,h:76}, {x:-204.61,z:201.14,h:76}, {x:-208.81,z:203.86,h:76}, {x:-214.09,z:206.23,h:76}], r: 10, pr: 10 },
   ],
   heroEntry: [
     { x: -2, z: -9,  type: 'dwarf'    },
@@ -92,19 +105,20 @@ export const ZONE = {
   ],
   enemies: [
     { type: 'goblin', x: 139.09, z: 110.23, caveLayer: 'surface' },
-    { type: 'goblin', x: -140.58, z: 144.41, caveLayer: 'surface' },
-    { type: 'hobgoblin', x: -150.43, z: 154.71 },
-    { type: 'hobgoblin', x: -144.53, z: 141.84, caveLayer: 'surface' },
-    { type: 'ettin', x: 17.88, z: 64.67, caveLayer: 'surface' },
+    { type: 'goblin', x: -140.58, z: 117.91, caveLayer: 'surface' },
+    { type: 'hobgoblin', x: -150.43, z: 120.21, caveLayer: 'surface' },
+    { type: 'hobgoblin', x: -144.53, z: 120.34, caveLayer: 'surface' },
     { type: 'hobgoblin', x: -31.7, z: -65.29, caveLayer: 'surface' },
     { type: 'solrac', x: 136.7, z: 57.34 },
-    { type: 'gnoll', x: -62.74, z: -20.9 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
     { x: 139.41, z: 110.35, r: 7.5, seed: 4.491 },
     { x: -0.47, z: 131.31, r: 3.5, seed: 1.537 },
     { x: -110.74, z: -16, r: 6.5, seed: 2.905 },
+    { x: -134.83, z: 175.22, r: 6.5, seed: 0.234 },
+    { x: -197.77, z: 194.7, r: 17.5, seed: 2.526 },
+    { x: -213.87, z: 210.91, r: 17.5, seed: 0.727 },
   ],
   exits: [
     // Corner wall-gate connecting out to Bleakmire Woods. notchHalfWidth widens the
@@ -112,6 +126,29 @@ export const ZONE = {
     // negative fogPush pulls the fog ball back off the corner to ~181,181. Arrival
     // lands just inside Bleakmire's reciprocal Warrens gate (at -94.83, 2.59).
     { x: 183, z: 183, targetZone: 'bleakmire_woods', arrivalX: -85, arrivalZ: 2.3, label: 'Bleakmire Woods', clickScale: 2, notchHalfWidth: 12, fogPush: -2.83, fogScale: 3 },
+    // Wall-gate out to the goblins' Hide Out, in the (-X, +Z) corner. It sits IN the carved
+    // ravine (trenches path 5, a flat h=76 floor running out through this corner and past the
+    // map edge) — 0.67 WU off its centreline, so the fog ball rests on the ravine floor rather
+    // than up on the 90-high hill the corner would otherwise be. fogPush 0 puts the ball
+    // exactly on the exit's own coords; the notch still cuts the rim along the ray through
+    // them. Arrival lands just inside the Hide Out's reciprocal Warrens gate (at 95, 0).
+    { x: -190, z: 188, targetZone: 'hide_out', arrivalX: 88, arrivalZ: 0, label: 'Hide Out', clickScale: 2, notchHalfWidth: 12, fogPush: 0, fogScale: 3, fogHeight: 2 },
+  ],
+  // Fog filling the ravine that runs out to the Hide Out gate — decorative only (fogBreaches
+  // never trigger a zone change; the gate above is the only thing that travels). Points are
+  // sampled every 6 WU along trenches path 5's centreline, so each puff sits on the ravine
+  // floor (h=76) and the chain reads as one continuous bank of mist down the passage.
+  fogBreaches: [
+    { x: -170.57, z: 172.96, scale: 0.6 },
+    { x: -174.3,  z: 177.49, scale: 0.6 },
+    { x: -179.54, z: 180.37, scale: 0.6 },
+    { x: -184.44, z: 183.8,  scale: 0.6 },
+    { x: -188.86, z: 187.86, scale: 0.6 },
+    { x: -193.26, z: 191.94, scale: 0.6 },
+    { x: -197.72, z: 195.95, scale: 0.6 },
+    { x: -202.51, z: 199.56, scale: 0.6 },
+    { x: -207.44, z: 202.97, scale: 0.6 },
+    { x: -212.8,  z: 205.65, scale: 0.6 },
   ],
   terrainSeed: { ph: [1.235351,5.315199,3.684424,4.448136,2.85367,3.903505,3.981039,2.110116,3.782323,3.722617,6.034926,3.710996], fx: [1.013656,2.181118,6.165918,19.294515,26.431867,52.685326], fz: [1.479916,3.90371,8.060919,16.160476,58.968719,92.188009], sharpExp: 1.256837, scale: 7.874184 },
   props: [
@@ -127,7 +164,7 @@ export const ZONE = {
     { model: 'corpse1', x: 135.15, z: 57.49, y: 15, rotY: 3.272, scale: 0.683 },
     { model: 'cavemouth4', x: 0.49, z: 136.16, y: 42.5, yOff: -2.5, rotY: 3.142, scale: 10.648 },
     { model: 'cavemouth2', x: -118.4, z: -8.18, y: 31, yOff: -4, rotY: 2.225, scale: 17.149 },
-    { model: 'hut1', x: -142.26, z: 147.71, y: 75.25, rotY: 2.749, scale: 4, layer: 'surface' },
+    { model: 'hut1', x: -147.01, z: 113.21, y: 75.4205, rotY: 2.749, scale: 4, layer: 'surface' },
   ],
   barriers: [],
   visionBlockers: [],
