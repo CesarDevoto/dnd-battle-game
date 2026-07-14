@@ -3,6 +3,7 @@ import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, s
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
+import { playPoisonEffect } from './poisonEffect.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
@@ -1326,6 +1327,9 @@ function handleSpellBtnClick(spellKey) {
   }
 
   const spell = SPELLS[spellKey];
+  // Restrained: nothing at all this turn, not even a bonus action. turnAttacked (set by the
+  // break-free struggle) already blocks the Action path, so this is what closes the bonus one.
+  if (u.webStuck) return;
   if (spell.actionType === 'action' && turnAttacked)      return;
   if (spell.actionType === 'bonus'  && turnBonusActioned) return;
 
@@ -2368,6 +2372,56 @@ function _checkConcentration(unit, dmgTaken, willDie) {
   }
 }
 
+// Venom rider on a landed bite (giant spider). The bite's own damage has already been
+// applied by the time this runs. Fail the save and the venom deals its own damage on top;
+// make it and the target shrugs it off. This is instantaneous damage, not the D&D "poisoned"
+// condition — nothing lingers past this roll.
+//
+// done() is ALWAYS called exactly once, on every path including a lethal poison — the caller
+// is waiting on it to advance the turn.
+function _resolvePoison(target, poison, done) {
+  if (!target || target.hp <= 0) { done(); return; }   // the bite already killed them
+
+  const label  = unitLabel(target);
+  const stat   = poison.saveStat ?? 'con';
+  const dc     = poison.saveDC ?? 11;
+  const mod    = Math.floor(((UNIT_TYPES[target.type]?.abilities?.[stat] ?? 10) - 10) / 2);
+  const res    = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
+
+  showRoll(`${label} · Venom (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
+
+  if (res.isSave) {
+    setTimeout(() => {
+      addLog(`${label} resists the venom (${saveBreakdown(res, stat)})`, 'save');
+      showFloatingDamage(target, 'RESIST', '#88cc88');
+      done();
+    }, SLOW_SETTLE);
+    return;
+  }
+
+  const dmgResult = rollDnDDamage(poison, 0, false);
+  const poisonDmg = Math.max(1, dmgResult.total);
+  const willDie   = target.hp <= poisonDmg;
+
+  setTimeout(() => {
+    addLog(`${label} fails against the venom! (${saveBreakdown(res, stat)})`, 'save');
+    addLog(`  ☠ ${poisonDmg} poison damage (${dmgBreakdown(dmgResult)})`, 'dmg');
+    playPoisonEffect(target);
+    showFloatingDamage(target, `☠ -${poisonDmg}`, '#66dd44');
+
+    target.hp = Math.max(0, target.hp - poisonDmg);
+    target.barShowUntil = Date.now() + 5000;
+    buildTurnList();
+    _checkConcentration(target, poisonDmg, willDie);
+
+    if (willDie) {
+      setTimeout(() => { removeDefeatedUnit(target); done(); }, 400);
+    } else {
+      setTimeout(done, 150);
+    }
+  }, SLOW_SETTLE);
+}
+
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
   const ab      = def.abilities ?? {};
@@ -2544,8 +2598,16 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     setTimeout(() => removeDefeatedUnit(target, attacker), hpUpdateDelay + RESULT_PAUSE + 400);
   }
 
-  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable)
-  setTimeout(() => onSettled?.(), hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50));
+  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable).
+  // A venomous attack (giant spider's bite) chains a save AFTER the bite damage lands, and
+  // onSettled must wait for that too — firing it early would advance the turn out from under
+  // the poison roll, which is exactly the class of turn-freeze bug /timing-audit hunts for.
+  const _settleAt = hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50);
+  if (atk.poison && !willDie) {
+    setTimeout(() => _resolvePoison(target, atk.poison, () => onSettled?.()), _settleAt + 250);
+  } else {
+    setTimeout(() => onSettled?.(), _settleAt);
+  }
 
   // Ammo-remaining message fires after all damage/effect lines settle
   const _qtyDelay = resisted
@@ -4111,6 +4173,8 @@ export function getAbilityActionType(abilityKey) {
 // etc. — same guard each handler's own execute() re-checks). Used by the
 // Skills & Spells window to grey out boxes for the currently active hero.
 export function isAbilityAvailableNow(abilityKey) {
+  // Still tangled in webbing — struggling was the whole turn. Everything greys out.
+  if (turnOrder[turnIndex]?.webStuck) return false;
   return _ABILITY_HANDLERS[abilityKey]?.isAvailable?.() ?? true;
 }
 
@@ -4377,19 +4441,25 @@ export function activateTurn(index) {
     turnReactionUsed = false;
     sneakAttackUsed = false;
     u.dodging       = false;
-    // Web restraint: at the start of its turn a webbed unit rolls STR to break free.
-    // Success frees it but spends its Action (it keeps Move / Bonus Action / reaction);
-    // failure leaves it stuck (no movement) this turn, to try again next turn.
+    // Web restraint: struggling IS the whole turn. At the start of its turn a webbed unit
+    // rolls DC 12 STR; whether it breaks free or not, it can take no other action and cannot
+    // move. turnAttacked=true is what enforces that — every action gate in this file already
+    // checks it — and webStuck zeroes movement (see the hideMoveRange guard). Freeing
+    // yourself only pays off on your NEXT turn.
     if (u.webRestrained) {
       const strMod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.str ?? 10) - 10) / 2);
-      const dc     = u.webRestrainDC ?? 8;
+      const dc     = u.webRestrainDC ?? 12;
       const res    = rollSave(strMod, dc);
+      turnAttacked = true;   // no action either way — the struggle consumes the turn
+      showRoll(`${unitLabel(u)} · Break Free (STR DC ${dc})`, res, { autoDismiss: false });
       if (res.isSave) {
-        u.webRestrained = false; u.webStuck = false; turnAttacked = true;
-        addLog(`${unitLabel(u)} tears free of the webbing! (${saveBreakdown(res, 'str')}) — Action spent`, 'move');
+        u.webRestrained = false; u.webStuck = false;
+        addLog(`${unitLabel(u)} tears free of the webbing! (${saveBreakdown(res, 'str')}) — Action spent, but they can move`, 'move');
+        showFloatingDamage(u, 'FREE!', '#88ff88');
       } else {
         u.webStuck = true;
         addLog(`${unitLabel(u)} struggles, still caught in the web (${saveBreakdown(res, 'str')})`, 'move');
+        showFloatingDamage(u, 'RESTRAINED', '#ff5555');
       }
     } else {
       u.webStuck = false;
@@ -4445,8 +4515,11 @@ export function activateTurn(index) {
     if (combatPhase) {
       heroMode = null;
       if (u.team === 'red') {
-        if (u.dormant) {
-          setTimeout(() => doEndTurn(), 60);
+        // webStuck: the failed break-free struggle already consumed the turn. Nothing left to
+        // do but end it — runAITurn would otherwise try to move/attack with an action it no
+        // longer has, and could hang the turn waiting on a step that never resolves.
+        if (u.dormant || u.webStuck) {
+          setTimeout(() => doEndTurn(), u.webStuck ? 900 : 60);
         } else {
           runAITurn(u);
         }
@@ -4459,6 +4532,12 @@ export function activateTurn(index) {
           heroMode = 'move';
           showMoveRange(u);
         }
+      } else if (u.webStuck) {
+        // Restrained hero. Manual or automated, there is no action available; an automated
+        // hero must not stall the round waiting for one. Manual players get the End Turn
+        // button (and the red RESTRAINED badge) and a beat to read the log.
+        if (isAutomated()) setTimeout(() => doEndTurn(), 900);
+        else               endTurnBtn.disabled = false;
       } else if (isAutomated()) {
         _runAutomatedHeroTurn(u);
       } else {

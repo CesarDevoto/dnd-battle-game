@@ -332,12 +332,17 @@ export const UNIT_TYPES = {
     hp: 26, ac: 14, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
     abilities: { str: 14, dex: 16, con: 12, int: 2, wis: 11, cha: 4 },
     attacks: [
+      // A landed bite ALSO forces a CON save or the venom bites deeper — see `poison`
+      // handling in _executeAttack. Failing the save is straight 2d8 poison damage on top
+      // of the bite; it is not a lingering condition.
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'dex',
+        poison: { saveStat: 'con', saveDC: 11, dice: 2, sides: 8 },
         note: 'DC 11 CON or 2d8 poison dmg' },
-      // Ranged web: dex(+3)+prof(+2) = +5 to hit. No damage — restrains on hit; the
-      // target rolls DC 8 STR at the start of its next turn to break free.
-      { name: 'Web', type: 'ranged', range: 40, statMod: 'dex', web: true, restrainDC: 8,
-        note: 'Restrain on hit; DC 8 STR to break free' },
+      // Ranged web: dex(+3)+prof(+2) = +5 to hit. No damage — restrains on hit. A restrained
+      // unit can do NOTHING but struggle: it rolls DC 12 STR at the start of its turn, and
+      // both outcomes cost it the whole turn (see the webRestrained block in turn start).
+      { name: 'Web', type: 'ranged', range: 40, statMod: 'dex', web: true, restrainDC: 12,
+        note: 'Restrain on hit; DC 12 STR to break free' },
     ],
   },
 

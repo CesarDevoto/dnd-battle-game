@@ -3423,6 +3423,23 @@ body {
   letter-spacing: 0;
   flex-shrink: 0;
 }
+/* ── Debuffs are RED, always ───────────────────────────────────────────────────
+   Every badge above this is a buff and reads gold/blue/orange. cond-debuff is the single
+   rule that marks a condition as BAD, so a player can tell at a glance without reading the
+   label. Put every future debuff on this class rather than restyling it individually. */
+.cond-badge.cond-debuff {
+  color: #ff7a70;
+  background: rgba(150, 20, 20, 0.34);
+  border: 1px solid rgba(255, 70, 60, 0.55);
+  text-shadow: 0 0 6px rgba(255, 60, 50, 0.60);
+  animation: debuff-pulse 1.5s ease-in-out infinite;
+}
+.cond-badge.cond-debuff .cond-turns { opacity: 0.8; }
+@keyframes debuff-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 50, 40, 0); }
+  50%      { box-shadow: 0 0 9px rgba(255, 50, 40, 0.55); }
+}
+
 .cond-badge.cond-conc {
   color: #88c8ff;
   background: rgba(18,50,120,0.32);
