@@ -13,9 +13,10 @@ export const PROP_MODELS = {
   brokentree:   { label: 'Broken Tree', path: 'assets/environment/brokentree.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 0.7  },
   log:          { label: 'Log',         path: 'assets/environment/log.glb',             defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
   // At scale 1 the segment is ~2 WU wide (exactly one grid square) × ~1.1 tall (chest height)
-  // × ~0.3 deep, so runs line up square-to-square. blocksLOS:false — it's a low fence you see
-  // over; draw a barrier segment along it if you want it to stop movement (same as the walls).
-  fencewooden:  { label: 'Wooden Fence',path: 'assets/environment/fence wooden.glb',     defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
+  // × ~0.3 deep, so runs line up square-to-square. blocksLOS:true — it provides cover / breaks
+  // sight lines; draw a barrier segment along it if you want it to stop movement too (same as
+  // the walls).
+  fencewooden:  { label: 'Wooden Fence',path: 'assets/environment/fence wooden.glb',     defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   shackles:     { label: 'Shackles',    path: 'assets/environment/shackles.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.3  },
   skeleton1:    { label: 'Skeleton',    path: 'assets/environment/skeleton1.glb',       defaultScale: 1.0, defaultYOff: 0.18, blocksLOS: false, clashR: 0.4  },
