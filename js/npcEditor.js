@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground } from './scene.js';
-import { units, buildUnit, getClipNamesForType, applyUnitAnimOverride } from './units.js';
+import { units, buildUnit, ensureModels, getClipNamesForType, applyUnitAnimOverride } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { getGroundHeight, raySurfacePoint, caveLayersActive } from './terrain.js';
 import { activeEnv } from './environments.js';
@@ -409,6 +409,11 @@ function _buildTypeList() {
     const btn = e.target.closest('.ne-type-btn');
     if (!btn) return;
     _selectedType = btn.dataset.type;
+    // Models load per zone now (ensureModels in units.js), so a type the CURRENT zone doesn't
+    // spawn — e.g. a giant rat dropped into the Warrens — has no GLB in the cache, and buildUnit
+    // would place a grey PLACEHOLDER BOX. Warm it the instant you pick it from the list, so it's
+    // in hand by the time you click to place. (Placement also awaits, below, to catch a fast click.)
+    ensureModels([_selectedType]);
     _selectedUnit = null;
     _ring.visible = false;
     _updateTypeBtns();
@@ -529,7 +534,15 @@ export function initNpcEditor() {
       if (pt) {
         _snapshot();
         const team = UNIT_TYPES[_selectedType]?.team ?? 'red';
-        buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), team, _selectedType, _typeAnimDefaults[_selectedType] ?? null, _placeLayer);
+        const type = _selectedType, layer = _placeLayer;
+        const x = +pt.x.toFixed(2), z = +pt.z.toFixed(2);
+        // Guarantee the model is in hand before building, so placing a type the zone doesn't
+        // spawn drops the real asset instead of a placeholder box. Resolves instantly if the
+        // select-time prefetch already finished.
+        ensureModels([type]).then(() => {
+          buildUnit(x, z, team, type, _typeAnimDefaults[type] ?? null, layer);
+          _updateStatus();
+        });
       }
     }
     _updateStatus();
