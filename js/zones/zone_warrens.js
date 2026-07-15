@@ -180,8 +180,6 @@ export const ZONE = {
     { type: 'hobgoblin', x: 35.15, z: -134.01, caveLayer: 'surface' },
     { type: 'hyena', x: -137.59, z: 60.62, caveLayer: 'surface' },
     { type: 'solrac', x: 136.7, z: 57.34 },
-    { type: 'hyena', x: -22.8, z: -2.89 },
-    { type: 'gnoll', x: -23.77, z: -2.35 },
   ],
   caveEntrances: [
     { x: -1.5, z: -2.18, r: 4.5, seed: 3.794 },
