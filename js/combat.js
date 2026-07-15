@@ -2286,6 +2286,14 @@ function performAttack(attacker, target, atk, onSettled = null) {
   }
   if (atk.type === 'ranged') {
     _consumeAtkQty(attacker, atk);
+    // Web is a ranged attack, but its projectile is the white ball spat by playWebEffect
+    // (inside _executeAttack's web branch). The generic arrow from _projectileFor would fire
+    // ON TOP of that — an arrow AND a ball. Skip the arrow entirely: play the ranged
+    // animation, then go straight to _executeAttack, which launches the ball.
+    if (atk.web) {
+      playUnitAttackAnim(attacker, 'ranged', () => _executeAttack(attacker, target, atk, onSettled));
+      return;
+    }
     const _fire = _projectileFor(attacker);
     if (attacker.type === 'elf' && atk.name === 'Fire Bolt') {
       playUnitAttackAnim(attacker, 'ranged');
