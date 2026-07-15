@@ -490,6 +490,7 @@ export function updateCameraFocus() {
 const _SWIVEL_SPEED = 0.006;                 // radians per pixel of horizontal drag
 const _SWIVEL_UP    = new THREE.Vector3(0, 1, 0);
 const _swivelOffset = new THREE.Vector3();
+const _CAM_CLEARANCE = 3;                     // WU the lens must stay above the ground beneath it
 let _swivelActive   = false;
 let _swivelLastX    = 0;
 
@@ -507,7 +508,15 @@ window.addEventListener('pointermove', e => {
   // Drag right (dx > 0) → +angle about +Y → offset swings 6→3 o'clock (CCW from above).
   _swivelOffset.copy(camera.position).sub(controls.target);
   _swivelOffset.applyAxisAngle(_SWIVEL_UP, dx * _SWIVEL_SPEED);
-  camera.position.copy(controls.target).add(_swivelOffset);
+  // Reject any swivel that would carry the lens onto ground taller than its own height —
+  // otherwise orbiting past a steep hill drops the camera behind/under the terrain and you
+  // see the void beneath it. The swivel is a horizontal orbit, so the height never changes;
+  // we just refuse the azimuths where the new XZ pokes into a hillside and keep the last one.
+  const camX = controls.target.x + _swivelOffset.x;
+  const camZ = controls.target.z + _swivelOffset.z;
+  const camY = controls.target.y + _swivelOffset.y;
+  if (camY < getTerrainHeight(camX, camZ) + _CAM_CLEARANCE) return;
+  camera.position.set(camX, camY, camZ);
 });
 function _endSwivel() { _swivelActive = false; }
 window.addEventListener('pointerup',     e => { if (e.button === 2) _endSwivel(); });

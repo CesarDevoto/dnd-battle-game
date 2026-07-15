@@ -5676,11 +5676,23 @@ function runAITurn(u) {
       const def   = UNIT_TYPES[u.type] ?? {};
       const names = def.multiattack;
       let seq = [opener];
-      if (Array.isArray(names) && names.length && opener.type === 'melee') {
+      if (Array.isArray(names) && names.length) {
         const resolved = names
           .map(n => (def.attacks ?? []).find(a => a.name === n))
           .filter(Boolean);
-        if (resolved.length) seq = resolved;
+        // A MIXED multiattack (both a melee and a ranged attack, e.g. the hobgoblin captain's
+        // "greatsword or longbow in any combination") flurries from ANY opener — otherwise a
+        // ranged opener would fire a single shot and never multiattack. Lead with the opener
+        // so the first swing matches the current range; later legs re-evaluate range per swing
+        // (preferMelee below + nextAttack's own closing logic). An ALL-MELEE list (ettin:
+        // battleaxe then morningstar) keeps its fixed order and its melee-opener-only rule.
+        const mixed = resolved.some(a => a.type === 'melee') && resolved.some(a => a.type === 'ranged');
+        if (resolved.length && mixed) {
+          const others = resolved.filter(a => a !== opener);
+          seq = [opener, ...others].slice(0, resolved.length);
+        } else if (resolved.length && opener.type === 'melee') {
+          seq = resolved;
+        }
       }
 
       // The whole flurry is ONE action, so the flag is set once, up front.

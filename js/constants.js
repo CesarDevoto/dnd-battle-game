@@ -315,7 +315,8 @@ export const UNIT_TYPES = {
 
   hyena: {
     name: 'Hyena', team: 'red',
-    scale: [0.825, 0.825, 0.825], anchorY: 1.1,
+    // ~3.3x the base export (0.825 → 2.72); anchorY tracks the scale so the HP bar stays overhead.
+    scale: [2.7225, 2.7225, 2.7225], anchorY: 3.63,
     hp: 5, ac: 11, speed: 50, initiative: 0, xpReward: 5, profBonus: 2,
     abilities: { str: 11, dex: 13, con: 12, int: 2, wis: 12, cha: 5 },
     attacks: [
