@@ -182,7 +182,7 @@ export function updateHeroUI() {
       // future one shows up here for free.
       if (u && u.actionSave)
         badges += `<span class="cond-badge cond-debuff cond-restrained">🕸 ${u.actionSave.name}` +
-                  `<span class="cond-turns">${u.actionSave.stat.toUpperCase()} DC ${u.actionSave.dc}</span></span>`;
+                  `<span class="cond-turns">d100 ≥ ${u.actionSave.threshold}</span></span>`;
 
       // Guarded: this runs for all 4 hero cards every frame, and `badges` is almost always
       // the identical string (usually ''). An unconditional innerHTML write re-parses the

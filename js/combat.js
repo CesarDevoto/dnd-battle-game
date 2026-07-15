@@ -2380,6 +2380,15 @@ function atkBreakdown(r) {
 //   }
 export function setActionSave(u, save) {
   if (!u) return;
+  // Convert the d20-scale DC to THIS unit's d100 break-out number, the same way rollSave does
+  // (saveChance = ((mod + 20 − dc)/20)×100, clamped 5–95; you roll d100 and need ≥ threshold).
+  // The DC alone is a stable property of the effect, but the d100 threshold folds in the
+  // roller's ability mod, so it differs per hero — Gobo (STR +3) needs ≥45, Milo (−2) needs
+  // ≥70 against the same DC 12 web. Stored here so the button, badge and log all show the
+  // correct per-hero number in d100 terms rather than a bare "DC 12".
+  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[save.stat] ?? 10) - 10) / 2);
+  save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100)));
+  save.threshold = 100 - save.chance;
   u.actionSave = save;
 }
 export function clearActionSave(u) {
@@ -2400,7 +2409,7 @@ function _attemptActionSave(u) {
   const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal');
   const label = unitLabel(u);
 
-  showRoll(`${label} · ${s.name} (${s.stat.toUpperCase()} DC ${s.dc})`, res, { autoDismiss: false });
+  showRoll(`${label} · ${s.name} (${s.stat.toUpperCase()} · need ≥ ${s.threshold})`, res, { autoDismiss: false });
 
   if (res.isSave) {
     clearActionSave(u);
@@ -2614,11 +2623,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     // This branch returns before the normal hit log further down, so the web attack was
     // logging NEITHER the to-hit roll NOR the fact that it connected — the whole attack was
     // invisible. Log it here, on the same beat the miss branch uses, so the roll has settled.
-    const _webDC = target.actionSave.dc;
+    const _webSave = target.actionSave;
     setTimeout(() => {
       playSound('arrow_hit');
       addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'hit');
-      addLog(`${tLabel} is caught in ${aLabel}'s webbing! (Action + DC ${_webDC} STR to break free)`, 'alert');
+      addLog(`${tLabel} is caught in ${aLabel}'s webbing! (Action + roll ≥ ${_webSave.threshold} on d100 to break free — ${_webSave.stat.toUpperCase()})`, 'alert');
       showFloatingDamage(target, 'WEBBED', '#e6e6ff');
       onSettled?.();
     }, D + FAST_ROLL_MS);
@@ -4488,7 +4497,7 @@ function _rebuildHotbar(u) {
     bindHotkey(SAVE_SLOT, false,
       s
         ? `<span class="hb-save-throw">${s.label ?? 'SAVING<br>THROW'}` +
-          `<span class="hb-save-dc">${s.stat.toUpperCase()} DC ${s.dc}</span></span>`
+          `<span class="hb-save-dc">${s.stat.toUpperCase()} · d100 ≥ ${s.threshold}</span></span>`
         : `<span class="hb-save-throw hb-save-idle">SAVING<br>THROW</span>`,
       () => {
         const curU = turnOrder[turnIndex];
