@@ -44,19 +44,20 @@ const _socialRings    = new Map();   // unit → THREE.Mesh
 // ── WASD state ────────────────────────────────────────────────────────────────
 const _keys = { w: false, a: false, s: false, d: false, q: false, e: false };
 
-// Dev-camera precision mode: hold SHIFT to slow everything down for fine framing —
-// WASD glide, RMB rotate/swivel, LMB pan and MMB zoom/dolly all drop to CAM_SLOW.
-const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full tilt
-const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full tilt
-const CAM_ZOOM_BASE   = 2.0;   // OrbitControls zoomSpeed at full tilt
-const CAM_SLOW        = 0.15;  // multiplier while SHIFT is held
-let _slowCam = false;
+// Dev camera: SLOW by default for fine framing (WASD glide, RMB rotate/swivel, LMB pan, MMB
+// zoom/dolly), hold SHIFT to speed everything up when you need to cover ground fast. The BASE
+// constants are the full-speed values; without shift they're scaled by CAM_SLOW.
+const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full (SHIFT) speed
+const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full (SHIFT) speed
+const CAM_ZOOM_BASE   = 2.0;   // OrbitControls zoomSpeed at full (SHIFT) speed
+const CAM_SLOW        = 0.15;  // default multiplier; SHIFT removes it (→ full speed)
+let _shiftHeld = false;
 
-// Applies the current slow/fast state to the mouse camera. Called on shift up/down and
-// whenever _applyCamera re-establishes the dev control config.
+// Applies the current speed state to the mouse camera. Called on shift up/down and whenever
+// _applyCamera re-establishes the dev control config. No shift → slow (default); shift → full.
 function _applyCamSlow() {
   if (!_dev) return;
-  const m = _slowCam ? CAM_SLOW : 1;
+  const m = _shiftHeld ? 1 : CAM_SLOW;
   controls.panSpeed    = CAM_PAN_BASE    * m;
   controls.rotateSpeed = CAM_ROTATE_BASE * m;
   controls.zoomSpeed   = CAM_ZOOM_BASE   * m;
@@ -80,8 +81,8 @@ export function tickDevCamera(dt) {
   if (!any) return;
 
   // Pan speed scales with camera height so it feels the same zoomed in or out.
-  // SHIFT held → precision glide (see _slowCam).
-  const speed = Math.max(camera.position.y, 4) * 3.6 * (_slowCam ? CAM_SLOW : 1);
+  // Slow precision glide by default; SHIFT → full speed (see _shiftHeld).
+  const speed = Math.max(camera.position.y, 4) * 3.6 * (_shiftHeld ? 1 : CAM_SLOW);
 
   const fwd = new THREE.Vector3();
   camera.getWorldDirection(fwd);
@@ -237,7 +238,7 @@ export function initDevMode() {
     if (e.code === 'KeyA') _keys.a = true;
     if (e.code === 'KeyS') _keys.s = true;
     if (e.code === 'KeyD') _keys.d = true;
-    if (e.shiftKey && !_slowCam) { _slowCam = true; _applyCamSlow(); }
+    if (e.shiftKey && !_shiftHeld) { _shiftHeld = true; _applyCamSlow(); }
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'KeyW') _keys.w = false;
@@ -245,12 +246,12 @@ export function initDevMode() {
     if (e.code === 'KeyS') _keys.s = false;
     if (e.code === 'KeyD') _keys.d = false;
     // Either shift released (e.shiftKey is false once the last shift is up).
-    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight' || !e.shiftKey) && _slowCam) {
-      _slowCam = false; _applyCamSlow();
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight' || !e.shiftKey) && _shiftHeld) {
+      _shiftHeld = false; _applyCamSlow();
     }
   });
   // Window blur (alt-tab while shift held) would otherwise strand the camera in slow mode.
-  window.addEventListener('blur', () => { if (_slowCam) { _slowCam = false; _applyCamSlow(); } });
+  window.addEventListener('blur', () => { if (_shiftHeld) { _shiftHeld = false; _applyCamSlow(); } });
 
   _applyCamera();
   _applyUI();
