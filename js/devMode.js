@@ -44,6 +44,22 @@ const _socialRings    = new Map();   // unit → THREE.Mesh
 // ── WASD state ────────────────────────────────────────────────────────────────
 const _keys = { w: false, a: false, s: false, d: false, q: false, e: false };
 
+// Dev-camera precision mode: hold SHIFT to slow everything down for fine framing —
+// WASD glide, RMB rotate/swivel and LMB pan all drop to CAM_SLOW of their normal speed.
+const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full tilt
+const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full tilt
+const CAM_SLOW        = 0.3;   // multiplier while SHIFT is held
+let _slowCam = false;
+
+// Applies the current slow/fast state to the mouse camera. Called on shift up/down and
+// whenever _applyCamera re-establishes the dev control config.
+function _applyCamSlow() {
+  if (!_dev) return;
+  const m = _slowCam ? CAM_SLOW : 1;
+  controls.panSpeed    = CAM_PAN_BASE    * m;
+  controls.rotateSpeed = CAM_ROTATE_BASE * m;
+}
+
 // ── Dev camera tick (called from main.js render loop) ─────────────────────────
 export function tickDevCamera(dt) {
   _tickDetectRings();
@@ -61,8 +77,9 @@ export function tickDevCamera(dt) {
   const any = Object.values(_keys).some(Boolean);
   if (!any) return;
 
-  // Pan speed scales with camera height so it feels the same zoomed in or out
-  const speed = Math.max(camera.position.y, 4) * 3.6;
+  // Pan speed scales with camera height so it feels the same zoomed in or out.
+  // SHIFT held → precision glide (see _slowCam).
+  const speed = Math.max(camera.position.y, 4) * 3.6 * (_slowCam ? CAM_SLOW : 1);
 
   const fwd = new THREE.Vector3();
   camera.getWorldDirection(fwd);
@@ -218,13 +235,20 @@ export function initDevMode() {
     if (e.code === 'KeyA') _keys.a = true;
     if (e.code === 'KeyS') _keys.s = true;
     if (e.code === 'KeyD') _keys.d = true;
+    if (e.shiftKey && !_slowCam) { _slowCam = true; _applyCamSlow(); }
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'KeyW') _keys.w = false;
     if (e.code === 'KeyA') _keys.a = false;
     if (e.code === 'KeyS') _keys.s = false;
     if (e.code === 'KeyD') _keys.d = false;
+    // Either shift released (e.shiftKey is false once the last shift is up).
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight' || !e.shiftKey) && _slowCam) {
+      _slowCam = false; _applyCamSlow();
+    }
   });
+  // Window blur (alt-tab while shift held) would otherwise strand the camera in slow mode.
+  window.addEventListener('blur', () => { if (_slowCam) { _slowCam = false; _applyCamSlow(); } });
 
   _applyCamera();
   _applyUI();
@@ -283,8 +307,9 @@ function _applyCamera() {
     controls.maxDistance   = 1200;
     controls.zoomSpeed     = 2.0;
     setFogDensityMultiplier(0.15);   // far zoom would otherwise fog out well before maxDistance
-    controls.panSpeed      = 0.7;
-    controls.rotateSpeed   = 0.5;
+    controls.panSpeed      = CAM_PAN_BASE;
+    controls.rotateSpeed   = CAM_ROTATE_BASE;
+    _applyCamSlow();   // re-apply SHIFT precision state if it's held right now
     controls.mouseButtons  = {
       LEFT:   THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,
