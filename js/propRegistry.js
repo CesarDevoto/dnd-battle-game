@@ -16,6 +16,12 @@ export const PROP_MODELS = {
   // squares) wide, ~5.4 tall. blocksLOS:true — provides cover / breaks sight lines; draw a
   // barrier segment along it if you want it to stop movement too (same as the walls).
   fencewooden:  { label: 'Wooden Fence',path: 'assets/environment/fence wooden.glb',     defaultScale: 5.0, blocksLOS: true,  clashR: 2.0  },
+  // Building: ~1.9 WU cube at scale 1, so 4x → ~7.6 WU (~4 grid squares). Loader auto-grounds
+  // the base, so no yOff. Solid, so blocksLOS.
+  hut2:         { label: 'Hut',         path: 'assets/environment/hut2.glb',            defaultScale: 4.0, blocksLOS: true,  clashR: 1.5  },
+  // Flat ground decal. clashR:0 so bodies / other props can sit ON it; tiny yOff beats
+  // z-fighting with the terrain. blocksLOS:false — it's paint on the floor.
+  bloodstain:   { label: 'Blood Stain', path: 'assets/environment/blood stain.glb',      defaultScale: 2.0, defaultYOff: 0.03, blocksLOS: false, clashR: 0.0  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   shackles:     { label: 'Shackles',    path: 'assets/environment/shackles.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.3  },
   skeleton1:    { label: 'Skeleton',    path: 'assets/environment/skeleton1.glb',       defaultScale: 1.0, defaultYOff: 0.18, blocksLOS: false, clashR: 0.4  },
