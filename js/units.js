@@ -57,6 +57,7 @@ const MODEL_PATHS = {
   gnoll_fang:     'assets/models/gnoll2.glb',
   giant_rat:      'assets/models/giantrat.glb',
   hobgoblin:      'assets/models/hobgoblin.glb',
+  hobgoblin_captain: 'assets/models/hobgoblinchief.glb',
   goblin2:        'assets/models/goblin2.glb',
   commoner:       'assets/models/npcs/peasant1.glb',   // reuse the peasant model (static pose)
   owlbear:        'assets/models/owlbear.glb',
@@ -294,6 +295,14 @@ const ANIM_CLIP_NAMES = {
   // Longbow, so rangedAttack is mapped rather than pinned null. Pinned explicitly
   // because Archery_Shot_1 ties Walking on the loco tiebreak and can steal `walk`.
   hobgoblin: {
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: 'Archery_Shot_1', death: 'Dead',
+  },
+  // hobgoblinchief.glb (dedicated boss model, adopted 2026-07-15). Clip family matches the
+  // base hobgoblin PLUS a Left_Hook_from_Guard — which we deliberately IGNORE. His two
+  // attacks are Right_Hand_Sword_Slash (Greatsword) and Archery_Shot_1 (Longbow); he
+  // multiattacks with those two in any combination (see constants.js multiattack).
+  hobgoblin_captain: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
     rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },

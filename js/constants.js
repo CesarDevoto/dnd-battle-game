@@ -460,6 +460,36 @@ export const UNIT_TYPES = {
     ],
   },
 
+  hobgoblin_captain: {
+    name: 'Hobgoblin Captain', team: 'red',
+    // Dedicated model hobgoblinchief.glb (native height ~1.08 WU vs the base hobgoblin's
+    // ~1.37). scale 2.2 → ~2.39 WU in-world, ~15% taller than a rank-and-file hobgoblin
+    // (1.5×1.37≈2.06). anchorY tracks the taller silhouette or the HP bar floats at his chest.
+    scale: [2.2, 2.2, 2.2], anchorY: 3.5,
+    hp: 58, ac: 17, speed: 30, initiative: 0, xpReward: 140, profBonus: 2,
+    abilities: { str: 15, dex: 14, con: 14, int: 12, wis: 10, cha: 13 },
+    // Aura of Authority (10-ft emanation granting it + allies advantage on attacks and
+    // saves) is NOT modelled — the combat engine has no team-buff aura system yet. Left as
+    // a note so it can be wired if/when auras land.
+    // Multiattack (ettin/owlbear pattern): one Greatsword swing + one Longbow shot, "in any
+    // combination" per the 2024 block. Flurries only on a melee opener (Greatsword →
+    // Right_Hand_Sword_Slash, then Longbow → Archery_Shot_1); at range the AI just takes the
+    // single Longbow shot. The model's Left_Hook_from_Guard clip is intentionally unused.
+    multiattack: ['Greatsword', 'Longbow'],
+    multiattackNote: 'Multiattack. The hobgoblin makes two attacks with its greatsword or longbow in any combination.',
+    attacks: [
+      // str+2 & prof+2 → +4 to hit, 2d6+2 slashing — matches the book. The 2024 block adds
+      // 1d6 poison on a hit; the engine only does SAVE-BASED poison, so it's a CON-save
+      // rider here rather than the book's flat no-save damage.
+      { name: 'Greatsword', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'str',
+        poison: { saveStat: 'con', saveDC: 13, dice: 1, sides: 6 },
+        note: '+1d6 poison (DC 13 CON negates)' },
+      { name: 'Longbow',    type: 'ranged', range: 75, longRange: 150, rawLongRange: 300, dice: 1, sides: 8, statMod: 'dex',
+        poison: { saveStat: 'con', saveDC: 13, dice: 2, sides: 4 },
+        note: '+2d4 poison (DC 13 CON negates)' },
+    ],
+  },
+
   gnoll_pack_lord: {
     name: 'Gnoll Pack Lord', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,

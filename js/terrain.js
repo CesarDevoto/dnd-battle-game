@@ -528,7 +528,23 @@ export function rebuildTerrain(mesh, biome) {
 
 // Rebuild geometry WITHOUT re-randomizing noise — used by terrain editor so
 // control-point adjustments don't also reseed the landscape.
-export function rebuildTerrainGeometry(mesh) {
+export function rebuildTerrainGeometry(mesh, { fast = false } = {}) {
+  // Fast path (interactive terrain editing): reuse the existing geometry and
+  // recompute ONLY vertex heights in place. Skips the geometry realloc, the
+  // computeVertexNormals() pass, and the vertex-colour passes — all deferred to
+  // a full rebuild once edits settle. The height loop still runs (it's what
+  // makes the shape change visible), but dropping realloc + normals + colours
+  // is the bulk of the per-nudge cost. Stale normals/colours for a frame or two
+  // mid-drag are invisible; the settle pass corrects them.
+  const pos = mesh.geometry?.attributes?.position;
+  if (fast && pos) {
+    for (let i = 0; i < pos.count; i++) {
+      pos.setZ(i, getTerrainHeight(pos.getX(i), -pos.getY(i)));
+    }
+    pos.needsUpdate = true;
+    mesh.geometry.computeBoundingSphere();
+    return;
+  }
   mesh.geometry.dispose();
   mesh.geometry = buildGeo(_lastBiome);
 }

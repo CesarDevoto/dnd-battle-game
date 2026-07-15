@@ -5697,9 +5697,22 @@ function runAITurn(u) {
       // in which to hit that window, which is why this could not happen before.
       const gone = () => !combatPhase || !units.includes(u) || u.hp <= 0;
 
+      // Enemies never loose a RANGED attack at a foe already in melee reach — they swing
+      // instead. So a mixed multiattack (e.g. the hobgoblin captain's Greatsword + Longbow)
+      // becomes two Greatsword swings against an adjacent target, and only uses the Longbow
+      // leg when the re-picked foe is out of melee range. Resolved per-swing because the foe
+      // (and the distance to it) can change between legs of the flurry.
+      const meleeSub = (def.attacks ?? []).find(a => a.type === 'melee');
+      const preferMelee = (atk, foe) => {
+        if (!meleeSub || !atk || atk.type === 'melee') return atk;
+        const dx = foe.grp.position.x - u.grp.position.x;
+        const dz = foe.grp.position.z - u.grp.position.z;
+        return Math.sqrt(dx * dx + dz * dz) <= atkTriggerWU(meleeSub) ? meleeSub : atk;
+      };
+
       const swing = () => {
         if (gone() || !units.includes(foe) || foe.hp <= 0) { cb(); return; }
-        const atk = seq[i++];
+        const atk = preferMelee(seq[i++], foe);
         showAttackTargets(u);        // briefly lights the orange ring on the target
         setTimeout(() => {
           hideAttackTargets();

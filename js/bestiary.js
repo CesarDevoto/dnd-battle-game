@@ -116,8 +116,8 @@ const MM_ROSTER = [
   ]},
   { cr: '3', names: [
     'Basilisk','Bearded Devil','Blue Dragon Wyrmling','Doppelganger','Giant Scorpion','Gold Dragon Wyrmling',
-    'Green Hag','Hell Hound','Killer Whale','Knight','Manticore','Minotaur','Mummy','Nightmare','Owlbear',
-    'Phase Spider','Veteran','Werewolf','Wight','Winter Wolf',
+    'Green Hag','Hell Hound','Hobgoblin Captain','Killer Whale','Knight','Manticore','Minotaur','Mummy',
+    'Nightmare','Owlbear','Phase Spider','Veteran','Werewolf','Wight','Winter Wolf',
   ]},
   { cr: '4', names: [
     'Black Pudding','Chuul','Couatl','Elephant','Ettin','Ghost','Lamia','Red Dragon Wyrmling',

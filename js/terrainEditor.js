@@ -200,6 +200,39 @@ function _rebuild() {
   _updateStatus();
 }
 
+// ── Coalesced rebuild scheduler ─────────────────────────────────────────────────
+// A full _rebuild() in a cave zone (Warrens) is ~2.8M height ops over the terrain
+// mesh PLUS two grid re-samples — far too heavy to run once per keystroke while a
+// marker is being nudged/dragged. Instead, interactive mutations call
+// _scheduleRebuild(): at most one CHEAP height-only rebuild runs per animation
+// frame while edits stream in, and one FULL-quality pass (normals + colours +
+// grid) runs once edits settle (~140ms idle). Held-arrow repeats that used to
+// queue dozens of full rebuilds now collapse to ≤60 fast rebuilds/sec + one final.
+let _rebuildRaf   = 0;
+let _settleTimer  = 0;
+const _SETTLE_MS  = 140;
+
+function _rebuildFast() {
+  rebuildTerrainGeometry(ground, { fast: true });   // heights only, in place
+  _refreshMarkerPositions();
+  _updateStatus();
+}
+
+function _scheduleRebuild() {
+  if (!_rebuildRaf) {
+    _rebuildRaf = requestAnimationFrame(() => {
+      _rebuildRaf = 0;
+      _rebuildFast();
+    });
+  }
+  // Push the full-quality pass out to after edits stop streaming.
+  if (_settleTimer) clearTimeout(_settleTimer);
+  _settleTimer = setTimeout(() => {
+    _settleTimer = 0;
+    _rebuild();     // full: normals, vertex colours, grid
+  }, _SETTLE_MS);
+}
+
 // ── Raycasting ────────────────────────────────────────────────────────────────
 const _rc  = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
@@ -231,7 +264,7 @@ function _place(pt) {
   const idx = pts.length - 1;
   _createMarker(pts[idx], idx);
   _selectedIdx = idx;
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _removeSelected() {
@@ -254,7 +287,7 @@ function _nudge(dx, dz) {
   const cp = getTerrainControlPoints()[_selectedIdx];
   cp.x = +(cp.x + dx).toFixed(2);
   cp.z = +(cp.z + dz).toFixed(2);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _adjustH(delta) {
@@ -263,7 +296,7 @@ function _adjustH(delta) {
   const cp = getTerrainControlPoints()[_selectedIdx];
   cp.h = +(cp.h + delta).toFixed(2);
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _adjustR(delta) {
@@ -272,7 +305,7 @@ function _adjustR(delta) {
   const cp = getTerrainControlPoints()[_selectedIdx];
   cp.r = Math.max(1, +(cp.r + delta).toFixed(2));
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _adjustPR(delta) {
@@ -282,7 +315,7 @@ function _adjustPR(delta) {
   const newPR = Math.max(0, Math.min(cp.r - 0.5, +((cp.pr ?? 0) + delta).toFixed(2)));
   if (newPR > 0) cp.pr = newPR; else delete cp.pr;
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 // Absolute value setters, driven by the per-point number inputs.
@@ -292,7 +325,7 @@ function _setH(val) {
   const cp = getTerrainControlPoints()[_selectedIdx];
   cp.h = +val.toFixed(2);
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _setR(val) {
@@ -302,7 +335,7 @@ function _setR(val) {
   cp.r = Math.max(1, +val.toFixed(2));
   if (cp.pr != null && cp.pr > cp.r - 0.5) cp.pr = Math.max(0, cp.r - 0.5);
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _setPR(val) {
@@ -312,7 +345,7 @@ function _setPR(val) {
   const newPR = Math.max(0, Math.min(cp.r - 0.5, +val.toFixed(2)));
   if (newPR > 0) cp.pr = newPR; else delete cp.pr;
   _updateMarkerRadius(_selectedIdx);
-  _rebuild();
+  _scheduleRebuild();
 }
 
 function _stampFrom(dx, dz) {
@@ -327,7 +360,7 @@ function _stampFrom(dx, dz) {
   const idx = pts.length - 1;
   _createMarker(pts[idx], idx);
   _selectedIdx = idx;
-  _rebuild();
+  _scheduleRebuild();
 }
 
 // ── Save to zone ──────────────────────────────────────────────────────────────

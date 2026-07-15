@@ -294,6 +294,8 @@ function _buildFogBreach(x, z, scale = 0.5) {
       transparent: true,
       opacity:     0.55 * def.os,
       depthWrite:  false,
+      fog:         false,   // decorative mist must not be eaten by the zone's own scene fog
+                            // (Warrens is a dense red exponential fog — it washed these out)
     });
     const spr = new THREE.Sprite(mat);
     const s   = def.s * scale;
@@ -316,6 +318,7 @@ function _buildFogBreach(x, z, scale = 0.5) {
       opacity:     0.55 * def.os,
       depthWrite:  false,
       side:        THREE.DoubleSide,
+      fog:         false,   // as above — ignore scene fog so the ground disc stays visible
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size * scale, def.size * scale), mat);
     mesh.rotation.x = -Math.PI / 2;
