@@ -51,12 +51,6 @@ export const ZONE = {
     { type: 'giant_rat', x: -39.56, z: 39.75, yOff: -0.75, scale: 1.464 },
     { type: 'giant_rat', x: -36.29, z: 42.51, yOff: -0.75, scale: 1.464 },
     { type: 'giant_spider', x: -22.69, z: -3.41, animOverrides: {idle:2,walk:3,run:3,attack:0,rangedAttack:0,spellCast:0,death:1} },
-    // Hyena pack — fast (speed 50) beasts that hunt in a loose group across the open
-    // central-south clearing. Roaming so they range around before the party arrives.
-    { type: 'hyena', x: -16, z: -22, roams: true, patrol: [{x:-16,z:-45}, {x:-16,z:-15}] },
-    { type: 'hyena', x: -12, z: -24, roams: true, patrol: [{x:-12,z:-45}, {x:-12,z:-15}] },
-    { type: 'hyena', x: -19, z: -26, roams: true, patrol: [{x:-19,z:-45}, {x:-19,z:-15}] },
-    { type: 'hyena', x: -14, z: -19, roams: true, patrol: [{x:-14,z:-45}, {x:-14,z:-15}] },
   ],
   exits: [
     { x: -82, z: 70, targetZone: 'bleakmire_woods', arrivalX: 80, arrivalZ: -80, label: 'Bleakmire Woods', fogPush: 16, fogOffsetZ: 1 },
