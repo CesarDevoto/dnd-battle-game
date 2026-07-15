@@ -24,10 +24,17 @@ export const PROP_MODELS = {
   bloodstain:   { label: 'Blood Stain', path: 'assets/environment/blood stain.glb',      defaultScale: 2.0, defaultYOff: 0.03, blocksLOS: false, clashR: 0.0  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   shackles:     { label: 'Shackles',    path: 'assets/environment/shackles.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.3  },
+  // ~1.9 WU centered cube at scale 1; at 2x → ~3.8 WU (~2 grid squares) — a captive-sized cell.
+  // Loader auto-grounds the base, so no yOff. blocksLOS:false — it's barred, you see through it.
+  // clashR:0.8 keeps it a walk-around footprint; drop it lower if you want to stand an NPC inside.
+  ironcage:     { label: 'Iron Cage',   path: 'assets/environment/iron cage.glb',       defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
+  // ~1.5 WU wide × ~1.9 tall centered; at scale 1 that's ~5 ft — a throne-sized seat. Auto-grounded.
+  ironchair:    { label: 'Iron Chair',  path: 'assets/environment/iron chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   skeleton1:    { label: 'Skeleton',    path: 'assets/environment/skeleton1.glb',       defaultScale: 1.0, defaultYOff: 0.18, blocksLOS: false, clashR: 0.4  },
   dungeonwall:      { label: 'Rock Wall',       path: 'assets/environment/dungeonrockwall.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
   stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
+  woodensteps:      { label: 'Wooden Steps',    path: 'assets/environment/wooden steps.glb',         defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   dungeonwallsmall: { label: 'Wall (Small)',    path: 'assets/environment/dungeon small wall.glb',   defaultScale: 8.0, blocksLOS: true,  clashR: 0.8  },
   dungeonwalllong:  { label: 'Wall (Long)',      path: 'assets/environment/dungeon long wall.glb',        defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
   dungeonwallxlong: { label: 'Wall (X-Long)',   path: 'assets/environment/dungeon really long wall.glb', defaultScale: 8.0, blocksLOS: true,  clashR: 2.0  },
@@ -90,6 +97,10 @@ export const PROP_MODELS = {
   barloaded:    { label: 'Loaded Bar',  path: 'assets/environment/barloaded.glb',        defaultScale: 1.0, blocksLOS: true,  clashR: 2.0  },
   barrel1:      { label: 'Barrel 1',    path: 'assets/environment/barrel1.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
   barrel2:      { label: 'Barrel 2',    path: 'assets/environment/barrel2.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
+  // ~1.4 WU wide × ~1.9 tall centered; at 3x → ~4.2 WU (~2 grid squares) wide, awning height. Auto-grounded.
+  marketstall1: { label: 'Market Stall', path: 'assets/environment/market stall1.glb',   defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
+  // ~1.4 WU wide × ~1.9 tall centered; at 3x → ~4.2 WU (~2 grid squares). Textures 256² (extra-compressed). Auto-grounded.
+  marketarmory1: { label: 'Market Armory', path: 'assets/environment/market armory1.glb', defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
 
   // ── Procedural props ──────────────────────────────────────────────────────────
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
