@@ -45,10 +45,11 @@ const _socialRings    = new Map();   // unit → THREE.Mesh
 const _keys = { w: false, a: false, s: false, d: false, q: false, e: false };
 
 // Dev-camera precision mode: hold SHIFT to slow everything down for fine framing —
-// WASD glide, RMB rotate/swivel and LMB pan all drop to CAM_SLOW of their normal speed.
+// WASD glide, RMB rotate/swivel, LMB pan and MMB zoom/dolly all drop to CAM_SLOW.
 const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full tilt
 const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full tilt
-const CAM_SLOW        = 0.3;   // multiplier while SHIFT is held
+const CAM_ZOOM_BASE   = 2.0;   // OrbitControls zoomSpeed at full tilt
+const CAM_SLOW        = 0.15;  // multiplier while SHIFT is held
 let _slowCam = false;
 
 // Applies the current slow/fast state to the mouse camera. Called on shift up/down and
@@ -58,6 +59,7 @@ function _applyCamSlow() {
   const m = _slowCam ? CAM_SLOW : 1;
   controls.panSpeed    = CAM_PAN_BASE    * m;
   controls.rotateSpeed = CAM_ROTATE_BASE * m;
+  controls.zoomSpeed   = CAM_ZOOM_BASE   * m;
 }
 
 // ── Dev camera tick (called from main.js render loop) ─────────────────────────
@@ -305,11 +307,11 @@ function _applyCamera() {
     controls.enablePan     = true;
     controls.minDistance   = 0.3;
     controls.maxDistance   = 1200;
-    controls.zoomSpeed     = 2.0;
+    controls.zoomSpeed     = CAM_ZOOM_BASE;
     setFogDensityMultiplier(0.15);   // far zoom would otherwise fog out well before maxDistance
     controls.panSpeed      = CAM_PAN_BASE;
     controls.rotateSpeed   = CAM_ROTATE_BASE;
-    _applyCamSlow();   // re-apply SHIFT precision state if it's held right now
+    _applyCamSlow();   // re-apply SHIFT precision state (pan/rotate/zoom) if held right now
     controls.mouseButtons  = {
       LEFT:   THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,
