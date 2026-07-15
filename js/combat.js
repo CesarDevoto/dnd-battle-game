@@ -1955,6 +1955,13 @@ function removeDefeatedUnit(u, attacker = null) {
     sleepingUnits.get(u)?.zzzEl?.remove();
     sleepingUnits.delete(u);
   }
+  // Death ends lingering conditions. Milo was dying WHILE webbed and coming back from a short
+  // rest still restrained, because the corpse kept its actionSave. Clearing it here also fades
+  // the web decal (playWebEffect drops it once actionSave.key !== 'web') the moment they fall,
+  // and covers every action-save condition generically — grapple, paralysis, future ones —
+  // not just the web. Buffs (rage, bless, mage armor) are intentionally left to their own
+  // end-of-combat / duration teardown; this is debuffs only.
+  clearActionSave(u);
   addLog(`✦ ${unitLabel(u)} is defeated!`, 'defeat');
   playSound('death');
   if (u.team === 'red') {
