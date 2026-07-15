@@ -213,6 +213,20 @@ const ANIM_CLIP_NAMES = {
   giant_rat: {
     idle: 'Idle', walk: 'Walk', run: 'Run', attack: 'Jump', death: 'Death',
   },
+  // hyena.glb (re-exported with animations Jul 2026). Clips: Bite, Death, Idle Alert, Run,
+  // Walk — cleanly named by the artist, so pin them all by name rather than trust the
+  // Hips-Y heuristic. rangedAttack:null: no ranged clip, and without the pin autoMapAnimClips
+  // would hand the slot a walk cycle. crocodile + giant_toad borrow this same GLB as a
+  // placeholder, so they get the same mapping below.
+  hyena: {
+    idle: 'Idle Alert', walk: 'Walk', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  crocodile: {
+    idle: 'Idle Alert', walk: 'Walk', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  giant_toad: {
+    idle: 'Idle Alert', walk: 'Walk', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
   // solrac.glb has a real standing idle (Idle_11) plus loco + sit/cheer poses.
   // Pin the standing idle and loco explicitly; no attack clip (peaceful NPC).
   solrac: {
