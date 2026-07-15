@@ -673,11 +673,17 @@ export function initialCaveLayer(x, z) {
 // were then stranded on the far side once their layer flipped back. There is no second
 // surface to walk on at a merged point, so there is nothing for a barrier to be
 // "the wrong layer" for.
-export function barrierBlocksLayer(mx, mz, layer) {
+// `segLayer` (optional) pins a barrier to a cave layer: 'under' (floor) or 'surface'
+// (blanket top). A pinned barrier still blocks EVERYONE on merged/open ground (where the two
+// surfaces coincide), but where a tunnel opens real headroom it only blocks a mover on its
+// own layer — so you can wall off the floor and the blanket independently at the same spot.
+// A null segLayer keeps the legacy auto rule (blocks the 'under' layer under a roof).
+export function barrierBlocksLayer(mx, mz, layer, segLayer = null) {
   if (!_layersActive || layer == null) return true;
   const headroom = getUncarvedHeight(mx, mz) - getTerrainHeight(mx, mz);
   if (headroom <= LAYER_MERGE_EPS) return true;   // merged — one floor, blocks all
-  return layer === 'under';                       // tunnel wall — blocks who's inside
+  if (segLayer != null) return layer === segLayer; // pinned wall — blocks only its own layer
+  return layer === 'under';                        // legacy tunnel wall — blocks who's inside
 }
 
 // Can a unit on `layerA` at (ax,az) see a unit on `layerB` at (bx,bz), or is the cave roof

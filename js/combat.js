@@ -617,7 +617,7 @@ function crossesBarrier(ax, az, bx, bz, layer) {
     // Layer-test the actual CROSSING point, not the segment's midpoint: a long wall
     // running from open ground into a tunnel would otherwise be classified by
     // whatever its middle happens to sit on, and leak along the rest of its length.
-    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer)) return true;
+    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer, s.layer)) return true;
   }
   return false;
 }
@@ -2173,7 +2173,12 @@ const _HERO_RE     = /\b(Rasec|Leugren|Gobo|Milo)\b/g;
 
 function _formatLog(text) {
   const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return esc.replace(_HERO_RE, n => `<b style="color:${_HERO_COLORS[n]}">${n}</b>`);
+  // Roll breakdowns tag advantage/disadvantage with the uppercase ADV / DIS tokens —
+  // bold-green for ADV, bold-red for DIS. Case-sensitive + word-boundary so ordinary prose
+  // ("advantage", "distracts") is never matched.
+  return esc.replace(_HERO_RE, n => `<b style="color:${_HERO_COLORS[n]}">${n}</b>`)
+    .replace(/\bADV\b/g, '<b style="color:#3fcf5a">ADV</b>')
+    .replace(/\bDIS\b/g, '<b style="color:#ff5555">DIS</b>');
 }
 
 // Oldest entries are dropped past this. The log had no cap at all: every attack, roll, move

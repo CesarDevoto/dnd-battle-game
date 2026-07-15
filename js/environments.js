@@ -271,7 +271,9 @@ export const barrierSegments  = []; // [{x1,z1,x2,z2}] — impassable lines for 
 
 export function loadBarriersData(arr) {
   barrierSegments.length = 0;
-  if (arr?.length) for (const b of arr) barrierSegments.push({ x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2 });
+  if (arr?.length) for (const b of arr) barrierSegments.push(
+    b.layer ? { x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2, layer: b.layer }
+            : { x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2 });
 }
 export function clearBarriersData() { barrierSegments.length = 0; }
 

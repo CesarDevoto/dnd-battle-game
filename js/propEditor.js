@@ -42,6 +42,18 @@ function _loadGLB(modelKey) {
           root.children.forEach(c => { c.position.y -= box.min.y; });
           root.updateMatrixWorld(true);
         }
+        // Optional per-model albedo lift (PROP_MODELS[key].brighten): multiply the base
+        // colour so a model that reads too dark comes up lighter, keeping its texture and
+        // still responding to scene light. Applied once on the cached root; clones share
+        // these materials by reference, so every placed copy inherits the lift.
+        const brighten = PROP_MODELS[modelKey].brighten;
+        if (brighten) {
+          root.traverse(o => {
+            if (!o.isMesh || !o.material) return;
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            mats.forEach(m => { if (m.color) m.color.multiplyScalar(brighten); });
+          });
+        }
         _glbCache[modelKey] = root;
         resolve(root);
       },

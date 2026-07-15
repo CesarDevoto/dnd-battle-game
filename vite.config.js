@@ -290,7 +290,7 @@ function saveZoneTerrainPlugin() {
             // Write barriers if provided (keeps file in sync when cleared)
             if (barriers !== undefined) {
               const r = (n) => Math.round(n * 1e4) / 1e4;
-              const bLines = barriers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`);
+              const bLines = barriers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)}${b.layer ? `, layer: '${b.layer}'` : ''} },`);
               const bBlock = barriers.length ? `  barriers: [\n${bLines.join('\n')}\n  ],` : `  barriers: [],`;
               if (/[ \t]*barriers\s*:/.test(src)) {
                 src = src.replace(/[ \t]*barriers\s*:[\s\S]*?\],?/, bBlock);

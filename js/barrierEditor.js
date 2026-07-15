@@ -20,9 +20,15 @@ let _selIdx = -1;
 let _previewLine = null;
 let _startDot    = null;
 
-const COL_BARRIER  = 0xffdd00;
+const COL_BARRIER  = 0xffdd00;   // 'under' (ground / tunnel-floor) barriers — yellow
+const COL_BLANKET  = 0x2a6bff;   // 'surface' (blanket-top) barriers — blue
 const COL_PREVIEW  = 0xffee88;
 const COL_SELECT   = 0xff3344;   // highlight for the click-selected barrier
+
+// Which cave layer newly-drawn barriers are pinned to: 'under' = ground / tunnel floor,
+// 'surface' = the hilltop blanket over a tunnel. Mirrors the prop/NPC editors' FLOOR/BLANKET.
+let _drawLayer = 'under';
+const _layerColor = (layer) => (layer === 'surface' ? COL_BLANKET : COL_BARRIER);
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
@@ -67,13 +73,14 @@ function _disposeObj(obj) {
 
 // ── Barrier management ────────────────────────────────────────────────────────
 
-function _addBarrier(x1, z1, x2, z2) {
-  barrierSegments.push({ x1, z1, x2, z2 });
-  const entry = { x1, z1, x2, z2, line: null, dot1: null, dot2: null };
+function _addBarrier(x1, z1, x2, z2, layer = _drawLayer) {
+  barrierSegments.push({ x1, z1, x2, z2, layer });
+  const col = _layerColor(layer);
+  const entry = { x1, z1, x2, z2, layer, line: null, dot1: null, dot2: null };
   if (IS_DEV) {
-    entry.line = _lineMesh(x1, z1, x2, z2, COL_BARRIER);
-    entry.dot1 = _dotMesh(x1, z1, COL_BARRIER);
-    entry.dot2 = _dotMesh(x2, z2, COL_BARRIER);
+    entry.line = _lineMesh(x1, z1, x2, z2, col);
+    entry.dot1 = _dotMesh(x1, z1, col);
+    entry.dot2 = _dotMesh(x2, z2, col);
     entry.line.visible = _visibleInDev;
     entry.dot1.visible = _visibleInDev;
     entry.dot2.visible = _visibleInDev;
@@ -116,9 +123,10 @@ function _rebuildBarrierVisuals(idx) {
   if (b.line) { _disposeObj(b.line); b.line = null; }
   if (b.dot1) { _disposeObj(b.dot1); b.dot1 = null; }
   if (b.dot2) { _disposeObj(b.dot2); b.dot2 = null; }
-  b.line = _lineMesh(b.x1, b.z1, b.x2, b.z2, COL_BARRIER);
-  b.dot1 = _dotMesh(b.x1, b.z1, COL_BARRIER);
-  b.dot2 = _dotMesh(b.x2, b.z2, COL_BARRIER);
+  const col = _layerColor(b.layer);
+  b.line = _lineMesh(b.x1, b.z1, b.x2, b.z2, col);
+  b.dot1 = _dotMesh(b.x1, b.z1, col);
+  b.dot2 = _dotMesh(b.x2, b.z2, col);
   b.line.visible = _visibleInDev;
   b.dot1.visible = _visibleInDev;
   b.dot2.visible = _visibleInDev;
@@ -127,7 +135,15 @@ function _rebuildBarrierVisuals(idx) {
 // ── Draw mode ─────────────────────────────────────────────────────────────────
 
 export function isBarrierModeActive() { return _drawMode; }
-export function getCurrentBarriers() { return _barriers.map(({ x1, z1, x2, z2 }) => ({ x1, z1, x2, z2 })); }
+export function getCurrentBarriers() { return _barriers.map(({ x1, z1, x2, z2, layer }) => ({ x1, z1, x2, z2, layer })); }
+
+export function getBarrierDrawLayer() { return _drawLayer; }
+export function setBarrierDrawLayer(layer) {
+  _drawLayer = layer === 'surface' ? 'surface' : 'under';
+  document.getElementById('be-layer-floor')?.classList.toggle('active', _drawLayer === 'under');
+  document.getElementById('be-layer-blanket')?.classList.toggle('active', _drawLayer === 'surface');
+  _updateStatus();
+}
 export function undoLastBarrier() {
   if (_startPt) { _cancelDraw(); _updateStatus(); }
   else if (_barriers.length) _removeAt(_barriers.length - 1);
@@ -206,7 +222,7 @@ function _handleDotDrag(pt) {
   const z1 = _dragDot.which === 'dot1' ? z : b.z1;
   const x2 = _dragDot.which === 'dot2' ? x : b.x2;
   const z2 = _dragDot.which === 'dot2' ? z : b.z2;
-  if (b.line) { _disposeObj(b.line); b.line = _lineMesh(x1, z1, x2, z2, COL_BARRIER); b.line.visible = _visibleInDev; }
+  if (b.line) { _disposeObj(b.line); b.line = _lineMesh(x1, z1, x2, z2, _layerColor(b.layer)); b.line.visible = _visibleInDev; }
 }
 
 export function finalizeBarrierDotDrag(pt) {
@@ -246,7 +262,7 @@ function _applyBarrierColor(idx, color) {
 }
 
 export function clearBarrierSelection() {
-  if (_selIdx >= 0) _applyBarrierColor(_selIdx, COL_BARRIER);
+  if (_selIdx >= 0) _applyBarrierColor(_selIdx, _layerColor(_barriers[_selIdx]?.layer));
   _selIdx = -1;
 }
 
@@ -290,10 +306,11 @@ export function loadBarrierVisuals(arr) {
   loadBarriersData(arr);
   if (!IS_DEV || !arr?.length) return;
   for (const b of arr) {
-    const entry = { x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2,
-      line: _lineMesh(b.x1, b.z1, b.x2, b.z2, COL_BARRIER),
-      dot1: _dotMesh(b.x1, b.z1, COL_BARRIER),
-      dot2: _dotMesh(b.x2, b.z2, COL_BARRIER),
+    const col = _layerColor(b.layer);
+    const entry = { x1: b.x1, z1: b.z1, x2: b.x2, z2: b.z2, layer: b.layer,
+      line: _lineMesh(b.x1, b.z1, b.x2, b.z2, col),
+      dot1: _dotMesh(b.x1, b.z1, col),
+      dot2: _dotMesh(b.x2, b.z2, col),
     };
     entry.line.visible = _visibleInDev;
     entry.dot1.visible = _visibleInDev;
@@ -307,7 +324,7 @@ export function loadBarrierVisuals(arr) {
 
 async function _saveBarriers() {
   if (!_activeZoneId) { _setSaveStatus('No zone loaded', 'error'); return; }
-  const payload = _barriers.map(({ x1, z1, x2, z2 }) => ({ x1, z1, x2, z2 }));
+  const payload = _barriers.map(({ x1, z1, x2, z2, layer }) => ({ x1, z1, x2, z2, layer }));
   _setSaveStatus('Saving…', '');
   try {
     const res  = await fetch('/__save_zone_barriers', {
@@ -334,8 +351,11 @@ function _updateStatus() {
   if (_dragDot)                  el.textContent = 'Moving dot — click to place · Esc to cancel';
   else if (hasSelectedBarrier()) el.textContent = 'Barrier selected — Del removes it · Esc deselects';
   else if (!_drawMode)           el.textContent = 'Click DRAW · click a barrier to select · Shift+click dot to move';
-  else if (!_startPt)            el.textContent = 'Click terrain — start point…';
-  else                           el.textContent = 'Click terrain — end point…';
+  else {
+    const lyr = _drawLayer === 'surface' ? 'BLANKET' : 'FLOOR';
+    el.textContent = !_startPt ? `Drawing ${lyr} barrier — click start point…`
+                               : `Drawing ${lyr} barrier — click end point…`;
+  }
 }
 
 function _updateCounter() {
@@ -387,6 +407,12 @@ export function initBarrierEditor() {
 
   document.getElementById('te-barrier-draw-btn')
     ?.addEventListener('click', () => _setDrawMode(!_drawMode));
+
+  // FLOOR / BLANKET — which cave layer new barriers are pinned to
+  document.getElementById('be-layer-floor')
+    ?.addEventListener('click', () => setBarrierDrawLayer('under'));
+  document.getElementById('be-layer-blanket')
+    ?.addEventListener('click', () => setBarrierDrawLayer('surface'));
 
   document.getElementById('te-barrier-clear-btn')
     ?.addEventListener('click', () => {
