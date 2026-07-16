@@ -52,7 +52,7 @@ export const PROP_MODELS = {
   evergreen:    { label: 'Evergreen',    path: 'assets/environment/evergreentree.glb',   defaultScale: 10.0, blocksLOS: true,  clashR: 0.9  },
   foresttree:   { label: 'Forest Tree', path: 'assets/environment/foresttree.glb',      defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
   mangrove:     { label: 'Mangrove',    path: 'assets/environment/mangrove.glb',        defaultScale: 10.0, blocksLOS: true,  clashR: 1.0  },
-  savannahtree: { label: 'Savannah Tr', path: 'assets/environment/savannahtree.glb',    defaultScale: 1.0, blocksLOS: true,  clashR: 0.9  },
+  savannahtree: { label: 'Savannah Tr', path: 'assets/environment/savannahtree.glb',    defaultScale: 10.0, blocksLOS: true,  clashR: 0.9  },
   saddlebag:    { label: 'Saddlebags',  path: 'assets/environment/saddlebag.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.5  },
   rockpile:     { label: 'Rock Pile',   path: 'assets/environment/rockpile.glb',         defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
   alchemylab:   { label: 'Alchemy Lab', path: 'assets/environment/alchemy lab.glb',      defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
