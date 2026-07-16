@@ -8,7 +8,8 @@ import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
-         rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
+         rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
+         rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive, layersCanSee } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
@@ -16,7 +17,8 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
+         hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
@@ -1130,15 +1132,16 @@ function castHeal(caster, target, spellKey) {
     showHealTargets(caster, spellKey);
     return;
   }
-  const isCantrip = (spell.level ?? 1) === 0;
-  if (!isCantrip && (caster.spellSlots ?? 0) <= 0) return;
+  const spellLvl  = spell.level ?? 1;
+  const isCantrip = spellLvl === 0;
+  if (!hasSpellSlot(caster, spellLvl)) return;
 
   faceTarget(caster, target);
   playUnitAttackAnim(caster, 'spell');
   hideHealTargets();
   hideSpellRangeRing();
   heroMode = null;
-  if (!isCantrip) caster.spellSlots--;
+  spendSpellSlot(caster, spellLvl);
 
   if (spell.actionType === 'action') turnAttacked      = true;
   else                               turnBonusActioned = true;
@@ -1227,7 +1230,7 @@ function castSacredFlame(caster, target, onDone) {
 }
 
 function castBless(caster) {
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('bless'))) return;
   playUnitAttackAnim(caster, 'spell');
   const rangeWU = atkRangeWU(SPELLS.bless.rangeFt) + 1.0;
   const targets = units.filter(u => u.team === 'blue' && u.hp > 0);
@@ -1240,7 +1243,7 @@ function castBless(caster) {
   }
 
   applyBless(caster, targets);
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('bless'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1288,9 +1291,7 @@ function handleSpellBtnClick(spellKey) {
   if (isAnimating) return;
   const u = turnOrder[turnIndex];
   if (!u || u.team !== 'blue') return;
-  const _spellDef  = SPELLS[spellKey];
-  const _isCantrip = (_spellDef?.level ?? 1) === 0;
-  if (!_isCantrip && (u.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
   // Toggle off if already in this mode
   if (heroMode === 'spell_' + spellKey) {
@@ -1424,10 +1425,10 @@ function activateMageArmor() {
   if (isAnimating || turnAttacked) return;
   const u = turnOrder[turnIndex];
   if (!u || u.type !== 'elf') return;
-  if ((u.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(u, spellLevelOf('mage_armor'))) return;
 
   u.mageArmored = true;
-  u.spellSlots--;
+  spendSpellSlot(u, spellLevelOf('mage_armor'));
   turnAttacked  = true;
 
   addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) for this combat`, 'spell');
@@ -1599,7 +1600,7 @@ function activateRage(u) {
   turnBonusActioned = true;
   playSound('berserker_rage');
   showFloatingDamage(u, '⚔ RAGE!', '#ff6622');
-  const _bits = [`+${UNIT_TYPES[u.type]?.rage?.dmgBonus ?? 2} melee dmg`];
+  const _bits = [`+${rageDamageForLevel(u.level ?? 1)} melee dmg`];
   const _mit  = rageMitigationForLevel(u.level);
   if (_mit > 0) _bits.push(`resist ${Math.round(_mit * 100)}% dmg`);
   addLog(`${unitLabel(u)} enters RAGE! (${_bits.join(' · ')})`, 'spell');
@@ -1648,13 +1649,13 @@ function showMagicMissileTargets(caster) {
 function castMagicMissile(caster, target, onDone) {
   const spell   = ELF_SPELLS.magic_missile;
   const freeUse = !caster.mmFreeUsed;
-  if (!freeUse && (caster.spellSlots ?? 0) <= 0) return;
+  if (!freeUse && !hasSpellSlot(caster, spellLevelOf('magic_missile'))) return;
   faceTarget(caster, target);
   playUnitAttackAnim(caster, 'ranged');
   hideAttackTargets();
   hideSpellRangeRing();
   heroMode = null;
-  if (freeUse) caster.mmFreeUsed = true; else caster.spellSlots--;
+  if (freeUse) caster.mmFreeUsed = true; else spendSpellSlot(caster, spellLevelOf('magic_missile'));
   turnAttacked = true;
 
   const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
@@ -1683,9 +1684,9 @@ function castMagicMissile(caster, target, onDone) {
 
 function castSleep(caster) {
   const spell = ELF_SPELLS.sleep;
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('sleep'))) return;
   playUnitAttackAnim(caster, 'ranged');
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('sleep'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1732,9 +1733,9 @@ function castSleep(caster) {
 
 function castBurningHands(caster) {
   const spell = ELF_SPELLS.burning_hands;
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('burning_hands'))) return;
   playUnitAttackAnim(caster, 'ranged');
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('burning_hands'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1782,7 +1783,7 @@ function handleElfSpellBtnClick(spellKey) {
   if (!u || u.type !== 'elf') return;
   if (turnAttacked) return;
   const hasFreeMM = spellKey === 'magic_missile' && !u.mmFreeUsed;
-  if (!hasFreeMM && (u.spellSlots ?? 0) <= 0) return;
+  if (!hasFreeMM && !hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
   if (spellKey === 'magic_missile') {
     if (heroMode === 'elfatk_magic_missile') {
@@ -2566,8 +2567,10 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const statMod = Math.floor(((ab[atk.statMod] ?? 10) - 10) / 2);
   // dmgBonus on attack overrides stat-derived damage mod (e.g. spell cantrips)
   const baseDmgMod   = atk.dmgBonus !== undefined ? atk.dmgBonus : statMod;
+  // UNIT_TYPES.rage marks WHO rages; the damage comes from the barbarian table so it
+  // scales +2 → +3 → +4 with level rather than sitting on the statblock's literal +2.
   const rageDmgBonus = (attacker.raging && atk.type === 'melee' && UNIT_TYPES[attacker.type]?.rage)
-    ? (UNIT_TYPES[attacker.type].rage.dmgBonus ?? 0) : 0;
+    ? rageDamageForLevel(attacker.level ?? 1) : 0;
   const dmgMod  = baseDmgMod + rageDmgBonus;
   // Precision passive (Gobo & Milo, L4+): flat % points added to hit chance on
   // every attack — always active, independent of Rage/Hide.
@@ -2674,7 +2677,13 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     return;
   }
 
-  const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
+  // UNIT_TYPES.sneakAttack only marks WHO has the ability (and the die size); the COUNT
+  // comes from the rogue table, so Milo's sneak scales 1d6 → 10d6 with level instead of
+  // sitting on the statblock's literal 1d6 forever.
+  const _sneakBase = UNIT_TYPES[attacker.type]?.sneakAttack;
+  const sneakDef  = _sneakBase
+    ? { ..._sneakBase, dice: sneakAttackDiceForLevel(attacker.level ?? 1) }
+    : null;
   const doSneak   = sneakDef && !sneakAttackUsed &&
                     hasSneakAttackCondition(attacker, target, atkResult, attackerWasHidden);
 
@@ -4115,7 +4124,7 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
       if (!isAbilityUnlocked(curU.type, curU.level, 'cure_wounds')) return false;
-      if ((curU.spellSlots ?? 0) <= 0) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('cure_wounds'))) return false;
       const rangeWU = atkRangeWU(SPELLS.cure_wounds.rangeFt);
       return units.some(ally => {
         if (ally.team !== 'blue' || ally.hp <= 0) return false;
@@ -4176,7 +4185,8 @@ const _ABILITY_HANDLERS = {
     execute: () => handleSpellBtnClick('bless'),
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('bless'))) return false;
       return units.some(u => u.team === 'blue' && u.hp > 0);
     },
   },
@@ -4185,7 +4195,8 @@ const _ABILITY_HANDLERS = {
     execute: () => activateMageArmor(),
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      if (!curU || curU.type !== 'elf' || turnAttacked) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('mage_armor'))) return false;
       return !curU.mageArmored;
     },
   },
@@ -4195,7 +4206,7 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf' || turnAttacked) return false;
-      if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
+      if (curU.mmFreeUsed && !hasSpellSlot(curU, spellLevelOf('magic_missile'))) return false;
       if (!selectedTarget || selectedTarget.hp <= 0) return false;
       const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
@@ -4579,18 +4590,10 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
   // Seed any freshly-unlocked signature ability into the next empty QWERTY slot
   // so it's on the bar even for a hero who isn't the active unit right now.
   autoAssignHotbarSlots(hero);
-  // Grant additional spell slots when leveling up
-  if (hero.type === 'dwarf') {
-    const clericSlots = newLevel >= 3 ? 3 : newLevel >= 2 ? 2 : 0;
-    const gain = clericSlots - (hero.spellSlotsMax ?? 0);
-    hero.spellSlotsMax = clericSlots;
-    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
-  } else if (hero.type === 'elf') {
-    const wizSlots = newLevel >= 2 ? 2 : 0;
-    const gain = wizSlots - (hero.spellSlotsMax ?? 0);
-    hero.spellSlotsMax = wizSlots;
-    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
-  }
+  // Grant additional spell slots when leveling up. syncSlotsToLevel adds only the
+  // per-level DELTA to what's remaining — crossing a D&D band mid-fight hands over the
+  // new slots without refilling the ones already spent, same as the old code did.
+  syncSlotsToLevel(hero);
   if (!combatPhase) return;
   const curU = turnOrder[turnIndex];
   if (curU && curU === hero && curU.team === 'blue') _rebuildHotbar(curU);
@@ -5222,7 +5225,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'cure_wounds') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'cure_wounds')) { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('cure_wounds'))) { onSkip(); return; }
         // Only fire for a critically wounded ally (<33% HP) — otherwise fall
         // through to Healing Word for lighter, slot-free healing.
         const critAlly = units
@@ -5230,7 +5233,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
         if (!critAlly) { onSkip(); return; }
         turnAttacked = true;
-        u.spellSlots--;
+        spendSpellSlot(u, spellLevelOf('cure_wounds'));
         const cw       = SPELLS.cure_wounds;
         const healRoll = roll({ sides: cw.healSides, count: cw.healDice, modifier: cw.healMod });
         const before   = critAlly.hp;
@@ -5252,7 +5255,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'bless') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'bless')) { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('bless'))) { onSkip(); return; }
         if (blessedUnits.size > 0)       { onSkip(); return; } // already active
         castBless(u);
         setTimeout(onDone, 900);
@@ -5278,7 +5281,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'mage_armor')) { onSkip(); return; }
         if (u.mageArmored)               { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('mage_armor'))) { onSkip(); return; }
         activateMageArmor();
         setTimeout(onDone, 700);
         return;
@@ -5288,7 +5291,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'magic_missile') {
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'magic_missile')) { onSkip(); return; }
-        if (u.mmFreeUsed && (u.spellSlots ?? 0) <= 0) { onSkip(); return; }
+        if (u.mmFreeUsed && !hasSpellSlot(u, spellLevelOf('magic_missile'))) { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
         const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
@@ -5861,7 +5864,7 @@ function runAITurn(u) {
 
     function runSpellcasterPaths() {
       if (!combatPhase || !units.includes(u)) return;
-      const slots = u.spellSlots ?? 0;
+      const slots = totalSpellSlots(u);   // enemy statblocks keep the flat pool; helper reads both
       const _def  = UNIT_TYPES[u.type] ?? {};
       const atks  = _def.attacks ?? [];
       const meleeA   = atks.find(a => a.type === 'melee');

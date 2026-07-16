@@ -1259,16 +1259,49 @@ export const COMBAT = {
   defaultDamage:     { dice: 1, sides: 6, bonus: 0 },
 };
 
-// Gobo's Rage progression — all benefits scale with his level.
-//   L1: 1 use,  no damage mitigation, +2 melee dmg
-//   L2: 10% damage mitigation while raging
-//   L3: 2 uses per combat
-//   L4: +1% chance to hit (permanent passive, applies always — not just while raging)
-export function rageUsesForLevel(level) {
-  return (level ?? 1) >= 3 ? 2 : 1;
+// ── D&D level mapping ─────────────────────────────────────────────────────────
+// OUR levels run 5 per D&D level, and the first band is short because we start at 1:
+//   game 1–4 → D&D 1 · game 5–9 → D&D 2 · game 10–14 → D&D 3 · … · game 95+ → D&D 20
+// i.e. floor(gameLevel/5) + 1. NOT ceil(gameLevel/5) — our level 5 IS D&D 2, not the
+// top of D&D 1. rollToHit already scales on `(atkLvl/5)+1`, the same curve; keep them
+// in agreement. XP_THRESHOLDS stops at game 20 (→ D&D 5) today, so table rows 6–20
+// below are dormant until progression.js expands toward 100 as its comment promises.
+export const DND_MAX_LEVEL = 20;
+export function dndLevelFor(gameLevel) {
+  return Math.max(1, Math.min(DND_MAX_LEVEL, Math.floor((gameLevel ?? 1) / 5) + 1));
 }
 
-// Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off).
+// Proficiency bonus: D&D 1–4 → +2, 5–8 → +3, 9–12 → +4, 13–16 → +5, 17–20 → +6.
+export function proficiencyBonusFor(gameLevel) {
+  return 2 + Math.floor((dndLevelFor(gameLevel) - 1) / 4);
+}
+
+// ── Class progression tables (5e) ─────────────────────────────────────────────
+// Rows are D&D levels 1–20, index 0 = D&D 1. Transcribed from the class tables and
+// kept as LITERAL rows rather than formulas: the real steps are irregular (Rages go
+// 2/3/4/5/6 at levels 1/3/6/12/17 — no clean arithmetic), and a row you can diff
+// against the book beats a clever expression that's wrong in one band.
+const BARB_RAGES          = [2,2,3,3,3,4,4,4,4,4,4,5,5,5,5,5,6,6,6,6];
+const BARB_RAGE_DAMAGE    = [2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,4,4,4,4,4];
+const BARB_WEAPON_MASTERY = [2,2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4];
+// Rogue Sneak Attack is always d6 — only the COUNT scales (+1d6 every odd D&D level).
+const ROGUE_SNEAK_DICE    = [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10];
+
+// Gobo's Rage — uses and damage now come from the barbarian table.
+// NOTE the mitigation below is a CUSTOM mechanic, not in any 5e table: real 5e Rage
+// grants resistance (50%) to physical damage. Don't "correct" it against the book.
+export function rageUsesForLevel(level)      { return BARB_RAGES[dndLevelFor(level) - 1]; }
+export function rageDamageForLevel(level)    { return BARB_RAGE_DAMAGE[dndLevelFor(level) - 1]; }
+// Weapon Mastery: how many weapon TYPES Gobo is proficient with. Exposed here, but not
+// yet consumed — there is no weapon-proficiency gating in the code at all (equipItem puts
+// anything in any slot), so a "pick a new weapon type" window has nothing to grant. Build
+// the restriction system first; the loot doc's Grants-proficiency affix waits on the same.
+export function weaponMasteryForLevel(level) { return BARB_WEAPON_MASTERY[dndLevelFor(level) - 1]; }
+
+// Milo's Sneak Attack dice count (sides are always 6).
+export function sneakAttackDiceForLevel(level) { return ROGUE_SNEAK_DICE[dndLevelFor(level) - 1]; }
+
+// Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off). CUSTOM — see above.
 export function rageMitigationForLevel(level) {
   return (level ?? 1) >= 2 ? 0.10 : 0;
 }

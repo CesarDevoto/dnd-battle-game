@@ -1461,6 +1461,11 @@ body {
 }
 #ss-side-panel      { width: 180px; }
 #ss-spell-list-panel { width: 270px; }
+/* The XP table runs up to 12 columns for a caster (Our Lv | D&D | Prof | 1st…9th), which
+   180px clips dead. Only the XP panel widens — the abilities/spellbook/traits panels are
+   plain lists and would just look sparse. .xp-table-scroll still scrolls as a backstop at
+   large --ui-scale. */
+#ss-side-panel.ss-side-wide { width: 520px; }
 #ss-side-panel.show,
 #ss-spell-list-panel.show { display: block; }
 
@@ -3112,6 +3117,56 @@ body {
   font-size: 0.56rem;
   line-height: 1.35;
   margin-top: 4px;
+}
+
+/* ── XP / level table panel (sheet side panel) ─────────────────────────────
+   Rendered by buildXpPanelHTML — one row per D&D level, columns per class. */
+.xp-panel-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.72rem;
+  letter-spacing: 0.6px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+/* Backstop only: the panel is widened to fit the columns (#ss-side-panel.ss-side-wide),
+   so this should never scroll at default --ui-scale — it's here for large UI scales. */
+.xp-table-scroll { overflow-x: auto; }
+.xp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  white-space: nowrap;
+}
+.xp-table th {
+  text-align: center;
+  padding: 3px 5px;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(212,175,55,0.30);
+  font-weight: 600;
+}
+.xp-table td {
+  text-align: center;
+  padding: 2px 5px;
+  color: rgba(212,175,55,0.72);
+  border-bottom: 1px solid rgba(212,175,55,0.06);
+}
+/* The hero's current band — the one row the player is actually looking for. */
+.xp-table tr.xp-row-cur td {
+  color: var(--gold-bright);
+  background: rgba(212,175,55,0.12);
+  font-weight: 600;
+}
+/* Past the XP cap: still shown (the ladder reads as a whole) but clearly not reachable. */
+.xp-table tr.xp-row-locked td { color: rgba(212,175,55,0.22); }
+.xp-panel-note {
+  font-size: 0.52rem;
+  color: rgba(200,185,150,0.50);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 /* ── Item right-click menu ─────────────────────────────────────────────────

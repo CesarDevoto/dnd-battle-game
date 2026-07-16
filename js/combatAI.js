@@ -1,4 +1,5 @@
 import { UNIT_TYPES } from './constants.js';
+import { totalSpellSlots } from './spells.js';
 
 // Pure AI query helpers — no combat module state, dependencies injected via params.
 // runAITurn() remains in combat.js as the orchestrator that wires state in.
@@ -76,7 +77,7 @@ export function aiGetSpellcasterAttack(u, target, turnAttacked, atkTriggerWU, at
   if (turnAttacked) return null;
   const def   = UNIT_TYPES[u.type] ?? {};
   const atks  = def.attacks ?? [];
-  const slots = u.spellSlots ?? 0;
+  const slots = totalSpellSlots(u);   // enemy casters keep the flat pool; helper reads both shapes
   const dx = target.grp.position.x - u.grp.position.x;
   const dz = target.grp.position.z - u.grp.position.z;
   const dist = Math.sqrt(dx * dx + dz * dz);

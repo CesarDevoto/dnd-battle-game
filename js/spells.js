@@ -192,23 +192,160 @@ export function isAbilityUnlocked(heroType, level, key) {
   return (level ?? 1) >= abilityMinLevel(heroType, key);
 }
 
+import { dndLevelFor } from './constants.js';
+
+// ── Full-caster spell slot table (5e) ─────────────────────────────────────────
+// dndLevelFor + proficiencyBonusFor live in constants.js next to the other level
+// curves (rage uses, sneak dice) — they're general progression, not spell-specific.
+// Mapping recap: floor(gameLevel/5)+1, so game 1–4 → D&D 1 and our level 5 IS D&D 2.
+// Indexed [dndLevel - 1] → slots per spell level, index 0 = 1st-level slots.
+//
+// ONE table for BOTH casters. Rasec (Elf Mage) and Leugren (Dwarf Cleric) are both
+// FULL casters, and 5e gives full casters an identical slot progression — the wizard
+// and cleric tables differ only in their class columns (Channel Divinity, cantrips
+// known, prepared-spell counts), never in a single slot cell. Do not fork this per
+// hero: it would be duplicated data that cannot legally diverge.
+const FULL_CASTER_SLOTS = [
+  /*  1 */ [2],
+  /*  2 */ [3],
+  /*  3 */ [4, 2],
+  /*  4 */ [4, 3],
+  /*  5 */ [4, 3, 2],
+  /*  6 */ [4, 3, 3],
+  /*  7 */ [4, 3, 3, 1],
+  /*  8 */ [4, 3, 3, 2],
+  /*  9 */ [4, 3, 3, 3, 1],
+  /* 10 */ [4, 3, 3, 3, 2],
+  /* 11 */ [4, 3, 3, 3, 2, 1],
+  /* 12 */ [4, 3, 3, 3, 2, 1],
+  /* 13 */ [4, 3, 3, 3, 2, 1, 1],
+  /* 14 */ [4, 3, 3, 3, 2, 1, 1],
+  /* 15 */ [4, 3, 3, 3, 2, 1, 1, 1],
+  /* 16 */ [4, 3, 3, 3, 2, 1, 1, 1],
+  /* 17 */ [4, 3, 3, 3, 2, 1, 1, 1, 1],
+  /* 18 */ [4, 3, 3, 3, 3, 1, 1, 1, 1],
+  /* 19 */ [4, 3, 3, 3, 3, 2, 1, 1, 1],
+  /* 20 */ [4, 3, 3, 3, 3, 2, 2, 1, 1],
+];
+
+const FULL_CASTERS = new Set(['elf', 'dwarf']);
+export function isFullCaster(type) { return FULL_CASTERS.has(type); }
+
+// Max slots per spell level for a hero at a given GAME level. Returns a fresh array
+// (never the table row) so callers can't mutate the table.
+export function maxSlotsForLevel(heroType, gameLevel) {
+  if (!isFullCaster(heroType)) return [];
+  return [...FULL_CASTER_SLOTS[dndLevelFor(gameLevel) - 1]];
+}
+
+// Same row, addressed by D&D level rather than game level — for the XP table panel,
+// which renders one row per D&D level rather than per hero level.
+export function slotsForDndLevel(dndLvl) {
+  return [...(FULL_CASTER_SLOTS[Math.max(1, Math.min(20, dndLvl)) - 1] ?? [])];
+}
+
+// A spell's level, from either pool (SPELLS = cleric, ELF_SPELLS = mage). Level 0 =
+// cantrip = free. Unknown keys fall back to 1 rather than 0, so a spell that forgets
+// to declare its level costs a slot instead of silently becoming an infinite cantrip.
+export function spellLevelOf(key) {
+  return (SPELLS[key] ?? ELF_SPELLS[key])?.level ?? 1;
+}
+
+// ── Slot accounting ───────────────────────────────────────────────────────────
+// Heroes carry `spellSlotsByLevel` (array, index 0 = 1st-level slots REMAINING) and
+// `spellSlotsMaxByLevel`. Enemies keep the old FLAT numeric `spellSlots` — they're
+// statblocks, not D&D classes, and have no per-level table to draw from. The helpers
+// below read both shapes so enemy casters keep working untouched.
+//
+// The old flat hero fields are GONE on purpose. Leaving `u.spellSlots` as a number on
+// heroes while adding an array beside it would be two sources of truth that drift; and
+// an array left under the old name would silently pass the old `(u.spellSlots ?? 0) <= 0`
+// guards ([] <= 0 is TRUE, [2] <= 0 is false), failing quietly instead of loudly.
+
+// Can `u` cast a spell of `spellLevel`? Level 0 (cantrip) is always free.
+// 5e upcasting: a higher slot can pay for a lower-level spell, never the reverse.
+export function hasSpellSlot(u, spellLevel = 1) {
+  if (!u || spellLevel <= 0) return true;
+  if (Array.isArray(u.spellSlotsByLevel)) {
+    for (let i = spellLevel - 1; i < u.spellSlotsByLevel.length; i++) {
+      if ((u.spellSlotsByLevel[i] ?? 0) > 0) return true;
+    }
+    return false;
+  }
+  return (u.spellSlots ?? 0) > 0;   // enemy flat pool
+}
+
+// Spend the LOWEST slot that can pay for `spellLevel` — never burn a 5th-level slot on
+// a 1st-level spell while a 1st sits unused. Returns true if a slot was spent.
+export function spendSpellSlot(u, spellLevel = 1) {
+  if (!u || spellLevel <= 0) return true;
+  if (Array.isArray(u.spellSlotsByLevel)) {
+    for (let i = spellLevel - 1; i < u.spellSlotsByLevel.length; i++) {
+      if ((u.spellSlotsByLevel[i] ?? 0) > 0) { u.spellSlotsByLevel[i]--; return true; }
+    }
+    return false;
+  }
+  if ((u.spellSlots ?? 0) <= 0) return false;
+  u.spellSlots--;
+  return true;
+}
+
+// Total remaining slots across every level — for the AI's "do I have casts left" check
+// and any UI that wants one number rather than a per-level breakdown.
+export function totalSpellSlots(u) {
+  if (!u) return 0;
+  if (Array.isArray(u.spellSlotsByLevel)) return u.spellSlotsByLevel.reduce((a, b) => a + (b ?? 0), 0);
+  return u.spellSlots ?? 0;
+}
+export function totalSpellSlotsMax(u) {
+  if (!u) return 0;
+  if (Array.isArray(u.spellSlotsMaxByLevel)) return u.spellSlotsMaxByLevel.reduce((a, b) => a + (b ?? 0), 0);
+  return u.spellSlotsMax ?? 0;
+}
+
+// Restore up to `n` slots, LOWEST level first (short rest). Lowest-first is the
+// generous-but-not-abusable read: it hands back the cantrip-tier casting you burn most,
+// never a 9th-level slot.
+export function restoreSpellSlots(u, n) {
+  if (!Array.isArray(u?.spellSlotsByLevel)) {
+    if (u && u.spellSlots !== undefined) u.spellSlots = Math.min(u.spellSlotsMax ?? 0, (u.spellSlots ?? 0) + n);
+    return;
+  }
+  let left = n;
+  for (let i = 0; i < u.spellSlotsByLevel.length && left > 0; i++) {
+    const room = (u.spellSlotsMaxByLevel[i] ?? 0) - (u.spellSlotsByLevel[i] ?? 0);
+    const give = Math.min(room, left);
+    u.spellSlotsByLevel[i] += give;
+    left -= give;
+  }
+}
+
+// Grow a hero's slots to match a new level WITHOUT refilling what they've spent: the
+// per-level delta is added to the remaining pool, mirroring the old level-up behaviour.
+export function syncSlotsToLevel(u) {
+  if (!u || !isFullCaster(u.type)) return;
+  const next = maxSlotsForLevel(u.type, u.level ?? 1);
+  const prevMax = u.spellSlotsMaxByLevel ?? [];
+  const cur     = u.spellSlotsByLevel ?? [];
+  u.spellSlotsByLevel    = next.map((mx, i) => (cur[i] ?? 0) + Math.max(0, mx - (prevMax[i] ?? 0)));
+  u.spellSlotsMaxByLevel = next;
+}
+
 // ── Spell slot initialisation (called when battle begins) ─────────────────────
+// ⚠ SLOTS ARE PER-COMBAT, NOT PER-DAY. rollInitiative() calls this at the start of
+// every fight and it refills to max. That makes the 5e table — which is balanced as a
+// budget for a whole adventuring day of 6–8 encounters — a per-FIGHT allowance here:
+// at D&D 3 that's 4×1st + 2×2nd every single combat. Deliberately left as-is for now;
+// the user plans to lower the totals to suit a per-combat refill (deferred 2026-07-16).
+// Consequence: shortRest's slot restore is correct code with no observable effect,
+// since the next combat refills anyway. It only matters if slots ever go per-day.
 export function initSpellSlots(units) {
   units.forEach(u => {
+    if (!isFullCaster(u.type)) return;
     const lvl = u.level ?? 1;
-    if (u.type === 'dwarf') {
-      const clericSlots = lvl >= 3 ? 3 : lvl >= 2 ? 2 : 0;
-      u.spellSlots     = clericSlots;
-      u.spellSlotsMax  = clericSlots;
-      u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
-    } else if (u.type === 'elf') {
-      const elfSlots   = lvl >= 2 ? 2 : 0;
-      u.spellSlots     = elfSlots;
-      u.spellSlotsMax  = elfSlots;
-      u.preparedSpells = new Set(STARTING_SPELLS[u.type]);
-    } else {
-      return;
-    }
+    u.spellSlotsMaxByLevel = maxSlotsForLevel(u.type, lvl);
+    u.spellSlotsByLevel    = [...u.spellSlotsMaxByLevel];
+    u.preparedSpells       = new Set(STARTING_SPELLS[u.type]);
     // Add any spells that unlock at or below the hero's current level
     for (const [reqLvl, keys] of Object.entries(LEVEL_SPELLS[u.type] ?? {})) {
       if (lvl >= +reqLvl) keys.forEach(k => u.preparedSpells.add(k));

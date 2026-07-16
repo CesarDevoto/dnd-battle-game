@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 import { units, heroRoster } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
-import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
+import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
+         rageDamageForLevel, weaponMasteryForLevel, sneakAttackDiceForLevel,
+         dndLevelFor, proficiencyBonusFor, DND_MAX_LEVEL } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow,
          canUseHealingPotion, useHealingPotion, addLog } from './combat.js';
 import { getPCSelected } from './precombat.js';
-import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked } from './spells.js';
+import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked,
+         totalSpellSlots, totalSpellSlotsMax, maxSlotsForLevel, slotsForDndLevel } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot } from './equipment.js';
-import { getXpProgress } from './progression.js';
+import { getXpProgress, MAX_HERO_LEVEL } from './progression.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
 // _rayDir is normalised in-place so there are zero heap allocations per unit.
@@ -122,6 +125,7 @@ let _spellPanelHTML     = '';
 let _actionsPanelHTML   = '';
 let _traitsPanelHTML    = '';
 let _equipmentPanelHTML = '';
+let _xpPanelHTML        = '';
 
 // btnId doubles as the panel's identity in _activeSideBtn. 'ss-btn-equipment' is a
 // VIRTUAL id — the equipment panel's opener lives on the hero avatar cards now (see
@@ -133,12 +137,14 @@ function _toggleSidePanel(btnId) {
   const isSame = _activeSideBtn === btnId &&
     (isEq ? eqPanelEl?.classList.contains('show') : sidePanelEl.classList.contains('show'));
   sidePanelEl.classList.remove('show');
+  sidePanelEl.classList.remove('ss-side-wide');   // only the XP table re-adds it
   spellListPanelEl.classList.remove('show');
   eqPanelEl?.classList.remove('show');
   eqBagPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
+  document.getElementById('ss-btn-xp')?.classList.remove('active');
   _activeSideBtn = null;
   if (!isSame) {
     if (isEq) {
@@ -151,6 +157,10 @@ function _toggleSidePanel(btnId) {
       sidePanelEl.classList.add('show');
     } else if (btnId === 'ss-btn-traits') {
       sideContentEl.innerHTML = _traitsPanelHTML;
+      sidePanelEl.classList.add('show');
+    } else if (btnId === 'ss-btn-xp') {
+      sideContentEl.innerHTML = _xpPanelHTML;
+      sidePanelEl.classList.add('ss-side-wide');
       sidePanelEl.classList.add('show');
     } else {
       sideContentEl.innerHTML = _actionsPanelHTML;
@@ -165,6 +175,7 @@ function _toggleSidePanel(btnId) {
 document.getElementById('ss-btn-abilities')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-abilities'));
 document.getElementById('ss-btn-spellbook')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-spellbook'));
 document.getElementById('ss-btn-traits')?.addEventListener('click',     () => _toggleSidePanel('ss-btn-traits'));
+document.getElementById('ss-btn-xp')?.addEventListener('click',        () => _toggleSidePanel('ss-btn-xp'));
 
 // Open a hero's inventory in ONE click, from anywhere: the sheet plus the equipment
 // panel together. showSheet() nulls _activeSideBtn, so the _toggleSidePanel that
@@ -186,9 +197,11 @@ window.addEventListener('hero:levelup', ({ detail: { hero } }) => {
   _actionsPanelHTML   = buildActionsPanelHTML(hero);
   _traitsPanelHTML    = buildTraitsPanelHTML(hero);
   _equipmentPanelHTML = buildEquipmentPanelHTML(hero);
+  _xpPanelHTML        = buildXpPanelHTML(hero);   // the "you are here" row moved
   if      (_activeSideBtn === 'ss-btn-spellbook') { sideContentEl.innerHTML = _spellPanelHTML;   _initSpellAccordions(); }
   else if (_activeSideBtn === 'ss-btn-abilities') { sideContentEl.innerHTML = _actionsPanelHTML; _initActionAccordions(); }
   else if (_activeSideBtn === 'ss-btn-traits')    { sideContentEl.innerHTML = _traitsPanelHTML; }
+  else if (_activeSideBtn === 'ss-btn-xp')        { sideContentEl.innerHTML = _xpPanelHTML; }
   else if (_activeSideBtn === 'ss-btn-equipment') { eqContentEl.innerHTML   = _equipmentPanelHTML; _initEquipmentPanel(); }
 });
 
@@ -239,8 +252,13 @@ function buildSpellPanelHTML(u) {
   if (u.type !== 'dwarf' && u.type !== 'elf') return '';
   _spellSections = {};
 
-  const spellSlots    = u.spellSlots    ?? 0;   // undefined (pre-combat, L1) → 0 filled → empty circles, matching the Skills & Spells window
-  const spellSlotsMax = u.spellSlotsMax ?? 2;
+  // Pre-combat the per-level arrays don't exist yet (initSpellSlots runs at battle start),
+  // so the MAX falls back to the table for this hero's level — otherwise the sheet would
+  // render zero pips instead of the empty ones it used to show. Remaining stays 0 → all
+  // circles empty, matching the Skills & Spells window.
+  const spellSlots    = totalSpellSlots(u);
+  const spellSlotsMax = (u.spellSlotsMaxByLevel ?? maxSlotsForLevel(u.type, u.level ?? 1))
+    .reduce((a, b) => a + (b ?? 0), 0);
   const slotPips = Array.from({ length: spellSlotsMax }, (_, i) =>
     `<span class="ss-slot-pip${i < spellSlots ? ' filled' : ''}"></span>`
   ).join('');
@@ -376,6 +394,88 @@ function _initSpellAccordions() {
     });
   });
 }
+
+// ── XP / level table panel ────────────────────────────────────────────────────
+// One row per D&D level (1–20) with the GAME-level band that maps to it, plus the
+// columns that hero's class actually gets. The hero's current row is highlighted.
+//
+// Rows are D&D levels rather than our 1–100 because the tables ARE D&D's — 100 rows
+// where every group of five is identical would be noise. The band column is what ties
+// them back: "our 10–14 = D&D 3".
+function buildXpPanelHTML(u) {
+  const curDnd = dndLevelFor(u.level ?? 1);
+
+  // Band for D&D level d, given dndLevelFor(g) = floor(g/5)+1:
+  //   floor(g/5) = d-1  →  g in 5(d-1) … 5d-1. D&D 1 starts at 1 (no level 0), and
+  //   D&D 20 absorbs everything from 95 up because dndLevelFor clamps there.
+  const band = d => {
+    const lo = d === 1 ? 1 : 5 * (d - 1);
+    const hi = d === DND_MAX_LEVEL ? 100 : 5 * d - 1;
+    return `${lo}–${hi}`;
+  };
+
+  // Per-class columns. Each entry: [header, cellFn(dndLevel)].
+  // Only columns the ENGINE actually implements are listed — showing Channel Divinity
+  // or "prepared spells" would be inventing a readout for a system that doesn't exist.
+  let cols;
+  let note = '';
+  if (u.type === 'human') {
+    cols = [
+      ['Rages',   d => BARB_AT(d, 'rages')],
+      ['Rage Dmg', d => `+${BARB_AT(d, 'dmg')}`],
+      ['Weapon Mastery', d => BARB_AT(d, 'mastery')],
+    ];
+    note = 'Weapon Mastery is listed but not yet active — nothing in the code gates weapons by proficiency yet.';
+  } else if (u.type === 'halfling') {
+    cols = [['Sneak Attack', d => `${SNEAK_AT(d)}d6`]];
+  } else if (u.type === 'elf' || u.type === 'dwarf') {
+    // Both are full casters and share one slot table — see spells.js.
+    // No note about the refill cadence: slots are per-combat in code today, but that's an
+    // open design decision (see initSpellSlots), and stating it here would promise the
+    // player a rule that may not survive.
+    const maxLen = slotsForDndLevel(DND_MAX_LEVEL).length;
+    cols = Array.from({ length: maxLen }, (_, i) => [
+      `${i + 1}${['st','nd','rd','th','th','th','th','th','th'][i]}`,
+      d => slotsForDndLevel(d)[i] ?? '—',
+    ]);
+  } else {
+    cols = [];
+  }
+
+  const head = `<tr><th>Our Lv</th><th>D&amp;D</th><th>Prof</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>`;
+  const rows = Array.from({ length: DND_MAX_LEVEL }, (_, i) => {
+    const d = i + 1;
+    const cls = [
+      d === curDnd ? 'xp-row-cur' : '',
+      // Rows past the XP cap are unreachable today — dim rather than hide, so the ladder
+      // still reads as a whole. 5*(d-1) is the first game level in band d.
+      5 * (d - 1) > MAX_HERO_LEVEL ? 'xp-row-locked' : '',
+    ].filter(Boolean).join(' ');
+    return `<tr${cls ? ` class="${cls}"` : ''}>` +
+      `<td>${band(d)}</td><td>${d}</td><td>+${PROF_AT(d)}</td>` +
+      cols.map(c => `<td>${c[1](d)}</td>`).join('') +
+      `</tr>`;
+  }).join('');
+
+  // No explainer line about our levels mapping to D&D levels — the "Our Lv" and "D&D"
+  // columns say it, and the current band is highlighted.
+  return `<div class="xp-panel-title">${UNIT_TYPES[u.type]?.name ?? u.type} — Level Table</div>` +
+    `<div class="xp-table-scroll"><table class="xp-table">${head}${rows}</table></div>` +
+    (note ? `<div class="xp-panel-note">${note}</div>` : '') +
+    `<div class="xp-panel-note">Rows past level ${MAX_HERO_LEVEL} are greyed — the XP table stops there for now.</div>`;
+}
+
+// The class accessors take a GAME level, but this table is addressed by D&D level.
+// 5*(d-1) always lands inside band d (and clamps to 1 for D&D 1), so it's a safe probe.
+const _gameLvlIn = d => Math.max(1, 5 * (d - 1));
+const PROF_AT  = d => proficiencyBonusFor(_gameLvlIn(d));
+const SNEAK_AT = d => sneakAttackDiceForLevel(_gameLvlIn(d));
+const BARB_AT  = (d, what) => {
+  const g = _gameLvlIn(d);
+  return what === 'rages' ? rageUsesForLevel(g)
+       : what === 'dmg'   ? rageDamageForLevel(g)
+       :                    weaponMasteryForLevel(g);
+};
 
 function formatItemDetailHTML(item) {
   if (!item) return 'Select an item to view its stats';
@@ -1108,7 +1208,7 @@ function _sbActionTagHTML(key) {
 function _spellBarSig(u) {
   if (!u || u.team !== 'blue') return 'none';
   const prepared = u.preparedSpells ?? STARTING_SPELLS[u.type] ?? new Set();
-  return [u.type, u.level, u.spellSlots ?? 0, u.spellSlotsMax ?? 2,
+  return [u.type, u.level, totalSpellSlots(u), totalSpellSlotsMax(u),
           [...prepared].sort().join(',')].join('|');
 }
 
@@ -1211,10 +1311,12 @@ function _rebuildSpellBar(u) {
   const pool     = u.type === 'dwarf' ? Object.values(SPELLS) : Object.values(ELF_SPELLS);
   const prepared = u.preparedSpells ?? STARTING_SPELLS[u.type] ?? new Set();
 
-  // Slot circles — single pooled resource (not per spell-level), shown once
-  // on the lowest prepared spell-level row.
-  const slots    = u.spellSlots    ?? 0;
-  const slotsMax = u.spellSlotsMax ?? 2;
+  // Slot circles — TOTAL across every spell level, shown once on the lowest prepared
+  // spell-level row. Slots are per-level under the hood now, but every spell in the game
+  // is still level 0 or 1, so a single total row remains accurate. When 2nd-level spells
+  // land this needs one row per spell level (see project_skills_spells_bar).
+  const slots    = totalSpellSlots(u);
+  const slotsMax = totalSpellSlotsMax(u);
   const pipsHTML = Array.from({ length: 4 }, (_, i) =>
     `<span class="sb-slot-pip ${i < slots ? 'filled' : ''} ${i >= slotsMax ? 'unavailable' : ''}"></span>`
   ).join('');
@@ -1282,12 +1384,14 @@ export function showSheet(u) {
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
+  document.getElementById('ss-btn-xp')?.classList.remove('active');
   _activeSideBtn = null;
   sheetBody.innerHTML   = buildSheetHTML(u);
   _spellPanelHTML       = buildSpellPanelHTML(u);
   _actionsPanelHTML     = buildActionsPanelHTML(u);
   _traitsPanelHTML      = buildTraitsPanelHTML(u);
   _equipmentPanelHTML   = buildEquipmentPanelHTML(u);
+  _xpPanelHTML          = buildXpPanelHTML(u);
   // Only dwarf keeps its amber override; all other heroes use the CSS-default gold.
   const hc = u.type === 'dwarf' ? HERO_RING_COLORS[u.type] : null;
   if (hc) {
@@ -1309,12 +1413,14 @@ export function hideSheet() {
   sheetUnit = null;
   sheetWrap.classList.remove('show');
   sidePanelEl.classList.remove('show');
+  sidePanelEl.classList.remove('ss-side-wide');   // only the XP table re-adds it
   spellListPanelEl.classList.remove('show');
   eqPanelEl?.classList.remove('show');
   eqBagPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
+  document.getElementById('ss-btn-xp')?.classList.remove('active');
   _activeSideBtn = null;
 }
 
