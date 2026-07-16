@@ -3,7 +3,7 @@ import { scene, camera, renderer, ground, rebuildGrid } from './scene.js';
 import { getTerrainHeight, getUncarvedHeight, setTerrainControlPoints, getTerrainControlPoints,
          rebuildTerrainGeometry, getTerrainSeed } from './terrain.js';
 import { activeEnv } from './environments.js';
-import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag, selectBarrierAt, clearBarrierSelection } from './barrierEditor.js';
+import { isBarrierModeActive, handleBarrierClick, setBarrierVisualsVisible, getCurrentBarriers, undoLastBarrier, isDraggingBarrierDot, pickBarrierDotAt, finalizeBarrierDotDrag, cancelBarrierDotDrag, selectBarrierAt, clearBarrierSelection, barrierPointAt } from './barrierEditor.js';
 import { isTrenchModeActive, handleTrenchClick, setTrenchVisualsVisible, undoLastTrench, selectTrenchPointAt, clearTrenchSelection } from './trenchEditor.js';
 import { isPaintModeActive } from './terrainPaint.js';
 import { isRefMoveActive } from './referenceOverlay.js';
@@ -527,15 +527,15 @@ export function initTerrainEditor() {
     // Paint mode / reference-image move own terrain drags — never place points
     if (isPaintModeActive() || isRefMoveActive()) return;
 
-    // Finalize barrier dot drag on any click
+    // Finalize barrier dot drag on any click (layer-aware point so blanket dots stay on the blanket)
     if (isDraggingBarrierDot()) {
-      finalizeBarrierDotDrag(_groundPt(e.clientX, e.clientY));
+      finalizeBarrierDotDrag(barrierPointAt(e.clientX, e.clientY));
       return;
     }
 
-    // Barrier draw mode intercepts all terrain clicks
+    // Barrier draw mode intercepts all terrain clicks (layer-aware point)
     if (isBarrierModeActive()) {
-      const pt = _groundPt(e.clientX, e.clientY);
+      const pt = barrierPointAt(e.clientX, e.clientY);
       if (pt) {
         const before = getCurrentBarriers().length;
         handleBarrierClick(pt);

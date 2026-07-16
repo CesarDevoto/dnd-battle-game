@@ -341,6 +341,22 @@ function _spawnZoneEnemy(e) {
   if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
   if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
   if (e.patrol?.length >= 2)            { u.patrolPath = e.patrol; u._patrolIdx = 0; }
+  // Idle spawn facing. With no explicit rotY every enemy would sit at the shared default
+  // (rotation.y = 0), so a whole zone of idle mobs faces the same way — the "everyone faces
+  // SW" look. Instead: a patroller looks toward its first waypoint; anyone else looks toward
+  // the party's arrival area (a meaningful, position-varied pose — guards watching the road).
+  // An explicit rotY in the zone data always wins (set one in the editor to aim a specific mob).
+  if (e.rotY == null) {
+    if (e.patrol?.length) {
+      const wp = e.patrol.find(p => p.x !== e.x || p.z !== e.z) ?? e.patrol[0];
+      u.grp.rotation.y = Math.atan2(wp.x - e.x, wp.z - e.z);
+    } else if (_active?.heroEntry?.length) {
+      const he = _active.heroEntry;
+      const cx = he.reduce((s, h) => s + h.x, 0) / he.length;
+      const cz = he.reduce((s, h) => s + h.z, 0) / he.length;
+      u.grp.rotation.y = Math.atan2(cx - e.x, cz - e.z);
+    }
+  }
   // AI settings
   if (e.detectRange != null)      u.detectRange      = e.detectRange;
   if (e.socialAggroRange != null) u.socialAggroRange = e.socialAggroRange;
