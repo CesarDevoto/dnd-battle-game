@@ -3,6 +3,15 @@ import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubb
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
 
+// Strip shadow-casting from small ground clutter — a bush/fern's shadow is invisible from
+// the tactical camera but still costs a full pass through the shadow map. Placing dozens per
+// zone (Warrens: 46 bushes) makes that add up. They keep receiveShadow so ground shade still
+// falls on them.
+function _noCast(obj) {
+  obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
+  return obj;
+}
+
 export const PROP_MODELS = {
   // ── GLB assets ────────────────────────────────────────────────────────────────
   deadhorse:    { label: 'Dead Horse',  path: 'assets/models/deadhorse.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
@@ -106,11 +115,11 @@ export const PROP_MODELS = {
   rock:         { label: 'Rock',         builderFn: () => mkRock(0x565552, 1, 0),            defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
   snowrock:     { label: 'Snow Rock',    builderFn: () => mkSnowBoulder(1, 0),                defaultScale: 1.0, blocksLOS: false, clashR: 0.6 },
   boulder:      { label: 'Boulders',     builderFn: () => mkBoulderCluster(0x7a6040, 1, 0),   defaultScale: 1.0, blocksLOS: true,  clashR: 1.0 },
-  bush:         { label: 'Bush',         builderFn: () => mkBush(0x1a4012, 1, 0),             defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
-  glowmushroom: { label: 'Glow Mushroom',builderFn: () => mkGlowMushroom(0x8833cc, 1, 0),    defaultScale: 1.0, blocksLOS: false, clashR: 0 },
-  rubble:       { label: 'Rubble',       builderFn: () => mkRubblePile(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
-  dryshrub:     { label: 'Dry Shrub',    builderFn: () => mkDryShrub(1, 0),                   defaultScale: 1.0, blocksLOS: false, clashR: 0 },
-  fern:         { label: 'Fern',         builderFn: () => mkFern(1, 0),                       defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  bush:         { label: 'Bush',         builderFn: () => _noCast(mkBush(0x1a4012, 1, 0)),     defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
+  glowmushroom: { label: 'Glow Mushroom',builderFn: () => _noCast(mkGlowMushroom(0x8833cc, 1, 0)), defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  rubble:       { label: 'Rubble',       builderFn: () => _noCast(mkRubblePile(1, 0)),         defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
+  dryshrub:     { label: 'Dry Shrub',    builderFn: () => _noCast(mkDryShrub(1, 0)),           defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  fern:         { label: 'Fern',         builderFn: () => _noCast(mkFern(1, 0)),               defaultScale: 1.0, blocksLOS: false, clashR: 0 },
   coffin:       { label: 'Coffin',       path: 'assets/environment/coffin.glb',               defaultScale: 2.0, blocksLOS: false, clashR: 0.5 },
   gravemound:   { label: 'Grave Mound',  builderFn: () => mkGraveMound(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0 },
   cross:        { label: 'Cross',        builderFn: () => mkCross(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.3 },

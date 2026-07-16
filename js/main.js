@@ -340,6 +340,7 @@ window.addEventListener('resize', () => {
 let t = 0;
 let _rafId   = null;
 let _prevNow = 0;
+let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
 
 
 (function tick(now = 0) {
@@ -349,11 +350,21 @@ let _prevNow = 0;
   t += ANIM.timeStep;
 
   units.forEach((u, i) => {
-    // Cave zones: pick the walkable surface (hill top vs tunnel floor) for this
-    // unit, transitioning at the mouth. No-op in non-cave zones. Familiars hover,
-    // so they skip the layer swap.
-    if (!u.familiar) u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', u.grp.position.x, u.grp.position.z);
-    const terrainY   = getGroundHeight(u.grp.position.x, u.grp.position.z, u.caveLayer);
+    // Dormant enemies are stationary and invisible — don't burn per-frame terrain samples on
+    // them. They get re-grounded the frame they wake (the dormant flag clears).
+    if (u.dormant) return;
+
+    const px = u.grp.position.x, pz = u.grp.position.z;
+    // resolveCaveLayer + getGroundHeight depend ONLY on XZ, and both are heavy in a cave zone
+    // (FBM noise + control-point/trench sampling). Recompute only when the unit has actually
+    // moved — so an idle camp of awake enemies between turns costs a couple of adds each frame
+    // instead of ~3 noise-sampled height lookups per unit.
+    if (u._grndX !== px || u._grndZ !== pz) {
+      if (!u.familiar) u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', px, pz);
+      u._grndY = getGroundHeight(px, pz, u.caveLayer);
+      u._grndX = px; u._grndZ = pz;
+    }
+    const terrainY   = u._grndY;
     const baseHoverY = u.hoverY ?? 0;
 
     // Hovering units descend diagonally as they close to melee range.
@@ -464,6 +475,9 @@ let _prevNow = 0;
   tickActivationRadius(getPlacedProps());
   tickHideScout();
   tickAdaptiveResolution(dt);
+  // Refresh the shadow map every other frame (autoUpdate is off — see scene.js). Halves the
+  // shadow-pass cost; imperceptible for a slow, top-down tactical view.
+  renderer.shadowMap.needsUpdate = (_shadowFrame++ & 1) === 0;
   renderer.render(scene, camera);
 })();
 

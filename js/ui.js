@@ -50,6 +50,18 @@ export function updateHUD() {
 
   units.forEach((u, i) => {
     if (!u.barEl) return;  // NPCs have no hp bar
+
+    // Decide visibility FIRST. In a populated zone most enemies aren't showing a bar (not
+    // engaged, or dormant/faded), so projecting them and writing display/left/top/fill every
+    // frame is pure wasted DOM work (each style write can force a reflow). Hide with
+    // display:none — removed from layout, no paint — and skip the rest for them.
+    const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
+    const shouldShow    = u.team === 'blue' || u.familiar || engagedEnemy || u.barForced || now < u.barShowUntil;
+    if (!shouldShow) {
+      if (u.barEl.style.display !== 'none') u.barEl.style.display = 'none';
+      return;
+    }
+
     _vec.copy(u.anchor).project(camera);
 
     // Behind the near plane — hide instantly, no CSS transition needed.
@@ -67,14 +79,6 @@ export function updateHUD() {
     u.fill.style.width    = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
     // Milo hiding (in-combat stealth or out-of-combat scouting) → black→grey bar
     u.fill.classList.toggle('hp-hidden', u.team === 'blue' && (!!u.stealthed || !!u.stealthedOOC));
-
-    // Is this bar supposed to be visible at all?
-    const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
-    const shouldShow    = u.team === 'blue' || u.familiar || engagedEnemy || u.barForced || now < u.barShowUntil;
-    if (!shouldShow) {
-      u.barEl.style.opacity = '0';
-      return;
-    }
 
     // Terrain occlusion test — only run when bar is eligible to show, and only every
     // OCCLUSION_STRIDE frames (see the raycaster comment above: this is an unaccelerated

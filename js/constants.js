@@ -80,7 +80,7 @@ export const SCENE = {
   ambientIntensity:  4.2,
   moonIntensity:     2.88,
   moonPos:           [4, 10, -39],
-  shadowMapSize:     2048,
+  shadowMapSize:     1024,   // was 2048 — halves shadow-map fill + VRAM; fine for the tactical view
   shadowExtent:      38,
   fireIntensity:     0.6,
   firePos:           [16, 5, -12],

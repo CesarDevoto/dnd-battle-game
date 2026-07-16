@@ -36,6 +36,11 @@ renderer.setPixelRatio(_dpr);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// The 2048² shadow map re-renders every shadow-caster (90+ enemies + props) every frame by
+// default. The sun is static and units move slowly, so a full shadow pass every frame is
+// wasted work — the main loop drives needsUpdate on a stride instead (see main.js).
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;   // seed the first frame
 document.getElementById('app').appendChild(renderer.domElement);
 
 // Sample frames and walk the pixel ratio down when the GPU can't keep up (and back up
