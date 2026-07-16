@@ -1,16 +1,26 @@
-# Loot Items (living catalog)
+# Loot Items — base catalog (living)
 
-_Building toward ~1,000 items. Companion to `loot-affix-design.md`._
+_Companion to `loot-affix-design.md`. **Read its "Items are ROLLED" section first.**_
 
-> **STATUS / how we're building this:** SLOWLY — one slot at a time, per hero. Weakest→strongest
-> within each slot. Done so far: all-hero weak by-slot overview + **Rasec's full weak set**. Not done:
-> Gobo, Milo, Leugren; and mid/strong/purple+ tiers for everyone. Resume by picking a hero + slot.
+> **STATUS (2026-07-16):** Rebuilt around the **rolled** model. The old goal — ~1,000 hand-authored
+> items — is DEAD; it was already duplicating itself at ~50 entries just to reach a count. A drop is
+> now a **base item** (below) + a rarity + affixes rolled from that slot's table in the affix doc.
+> Target: **~150 bases + ~20 red uniques**, not 1,000 items.
+>
+> **Converted to bases: Head.** Everything below the Head section is still the OLD per-item format
+> and is kept only as raw material — its numbers are superseded by the roll tables, and its names
+> bake in a tier ("Frayed…", "Threadbare…") which the rolled model forbids. Convert one slot at a
+> time; delete each old section as it's replaced.
 
 ## Conventions
-- **Organized by slot → hero.** Under each slot, the four heroes with the weak items each can equip.
-- Items come in **armor-type / weapon-type variants**; who can use each is gated by proficiency.
-- Weakest end first; rarity labels deferred. Chase stats (STR/DEX, Attack/Cast speed, CON) and the
-  unlock affixes (proficiency, 2H-wielding) appear much higher up, not here.
+- **A base carries NO stats.** Only `id, name, slot, material, icon`. Numbers come from the roll
+  table at drop time. If you're typing a number here, you're in the wrong file.
+- **Names are NEUTRAL** — "Cloth Hood", never "Frayed Cloth Hood". A base drops at every tier, so
+  its name can't imply one. Rarity + affixes decorate it (prefix/suffix).
+- **Material gates the WEARER, not the affix** — every material in a slot can roll every stat that
+  slot owns. Each hero needs a base in a material they can wear for each of that slot's stats.
+- **Bases per slot are deliberately few.** Variety comes from rolls × rarity × prefix/suffix, not
+  from more bases.
 
 ## Proficiency matrix (from constants.js)
 | Hero | Class | Armor | Shields | Weapons |
@@ -25,11 +35,44 @@ Leugren · Shield = Gobo/Leugren · Caster focus = Rasec/Leugren.
 
 ---
 
-## Head  *(both Damage mitigation % AND Spell damage roll on any material — material only gates the wearer)*
-- **Gobo** — Cloth Hood (spell dmg +2%), Padded Cloth Cap (mit +1%), Dented Leather Cap (mit +1%), Cracked Leather Coif (mit +2%), Dented Iron Helm (mit +2%)
-- **Rasec** *(cloth only)* — Frayed Cloth Hood (spell dmg +2%), Threadbare Circlet (spell dmg +3%), Padded Cloth Cap (mit +1%), Quilted Hood (mit +2%)
-- **Milo** — Rasec's cloth hats + Dented Leather Cap (mit +1%), Cracked Leather Coif (mit +2%)
-- **Leugren** — all cloth + leather + Dented Iron Helm + Rusted Plate Helm (mit +2%)
+## Head — BASES ✅ *(converted 2026-07-16 — roll table: `loot-affix-design.md` → Roll tables → Head)*
+
+Head owns **Damage mitigation %** and **Spell damage %**. Both roll on *every* material — material
+only decides who can wear the hat. Rasec is cloth-only, so the cloth bases are the ones that must
+cover both stats for him; they're deliberately the largest group.
+
+| id | Name | Material | Who can wear |
+|---|---|---|---|
+| `head_cloth_hood` | Cloth Hood | cloth | all |
+| `head_cloth_cap` | Cloth Cap | cloth | all |
+| `head_cloth_cowl` | Cloth Cowl | cloth | all |
+| `head_silk_circlet` | Silk Circlet | cloth | all |
+| `head_silk_wrap` | Silk Head Wrap | cloth | all |
+| `head_quilted_hood` | Quilted Hood | cloth | all |
+| `head_leather_cap` | Leather Cap | light | Gobo · Milo · Leugren |
+| `head_leather_coif` | Leather Coif | light | Gobo · Milo · Leugren |
+| `head_hide_helm` | Hide Helm | medium | Gobo · Leugren |
+| `head_mail_coif` | Mail Coif | medium | Gobo · Leugren |
+| `head_iron_helm` | Iron Helm | heavy | Leugren |
+| `head_plate_helm` | Plate Helm | heavy | Leugren |
+
+**12 bases cover the whole Head slot, for every hero and every tier** — replacing what would have
+been ~100+ hand-written hats. Rasec draws from the 6 cloth bases; each can roll mitigation OR spell
+damage at any tier, so his "spell damage hat" and his "mitigation hat" are the same six bases with
+different rolls.
+
+**Naming check:** every name above is tier-neutral on purpose. A `Cloth Hood` is a legitimate grey
+drop *and* a legitimate red one. The old entries this replaced ("Frayed Cloth Hood", "Threadbare
+Circlet") can't survive rolling — "Threadbare" is a lie on a purple.
+
+_Prefix/suffix decoration (e.g. "Warding Cloth Hood of Flame") is designed but not yet tabled — it's
+its own pass once 2–3 slots have bases._
+
+---
+
+# OLD FORMAT BELOW — superseded, kept as raw material only
+_Numbers here are dead (roll tables own them) and names bake in a tier (rolled model forbids it).
+Mine these for base-name ideas, then delete each section as its slot is converted._
 
 ## Neck  *(accessory — no proficiency, all heroes)*
 - **Gobo / Rasec / Milo / Leugren** — Cracked Bone Charm (on-hit +1 poison), Chipped Fang Pendant (on-hit +1 bleed), Dull Copper Locket (healing +1), Faded Prayer Bead (healing +2)
@@ -100,12 +143,7 @@ off-hand, arcane accessories. INT caster (str 8 / dex 14 / con 12 / int 16). Per
 list stays easy to extend. (Damage mitigation and Spell damage both roll on his cloth hats — material
 gates the wearer, not the affix.)
 
-### Head (cloth — spell damage & damage mitigation)
-- Frayed Cloth Hood — Spell damage +1%
-- Apprentice's Hood — Spell damage +2%
-- Threadbare Circlet — Spell damage +3%
-- Padded Cloth Cap — Damage mitigation +1%
-- Quilted Hood — Damage mitigation +2%
+### Head — ✅ CONVERTED, see the Head BASES table above (this list is dead)
 
 ### Neck (accessory)
 - Cracked Bone Charm — On-hit +1 poison

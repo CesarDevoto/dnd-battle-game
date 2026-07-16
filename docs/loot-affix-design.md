@@ -1,10 +1,50 @@
 # Loot Affix Design (living doc)
 
-_Last updated: 2026-07-15_
+_Last updated: 2026-07-16_
 
 Design for a **slot-dedicated affix system**: each equipment slot has a theme, and the gear
 that drops in it boosts a specific, legible stat. Upgrades should read at a glance
 ("boots = movement, gloves = action economy").
+
+## Items are ROLLED, not hand-authored (decided 2026-07-16)
+
+**An item's numbers are derived from `(slot, affix, rarity)` — never written out per item.**
+A drop is a **base item** (name / icon / slot / material) + a **rarity** + affixes rolled from
+that slot's table below. "Cloth Hood" is ONE base; a green one and a purple one are the same
+base with different rolls.
+
+**Why.** The old plan — ~1,000 hand-authored items — was already collapsing under its own
+weight at ~50: the catalog had begun shipping the same item twice under different names
+(`Dull Copper Band` / `Tarnished Ring`, both "Crit chance +1%"; `Cloth Slippers` / `Worn
+Sandals`, both "+5 ft") purely to reach a count. Rolling replaces ~3,600 hand-balanced entries
+with ~150 bases + ~170 range rows, and every drop is distinct.
+
+This was always implied by "Rarity is the progression curve. The same affix scales by tier" —
+if the tier decides the number, the number isn't authored.
+
+**It needs no schema change.** `getItem()` returns `{...def}` and `placeInFirstEmptyBagSlot`
+copies again with `{...cleanItem}`, so item *instances* are already distinct objects rather
+than shared references. Roll at drop time, stamp the result on the instance.
+
+**Rules of the model:**
+- **Dice, not fixed values** — `1d3+2` is a uniform range wearing a d20-game coat. Keep the notation.
+- **Tiers overlap on purpose.** green `1d2` (1–2) vs blue `1d2+1` (2–3): a max-roll green ties a
+  floor blue. That's what makes a perfect low-tier roll worth keeping. Do not flatten it.
+- **Affix COUNT scales with rarity too** — a second variety axis, free.
+  grey 0–1 · green 1 · blue 1–2 · purple 2 · orange 2–3 · red bespoke.
+- **Hybrid at the top.** grey→orange roll procedurally; **red is hand-authored uniques** with
+  bespoke effects and real names. Target ~20 of them, not hundreds.
+- **Base names must be NEUTRAL** — "Cloth Hood", not "Frayed Cloth Hood". A base drops at every
+  tier, so weakness can't be baked into its name; rarity and affixes decorate it
+  (prefix = one affix, suffix = another, Diablo-style). The existing catalog's names all bake
+  in a tier and need renaming as each slot is converted.
+
+### Calibration anchors (from constants.js — check against these, not intuition)
+| Engine fact | Value | What it means for loot |
+|---|---|---|
+| `rageMitigationForLevel` | **10%**, L2+, only while raging, 1–2 uses/day | A permanent head item must stay UNDER this. Red caps at 9%. |
+| `precisionHitBonusForLevel` | **+1% hit**, a whole L4 class passive | Hit% loot must be tiny. ⚠ The current catalog gives +1% on its *weakest green* wrist item — equal to a level-4 class feature. Fix when Wrist is converted. |
+| `rollToHit` | `+1 atk = +5% hit`, clamp 5–95 | Percentages here are percentage POINTS of final hit chance. |
 
 ## Design principles
 
@@ -188,6 +228,61 @@ Notes:
   premium defensive/utility stat claims a whole slot. Acceptable as-is; revisit only if we want every
   slot equally loaded.
 - Bag is storage, not a stat slot — excluded (15 stat slots).
+
+## Roll tables (by slot)
+
+One table per slot. Columns = rarity tier, rows = the stats that slot owns (per the allocation
+above). A cell is the dice rolled for that stat at that tier; `—` = doesn't roll at that tier.
+**Ranges are shown in parentheses** so the curve is checkable at a glance.
+
+**"↳ how many of the above roll"** is the affix-COUNT row: how many of that slot's stat rows
+actually land on a given item. It's the second variety axis — a blue hat at `1–2` might carry only
+mitigation, or mitigation AND spell damage, so two blue hats differ before you even compare numbers.
+Grey at `0–1` means a grey item can roll **nothing at all** (vendor trash, as intended).
+
+⚠ **The count row saturates on thin slots.** Head owns only 2 stats, so it maxes at 2 from purple
+on — orange and red can't roll a third because a third doesn't exist; they separate by BIGGER
+numbers instead. Don't paste a generic `2–3`/`3–4` ladder into a 2-stat slot. The count axis only
+does real work on fat slots (Hands = 4 stats, Ring/Main-hand = 3). Thin slots — Chest (AC% only),
+Legs (Max HP only), Ammo (range only) — have no count axis at all: it's always 1.
+
+Unlock affixes (Grants proficiency, Two-handed wielding, Grants spell) are **not** counted in that
+row — they're not stats. They roll independently, at their own rarity floor.
+
+Building these SLOWLY, one slot at a time — same rule as the item catalog. Done: Head.
+
+---
+
+### Head — Damage mitigation % · Spell damage % · [prof]
+
+| Stat | grey | green | blue | purple | orange | red |
+|---|---|---|---|---|---|---|
+| **Damage mitigation %** | — | `1d2` (1–2) | `1d2+1` (2–3) | `1d3+2` (3–5) | `1d3+4` (5–7) | `1d3+6` (7–9) |
+| **Spell damage %** | — | — ⛔ | `1d4+2` (3–6) | `1d6+6` (7–12) | `1d8+12` (13–20) | `1d10+20` (21–30) |
+| **↳ how many of the above roll** | 0–1 | 1 | 1–2 | 2 | 2 | bespoke |
+| **Grants proficiency** *(unlock — rolls separately, not counted above)* | — | — | — | ✓ | ✓ | ✓ |
+
+**Mitigation is anchored to Rage (10%, temporary, 1–2/day).** A head item is permanent and
+always-on, so the ladder tops out at **9% at red** — the best hat in the game never quite matches
+the barbarian's signature button, and a purple (3–5%) is roughly a third to a half of it.
+Averages: 1.5 → 2.5 → 4 → 6 → 8. Every step overlaps its neighbour by exactly one point.
+
+**⛔ Spell damage is gated to blue+** (user's call, 2026-07-16). Rarity floors are an explicit
+lever ("other affixes can get min-rarity floors later"), and green wants to stay a one-stat tier.
+
+**Spell damage % is the least certain table here — it has NO engine precedent, unlike mitigation.**
+It's a percentage of a small number: Fire Bolt is `1d10` (avg 5.5), so **+10% ≈ +0.55 damage** —
+which is why the old catalog's "+1% spell damage" was worth +0.055 and meant nothing at all. The
+ladder is therefore much steeper than mitigation's, reaching **21–30% at red (≈ +1.2–1.7 per bolt)**.
+Head is the ONLY slot that rolls spell damage, so there's no stacking to fear. **Playtest before
+trusting these** — if it still feels weightless, scale the whole row, not the mitigation row.
+
+**Spell slots were considered and rejected for Head** (2026-07-16). They aren't a Head stat under
+"each stat appears on exactly ONE slot type" — the nearest affix is **Resource regen**, which lives
+on **Belt**. They're also far too strong: Rasec holds ~2–3 level-1 slots at low level, so a green
+`1d2` would nearly DOUBLE his casting for a whole day, next to green mitigation's 1–2%. That's the
+same "resource economy, not a linear boost" family as the already-cut *extra action every N rounds*
+and the purple-gated *Cast speed*. **If slots ever ship: Belt, purple+ ⬥, +1 flat.** Not a hat.
 
 ## Resolved decisions
 - **Cleave + Spell splash share one splash resolver.** Melee cleave and spell splash both call a
