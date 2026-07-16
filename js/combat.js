@@ -605,7 +605,16 @@ function hasPropClash(x, z) {
 
 // Returns true if the step from (ax,az) to (bx,bz) crosses any barrier segment.
 function crossesBarrier(ax, az, bx, bz, layer) {
+  // AABB of the movement step — used to cheaply reject barriers that can't possibly cross it.
+  const sMinX = ax < bx ? ax : bx, sMaxX = ax < bx ? bx : ax;
+  const sMinZ = az < bz ? az : bz, sMaxZ = az < bz ? bz : az;
   for (const s of barrierSegments) {
+    // Bounding-box reject before the division-heavy intersection solve. A step spans one grid
+    // square while barriers are scattered across the whole map, so on a zone with hundreds of
+    // segments (Warrens: 500+) this rejects almost all of them per pathfinding cell — the
+    // difference between a snappy path search and the multi-second freezes findPath warns about.
+    if ((s.x1 < s.x2 ? s.x2 : s.x1) < sMinX || (s.x1 < s.x2 ? s.x1 : s.x2) > sMaxX ||
+        (s.z1 < s.z2 ? s.z2 : s.z1) < sMinZ || (s.z1 < s.z2 ? s.z1 : s.z2) > sMaxZ) continue;
     const rx = bx - ax, rz = bz - az;
     const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
     const denom = rx * sz - rz * sx;

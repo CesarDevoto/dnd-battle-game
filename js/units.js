@@ -711,7 +711,11 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
 const _ANIM_FADE = 0.25; // crossfade duration in seconds
 
 export function updateMixers(dt) {
-  for (const u of units)   u.mixer?.update(dt);
+  // Skip skinned-mesh animation for dormant enemies — they're beyond the activation radius
+  // and faded to invisible (see activationRadius.js), so advancing their mixer is pure wasted
+  // CPU. In a heavily-populated zone (Warrens: 90+ enemies) this is the bulk of the per-frame
+  // animation cost. They resume the moment the party comes near and clears the dormant flag.
+  for (const u of units)   { if (u.dormant) continue; u.mixer?.update(dt); }
   for (const u of corpses) u.mixer?.update(dt);
 
   // Scale-animate units (no skeleton)
