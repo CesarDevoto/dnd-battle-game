@@ -69,6 +69,16 @@ body:not(.dev-mode) .dev-only { display: none !important; }
   --gold-glow:    rgba(212,175,55,0.40);
   --gold-subtle:  rgba(212,175,55,0.10);
   --gold-trace:   rgba(212,175,55,0.008);
+  /* Per-hero identity colours, matched to the HP-bar gradients (.hp-fill.elf etc.)
+     so a hero reads the same wherever they're tinted. Brightened from the bar ends
+     (#aa22ee / #22cc44 / #c8860a), which go muddy as small text on black. Gobo has
+     no bar colour of his own — he falls through to the generic hero blue — so his
+     orange starts here. Leugren's gold must stay BRIGHTER than --gold: panels are
+     gold-on-black already, so a mid gold reads as body text, not as a highlight. */
+  --hero-gobo:    #ff9040;
+  --hero-rasec:   #c07aff;
+  --hero-milo:    #3ddc61;
+  --hero-leugren: #ffcf5c;
   --border-outer: #4a3412;
   --border-inner: rgba(212,175,55,0.12);
   --panel-bg:
@@ -5653,6 +5663,19 @@ td.bst-col-retired { color: #343228 !important; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A hero's signature options wear that hero's colour, so they stand out from the
+   generic entries (Dodge, Dash, Nearest enemy…) sharing the same priority list.
+   Keyed off data-value, which the renderer already stamps on every item. Every
+   value below is offered to exactly ONE hero (see optionsFor in combatAutomation.js),
+   so these don't need scoping by column — but if one is ever offered to a second
+   hero, it will wear the wrong colour there. */
+.tend-priority-item[data-value="rage"]             .tend-priority-label { color: var(--hero-gobo); }
+.tend-priority-item[data-value="fire_bolt"]        .tend-priority-label { color: var(--hero-rasec); }
+.tend-priority-item[data-value="sneak_attack"]     .tend-priority-label,
+.tend-priority-item[data-value="sneak_possible"]   .tend-priority-label { color: var(--hero-milo); }
+.tend-priority-item[data-value="healing_word"]     .tend-priority-label,
+.tend-priority-item[data-value="ally_lowest_hp"]   .tend-priority-label,
+.tend-priority-item[data-value="ally_any_wounded"] .tend-priority-label { color: var(--hero-leugren); }
 .tend-priority-btn {
   font-size: 0.54rem;
   color: rgba(212,175,55,0.38);

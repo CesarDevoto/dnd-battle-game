@@ -4238,9 +4238,17 @@ const _ABILITY_HANDLERS = {
 // permanently the save's, and shows a greyed placeholder when the hero has no condition to
 // shake. assignHotbarSlot() rejects anything aimed at it, so the drag-drop can't reach it.
 const SAVE_SLOT = 'Digit1';
-const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT']);
+// The spare slots added when the bar was widened. They carry no fixed role (unlike
+// Digit2..Digit6) and no permanent binding (unlike Backquote/Tab, which are assignable
+// but hold NEXT HERO / NEXT TARGET), so they start empty and are safe to unbind wholesale
+// on a hero switch — see the pc-hero:selected handler.
+const SPARE_SLOTS = ['Digit7', 'Digit8', 'KeyU'];
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT',
+                                   ...SPARE_SLOTS]);
 
 // The QWERTY letter-row slots the auto-assigner fills, in order (Q→W→E→R→T→Y).
+// KeyU is deliberately NOT here: it's drag-drop only, so widening the bar didn't
+// silently change where level-up abilities land for existing heroes.
 const AUTO_FILL_SLOTS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY'];
 
 // Level-1 signature ability for martial heroes that have no starting cantrip in
@@ -4579,7 +4587,12 @@ window.addEventListener('pc-hero:selected', ({ detail }) => {
   const hero = detail?.hero;
   if (!hero || hero.team !== 'blue' || combatPhase) return;
   autoAssignHotbarSlots(hero);
-  for (const slot of AUTO_FILL_SLOTS) unbindHotkey(slot, false);
+  // Clear the previous hero's bindings before laying down this one's. SPARE_SLOTS are
+  // included: they're drag-drop targets like the QWERTY row, so without this an ability
+  // dropped on 7/8/U for one hero would still be sitting there after switching to another.
+  // Backquote/Tab are deliberately NOT cleared — they hold permanent NEXT HERO / NEXT
+  // TARGET bindings that unbindHotkey would happily destroy.
+  for (const slot of [...AUTO_FILL_SLOTS, ...SPARE_SLOTS]) unbindHotkey(slot, false);
   for (const [slotKey, abilityKey] of Object.entries(hero.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
