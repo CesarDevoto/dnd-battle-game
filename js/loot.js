@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getPotion } from './potions.js';
-import { getItem } from './items.js';
+import { getItem, ITEMS } from './items.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -79,8 +79,66 @@ function _pickGem(bracket) {
   return { name, rarity: 'gem', description: `A ${name.toLowerCase()} worth ${tier} gp.`, value: tier };
 }
 
-// ── Magic item tables — removed for now (2026-07-02), will be baked back in later ──
-// In the meantime, the only item drop is the Lesser Healing Potion (see below).
+// ══════════════════════════════════════════════════════════════════════════════
+//  ITEM DROP MODEL — see docs/loot-affix-design.md → "Drop model"
+// ══════════════════════════════════════════════════════════════════════════════
+// (Replaces the magic-item tables pulled on 2026-07-02. Until now the ONLY item drops were
+// the Lesser Healing Potion and two scripted quest pieces, so the 356-item catalog in
+// items.js was orphaned — nothing referenced it as a drop source.)
+//
+// TWO rolls per kill: how MANY items, then WHAT QUALITY each is.
+//
+// 1. QUALITY:  Q = 1d100 + 90 × √(CR/10)  → a rarity band, or nothing.
+//    One roll settles both "did anything drop" and "how good". Rarity gating falls out of
+//    the arithmetic for free — a goblin (CR ¼) tops out at Q≈114 and so CANNOT reach green's
+//    116 floor. No separate min-CR rule to keep in sync.
+//    The shift is CURVED on purpose: a straight CR×W steep enough to clear `nothing` by
+//    CR 10 would also hand a CR 10 enemy a red drop, since red sits only ~140 above
+//    nothing's edge. Steep early and shallow late is not a line.
+const _QUALITY_BANDS = [
+  { rarity: null,     upTo: 80  },   // nothing
+  { rarity: 'grey',   upTo: 115 },
+  { rarity: 'green',  upTo: 139 },
+  { rarity: 'blue',   upTo: 164 },
+  { rarity: 'purple', upTo: 200 },
+  { rarity: 'orange', upTo: 219 },
+  { rarity: 'red',    upTo: Infinity },
+];
+function _rollRarity(cr) {
+  const q = _d(100) + 90 * Math.sqrt(Math.max(0, cr ?? 0) / 10);
+  return (_QUALITY_BANDS.find(b => q <= b.upTo) ?? _QUALITY_BANDS[_QUALITY_BANDS.length - 1]).rarity;
+}
+
+// 2. COUNT: how many quality rolls this kill gets. 0% extra below CR 5; a 3rd opens at CR 10.
+//    The two are CUMULATIVE (P(≥3) ⊆ P(≥2)), so they're tested high-to-low.
+//    `start + slope` rather than one (CR−n)×k: that form can't set a value AND a slope
+//    independently — (CR−4)×10 gives the wanted 10% at CR 5 but saturates at 100% by CR 14.
+function _rollDropCount(cr) {
+  const c  = Math.max(0, cr ?? 0);
+  const p2 = c < 5  ? 0 : Math.min(100, 10 + (c - 5) * 3);
+  const p3 = c < 10 ? 0 : Math.min(100, 5  + (c - 10) * 2);
+  const r  = _pct();
+  if (r < p3) return 3;
+  if (r < p2) return 2;
+  return 1;
+}
+
+// Everything the random table can hand out: anything with an equipment slot that isn't a
+// scripted one-off. Quest materials (goblin key, grassling dung) carry no `slot` and are
+// excluded by that alone; `noDrop` covers the ones that DO have a slot (soul shard amulet).
+// Built once — ITEMS is static.
+const _DROP_POOL = Object.values(ITEMS).filter(it => it.slot && !it.noDrop);
+
+// One drop: a random BASE wearing the ROLLED rarity. This is the rolled model — the base
+// supplies name/icon/slot/material, the roll supplies the tier. `rarity` deliberately
+// overwrites the base's own literal (every catalog item says 'grey'), which is why bases
+// don't need per-rarity duplicates.
+function _rollItem(cr) {
+  const rarity = _rollRarity(cr);
+  if (!rarity || !_DROP_POOL.length) return null;   // this roll came up empty
+  const base = _DROP_POOL[Math.floor(Math.random() * _DROP_POOL.length)];
+  return { ...base, rarity };
+}
 
 // ── Drop chances per bracket (gems only — item drops handled separately) ─────
 const _CHANCES = [
@@ -135,6 +193,13 @@ export function rollLoot(cr, type = null, zoneId = null) {
   const ch = _CHANCES[b];
   const coins = _rollCoins(b);
   const items = [];
+
+  // Random gear. Each roll is independent and can come up empty, so N rolls is N CHANCES,
+  // not N items — only visible below CR 8, where `nothing` still has weight.
+  for (let i = 0, n = _rollDropCount(cr); i < n; i++) {
+    const it = _rollItem(cr);
+    if (it) items.push(it);
+  }
 
   if (Math.random() < ch.gem) items.push(_pickGem(ch.gemTier));
 

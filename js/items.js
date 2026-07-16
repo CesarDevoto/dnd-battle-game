@@ -113,6 +113,86 @@ export const ITEMS = {
     twoHanded: true,
   },
 
+  // ── Axe variants ────────────────────────────────────────────────────────────
+  // The axe1..axe9 art was the only unused asset set on disk (7 files; axe3/axe8 don't
+  // exist, hence the gaps). Each reuses one of the three axe archetypes above rather than
+  // inventing new stat shapes — a drop's power comes from its rolled rarity/affixes, not
+  // from the base, so more bases means more VARIETY, not more numbers to balance.
+  axe1: {
+    id:     'axe1',
+    name:   'Hatchet',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe1.png',
+    dmg:    '1d6',
+    dmgType: 'slashing',
+    light:  true,
+    thrown: true,
+  },
+  axe2: {
+    id:     'axe2',
+    name:   'Bearded Axe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe2.png',
+    dmg:    '1d8',
+    dmgType: 'slashing',
+    versatile: '1d10',
+  },
+  axe4: {
+    id:     'axe4',
+    name:   'Broadaxe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe4.png',
+    dmg:    '1d8',
+    dmgType: 'slashing',
+    versatile: '1d10',
+  },
+  axe5: {
+    id:     'axe5',
+    name:   'Cleaving Axe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe5.png',
+    dmg:    '1d12',
+    dmgType: 'slashing',
+    heavy:  true,
+    twoHanded: true,
+  },
+  axe6: {
+    id:     'axe6',
+    name:   'Woodsman\'s Axe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe6.png',
+    dmg:    '1d6',
+    dmgType: 'slashing',
+    light:  true,
+    thrown: true,
+  },
+  axe7: {
+    id:     'axe7',
+    name:   'Twin-Bladed Axe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe7.png',
+    dmg:    '1d12',
+    dmgType: 'slashing',
+    heavy:  true,
+    twoHanded: true,
+  },
+  axe9: {
+    id:     'axe9',
+    name:   'Reaver Axe',
+    slot:   'main-hand',
+    rarity: 'grey',
+    icon:   'assets/items/weapons/axe9.png',
+    dmg:    '1d8',
+    dmgType: 'slashing',
+    versatile: '1d10',
+  },
+
   warhammer1: {
     id:     'warhammer1',
     name:   'Warhammer',
@@ -1871,6 +1951,10 @@ export const ITEMS = {
     slot:   'neck',
     rarity: 'green',
     icon:   'assets/items/jewelry/necklace10.png',
+    // Scripted one-off (Morvath, once ever — see loot.js). noDrop keeps it OUT of the random
+    // drop pool: it has a bespoke effect and a fixed rarity, so a goblin coughing one up
+    // would both cheapen it and hand out a green at a CR that can't roll one.
+    noDrop: true,
     undeadReactionHeal: '1d4',
     description: "When you kill an undead creature, you may use your reaction to absorb a tiny fragment of its undead life force and regain 1d4 hit points.",
   },
@@ -2030,7 +2114,11 @@ export const ITEMS = {
     name:   'Gloves',
     slot:   'hands',
     rarity: 'grey',
-    icon:   'assets/items/armor/glvoes1.png',
+    // Was 'glvoes1.png' — a typo'd path with no file behind it, so this rendered as a
+    // broken image. It was the ONLY dead icon reference of the 373. No plain "gloves" art
+    // exists, so it reuses the cloth set; the id keeps its spelling to avoid breaking any
+    // saved bag that already holds one.
+    icon:   'assets/items/armor/clothgloves1.png',
   },
   clothgloves1: {
     id:     'clothgloves1',
