@@ -5,6 +5,7 @@ import { UNIT_TYPES } from './constants.js';
 import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
 import { registerPostCombatHandler } from './postCombat.js';
+import { placeInFirstEmptyBagSlot } from './equipment.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
@@ -240,57 +241,13 @@ function _collectLoot() {
   // Hand off items to their assigned hero's bags (or drop them if destroyed).
   // _updateCollectBtnState() keeps this button disabled until every item has
   // an assignedTo, so there's nothing left unresolved here.
+  // A false return means every bag was full: the item is lost, same as destroying it.
   _allItems.forEach(item => {
     if (item.assignedTo === 'destroy' || item.assignedTo == null) return;
-    _placeInFirstEmptyBagSlot(item.assignedTo, item);
+    placeInFirstEmptyBagSlot(item.assignedTo, item);
   });
 
   _finish();
-}
-
-// Bag-1 slot 0 is reserved exclusively for healing potions (any item with a
-// `heal` field — today just Potion of Lesser Healing, but greater tiers can
-// slot into the same reserved spot later). Non-potions can never land there.
-function _isHealingPotion(item) { return !!item.heal; }
-
-// Walks a hero's bag-1..bag-4 slots in order and drops the item into the
-// first empty (or same-item, for stacking) slot. Bag `.contents` arrays are
-// created lazily (same as the equipment panel's bag view) so this works even
-// if the bag's never been opened.
-function _placeInFirstEmptyBagSlot(hero, item) {
-  const { assignedTo, ...cleanItem } = item;
-  const isPotion = _isHealingPotion(cleanItem);
-
-  if (isPotion) {
-    const bag1 = hero.equipment?.['bag-1'];
-    if (bag1?.slots) {
-      if (!bag1.contents) bag1.contents = new Array(bag1.slots).fill(null);
-      const slot0 = bag1.contents[0];
-      if (slot0 == null) {
-        bag1.contents[0] = { ...cleanItem, qty: 1 };
-        return true;
-      }
-      if (slot0.id === cleanItem.id) {
-        slot0.qty = (slot0.qty ?? 1) + 1;
-        return true;
-      }
-      return false; // reserved slot holds a different potion tier — no room
-    }
-  }
-
-  for (let n = 1; n <= 4; n++) {
-    const bag = hero.equipment?.[`bag-${n}`];
-    if (!bag?.slots) continue;
-    if (!bag.contents) bag.contents = new Array(bag.slots).fill(null);
-    const start = n === 1 ? 1 : 0; // slot 0 of bag-1 is potion-reserved
-    for (let i = start; i < bag.contents.length; i++) {
-      if (bag.contents[i] != null) continue;
-      if (isPotion) continue; // potions only ever go in the reserved slot
-      bag.contents[i] = { ...cleanItem };
-      return true;
-    }
-  }
-  return false; // every bag is full — item is lost, same as destroying it
 }
 
 function _skipLoot() {

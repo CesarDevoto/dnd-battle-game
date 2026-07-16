@@ -1543,8 +1543,27 @@ function _heroPotion(u) {
   return item?.heal ? item : null;
 }
 
+// Whether this hero could drink right now. IN combat a potion is a bonus action on
+// their own turn; OUT of combat there's no turn economy to spend, so drinking is
+// free and bounded only by how many potions they're carrying. Exported so the
+// inventory right-click menu can grey its Use option for the same reasons the
+// Digit6 hotbar slot greys out.
+export function canUseHealingPotion(u) {
+  if (!u || u.hp <= 0 || isAnimating) return false;
+  if (!_heroPotion(u)) return false;
+  if (!combatPhase) return true;
+  return turnOrder[turnIndex] === u && !turnBonusActioned;
+}
+
+// Drink, from either entry point: the Digit6 hotbar slot (always in combat) or the
+// inventory right-click menu (either side of a fight). The in-combat-only bits are
+// gated on `inCombat` below — there's no bonus action to spend out of combat, and
+// _rebuildHotbar out there wrongly lights up End Turn/attacks before a fight starts.
+export function useHealingPotion(u) { _useHealingPotion(u); }
+
 function _useHealingPotion(u) {
-  if (isAnimating || turnBonusActioned) return;
+  if (!canUseHealingPotion(u)) return;
+  const inCombat = combatPhase && turnOrder[turnIndex] === u;
   const item = _heroPotion(u);
   if (!item) return;
   // Don't drink (or spend the bonus action / charge) at full HP.
@@ -1554,7 +1573,7 @@ function _useHealingPotion(u) {
     return;
   }
 
-  turnBonusActioned = true;
+  if (inCombat) turnBonusActioned = true;
 
   const formula = parseDiceFormula(item.heal);
   const healed  = formula ? Math.max(1, roll(formula).total) : 1;
@@ -1569,7 +1588,7 @@ function _useHealingPotion(u) {
   if (item.qty <= 0) u.equipment['bag-1'].contents[0] = null;
 
   updateCombatStatus();
-  _rebuildHotbar(u);
+  if (inCombat) _rebuildHotbar(u);
 }
 
 // ── Rage ─────────────────────────────────────────────────────────────────────

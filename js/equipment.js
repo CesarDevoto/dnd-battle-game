@@ -57,6 +57,64 @@ export function getEquipped(hero, slotId) {
   return hero.equipment?.[slotId] ?? null;
 }
 
+// ── Bag placement ─────────────────────────────────────────────────────────────
+// Bag-1 slot 0 is reserved exclusively for healing potions (anything with a
+// `heal` field — today just Potion of Lesser Healing, but greater tiers can slot
+// into the same reserved spot later). Non-potions can never land there, and
+// potions can never land anywhere else — which is what lets the Digit6 hotbar
+// slot and the inventory's Use option both assume bag-1[0] is THE potion.
+export function isHealingPotion(item) { return !!item?.heal; }
+
+// Walks a hero's bag-1..bag-4 in order and drops `item` into the first empty (or
+// same-item, for stacking) slot. `.contents` arrays are created lazily, same as
+// the equipment panel's bag view, so this works on a bag that's never been opened.
+//
+// Returns false when there's no room. The caller decides what that means: loot
+// treats it as "the item is lost", a trade treats it as "cancel the move".
+//
+// Honours item.qty so trading a stack of 3 potions moves all 3. Loot drops carry
+// no qty, so `?? 1` keeps that path behaving exactly as it did.
+//
+// Lives here rather than in lootPanel.js because the inventory right-click menu
+// needs it too, and ui.js → lootPanel.js → heroPortraits.js → ui.js would be a
+// circular import. equipment.js is a leaf.
+export function placeInFirstEmptyBagSlot(hero, item) {
+  const { assignedTo, ...cleanItem } = item;
+  const isPotion = isHealingPotion(cleanItem);
+  const addQty   = cleanItem.qty ?? 1;
+
+  if (isPotion) {
+    const bag1 = hero.equipment?.['bag-1'];
+    if (bag1?.slots) {
+      if (!bag1.contents) bag1.contents = new Array(bag1.slots).fill(null);
+      const slot0 = bag1.contents[0];
+      if (slot0 == null) {
+        bag1.contents[0] = { ...cleanItem, qty: addQty };
+        return true;
+      }
+      if (slot0.id === cleanItem.id) {
+        slot0.qty = (slot0.qty ?? 1) + addQty;
+        return true;
+      }
+      return false; // reserved slot holds a different potion tier — no room
+    }
+  }
+
+  for (let n = 1; n <= 4; n++) {
+    const bag = hero.equipment?.[`bag-${n}`];
+    if (!bag?.slots) continue;
+    if (!bag.contents) bag.contents = new Array(bag.slots).fill(null);
+    const start = n === 1 ? 1 : 0; // slot 0 of bag-1 is potion-reserved
+    for (let i = start; i < bag.contents.length; i++) {
+      if (bag.contents[i] != null) continue;
+      if (isPotion) continue; // potions only ever go in the reserved slot
+      bag.contents[i] = { ...cleanItem };
+      return true;
+    }
+  }
+  return false; // every bag is full
+}
+
 // Hero AC: chest armor sets the base (Light/Medium add full DEX mod, Heavy
 // ignores DEX — chest items marked `heavy: true` are the Heavy tier). No
 // chest item → Unarmored: 10 + DEX mod, or 10 + DEX mod + CON mod for units

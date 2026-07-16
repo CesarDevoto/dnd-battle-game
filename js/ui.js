@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import { units } from './units.js';
+import { units, heroRoster } from './units.js';
 import { camera, renderer, _vec, ground } from './scene.js';
 import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
-import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow } from './combat.js';
+import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow,
+         canUseHealingPotion, useHealingPotion, addLog } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
-import { computeAC, equipItem } from './equipment.js';
+import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getXpProgress } from './progression.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
@@ -122,6 +123,11 @@ let _actionsPanelHTML   = '';
 let _traitsPanelHTML    = '';
 let _equipmentPanelHTML = '';
 
+// btnId doubles as the panel's identity in _activeSideBtn. 'ss-btn-equipment' is a
+// VIRTUAL id — the equipment panel's opener lives on the hero avatar cards now (see
+// showInventory), not in .ss-side-btns, so no element by that id exists. The key is
+// kept because equipment still has to take part in side-panel mutual exclusion and
+// in the hero:levelup refresh below.
 function _toggleSidePanel(btnId) {
   const isEq   = btnId === 'ss-btn-equipment';
   const isSame = _activeSideBtn === btnId &&
@@ -133,7 +139,6 @@ function _toggleSidePanel(btnId) {
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
-  document.getElementById('ss-btn-equipment')?.classList.remove('active');
   _activeSideBtn = null;
   if (!isSame) {
     if (isEq) {
@@ -160,7 +165,15 @@ function _toggleSidePanel(btnId) {
 document.getElementById('ss-btn-abilities')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-abilities'));
 document.getElementById('ss-btn-spellbook')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-spellbook'));
 document.getElementById('ss-btn-traits')?.addEventListener('click',     () => _toggleSidePanel('ss-btn-traits'));
-document.getElementById('ss-btn-equipment')?.addEventListener('click',  () => _toggleSidePanel('ss-btn-equipment'));
+
+// Open a hero's inventory in ONE click, from anywhere: the sheet plus the equipment
+// panel together. showSheet() nulls _activeSideBtn, so the _toggleSidePanel that
+// follows can never resolve to "same panel — close it"; this always opens, never
+// toggles shut. Shared by the avatar cards' bag button and the I key.
+export function showInventory(u) {
+  showSheet(u);
+  _toggleSidePanel('ss-btn-equipment');
+}
 
 // If a hero levels up (commonly mid-combat) while their own character sheet is
 // open, the sheet's panels are cached strings built at open time and would show
@@ -189,8 +202,7 @@ document.addEventListener('keydown', e => {
   const pcHero = (selectedTarget?.team === 'blue' && selectedTarget.hp > 0) ? selectedTarget : getPCSelected();
   const u = combatPhase ? turnOrder[turnIndex] : pcHero;
   if (!u || u.team !== 'blue' || u.hp <= 0) return;
-  showSheet(u);
-  _toggleSidePanel('ss-btn-equipment');
+  showInventory(u);
 });
 
 export let sheetUnit = null;
@@ -402,8 +414,13 @@ function buildBagContentsHTML(item, slotKey) {
       : '';
     // Slot 0 of whatever's equipped in the bag-1 slot is reserved for healing potions.
     const reserved = i === 0 && slotKey === 'bag-1' ? ' eq-bagslot-reserved' : '';
+    // Bag contents carry their rarity border too — loot lands in bags, so this is where
+    // rarity is most worth seeing. The rarity rules are declared after .eq-bagslot-reserved,
+    // so a FILLED potion slot shows the potion's rarity while an EMPTY one keeps the green
+    // "reserved" tint — which is exactly when that hint is worth anything.
+    const rarityClass = contentItem?.rarity ? ` rarity-${contentItem.rarity}` : '';
     const title = contentItem ? contentItem.name : (reserved ? 'Reserved for healing potions' : `Slot ${i + 1}`);
-    return `<div class="eq-bagslot-box${reserved}" data-bagslot="${i}" title="${title}">${icon}${qty}</div>`;
+    return `<div class="eq-bagslot-box${reserved}${rarityClass}" data-bagslot="${i}" title="${title}">${icon}${qty}</div>`;
   }).join('');
   return (
     `<div class="eq-bagslot-title">${item.name} (${item.slots})</div>` +
@@ -539,6 +556,189 @@ function _refreshEquipmentPanel(reopenBagKey) {
   eqBagContentEl.addEventListener('click', e => {
     if (justDragged) { justDragged = false; e.stopPropagation(); e.preventDefault(); }
   }, true);
+})();
+
+// ── Item context menu — right-click an equipped or bagged item ────────────────
+// Use / Trade to <hero> / Delete. Listeners are delegated onto the two panel
+// containers (which are static in index.html) rather than the item boxes, because
+// both panels are rebuilt via innerHTML on every refresh — per-box handlers would
+// die on the first trade.
+(function() {
+  const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
+
+  let menuEl  = null;
+  let _hero   = null;   // whose inventory is open (sheetUnit at open time)
+  let _loc    = null;   // { kind:'equipped', slotKey } | { kind:'bag', bagKey, idx }
+
+  // An item's home, resolved live rather than captured — the panel rebuilds under us.
+  function _itemAt() {
+    if (!_hero || !_loc) return null;
+    return _loc.kind === 'equipped'
+      ? (_hero.equipment?.[_loc.slotKey] ?? null)
+      : (_hero.equipment?.[_loc.bagKey]?.contents?.[_loc.idx] ?? null);
+  }
+  function _takeFromSource() {
+    if (_loc.kind === 'equipped') { unequipItem(_hero, _loc.slotKey); return; }
+    const bag = _hero.equipment?.[_loc.bagKey];
+    if (bag?.contents) bag.contents[_loc.idx] = null;
+  }
+  // Re-open the bag we were looking at, so a trade/delete out of an open bag leaves
+  // that bag on screen instead of collapsing the view.
+  function _refreshAfterChange() {
+    _refreshEquipmentPanel(_loc?.kind === 'bag' ? _loc.bagKey : null);
+    // If the bag view is showing a container that just stopped existing — deleting or
+    // trading away the equipped bag ITSELF, not something inside it — close it, or it
+    // keeps rendering the contents of a bag the hero no longer has.
+    const shownKey = eqBagContentEl.dataset.bagSlotKey;
+    if (shownKey && !_hero?.equipment?.[shownKey]?.slots) eqBagPanelEl?.classList.remove('show');
+  }
+
+  function _close() { menuEl?.remove(); menuEl = null; _hero = null; _loc = null; }
+
+  function _row(label, { disabled = false, danger = false, onClick } = {}) {
+    const el = document.createElement('button');
+    el.className = 'eq-ctx-row' + (danger ? ' eq-ctx-danger' : '');
+    el.disabled  = disabled;
+    el.innerHTML = label;
+    if (!disabled && onClick) el.addEventListener('click', onClick);
+    return el;
+  }
+
+  // Swaps the menu's contents for an inline "are you sure" instead of a native
+  // confirm() — keeps the game's own chrome, and a browser dialog can be suppressed
+  // outright by the user's Chrome settings.
+  function _renderConfirmDelete(item) {
+    const inside = item.contents?.filter(Boolean).length ?? 0;
+    menuEl.innerHTML = '';
+    menuEl.appendChild(_row(
+      `Delete <b>${item.name}</b>?` +
+      (inside ? `<br><span class="eq-ctx-warn">${inside} item${inside === 1 ? '' : 's'} inside will go with it.</span>` : ''),
+      { disabled: true }
+    ));
+    menuEl.appendChild(_row('Yes, delete it', { danger: true, onClick: () => {
+      const name = item.name;
+      _takeFromSource();
+      addLog(`${name} was destroyed.`, 'system');
+      _refreshAfterChange();
+      _close();
+    }}));
+    menuEl.appendChild(_row('Cancel', { onClick: _close }));
+  }
+
+  function _renderMenu(item) {
+    menuEl.innerHTML = '';
+    menuEl.appendChild(_row(`<span class="eq-ctx-title">${item.name}</span>`, { disabled: true }));
+
+    // Use — only items that actually DO something, which today means anything with a
+    // `heal` field (just the Potion of Lesser Healing). Keyed off the data, not an id
+    // list, so any future consumable lights up for free. Flasks and the other potions
+    // are art-only placeholders and correctly never offer it.
+    if (item.heal) {
+      const usable = canUseHealingPotion(_hero);
+      menuEl.appendChild(_row('Use', {
+        disabled: !usable,
+        onClick: () => { useHealingPotion(_hero); _refreshAfterChange(); _close(); },
+      }));
+    }
+
+    // Containers are deliberately NOT tradeable, and it isn't just tidiness: a traded
+    // bag lands in a slot INSIDE one of the target's bags, the panel only ever renders
+    // one level of contents, and the drag-drop's GENERIC_SLOT map has no bag entries —
+    // so a nested bag can't be dragged back out onto a bag-N slot. The bag and
+    // everything in it would be gone for good. Move the contents across instead.
+    // (Checks .slot too: bag2..bag6 in items.js have no `slots` count yet.)
+    if (item.slot === 'bag' || item.slots) {
+      menuEl.appendChild(_row(
+        `<span class="eq-ctx-warn">Containers can't be traded —<br>move the contents instead.</span>`,
+        { disabled: true }
+      ));
+      menuEl.appendChild(_row('Delete', { danger: true, onClick: () => _renderConfirmDelete(item) }));
+      return;
+    }
+
+    // Trade — every other hero on the roster, fallen included: a downed hero still
+    // owns their gear, and their bag stays reachable for exactly this reason.
+    for (const type of HERO_ORDER) {
+      const target = heroRoster.find(h => h.type === type);
+      // Compare by type, not identity: showSheet can be handed a bare {type, hp}
+      // stub (see the avatar cards' fallback), which would never === its roster
+      // entry and would put a "Trade to yourself" row in the hero's own menu.
+      if (!target || target.type === _hero?.type) continue;
+      menuEl.appendChild(_row(`Trade to ${UNIT_TYPES[type]?.name ?? type}`, {
+        onClick: () => {
+          // Place BEFORE removing: if the target has no room, the item must stay put
+          // rather than evaporate between the two steps.
+          if (!placeInFirstEmptyBagSlot(target, item)) {
+            addLog(`${UNIT_TYPES[type]?.name ?? type} has no room for the ${item.name}.`, 'system');
+            _close();
+            return;
+          }
+          const name = item.name;
+          _takeFromSource();
+          addLog(`${name} handed to ${UNIT_TYPES[type]?.name ?? type}.`, 'system');
+          _refreshAfterChange();
+          _close();
+        },
+      }));
+    }
+
+    menuEl.appendChild(_row('Delete', { danger: true, onClick: () => _renderConfirmDelete(item) }));
+  }
+
+  function _open(e, loc) {
+    _close();
+    _hero = sheetUnit;
+    _loc  = loc;
+    const item = _itemAt();
+    if (!item) { _hero = null; _loc = null; return; }   // empty slot — no menu
+
+    menuEl = document.createElement('div');
+    menuEl.className = 'eq-ctx-menu';
+    document.body.appendChild(menuEl);
+    _renderMenu(item);
+
+    // Position at the cursor, then pull back inside the viewport if it would spill.
+    // Measured after appending, since the height depends on how many rows there are.
+    const r = menuEl.getBoundingClientRect();
+    menuEl.style.left = Math.min(e.clientX, window.innerWidth  - r.width  - 4) + 'px';
+    menuEl.style.top  = Math.min(e.clientY, window.innerHeight - r.height - 4) + 'px';
+  }
+
+  // [data-slot], NOT .eq-slot: bags render as .eq-bag (see buildEquipmentPanelHTML), so
+  // matching the class caught only the gear slots and let the browser's own context menu
+  // through on every bag. data-slot is what both kinds carry — same hook _initEquipmentPanel
+  // binds its clicks to.
+  eqContentEl.addEventListener('contextmenu', e => {
+    const slotEl = e.target.closest('[data-slot]');
+    if (!slotEl) return;
+    e.preventDefault();
+    _open(e, { kind: 'equipped', slotKey: slotEl.dataset.slot });
+  });
+
+  eqBagContentEl.addEventListener('contextmenu', e => {
+    const box = e.target.closest('[data-bagslot]');
+    if (!box) return;
+    e.preventDefault();
+    const idx = Number(box.dataset.bagslot);
+    if (Number.isNaN(idx)) return;
+    _open(e, { kind: 'bag', bagKey: eqBagContentEl.dataset.bagSlotKey, idx });
+  });
+
+  // Dismiss on anything that means "I'm done here". Capture phase on mousedown so
+  // the menu closes before the click lands on whatever is underneath it.
+  document.addEventListener('mousedown', e => {
+    if (menuEl && !e.target.closest('.eq-ctx-menu')) _close();
+  }, true);
+  // Escape peels ONE layer: the menu, not the sheet behind it. army.js has a
+  // bubble-phase Escape handler that calls hideSheet(), so without stopping the
+  // event here, dismissing this menu would tear down the whole inventory with it.
+  // Capture on document runs before the event ever reaches that listener.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !menuEl) return;
+    e.stopPropagation();
+    _close();
+  }, true);
+  window.addEventListener('blur', _close);
 })();
 
 function buildEquipmentPanelHTML(u) {
@@ -1073,10 +1273,15 @@ export function showSheet(u) {
   sheetUnit = u;
   sidePanelEl.classList.remove('show');
   spellListPanelEl.classList.remove('show');
+  // The equipment/bag panels close here too. They're built from cached HTML at open
+  // time, so leaving them up across a showSheet would keep the PREVIOUS hero's gear
+  // on screen beside the new hero's sheet. Easy to hit now that every avatar card has
+  // its own one-click bag button. showInventory() re-opens equipment right after.
+  eqPanelEl?.classList.remove('show');
+  eqBagPanelEl?.classList.remove('show');
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
-  document.getElementById('ss-btn-equipment')?.classList.remove('active');
   _activeSideBtn = null;
   sheetBody.innerHTML   = buildSheetHTML(u);
   _spellPanelHTML       = buildSpellPanelHTML(u);
@@ -1110,7 +1315,6 @@ export function hideSheet() {
   document.getElementById('ss-btn-abilities')?.classList.remove('active');
   document.getElementById('ss-btn-spellbook')?.classList.remove('active');
   document.getElementById('ss-btn-traits')?.classList.remove('active');
-  document.getElementById('ss-btn-equipment')?.classList.remove('active');
   _activeSideBtn = null;
 }
 
