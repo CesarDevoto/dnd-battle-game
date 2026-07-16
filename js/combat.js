@@ -4808,9 +4808,19 @@ export function activateTurn(index) {
 }
 
 // ── Dynamic aggro radius ──────────────────────────────────────────────────────
-// CR ≤1 all map to effective level 1; CR 2+ map 1:1.
-const _XP_TO_EFF = { 25:1, 50:1, 100:1, 200:1, 450:2, 700:3, 1100:4, 1800:5 };
-function _effLevelOf(def) { return _XP_TO_EFF[def.xpReward ?? 0] ?? 1; }
+// CR ≤1 all map to effective level 1; CR 2+ map 1:1 — which is what the old comment here
+// always claimed, but NOT what the code did.
+//
+// ⚠ THIS WAS DEAD. It used to be `_XP_TO_EFF = {25:1, 50:1, 100:1, 200:1, 450:2, ...}` keyed
+// on xpReward — but those are D&D's RAW xp values, and we store the compressed scale
+// (5/10/20/40/90/...). The two sets intersected on exactly ONE enemy out of 58 (morvath at
+// 100), so `?? 1` fired for everyone and EVERY enemy resolved to effective level 1. The
+// dynamic aggro radius has never scaled. Reading CR directly is both the fix and the point:
+// CR is the source of truth, XP derives from it, so nothing should key off XP.
+function _effLevelOf(type) {
+  const cr = ENEMY_CR[type] ?? 0;
+  return cr <= 1 ? 1 : Math.ceil(cr);
+}
 
 function _partyHeroLevel() {
   const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
@@ -4820,7 +4830,7 @@ function _partyHeroLevel() {
 
 function _dynamicAggroRangeWU(u, def) {
   const baseWU   = u.detectRange ?? def.detect ?? 20;
-  const tierDiff = Math.ceil(_partyHeroLevel() / 5) - (_effLevelOf(def) + 4);
+  const tierDiff = Math.ceil(_partyHeroLevel() / 5) - (_effLevelOf(u.type) + 4);
   if (tierDiff < 0) return baseWU;
   return baseWU * Math.max(0, 1 - (tierDiff + 1) / 5);
 }

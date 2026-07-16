@@ -1,18 +1,16 @@
-import { UNIT_TYPES } from './constants.js';
+import { UNIT_TYPES, ENEMY_CR, xpRewardFor } from './constants.js';
 
-/* ── Game XP → CR (the game uses its own compressed XP scale) ─────────── */
-const XP_TO_CR = {
-  0:   '0',
-  5:   '1/8',
-  10:  '1/4',
-  20:  '1/2',
-  40:  '1',
-  90:  '2',
-  100: '2',   // Morvath (boss) sits between the 90 and 140 bands
-  140: '3',
-  220: '4',
-  360: '5',
-};
+/* ── CR display ────────────────────────────────────────────────────────────
+   CR is read from ENEMY_CR (constants.js) — the same map combat and the loot drop
+   model use. It used to be back-derived from xpReward via an XP→CR table, which was
+   a SECOND, independent source of CR and had already drifted: it showed morvath as
+   CR 2 while ENEMY_CR said 1, and the hyena as 1/8 while ENEMY_CR said 0.25.
+   XP now derives from CR (see CR_TO_XP), so deriving CR back out of XP would be circular.
+
+   Note MM_ROSTER below carries the BOOK's CR for every monster 0–30; ENEMY_CR carries
+   OURS, which deliberately deviates in places (the hyena is MM CR 0, bumped to 0.25 here
+   so its combat tier stays 1). ENEMY_CR wins — don't reconcile it to the roster. */
+const CR_LABEL = { 0: '0', 0.125: '1/8', 0.25: '1/4', 0.5: '1/2' };
 
 /* Full CR ordering, 0 → 30, for sorting any stray custom buckets */
 const CR_SORT = {
@@ -25,7 +23,11 @@ const CR_SORT = {
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
-function crOf(def)     { return XP_TO_CR[def.xpReward] ?? '?'; }
+function crOf(type) {
+  const cr = ENEMY_CR[type];
+  if (cr === undefined) return '?';
+  return CR_LABEL[cr] ?? String(cr);
+}
 
 function newHpOf(def) {
   const xp   = def.xpReward ?? 0;
@@ -264,19 +266,21 @@ function sectionHTML(cr, entries, inGame) {
 }
 
 function buildAccordion() {
+  // Keep the TYPE key, not just the def: ENEMY_CR is keyed by type, and dropping it here is
+  // why crOf used to back-derive CR from xpReward instead of just reading it.
   const redDefs = Object.entries(UNIT_TYPES)
     .filter(([, d]) => d.team === 'red')
-    .map(([, d]) => d);
+    .map(([type, d]) => ({ type, def: d }));
 
   // Attach in-game defs to their MM section; collect custom (non-MM) enemies.
   const attached    = MM_ROSTER.map(() => new Map());  // secIndex → Map(lowerName → def)
   const customsByCr = new Map();                        // cr → def[]
-  for (const def of redDefs) {
+  for (const { type, def } of redDefs) {
     const key = def.name.toLowerCase();
     if (MM_NAME_TO_SEC.has(key)) {
       attached[MM_NAME_TO_SEC.get(key)].set(key, def);
     } else {
-      const cr = crOf(def);
+      const cr = crOf(type);
       if (!customsByCr.has(cr)) customsByCr.set(cr, []);
       customsByCr.get(cr).push(def);
     }

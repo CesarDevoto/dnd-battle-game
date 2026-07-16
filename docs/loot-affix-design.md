@@ -229,6 +229,123 @@ Notes:
   slot equally loaded.
 - Bag is storage, not a stat slot — excluded (15 stat slots).
 
+## Drop model — applies to EVERY slot (decided 2026-07-16)
+
+Two independent rolls per kill: **how many** items, then **what quality** each one is.
+Loot only — currency is a separate system, not modelled here.
+
+**CR comes from `ENEMY_CR` (constants.js)** — the map combat already trusts (`unitCombatLevel`).
+⚠ Do NOT use the bestiary's CR: `bestiary.js` derives it from `XP_TO_CR[def.xpReward]`, a second
+independent source. They agree today, but an enemy whose `xpReward` isn't in that map shows `'?'`
+in the bestiary while `ENEMY_CR` is fine — and one whose xpReward maps to a *different* CR would
+have the drop table paying out at a rarity the bestiary doesn't claim. Worth collapsing onto one.
+
+### 1. Quality — one roll decides IF something drops and HOW GOOD
+
+```
+Q = 1d100 + 90 × √(CR / 10)
+
+  ≤80 nothing · 81–115 grey · 116–139 green · 140–164 blue
+  165–200 purple · 201–219 orange · ≥220 red
+```
+
+**Why one roll instead of a chance-per-rarity:** rarity gating falls out of the arithmetic for
+free. A goblin's Q *cannot physically reach* 116, so it can never drop green — no separate
+"minimum CR" rule to maintain. The same shift both squeezes out `nothing` and unlocks the top,
+so CR raises drop RATE and drop QUALITY with one knob.
+
+**Why the shift is CURVED, not linear.** A straight `CR × W` cannot satisfy both ends: clearing
+`nothing` (80 wide) by CR 10 needs ~9/level, but that same slope hands a CR 10 enemy a red drop,
+because red sits only ~140 points above nothing's edge. Steep early and shallow late is not a
+line. `√` hits 90 at CR 10 while reaching only ~156 by CR 30 (a line would hit 270).
+
+**Band WIDTHS are the tuning surface, not the edges.** Bands are contiguous, so widening one
+takes from its neighbour — widening `nothing` eats `grey` specifically, which once crushed grey
+to 5% and made green three times commoner than the tier *below* it. To pull a tier N levels
+earlier, drop its start; to move a group without deforming anyone, move them as a block.
+
+| CR | nothing | grey | green | blue | purple | orange | red | |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 80% | 20% | · | · | · | · | · | commoner, goblin2 |
+| 1/8 | 69% | 31% | · | · | · | · | · | kobold, stirge, giant rat |
+| 1/4 | 65% | 35% | · | · | · | · | · | goblin, wolf, zombie, skeleton |
+| 1/2 | 59% | 35% | 6% | · | · | · | · | orc, gnoll, hobgoblin |
+| 1 | 51% | 35% | 14% | · | · | · | · | bugbear, ghoul |
+| 2 | 39% | 35% | 24% | 2% | · | · | · | ogre, nothic |
+| 3 | 30% | 35% | 24% | 11% | · | · | · | owlbear |
+| 4 | 23% | 35% | 24% | 18% | · | · | · | |
+| 5 | 16% | 35% | 24% | 25% | · | · | · | troll, hill giant — **highest CR built today** |
+| 6 | 10% | 35% | 24% | 25% | 6% | · | · | |
+| 7 | 4% | 35% | 24% | 25% | 12% | · | · | |
+| 8 | · | 34% | 24% | 25% | 17% | · | · | |
+| 9 | · | 29% | 24% | 25% | 22% | · | · | |
+| 10 | · | 25% | 24% | 25% | 26% | · | · | |
+| 11 | · | 20% | 24% | 25% | 31% | · | · | |
+| 12 | · | 16% | 24% | 25% | 35% | · | · | |
+| 13 | · | 12% | 24% | 25% | 36% | 3% | · | |
+| 14 | · | 8% | 24% | 25% | 36% | 7% | · | |
+| 15 | · | 4% | 24% | 25% | 36% | 11% | · | |
+| 16 | · | 1% | 24% | 25% | 36% | 14% | · | |
+| 17 | · | · | 21% | 25% | 36% | 18% | · | |
+| 18 | · | · | 18% | 25% | 36% | 19% | 2% | |
+| 19 | · | · | 14% | 25% | 36% | 19% | 6% | |
+| 20 | · | · | 11% | 25% | 36% | 19% | 9% | |
+| 21 | · | · | 8% | 25% | 36% | 19% | 12% | |
+| 22 | · | · | 5% | 25% | 36% | 19% | 15% | |
+| 23 | · | · | 2% | 25% | 36% | 19% | 18% | |
+| 24 | · | · | · | 24% | 36% | 19% | 21% | |
+| 25 | · | · | · | 21% | 36% | 19% | 24% | |
+| 26 | · | · | · | 18% | 36% | 19% | 27% | |
+| 27 | · | · | · | 16% | 36% | 19% | 29% | |
+| 28 | · | · | · | 13% | 36% | 19% | 32% | |
+| 29 | · | · | · | 10% | 36% | 19% | 35% | |
+| 30 | · | · | · | 8% | 36% | 19% | 37% | ancient dragon tier |
+
+Gates that fall out of it: **green CR 1/2 · blue CR 2 · purple CR 6 · orange CR 13 · red CR 18.**
+Something always drops from **CR 8**; grey is gone by **17**.
+
+### 2. Count — how many rolls a kill gets
+
+```
+CR < 5   →  P(≥2) = 0
+CR ≥ 5   →  P(≥2) = 10 + (CR − 5) × 3      10% at CR 5 → 85% at CR 30
+CR < 10  →  P(≥3) = 0
+CR ≥ 10  →  P(≥3) = 5  + (CR − 10) × 2      5% at CR 10 → 45% at CR 30
+```
+
+Cumulative: `exactly 1 = 100 − P(≥2)` · `exactly 2 = P(≥2) − P(≥3)` · `exactly 3 = P(≥3)`.
+P(≥3) starts lower AND climbs slower (2/level vs 3/level), so it can never overtake P(≥2) and
+the "exactly 2" split can never go negative.
+
+**Why `start + slope` and not one `(CR − n) × k`:** that form can't set a value and a slope
+independently. `(CR−4) × 10` gives the wanted 10% at CR 5 but saturates at **100% by CR 14**,
+so every enemy past 14 would always roll 2+.
+
+| CR | 1 loot | 2 loots | 3 loots | avg items |
+|---|---|---|---|---|
+| 0–4 | 100% | · | · | 0.20 – 0.77 |
+| 5 | 90% | 10% | · | 0.92 |
+| 10 | 75% | 20% | 5% | 1.30 |
+| 15 | 60% | 25% | 15% | 1.55 |
+| 20 | 45% | 30% | 25% | 1.80 |
+| 25 | 30% | 35% | 35% | 2.05 |
+| 30 | 15% | 40% | 45% | 2.30 |
+
+⚠ **These are ROLLS, not guaranteed items.** Each roll runs the quality table independently and
+can still come up `nothing`. Only matters at CR 5–7 (nothing is 16%/10%/4% there); from CR 8 up
+`nothing` is gone and rolls == items. A troll winning a 2nd roll still has a 16% chance of it
+being empty. If "2 loots" should mean two ACTUAL items, the extra rolls must skip the `nothing`
+band — that's a rule change, not a tuning change.
+
+### Open on the drop model
+- **Red is in the random table** (2% at CR 18 → 37% at CR 30). That fights "red = ~20
+  hand-authored uniques" — a dragon rolling a random one of twenty named artifacts is probably
+  not wanted. The usual fix: drop red out of the random roll and make uniques scripted/boss-only.
+- **Nothing above CR 5 exists yet.** Everything from purple up is unreachable in today's content,
+  same as the dormant rows in the class tables.
+- **Purple is the widest band (36)** and dominates from CR 13 to 30 — more likely than orange
+  everywhere, and than red until CR 26.
+
 ## Roll tables (by slot)
 
 One table per slot. Columns = rarity tier, rows = the stats that slot owns (per the allocation
