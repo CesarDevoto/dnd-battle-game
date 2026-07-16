@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getPotion } from './potions.js';
 import { getItem, ITEMS } from './items.js';
+import { rollAffixes } from './affixes.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -129,15 +130,18 @@ function _rollDropCount(cr) {
 // Built once — ITEMS is static.
 const _DROP_POOL = Object.values(ITEMS).filter(it => it.slot && !it.noDrop);
 
-// One drop: a random BASE wearing the ROLLED rarity. This is the rolled model — the base
-// supplies name/icon/slot/material, the roll supplies the tier. `rarity` deliberately
-// overwrites the base's own literal (every catalog item says 'grey'), which is why bases
-// don't need per-rarity duplicates.
+// One drop: a random BASE wearing the ROLLED rarity, plus affixes rolled from that slot's
+// table. This is the rolled model — the base supplies name/icon/slot/material, the roll
+// supplies the tier and the numbers. `rarity` deliberately overwrites the base's own literal
+// (every catalog item says 'grey'), which is why bases don't need per-rarity duplicates.
+//
+// affixes is [] for any slot without a table yet (14 of 15 today) — those drop as plain
+// bases, exactly as they did before, so nothing regresses while the tables land one at a time.
 function _rollItem(cr) {
   const rarity = _rollRarity(cr);
   if (!rarity || !_DROP_POOL.length) return null;   // this roll came up empty
   const base = _DROP_POOL[Math.floor(Math.random() * _DROP_POOL.length)];
-  return { ...base, rarity };
+  return { ...base, rarity, affixes: rollAffixes(base, rarity) };
 }
 
 // ── Drop chances per bracket (gems only — item drops handled separately) ─────

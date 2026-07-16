@@ -17,6 +17,7 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
+import { affixTotal } from './affixes.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
          hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
@@ -751,6 +752,10 @@ function hasSneakAttackCondition(attacker, target, atkResult, wasHidden = _isHid
 function damageMitigationOf(target) {
   let mit = 0;
   if (target?.raging && UNIT_TYPES[target.type]?.rage) mit += rageMitigationForLevel(target.level);
+  // Gear. affixTotal sums the stat across every EQUIPPED item, so this one line covers any
+  // slot that ever rolls mitigation — and because every damage path already comes through
+  // here, gear mitigation applies to weapon hits, AoE and poison alike, for free.
+  mit += affixTotal(target, 'mitigation_pct') / 100;
   return mit;
 }
 
@@ -759,6 +764,19 @@ function damageMitigationOf(target) {
 function applyMitigation(target, raw) {
   const mit = damageMitigationOf(target);
   return mit > 0 ? Math.max(1, Math.round(raw * (1 - mit))) : raw;
+}
+
+// Scale a SPELL's damage by the caster's gear. Rounds UP (user's rule, 2026-07-16) — which
+// matters more than it looks: spell damage is a percentage of a SMALL number (Fire Bolt is
+// 1d10, avg 5.5), so +6% of 7 is 7.42 and would round back to 7 and do literally nothing.
+// Ceil means a rolled bonus always moves the number.
+//
+// A percentage, not a flat bonus, precisely because of Magic Missile: it fires 4 darts rolled
+// separately, so a flat +2 would force a per-dart-vs-per-cast decision worth 4x. A % scales
+// whatever came out and leaves the dart breakdown in the log honest.
+function applySpellDamage(caster, raw) {
+  const pct = affixTotal(caster, 'spell_damage_pct');
+  return pct > 0 ? Math.ceil(raw * (1 + pct / 100)) : raw;
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -1233,7 +1251,7 @@ function castSacredFlame(caster, target, onDone) {
   const dexMod     = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
   const saveResult = rollSave(dexMod, spell.saveDC, target.dodging ? 'advantage' : 'normal');
   const dmgRoll    = roll({ sides: spell.sides, count: spell.dice });
-  const dmg        = saveResult.isSave ? 0 : dmgRoll.total;
+  const dmg        = saveResult.isSave ? 0 : applySpellDamage(caster, dmgRoll.total);
 
   playSacredFlameEffect(caster, target, () => {
     target.aggro = true;
@@ -1713,7 +1731,8 @@ function castMagicMissile(caster, target, onDone) {
   const darts = Array.from({ length: spell.darts }, () =>
     roll({ sides: spell.sides, modifier: spell.flatBonus })
   );
-  const totalDmg = darts.reduce((s, r) => s + r.total, 0);
+  // Scale the SUM, not each dart — the per-dart breakdown in the log stays the honest roll.
+  const totalDmg = applySpellDamage(caster, darts.reduce((s, r) => s + r.total, 0));
 
   // Visual — 4 neon purple arrows; damage applies when last bolt lands
   playMagicMissileEffect(caster, target, () => {
@@ -1810,7 +1829,10 @@ function castBurningHands(caster) {
         const dexMod = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
         const saveResult = roll({ sides: 20, modifier: dexMod });
         const saved = saveResult.total >= spell.saveDC;
-        const dmg = saved ? Math.max(1, Math.floor(dmgResult.total / 2)) : dmgResult.total;
+        // Gear scales the full roll first, THEN the save halves it — so a saving target
+        // still feels the caster's Spell damage, just halved like everything else.
+        const _scaled = applySpellDamage(caster, dmgResult.total);
+        const dmg = saved ? Math.max(1, Math.floor(_scaled / 2)) : _scaled;
         target.aggro = true;
         buildTurnList();
         target.hp = Math.max(0, target.hp - dmg);
@@ -2747,7 +2769,13 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     sneakResult     = rollDnDDamage(sneakDef, 0, isCrit);
   }
 
-  const dmg      = Math.max(1, dmgResult.total);
+  // performAttack resolves BOTH weapon swings and attack-roll spells (Fire Bolt), so this is
+  // where "Spell damage" and "Weapon-attack damage" must not touch each other. atk.spellKey
+  // is what tells them apart — the whole reason Fire Bolt stopped being a fake type:'ranged'
+  // weapon. Sneak dice are deliberately outside it: they're the rogue's, not the caster's.
+  const dmg      = atk.spellKey
+    ? Math.max(1, applySpellDamage(attacker, dmgResult.total))
+    : Math.max(1, dmgResult.total);
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
   const totalRaw = dmg + sneakDmg;
   const resisted = damageMitigationOf(target) > 0;
