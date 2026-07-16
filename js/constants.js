@@ -1301,7 +1301,16 @@ export function weaponMasteryForLevel(level) { return BARB_WEAPON_MASTERY[dndLev
 // Milo's Sneak Attack dice count (sides are always 6).
 export function sneakAttackDiceForLevel(level) { return ROGUE_SNEAK_DICE[dndLevelFor(level) - 1]; }
 
-// Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off). CUSTOM — see above.
+// Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off).
+//
+// OUR RULE, not D&D's — Rage mitigates ALL damage here, every source, and it's a flat
+// percentage rather than 5e's physical-only resistance. Don't reconcile it toward the book.
+//
+// ⚠ Flat 10% from level 2 is a PLACEHOLDER. This will grow at higher levels; the user is
+// supplying the amounts and the levels. This function is the only place to change — every
+// damage path reads it through damageMitigationOf() in combat.js.
+// NOTE it takes a GAME level, not a D&D level. If the numbers arrive as a D&D-level table,
+// wrap them with dndLevelFor() the way the class tables above do.
 export function rageMitigationForLevel(level) {
   return (level ?? 1) >= 2 ? 0.10 : 0;
 }

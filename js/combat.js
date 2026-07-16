@@ -411,9 +411,10 @@ function showRangeRings(u) {
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = def.attacks ?? [];
   const meleeA = atks.find(a => a.type === 'melee');
-  // Rasec has no ranged weapon in attacks[] — Fire Bolt (90 ft) is his ranged
-  // attack via the synthetic _fireBoltAtk, so fall back to it for the ring.
-  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
+  // Rasec has no ranged WEAPON in attacks[] — Fire Bolt (90 ft) is what he throws at range,
+  // and it's a spell, so it never appears in a `type === 'ranged'` search. Fall back to it
+  // explicitly or the elf draws no ranged ring at all.
+  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   if (meleeA) {
@@ -733,6 +734,31 @@ function _isHiddenForSneak(u) {
 // the 'sneak_possible' tendency), where nothing has been torn down yet.
 function hasSneakAttackCondition(attacker, target, atkResult, wasHidden = _isHiddenForSneak(attacker)) {
   return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || wasHidden;
+}
+
+// ── Damage mitigation ─────────────────────────────────────────────────────────
+// The fraction of incoming damage `target` shrugs off, summed across every source.
+//
+// RAGE MITIGATES ALL DAMAGE — not just weapon hits (user's rule, 2026-07-16). Anything
+// that reduces a hero's HP must come through here. Until 2026-07-16 the calc was inlined
+// in performAttack alone, so Morvath's AoE and poison riders bypassed Rage entirely and
+// hit a raging Gobo for full.
+//
+// Stacking is ADDITIVE: rage 10% + a 4% mitigation hat = 14%, applied as ONE multiply.
+// Not chained multipliers (×0.90 then ×0.96 = 13.6%) — that's a different, worse number.
+// The Head "Damage mitigation %" loot affix sums in here when it lands; see
+// docs/loot-affix-design.md → Mitigation stacking.
+function damageMitigationOf(target) {
+  let mit = 0;
+  if (target?.raging && UNIT_TYPES[target.type]?.rage) mit += rageMitigationForLevel(target.level);
+  return mit;
+}
+
+// Apply mitigation to a raw damage number. Floors at 1: a blow that lands always hurts,
+// however deep mitigation stacks — which is also the backstop against additive runaway.
+function applyMitigation(target, raw) {
+  const mit = damageMitigationOf(target);
+  return mit > 0 ? Math.max(1, Math.round(raw * (1 - mit))) : raw;
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -1619,12 +1645,35 @@ function handleRageBtnClick() {
 
 // ── Elf (Rasec) spell casting ─────────────────────────────────────────────────
 
-// Fire Bolt as an attacks[]-shaped object — lets it reuse performAttack()'s
-// to-hit/damage/crit/VFX pipeline without living in UNIT_TYPES.attacks (which
-// would wrongly make it Rasec's "ranged weapon").
-function _fireBoltAtk() {
-  const sp = ELF_SPELLS.fire_bolt;
-  return { name: sp.name, type: 'ranged', range: sp.rangeFt, dice: sp.dice, sides: sp.sides, statMod: sp.statMod };
+// Fire Bolt is an ATTACK-ROLL spell (unlike Sacred Flame, which is a save spell), so it
+// resolves through performAttack — that's where to-hit, crit, advantage/disadvantage,
+// Bless, hit% and the projectile pipeline live, and duplicating them for spells would
+// guarantee the two copies drift apart.
+//
+// But it is NOT a weapon. `type: 'spell_attack'` keeps it out of every
+// `atks.find(a => a.type === 'ranged')` test — those mean "this hero's ranged WEAPON", and
+// Rasec hasn't got one. `spellKey` gives it a real spell identity, which is what lets the
+// coming damage affixes tell Spell damage from Weapon-attack damage (they must never touch
+// each other; see docs/loot-affix-design.md).
+//
+// Built ONCE from the spell definition — ELF_SPELLS.fire_bolt stays the single source of
+// truth for range/dice/stat, and this is frozen because it's now shared rather than rebuilt
+// per call, so an accidental write would corrupt every later cast.
+const FIRE_BOLT_ATK = Object.freeze({
+  name:     ELF_SPELLS.fire_bolt.name,
+  type:     'spell_attack',
+  spellKey: 'fire_bolt',
+  range:    ELF_SPELLS.fire_bolt.rangeFt,
+  dice:     ELF_SPELLS.fire_bolt.dice,
+  sides:    ELF_SPELLS.fire_bolt.sides,
+  statMod:  ELF_SPELLS.fire_bolt.statMod,
+});
+
+// Does this attack resolve like a ranged one — fly at the target, fire a projectile, check
+// long range? True for weapons AND attack-roll spells. This is the test performAttack wants;
+// `type === 'ranged'` on its own means "is a ranged WEAPON", which is a different question.
+function _resolvesRanged(atk) {
+  return atk?.type === 'ranged' || atk?.type === 'spell_attack';
 }
 
 function showMagicMissileTargets(caster) {
@@ -2325,7 +2374,7 @@ function performAttack(attacker, target, atk, onSettled = null) {
     setTimeout(() => _executeAoeSave(attacker, target, atk, onSettled), 700);
     return;
   }
-  if (atk.type === 'ranged') {
+  if (_resolvesRanged(atk)) {
     _consumeAtkQty(attacker, atk);
     // Web is a ranged attack, but its projectile is the white ball spat by playWebEffect
     // (inside _executeAttack's web branch). The generic arrow from _projectileFor would fire
@@ -2539,7 +2588,9 @@ function _resolvePoison(target, poison, done) {
   }
 
   const dmgResult = rollDnDDamage(poison, 0, false);
-  const poisonDmg = Math.max(1, dmgResult.total);
+  // Mitigated like everything else. Before 2026-07-16 poison went through a raging Gobo
+  // at full damage.
+  const poisonDmg = applyMitigation(target, Math.max(1, dmgResult.total));
   const willDie   = target.hp <= poisonDmg;
 
   setTimeout(() => {
@@ -2602,7 +2653,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   if (_owlHelpTarget && target === _owlHelpTarget && attacker.type === 'elf') {
     hasAdvantage = true;
   }
-  if (atk.type === 'ranged' && atk.longRange) {
+  if (_resolvesRanged(atk) && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
     if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
@@ -2699,9 +2750,8 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const dmg      = Math.max(1, dmgResult.total);
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
   const totalRaw = dmg + sneakDmg;
-  const rageMit  = (target.raging && UNIT_TYPES[target.type]?.rage) ? rageMitigationForLevel(target.level) : 0;
-  const resisted = rageMit > 0;
-  const finalDmg = resisted ? Math.max(1, Math.round(totalRaw * (1 - rageMit))) : totalRaw;
+  const resisted = damageMitigationOf(target) > 0;
+  const finalDmg = applyMitigation(target, totalRaw);
 
   // When the damage-roll dice settle and display their number on screen.
   // If a sneak roll follows, the dmg roll plays fast; otherwise it is last (slow).
@@ -2737,7 +2787,10 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     } else {
       addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'hit');
     }
-    playSound(atk.type === 'ranged' ? 'arrow_hit' : 'sword_hit');
+    // _resolvesRanged, not `type === 'ranged'`: without it Fire Bolt would fall through to
+    // sword_hit. It still plays arrow_hit, which is wrong for a bolt of flame but is the
+    // sound it already had — swapping it is a separate call, not a silent side effect here.
+    playSound(_resolvesRanged(atk) ? 'arrow_hit' : 'sword_hit');
     showFloatingDamage(target, `-${dmg}`, '#ff4422');
     addLog(`  ${dmg} damage (${dmgBreakdown(dmgResult)})`, 'dmg');
     if (atk.name === 'Inflict Wounds') playInflictWoundsEffect(target);
@@ -2751,7 +2804,9 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   if (resisted) {
-    const _mitPct = Math.round(rageMit * 100);
+    // The SUMMED fraction, so the float stays honest once gear mitigation stacks on top
+    // of Rage — it reports what was actually taken off, not just Rage's share.
+    const _mitPct = Math.round(damageMitigationOf(target) * 100);
     setTimeout(() => {
       showFloatingDamage(target, `⚔ RAGE -${_mitPct}%`, '#ff8844');
       addLog(`  ⚔ Rage resistance (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
@@ -2814,7 +2869,10 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
         const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
         const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to saving throws
         const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
-        const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+        // Save halves first, THEN mitigation takes its cut of what's left — so a raging
+        // hero who also saves gets both. AoE was mitigated by nothing before 2026-07-16.
+        const savedDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+        const finalDmg      = applyMitigation(hero, savedDmg);
         const tLabel        = unitLabel(hero);
         const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
         const saveWord      = saveResult.isSave ? 'SAVES' : 'FAILS';
@@ -4162,7 +4220,7 @@ const _ABILITY_HANDLERS = {
       const tgt = selectedTarget;
       turnAttacked = true;
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-      performAttack(curU, tgt, _fireBoltAtk());
+      performAttack(curU, tgt, FIRE_BOLT_ATK);
       const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
       if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
       else { heroMode = null; }
@@ -4172,7 +4230,7 @@ const _ABILITY_HANDLERS = {
       if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf') return false;
-      const atk = _fireBoltAtk();
+      const atk = FIRE_BOLT_ATK;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
@@ -5422,7 +5480,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'fire_bolt') {
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
-        const atk = _fireBoltAtk();
+        const atk = FIRE_BOLT_ATK;
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         const eDist = Math.sqrt(edx * edx + edz * edz);
@@ -5502,7 +5560,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       let _movFt;
       if (preferRange === 'ranged' || preferRange === 'kite') {
         const _atks    = UNIT_TYPES[u.type]?.attacks ?? [];
-        const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
+        const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
         const _rangeWU = _rangedA ? atkRangeWU(_rangedA.range) : 0;
         const _tdx = movTarget.grp.position.x - u.grp.position.x;
         const _tdz = movTarget.grp.position.z - u.grp.position.z;
@@ -5520,7 +5578,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const _tileLOS = (kx, kz, tx2, tz2) => hasLineOfSight(
           kx, kz, tx2, tz2, u.caveLayer ?? 'surface', movTarget.caveLayer ?? 'surface');
         dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, _tileLOS,
-                               u.type === 'elf' ? _fireBoltAtk() : null);
+                               u.type === 'elf' ? FIRE_BOLT_ATK : null);
       }
       hideMoveRange();
     }

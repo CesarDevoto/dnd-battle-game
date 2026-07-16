@@ -240,11 +240,11 @@ actually land on a given item. It's the second variety axis — a blue hat at `1
 mitigation, or mitigation AND spell damage, so two blue hats differ before you even compare numbers.
 Grey at `0–1` means a grey item can roll **nothing at all** (vendor trash, as intended).
 
-⚠ **The count row saturates on thin slots.** Head owns only 2 stats, so it maxes at 2 from purple
-on — orange and red can't roll a third because a third doesn't exist; they separate by BIGGER
-numbers instead. Don't paste a generic `2–3`/`3–4` ladder into a 2-stat slot. The count axis only
-does real work on fat slots (Hands = 4 stats, Ring/Main-hand = 3). Thin slots — Chest (AC% only),
-Legs (Max HP only), Ammo (range only) — have no count axis at all: it's always 1.
+⚠ **The count row saturates on thin slots.** It can never exceed the number of stats the slot
+owns. Head has 3 (mitigation / spell damage / spell slots) so it can reach 3; but thin slots —
+Chest (AC% only), Legs (Max HP only), Ammo (range only) — have no count axis at all: it's always
+1. Don't paste a generic `2–3`/`3–4` ladder into a slot that hasn't got the stats to fill it.
+The count axis only does real work on fat slots (Hands = 4, Head/Ring/Main-hand = 3).
 
 Unlock affixes (Grants proficiency, Two-handed wielding, Grants spell) are **not** counted in that
 row — they're not stats. They roll independently, at their own rarity floor.
@@ -257,15 +257,58 @@ Building these SLOWLY, one slot at a time — same rule as the item catalog. Don
 
 | Stat | grey | green | blue | purple | orange | red |
 |---|---|---|---|---|---|---|
-| **Damage mitigation %** | — | `1d2` (1–2) | `1d2+1` (2–3) | `1d3+2` (3–5) | `1d3+4` (5–7) | `1d3+6` (7–9) |
+| **Damage mitigation %** | — | `1d2` (1–2) | `1d4+1` (2–5) | `1d6+2` (3–8) | `2d6+4` (6–16) | `3d6+6` (9–24) |
 | **Spell damage %** | — | — ⛔ | `1d4+2` (3–6) | `1d6+6` (7–12) | `1d8+12` (13–20) | `1d10+20` (21–30) |
-| **↳ how many of the above roll** | 0–1 | 1 | 1–2 | 2 | 2 | bespoke |
+| **Spell slots added** | — | — ⛔ | `1d2` @ lv1–3<br>`1d2` @ lv4–6 | `1d2` @ lv1–3<br>`1d2` @ lv4–6<br>`1d2` @ lv7–9 | `1d3` @ lv1–3<br>`1d3` @ lv4–6<br>`1d3` @ lv7–9 | `1d4` @ lv1–3<br>`1d4` @ lv4–6<br>`1d4` @ lv7–9 |
+| **↳ how many of the above roll** | 0–1 | 1 | 1–2 | 2–3 | 3 | bespoke |
 | **Grants proficiency** *(unlock — rolls separately, not counted above)* | — | — | — | ✓ | ✓ | ✓ |
 
-**Mitigation is anchored to Rage (10%, temporary, 1–2/day).** A head item is permanent and
-always-on, so the ladder tops out at **9% at red** — the best hat in the game never quite matches
-the barbarian's signature button, and a purple (3–5%) is roughly a third to a half of it.
-Averages: 1.5 → 2.5 → 4 → 6 → 8. Every step overlaps its neighbour by exactly one point.
+**Green is mitigation-only** — both spell damage and spell slots are gated to blue+, so green
+has exactly one stat it can roll. That's deliberate: it makes green a clean, legible floor tier
+instead of a lottery between 1–2% mitigation and a casting-doubling slot roll.
+
+**Mitigation ladder (user's numbers, 2026-07-16).** Averages: 1.5 → 3.5 → 5.5 → 11 → 16.5, and
+every tier still overlaps its neighbour (green max 2 = blue min 2; orange 6–16 straddles all of
+red's 9–16 floor).
+
+⚠ **This deliberately overshoots Rage.** `rageMitigationForLevel` is **10%**, temporary, twice a
+day, and it is Gobo's signature button. An **orange hat averages 11%** and a **red averages 16.5%
+(up to 24%)** — permanent, always-on, and wearable by anyone. So from orange upward a hat simply
+beats the barbarian's defining ability at its own job. That's a legitimate ARPG choice (top-tier
+loot outclassing an early class feature is normal over 100 levels), but it's a choice: if Rage is
+meant to stay meaningful, either raise it with level or cap this row nearer 10%.
+
+**Note the shift to multi-dice at orange/red.** `2d6+4` and `3d6+6` are BELL curves, not the flat
+ranges `1dN` gives: 3d6 clusters hard around 10–11, so a red rolling its 24% max is a 1-in-216
+event. That's good for chase items — a near-perfect red is genuinely rare — but it means the
+posted maximum is not what a typical red looks like. A typical red is ~16%, not 24%.
+
+### Mitigation stacking + where it plugs in (decided 2026-07-16)
+
+**Item mitigation is ADDITIVE with Rage.** Gobo raging (10%) in a 4% hat takes **14%** off — sum
+the fractions, then apply ONE multiply. Do NOT chain the multipliers (`×0.90` then `×0.96` = 13.6%);
+that's multiplicative stacking and gives a different, worse-feeling number.
+
+**Integration point: `combat.js` ~2702.** Today:
+```js
+const rageMit  = (target.raging && UNIT_TYPES[target.type]?.rage) ? rageMitigationForLevel(target.level) : 0;
+const finalDmg = resisted ? Math.max(1, Math.round(totalRaw * (1 - rageMit))) : totalRaw;
+```
+The item's % is summed into `rageMit` (rename it `totalMit`) and the existing single multiply
+already does the right thing. The `Math.max(1, …)` floor means damage can never reach 0 no matter
+how mitigation stacks — a free backstop against any future additive runaway.
+
+**Mitigation applies to ALL damage** (user's rule, 2026-07-16) — every source, not just weapon
+hits. `damageMitigationOf()` / `applyMitigation()` are already the single shared helper, called
+from all three paths that can hurt a hero: `performAttack`, the enemy AoE-save path, and the
+poison rider. **The Head affix plugs in by summing its % inside `damageMitigationOf` — one line,
+and every damage path picks it up for free.**
+
+(Those helpers were extracted on 2026-07-16 fixing a live bug: the calc had been inlined in
+`performAttack` alone, so Morvath's AoE and poison riders hit a raging Gobo for full damage.)
+
+The three hero-spell damage paths (sacred flame / magic missile / burning hands) need nothing —
+they only ever target enemies, and no enemy statblock has `rage` or equipment.
 
 **⛔ Spell damage is gated to blue+** (user's call, 2026-07-16). Rarity floors are an explicit
 lever ("other affixes can get min-rarity floors later"), and green wants to stay a one-stat tier.
@@ -277,12 +320,27 @@ ladder is therefore much steeper than mitigation's, reaching **21–30% at red (
 Head is the ONLY slot that rolls spell damage, so there's no stacking to fear. **Playtest before
 trusting these** — if it still feels weightless, scale the whole row, not the mitigation row.
 
-**Spell slots were considered and rejected for Head** (2026-07-16). They aren't a Head stat under
-"each stat appears on exactly ONE slot type" — the nearest affix is **Resource regen**, which lives
-on **Belt**. They're also far too strong: Rasec holds ~2–3 level-1 slots at low level, so a green
-`1d2` would nearly DOUBLE his casting for a whole day, next to green mitigation's 1–2%. That's the
-same "resource economy, not a linear boost" family as the already-cut *extra action every N rounds*
-and the purple-gated *Cast speed*. **If slots ever ship: Belt, purple+ ⬥, +1 flat.** Not a hat.
+**Spell slots on Head — user's decision, 2026-07-16.** Band-scoped and gated to **blue+**
+(removed from green 2026-07-16): blue unlocks two bands (lv 1–3, lv 4–6), purple all three;
+orange and red then grow the die (`1d3` → `1d4`) since there are only three bands to unlock.
+Orange/red were an extrapolation of "and so on" — adjust if that wasn't the intent.
+
+Three things this knowingly costs, recorded so they're decisions and not surprises:
+
+- **It breaks "each stat appears on exactly ONE slot type."** Slot regen is Belt's
+  (*Resource regen* = "short-rest charges, rage uses, potion slots"). Head now owns three stats.
+  Belt's Resource regen should probably drop the slot part to avoid two sources.
+- **⚠ Higher-band slots also pay for LOWER spells** — that's 5e upcasting, and `spendSpellSlot`
+  already implements it (a slot of level N covers any spell ≤ N, spending the lowest that
+  fits). So blue's `1d2 @ lv4–6` is not idle until 4th-level spells exist: it is **+1d2 more
+  castings of the level-1 spells Rasec has today**, on top of the `1d2 @ lv1–3`. A blue hat is
+  up to **+4 castings**, not +2. If bands are meant to be spendable only within their own band,
+  that's a NEW rule and `spendSpellSlot` has to change.
+- **Magnitude.** Rasec's base is 2 slots (D&D 1) up to `4/3/2` at game 20. A blue hat is up to
+  **+4 castings** (both bands, upcast) against a base of 2–9; a purple up to +6. Slots are
+  **per-combat** (initSpellSlots refills every fight), so this is a per-fight swing, not per-day
+  — which is also why the totals are already flagged for lowering. Retune this row together with
+  that pass, not separately.
 
 ## Resolved decisions
 - **Cleave + Spell splash share one splash resolver.** Melee cleave and spell splash both call a
