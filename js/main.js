@@ -298,9 +298,13 @@ if (IS_DEV) {
     if (!hero) { console.warn(`[DEV] No hero of type "${heroType}" found`); return; }
     const item = getItem(itemId);
     if (!item) { console.warn(`[DEV] No item "${itemId}" found`); return; }
-    equipItem(hero, item);
+    // Dev tool: whatever this displaces is DISCARDED rather than re-homed to a bag. Fine
+    // here (you asked for the item, and you can dev-equip the old one back), but say what
+    // went so it isn't a silent loss while you're testing.
+    const displaced = equipItem(hero, item);
     if (sheetUnit === hero) showSheet(hero);
-    console.log(`[DEV] Equipped ${item.name} on ${UNIT_TYPES[heroType]?.name ?? heroType}`, hero.equipment);
+    console.log(`[DEV] Equipped ${item.name} on ${UNIT_TYPES[heroType]?.name ?? heroType}` +
+      (displaced.length ? ` — discarded ${displaced.map(d => d.name).join(', ')}` : ''), hero.equipment);
   };
 }
 

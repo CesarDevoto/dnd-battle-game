@@ -688,7 +688,16 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       if (starting) {
         for (const [slot, itemId] of Object.entries(starting)) {
           const item = getItem(itemId);
-          if (item) equipItem(u, item, slot);
+          if (!item) continue;
+          // equipment{} was just created empty, so nothing CAN be displaced here — unless
+          // startingEquipment contradicts itself (a twoHanded main-hand alongside an
+          // off-hand item), in which case one of them would silently never be worn. That's
+          // a data bug, so say so rather than drop the loser on the floor.
+          const bumped = equipItem(u, item, slot);
+          if (bumped.length) {
+            console.warn(`[startingEquipment] ${type}: equipping ${item.name} displaced ` +
+              `${bumped.map(b => b.name).join(', ')} — a two-handed weapon and an off-hand item can't coexist.`);
+          }
         }
       }
     }

@@ -621,11 +621,18 @@ function _refreshEquipmentPanel(reopenBagKey) {
       const accepts = targetSlotKey &&
         (dragItem.slot === targetSlotKey || GENERIC_SLOT[targetSlotKey] === dragItem.slot);
       if (accepts && sheetUnit) {
-        const hero    = sheetUnit;
-        const oldItem = hero.equipment?.[targetSlotKey] ?? null;
-        equipItem(hero, dragItem, targetSlotKey);
+        const hero      = sheetUnit;
+        const displaced = equipItem(hero, dragItem, targetSlotKey);
+        // displaced[0] is the target slot's old occupant — it goes into the bag slot the
+        // dragged item just vacated, which is the straight swap the player is expecting.
         const bag = hero.equipment?.[dragBagKey];
-        if (bag?.contents) bag.contents[dragIdx] = oldItem;
+        if (bag?.contents) bag.contents[dragIdx] = displaced.shift() ?? null;
+        // Anything still here is a two-handed casualty (drag a greataxe onto the main hand
+        // while holding a shield). This used to be DESTROYED — equipItem deleted it and
+        // returned nothing, and this path only ever rescued the slot's own occupant.
+        for (const d of displaced) {
+          if (!placeInFirstEmptyBagSlot(hero, d)) addLog(`No room for the ${d.name} — it was lost.`, 'system');
+        }
         _refreshEquipmentPanel(dragBagKey);
       }
       dragEl.remove();
@@ -762,17 +769,12 @@ function _refreshEquipmentPanel(reopenBagKey) {
       const dest    = free ?? targets[0];
       menuEl.appendChild(_row(free ? 'Equip' : `Equip <span class="eq-ctx-warn">(swaps)</span>`, {
         onClick: () => {
-          // equipItem() SILENTLY DELETES a bumped weapon on a two-handed conflict — it
-          // removes the main-hand/off-hand without returning it (equipment.js). So collect
-          // everything at risk BEFORE calling it and hand it all back to the bags; otherwise
-          // equipping a greataxe over a shield destroys the shield.
-          const bumped = [];
-          if (_hero.equipment?.[dest]) bumped.push(_hero.equipment[dest]);
-          if (dest === 'off-hand' && _hero.equipment?.['main-hand']?.twoHanded) bumped.push(_hero.equipment['main-hand']);
-          if (dest === 'main-hand' && item.twoHanded && _hero.equipment?.['off-hand']) bumped.push(_hero.equipment['off-hand']);
-
-          const name = item.name;
-          equipItem(_hero, item, dest);
+          // equipItem returns everything it displaced (slot occupant + any two-handed
+          // casualty). This used to hand-collect them before the call, because equipItem
+          // deleted the casualty outright; it now hands them back, so both this and the
+          // drag path get it right from one place.
+          const name   = item.name;
+          const bumped = equipItem(_hero, item, dest);
           _takeFromSource();   // clear the bag slot it came from — frees a slot for the bumped
           for (const b of bumped) {
             if (!placeInFirstEmptyBagSlot(_hero, b)) addLog(`No room for the ${b.name} — it was lost.`, 'system');

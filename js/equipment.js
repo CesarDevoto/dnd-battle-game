@@ -30,20 +30,38 @@ export const RARITY_LABEL = {
   red:    'Unique',
 };
 
-// A shield and a two-handed weapon both need the off-hand — equipping one
-// bumps the other. Physical constraint, not a class rule, so it applies to
-// any hero (in practice only Gobo/Leugren carry shields today).
+// A shield and a two-handed weapon both need the off-hand — equipping one bumps the other.
+// Physical constraint, not a class rule, so it applies to any hero (in practice only
+// Gobo/Leugren carry shields today).
+//
+// RETURNS every item this displaced, so callers can re-home them: the slot's previous
+// occupant first, then any two-handed casualty.
+//
+// ⚠ It used to `delete` the two-handed casualty and return nothing, which silently
+// DESTROYED it — equipping a greataxe over a shield ate the shield, and dragging still did
+// so even after the right-click Equip path started rescuing it by hand. Returning the
+// displaced items instead fixes every caller at once, and makes losing one a decision the
+// caller has to actively make rather than something that happens to them.
+//
+// Callers MUST do something with the return value. Dropping it on the floor is the old bug.
 export function equipItem(hero, item, slotOverride) {
   if (!hero.equipment) hero.equipment = {};
   const slot = slotOverride ?? item.slot;
+  const displaced = [];
+
+  // [0] is always the slot's previous occupant — the plain swap a caller expects.
+  if (hero.equipment[slot]) displaced.push(hero.equipment[slot]);
 
   if (slot === 'off-hand' && hero.equipment['main-hand']?.twoHanded) {
+    displaced.push(hero.equipment['main-hand']);
     delete hero.equipment['main-hand'];
-  } else if (slot === 'main-hand' && item.twoHanded) {
+  } else if (slot === 'main-hand' && item.twoHanded && hero.equipment['off-hand']) {
+    displaced.push(hero.equipment['off-hand']);
     delete hero.equipment['off-hand'];
   }
 
   hero.equipment[slot] = item;
+  return displaced;
 }
 
 export function unequipItem(hero, slotId) {
