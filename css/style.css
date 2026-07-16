@@ -79,6 +79,11 @@ body:not(.dev-mode) .dev-only { display: none !important; }
   --hero-rasec:   #c07aff;
   --hero-milo:    #3ddc61;
   --hero-leugren: #ffcf5c;
+  /* Width of every inventory box border — gear slots, bag slots, and the boxes
+     inside an open bag. The border IS the rarity readout, so it's sized to be read
+     as a coloured frame, not a hairline. All three boxes are border-box, so this
+     eats inward and never shifts the grid. One knob: change it here only. */
+  --eq-slot-border: 5px;
   --border-outer: #4a3412;
   --border-inner: rgba(212,175,55,0.12);
   --panel-bg:
@@ -2803,7 +2808,7 @@ body {
   position: relative;
   width: 67px;
   aspect-ratio: 1 / 1;
-  border: 3px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
   box-shadow:
@@ -2910,12 +2915,10 @@ body {
   gap: 3px;
 }
 
-/* 3px, not 1-2px: the border IS the rarity readout (see the rarity-* rules below),
-   so it has to carry a colour at a glance rather than hint at one. */
 .eq-slot-box {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 3px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background:
     linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
@@ -3043,7 +3046,7 @@ body {
 .eq-bag-box {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 3px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
   box-shadow:
