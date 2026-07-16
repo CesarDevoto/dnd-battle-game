@@ -659,7 +659,7 @@ function _refreshEquipmentPanel(reopenBagKey) {
 })();
 
 // ── Item context menu — right-click an equipped or bagged item ────────────────
-// Use / Trade to <hero> / Delete. Listeners are delegated onto the two panel
+// Use / Equip / Trade to <hero> / Delete. Listeners are delegated onto the two panel
 // containers (which are static in index.html) rather than the item boxes, because
 // both panels are rebuilt via innerHTML on every refresh — per-box handlers would
 // die on the first trade.
@@ -669,6 +669,18 @@ function _refreshEquipmentPanel(reopenBagKey) {
   let menuEl  = null;
   let _hero   = null;   // whose inventory is open (sheetUnit at open time)
   let _loc    = null;   // { kind:'equipped', slotKey } | { kind:'bag', bagKey, idx }
+
+  // Where an item can be worn, in fill order. An item's own `.slot` is a CATALOG slot, not
+  // always an equipment key: 'ring'/'wrist' are interchangeable pairs and 'bag' is one of
+  // four, so those expand (see the equipment.js schema note). Everything else is 1:1.
+  // NOTE this covers bags, unlike the drag-drop's GENERIC_SLOT map — which has no bag
+  // entries, and is why a bag can't be dragged onto a bag slot today.
+  const _EQUIP_TARGETS = {
+    ring:  ['ring-l', 'ring-r'],
+    wrist: ['wrist-l', 'wrist-r'],
+    bag:   ['bag-1', 'bag-2', 'bag-3', 'bag-4'],
+  };
+  const _equipTargets = item => _EQUIP_TARGETS[item?.slot] ?? (item?.slot ? [item.slot] : []);
 
   // An item's home, resolved live rather than captured — the panel rebuilds under us.
   function _itemAt() {
@@ -741,11 +753,43 @@ function _refreshEquipmentPanel(reopenBagKey) {
       }));
     }
 
-    // Containers are deliberately NOT tradeable, and it isn't just tidiness: a traded
-    // bag lands in a slot INSIDE one of the target's bags, the panel only ever renders
-    // one level of contents, and the drag-drop's GENERIC_SLOT map has no bag entries —
-    // so a nested bag can't be dragged back out onto a bag-N slot. The bag and
-    // everything in it would be gone for good. Move the contents across instead.
+    // Equip — bag items only (an equipped item is already worn), and only things with a
+    // slot to go in. Prefers an EMPTY slot; with none free it swaps into the first one and
+    // the displaced item goes back to the bags, so Equip always does something.
+    if (_loc.kind === 'bag' && _equipTargets(item).length) {
+      const targets = _equipTargets(item);
+      const free    = targets.find(k => !_hero.equipment?.[k]);
+      const dest    = free ?? targets[0];
+      menuEl.appendChild(_row(free ? 'Equip' : `Equip <span class="eq-ctx-warn">(swaps)</span>`, {
+        onClick: () => {
+          // equipItem() SILENTLY DELETES a bumped weapon on a two-handed conflict — it
+          // removes the main-hand/off-hand without returning it (equipment.js). So collect
+          // everything at risk BEFORE calling it and hand it all back to the bags; otherwise
+          // equipping a greataxe over a shield destroys the shield.
+          const bumped = [];
+          if (_hero.equipment?.[dest]) bumped.push(_hero.equipment[dest]);
+          if (dest === 'off-hand' && _hero.equipment?.['main-hand']?.twoHanded) bumped.push(_hero.equipment['main-hand']);
+          if (dest === 'main-hand' && item.twoHanded && _hero.equipment?.['off-hand']) bumped.push(_hero.equipment['off-hand']);
+
+          const name = item.name;
+          equipItem(_hero, item, dest);
+          _takeFromSource();   // clear the bag slot it came from — frees a slot for the bumped
+          for (const b of bumped) {
+            if (!placeInFirstEmptyBagSlot(_hero, b)) addLog(`No room for the ${b.name} — it was lost.`, 'system');
+          }
+          addLog(`${name} equipped${bumped.length ? ` (${bumped.map(b => b.name).join(', ')} returned to bag)` : ''}.`, 'system');
+          _refreshAfterChange();
+          _close();
+        },
+      }));
+    }
+
+    // Containers are deliberately NOT tradeable: a traded bag lands in a slot INSIDE one
+    // of the target's bags, and the panel only ever renders ONE level of contents — so the
+    // bag and everything in it drop out of the UI. Equip (above) can now pull a nested bag
+    // back out to a free bag-N slot, but only if the target HAS one free; with all four
+    // full it's stranded, and dragging can't help either (GENERIC_SLOT has no bag entries).
+    // Not worth the trap. Move the contents across instead.
     // (Checks .slot too: bag2..bag6 in items.js have no `slots` count yet.)
     if (item.slot === 'bag' || item.slots) {
       menuEl.appendChild(_row(
