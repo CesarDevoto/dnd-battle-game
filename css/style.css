@@ -2278,9 +2278,14 @@ body {
   color: var(--hc);
 }
 
+/* Used to hold HP alone. A level-up that crosses a D&D band now adds derived rows
+   (proficiency, rages, rage damage, mastery, or per-level spell slots), so it wraps
+   instead of pushing out of the panel. */
 .lum-gains {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
+  row-gap: 11px;
   padding: 11px 16px;
   background: rgba(255,255,255,0.025);
   border: 1px solid rgba(212,175,55,0.13);
@@ -2305,6 +2310,25 @@ body {
   font-weight: 700;
   color: var(--hc);
   text-shadow: 0 0 12px var(--hc);
+}
+/* "was +2" trailing a derived gain — deliberately quiet: the NEW number is the news,
+   the old one is only there to show the size of the step. */
+.lum-gain-was {
+  font-family: var(--font-body);
+  font-size: 0.52rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: rgba(210,195,170,0.38);
+  text-shadow: none;
+  margin-left: 5px;
+}
+.lum-band-note {
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  color: rgba(210,195,170,0.42);
+  font-style: italic;
+  margin-top: -14px;
+  margin-bottom: 18px;
 }
 
 .lum-new-hdr {
