@@ -786,6 +786,29 @@ function _refreshEquipmentPanel(reopenBagKey) {
       }));
     }
 
+    // Unequip — equipped items only (a bag item is already off), moving the worn piece into the
+    // first open bag slot. Containers are excluded: a bag into a bag slot would nest inside another
+    // bag, which the panel can't render — the same reason they're not tradeable, handled just below.
+    // Place BEFORE clearing the slot (like Trade) so a full bag cancels the move instead of
+    // destroying the item. Equip (above) is bag-only and Unequip is equipped-only, so a given item
+    // ever shows one or the other, never both.
+    if (_loc.kind === 'equipped' && !(item.slot === 'bag' || item.slots)) {
+      menuEl.appendChild(_row('Unequip', {
+        onClick: () => {
+          if (!placeInFirstEmptyBagSlot(_hero, item)) {
+            addLog(`No room in the bag for the ${item.name}.`, 'system');
+            _close();
+            return;
+          }
+          const name = item.name;
+          _takeFromSource();   // clear the equipment slot it came from
+          addLog(`${name} unequipped.`, 'system');
+          _refreshAfterChange();
+          _close();
+        },
+      }));
+    }
+
     // Containers are deliberately NOT tradeable: a traded bag lands in a slot INSIDE one
     // of the target's bags, and the panel only ever renders ONE level of contents — so the
     // bag and everything in it drop out of the UI. Equip (above) can now pull a nested bag
