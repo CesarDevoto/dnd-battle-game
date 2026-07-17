@@ -105,6 +105,14 @@ export function formatCoins(cp) {
 //
 // Callers MUST do something with the return value. Dropping it on the floor is the old bug.
 export function equipItem(hero, item, slotOverride) {
+  // ⚠ Returns null — NOT [] — when proficiency forbids it. Callers already have to handle the
+  // return value to re-home displaced items, so a null forces them to notice the refusal
+  // rather than silently treating it as "equipped, nothing displaced".
+  //
+  // Every UI path checks canEquip first and greys the option out; this is the backstop that
+  // makes the rule true even if a future caller forgets.
+  if (!canEquip(hero, item)) return null;
+
   if (!hero.equipment) hero.equipment = {};
   const slot = slotOverride ?? item.slot;
   const displaced = [];
@@ -206,11 +214,72 @@ function _gearBonus(hero, key) {
   return total;
 }
 
-// Hero AC: chest armor sets the base (Light/Medium add full DEX mod, Heavy
-// ignores DEX — chest items marked `heavy: true` are the Heavy tier). No
-// chest item → Unarmored: 10 + DEX mod, or 10 + DEX mod + CON mod for units
-// with `unarmoredDefense: true` in UNIT_TYPES (e.g. Gobo's Barbarian
-// feature — lost the moment any chest armor, light/medium/heavy, is worn).
+// ── Material ──────────────────────────────────────────────────────────────────
+// `material` is ONE field doing two jobs, deliberately: it decides who may equip a piece
+// (below) and, on chest, how much DEX that armor lets you keep. They're the same axis —
+// splitting them into `material` + `armorType` would be two fields that must always agree,
+// which is a drift bug waiting to happen.
+//
+//   cloth   — no proficiency needed (robes, crowns, sandals, plain belts/bracers)
+//   leather — D&D Light armor
+//   hide    — D&D Medium armor
+//   plate   — D&D Heavy armor  (also chain/ring/splint — all Heavy in the book)
+//
+// An item with NO material (weapons, rings, cloaks, necklaces, bags) is equippable by anyone.
+export const MATERIAL_PROF = { leather: 'Light', hide: 'Medium', plate: 'Heavy' };
+
+// How much DEX each material lets you keep. `cloth` is absent on purpose — a cloth chest has
+// no `ac`, so computeAC treats it as an empty slot and never consults this.
+//
+// This used to be binary — `heavy ? no DEX : full DEX` — which silently skipped Medium's cap:
+// Hide armor on Milo (DEX 16, +3) read AC 15 when the table says 12 + Dex (max 2) = 14.
+export const ARMOR_DEX_CAP = { leather: Infinity, hide: 2, plate: 0 };
+
+// Can this hero equip this item? The single gate — loot assignment, drag-drop, the right-click
+// Equip row and equipItem itself all route through here, so there is one answer, not four.
+//
+// Reads UNIT_TYPES.armorProficiency, which already existed and was already rendered in the
+// stat sheet's traits section. Nothing enforced it, so Rasec's own sheet said "cannot wear
+// light, medium, or heavy armor" while he was free to wear Plate.
+export function canEquip(hero, item) {
+  const need = MATERIAL_PROF[item?.material];
+  if (!need) return true;                       // cloth, or an item with no material at all
+  const prof = UNIT_TYPES[hero?.type]?.armorProficiency?.armor ?? [];
+  return prof.includes(need);
+}
+
+// Why not — for a tooltip/greyed-button explanation. Null when they CAN equip it.
+export function equipBlockReason(hero, item) {
+  if (canEquip(hero, item)) return null;
+  return `Requires ${MATERIAL_PROF[item.material]} armor proficiency`;
+}
+
+// How good a material is, for a hero who can wear it. Only meaningful on CHEST, where it
+// literally sets AC (cloth 10 → plate 18); elsewhere it's the identity ladder — the heaviest
+// thing a hero is trained in is the thing that "looks like theirs".
+export const MATERIAL_RANK = { plate: 3, hide: 2, leather: 1, cloth: 0 };
+
+// Every material a hero may wear, BEST first. Derived from canEquip rather than hand-listed,
+// so it can never drift from the gate.
+//
+//   Rasec   → [cloth]
+//   Milo    → [leather, cloth]
+//   Gobo    → [hide, leather, cloth]
+//   Leugren → [plate, hide, leather, cloth]
+//
+// Note it's a NESTED hierarchy, not a partition: Leugren can wear anything Gobo can. That's
+// why loot coverage targets the HERO and then reads their ceiling here, rather than trying to
+// treat materials as if each belonged to one hero.
+export function materialLadder(heroType) {
+  return Object.keys(MATERIAL_RANK)
+    .filter(m => canEquip({ type: heroType }, { material: m }))
+    .sort((a, b) => MATERIAL_RANK[b] - MATERIAL_RANK[a]);
+}
+
+// Hero AC: chest armor sets the base, and its armorType decides the DEX it grants (see
+// ARMOR_DEX_CAP). No chest item → Unarmored: 10 + DEX mod, or 10 + DEX mod + CON mod for units
+// with `unarmoredDefense: true` in UNIT_TYPES (e.g. Gobo's Barbarian feature — lost the moment
+// any chest armor, light/medium/heavy, is worn).
 // Shield (off-hand) always adds its flat ac bonus on top.
 export function computeAC(hero) {
   const def      = UNIT_TYPES[hero.type] ?? {};
@@ -228,7 +297,14 @@ export function computeAC(hero) {
   const chest = hero.equipment?.chest ?? null;
   let ac;
   if (chest?.ac) {
-    ac = chest.heavy ? chest.ac : chest.ac + dexMod;
+    // `?? 'leather'` covers a chest with an `ac` but no material (none today, but a hand-added
+    // entry could) — full DEX is the lenient read, and silently granting no DEX would be worse.
+    const mat = chest.material ?? 'leather';
+    // ⚠ plate is a flat 0, NOT Math.min(dexMod, 0). Min would SUBTRACT for a low-DEX wearer —
+    // plate on a DEX 8 unit would read 17 instead of 18. In 5e heavy armor ignores DEX
+    // entirely, negative modifiers included, so it cannot be expressed as a cap.
+    const dexPart = mat === 'plate' ? 0 : Math.min(dexMod, ARMOR_DEX_CAP[mat] ?? Infinity);
+    ac = chest.ac + dexPart;
   } else if (def.unarmoredDefense) {
     ac = 10 + dexMod + conMod;
   } else {

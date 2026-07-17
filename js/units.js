@@ -694,6 +694,14 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
           // off-hand item), in which case one of them would silently never be worn. That's
           // a data bug, so say so rather than drop the loser on the floor.
           const bumped = equipItem(u, item, slot);
+          // null = armor proficiency refused it. startingEquipment is authored data, so this
+          // is a DATA bug (a hero issued armor their class can't wear), not a player action —
+          // it would leave them with an empty slot forever. Say so loudly.
+          if (bumped === null) {
+            console.error(`[startingEquipment] ${type}: ${item.name} (${item.material}) requires ` +
+              `proficiency ${type} doesn't have — slot "${slot}" left EMPTY.`);
+            continue;
+          }
           if (bumped.length) {
             console.warn(`[startingEquipment] ${type}: equipping ${item.name} displaced ` +
               `${bumped.map(b => b.name).join(', ')} — a two-handed weapon and an off-hand item can't coexist.`);

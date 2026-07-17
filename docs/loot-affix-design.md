@@ -42,9 +42,10 @@ than shared references. Roll at drop time, stamp the result on the instance.
 ### Calibration anchors (from constants.js — check against these, not intuition)
 | Engine fact | Value | What it means for loot |
 |---|---|---|
-| `rageMitigationForLevel` | **10%**, L2+, only while raging, 1–2 uses/day | A permanent head item must stay UNDER this. Red caps at 9%. |
-| `precisionHitBonusForLevel` | **+1% hit**, a whole L4 class passive | Hit% loot must be tiny. ⚠ The current catalog gives +1% on its *weakest green* wrist item — equal to a level-4 class feature. Fix when Wrist is converted. |
+| `rageMitigationForLevel` | **10%**, L2+, only while raging, 1–2 uses/day | Anchor for head's mitigation. ⚠ The BUILT ladder deliberately overshoots it from orange up (red `3d6+6` = 9–24%, avg ~16.5) — a recorded choice, not an oversight. See the Head table. |
+| `precisionHitBonusForLevel` | **+1% hit**, a whole L4 class passive | Hit% loot must be tiny. ⚠ Green wrist rolls `1d2`, so its *weakest* roll equals this entire L4 passive. Known and ACCEPTED (gear should outdo a low-level passive); revisit when Rage's flat 10% gets its level curve — same frozen-class-number problem. |
 | `rollToHit` | `+1 atk = +5% hit`, clamp 5–95 | Percentages here are percentage POINTS of final hit chance. |
+| **AC% vs mitigation%** | −10% AC on a 55% attacker = 45% = **18% fewer hits** | ⚠ Not interchangeable: 1 point of AC% ≈ **1.8 points of mitigation** at baseline, and MORE as enemy hit falls. AC% is attack-rolls-only; mitigation covers every damage path. |
 
 ## Design principles
 
@@ -366,7 +367,10 @@ The count axis only does real work on fat slots (Hands = 4, Head/Ring/Main-hand 
 Unlock affixes (Grants proficiency, Two-handed wielding, Grants spell) are **not** counted in that
 row — they're not stats. They roll independently, at their own rarity floor.
 
-Building these SLOWLY, one slot at a time — same rule as the item catalog. Done: Head.
+Building these SLOWLY, one slot at a time — same rule as the item catalog.
+**Done: Head, Wrist, Chest.** Remaining 12: neck, cloak, legs, hands, feet, belt, ring, main-hand,
+off-hand, ammo. An item in a slot with no table simply rolls no affixes — so unbuilt slots are inert,
+not broken.
 
 ---
 
@@ -458,6 +462,174 @@ Three things this knowingly costs, recorded so they're decisions and not surpris
   **per-combat** (initSpellSlots refills every fight), so this is a per-fight swing, not per-day
   — which is also why the totals are already flagged for lowering. Retune this row together with
   that pass, not separately.
+
+---
+
+### Wrist (×2, interchangeable) — Hit chance % · STR/DEX · [prof]
+
+| Stat | grey | green | blue | purple | orange | red |
+|---|---|---|---|---|---|---|
+| **Hit chance %** | — | `1d2` (1–2) | `1d3+1` (2–4) | `1d4+2` (3–6) | `1d6+3` (4–9) | `1d6+6` (7–12) |
+| **Strength** *(even only, ×2)* | — | — ⛔ | — ⛔ | `1d1` (+2) | `1d2` (+2/+4) | `1d2+1` (+4/+6) |
+| **Dexterity** *(even only, ×2)* | — | — ⛔ | — ⛔ | `1d1` (+2) | `1d2` (+2/+4) | `1d2+1` (+4/+6) |
+| **↳ how many of the above roll** | 0–1 | 1 | 1 | 1 | 1 | 1 |
+| **Grants proficiency** *(unlock — not built, no proficiency gating exists)* | — | — | — | ✓ | ✓ | ✓ |
+
+⚠ **WRIST IS A PAIR — every number here lands TWICE.** `affixTotal` sums both wrists, so a red
+wrist is +7–12% but a red **pair** is **+14–24%**, taking a baseline 55% swing to ~79%. Price the
+pair, not the item. `rollToHit` clamps at **95**, so a ladder much above this wastes rolls at the top.
+
+**Count stays 1 even though wrist owns three stats** — deliberately, and it's load-bearing. STR/DEX
+must not stack with hit% on the same wrist: both double, hit%'s red pair already reaches +14–24%
+against the clamp, and even-only STR/DEX has a *floor* of +4/pair = +2 mod = +10% hit. Both together
+would put a red pair at +34–54%, i.e. rolls thrown away above the ceiling. One stat per wrist keeps
+every tier under the clamp **and** makes the pair a decision (two hit%, two STR/DEX, or one of each).
+
+**STR/DEX is EVEN ONLY (user's call).** Modifiers are `floor((score-10)/2)` and the heroes' relevant
+scores are mostly even (Gobo STR 16, Milo DEX 16, Rasec DEX 14, Leugren STR 14), so an *odd* bonus is
+**invisible**: 16 → 17 is still +3. The `mult: 2` field doubles the roll so every point granted
+actually moves a modifier — `parseDiceFormula` only speaks `NdS±M` and cannot express "even only".
+
+⚠ **Green can roll +1% hit, which equals `precisionHitBonusForLevel`** — an entire L4 class passive,
+off the cheapest tier. Known and accepted (gear should eventually outdo a low-level passive); the fix,
+if wanted, is to scale Precision when Rage's flat 10% gets its level curve. Same frozen-class-number
+problem, same fix.
+
+---
+
+### Chest — AC % · [prof]
+
+| Stat | grey | green | blue | purple | orange | red |
+|---|---|---|---|---|---|---|
+| **AC %** | — | `1d3` (1–3) | `1d4+2` (3–6) | `1d6+4` (5–10) | `1d6+7` (8–13) | `2d6+8` (10–20) |
+| **↳ how many of the above roll** | 0–1 | 1 | 1 | 1 | 1 | 1 |
+| **Grants proficiency** *(unlock — not built, no proficiency gating exists)* | — | — | — | ✓ | ✓ | ✓ |
+
+Option **C** of three, chosen 2026-07-16 ("go with C for sure"). Averages: 2 → 4.5 → 7.5 → 10.5 → 15.
+
+**A THIN slot — no count axis.** AC% is the only stat chest owns until proficiency gating exists, so
+the count is 1 at every tier and tiers separate by **size alone**.
+
+⚠ **AC% is NOT flat AC, and NOT mitigation.** It's a percentage-point reduction of the attacker's hit
+chance — the defensive mirror of wrist's hit% — subtracted from the same `rollToHit` channel. Flat AC
+is a *different* thing chest armour already supplies via `computeAC`'s `chest.ac` (35 of 46 chest
+items carry one, 0–18); AC% stacks **on top** of it.
+
+**It's stronger than the numbers look.** −10% against a 55% attacker means 45%, i.e. **18% fewer
+hits** — so one point of AC% is worth **~1.8 points of mitigation** at baseline, and *more* as enemy
+hit drops, since it's a proportion of a shrinking number. That ratio is why this ladder sits below
+head's mitigation numerically while being comparable in value. Red `2d6+8` is a BELL curve: a typical
+red is **~15%, not 20%**.
+
+⚠ **ATTACK ROLLS ONLY.** Save-based AoE and poison never reach `rollToHit`, so AC% does nothing
+against them — exactly like real AC vs a fireball. This is the deliberate asymmetry with
+`mitigation_pct`, which lives in `damageMitigationOf` and covers *every* damage path. It's what keeps
+chest's bigger-looking numbers from outclassing the hat, and it means the two are complementary
+rather than redundant: a red chest + red hat ≈ **31–47% less damage taken**, multiplicatively.
+
+**Integration point: `combat.js`, the single `rollToHit` call site.** Netted into the existing
+`hitPctBonus` channel — `precisionBonus - affixTotal(target, 'ac_pct')` — rather than given its own
+parameter, so hit% keeps exactly one adjustment channel with both sides visible on one line. The 5–95
+clamp applies to the result, so armour can never drive an attacker below 5%. No log work was needed:
+`atkBreakdown` already prints `needed ≥ threshold`, so AC% surfaces as a visibly higher bar.
+
+---
+
+**⚠ Grey is ALWAYS a plain base — on every slot.** No stat in any table above has grey dice, so
+`eligible` is empty at grey and `rollAffixes` returns `[]` before the count is read. The `0–1` in
+every grey count cell is shape-consistency, **not** a coin flip. (Verified 2026-07-16: 2000/2000 grey
+rolls produced nothing.)
+
+## Armor proficiency + material (built 2026-07-17)
+
+**`material` is ONE field doing two jobs**, on all 225 armor items across the 7 armor slots
+(chest, head, legs, feet, hands, wrist, belt). It decides **who may equip a piece**, and on chest
+**how much DEX it grants**. It replaced the short-lived `armorType` — for chest they're the same
+axis, and two fields that must always agree is a drift bug waiting to happen.
+
+| material | proficiency needed | who | chest DEX |
+|---|---|---|---|
+| `cloth` | — | all 4 | *n/a — no `ac`, counts as unarmored* |
+| `leather` | Light | all but Rasec | full |
+| `hide` | Medium | Gobo, Leugren | max +2 |
+| `plate` | Heavy | Leugren only | none |
+
+**The proficiency data already existed** in `UNIT_TYPES.armorProficiency` and was already rendered
+in the stat sheet's traits section. Nothing enforced it — Rasec's own sheet read *"cannot wear
+light, medium, or heavy armor"* while he was free to wear Plate. `canEquip()` in equipment.js is
+the single gate; loot assignment, drag-drop, the right-click Equip row and `equipItem` itself all
+route through it. `equipItem` returns **null** (not `[]`) on refusal so callers must notice.
+
+⚠ **Belts are NOT armor** (user, 2026-07-17) — a belt is a strap. Scale/Studded belts carry
+`material: 'cloth'` *despite their names*, because cloth is the no-proficiency bucket and anyone
+including Rasec can wear them. Only plate/chain belts are gated, being actual plate.
+
+⚠ **PROFICIENCY IS NESTED, NOT A PARTITION.** This is the fact that breaks most intuitions here:
+
+```
+    cloth   ⊂ everyone          leather ⊂ {Milo, Gobo, Leugren}
+    hide    ⊂ {Gobo, Leugren}   plate   ⊂ {Leugren}
+```
+
+**Only plate is exclusive to anyone.** Leugren is proficient in everything, so *there is no
+material meaning "Gobo only"* — anything Gobo can wear, Leugren can too. Consequences: Leugren can
+use **100%** of all armor and can never be starved; **Rasec can use 39%** and is the scarce one,
+with cloth his only route. Don't try to make a material belong to one hero; it can't.
+
+## Loot coverage — don't let RNG starve a hero (built 2026-07-17)
+
+Lives in **`js/lootCoverage.js`**, deliberately a LEAF (items.js + equipment.js only) so the
+probability model is testable — loot.js drags in three.js for its 3D orbs and can't be imported
+outside a browser.
+
+**The formula:**
+```
+1. HERO      w(h) = 1 / (1 + n[slot][rarity][h])   — pick one, proportional to w
+2. MATERIAL  the BEST material h is proficient in, walking DOWN if the slot has none
+3. ITEM      uniform within (slot, material)
+```
+
+`n` increments at **assignment**, not at drop — the game doesn't know who a drop was *for* until
+the player says so, and a drop handed elsewhere hasn't covered anyone. Hook is in lootPanel's
+commit step. ~312 counters in localStorage under `dnd-loot-coverage`.
+
+**What it's actually for — the TAIL, not the mean.** Four heroes need four items, so the mean
+can't beat 4.0 and uniform already averages 4.32. There is nothing to win there. The problem is
+that uniform's **p99 is 8 drops and the worst measured run was 19** — one hero waiting through
+nineteen drops that were all for someone else. Measured:
+
+| model | mean | p99 | worst |
+|---|---|---|---|
+| uniform | 4.32 | 8 | **19** |
+| material-coverage k=3 | 4.23 | 6 | 9 |
+| **hero-targeted k=1** | **4.01** | **4** | **8** |
+
+**Two traps, both of which I walked into — don't repeat them:**
+
+⚠ **Balancing MATERIALS instead of HEROES buys nothing** (4.32 → 4.23, a rounding error). Because
+of the nesting, "all four materials have dropped" can be true while Rasec has nothing — four
+leather drops cover Milo, Gobo *and* Leugren.
+
+⚠ **Step 2 must take each hero's CEILING, not "any material they can wear."** The latter looks
+reasonable and is badly wrong: cloth accrues probability from all four hero picks and lands at
+**70%**, while plate — reachable only via Leugren — collapses to **4.5%**, so Leugren would
+essentially never see the plate that defines him. Taking the ceiling gives exactly **25% each** on
+a fresh tier and recovers the 1:1 feel the design wanted (cloth=Rasec, leather=Milo, hide=Gobo,
+plate=Leugren) — not through exclusivity, but through each hero's best.
+
+**No exponent (k=1).** k=3 measured 4.01 vs k=1's 4.02 — identical, because the four-drop floor
+dominates. One less dial.
+
+**Measured behaviour:** fresh tier 25/25/25/25 · Rasec takes one cloth → cloth 14.3%, others
+28.6% · Rasec starved while others have two → cloth 50% · all covered → back to 25% each, no cliff.
+
+**Slots with no materials abstain** (main-hand, off-hand, ring, cloak, neck, bag) — `coveragePool`
+returns null and the caller goes uniform. Nobody can be starved of items anyone can equip.
+
+**head and wrist stock zero hide**, so a Gobo-targeted drop there walks down to leather (he's still
+covered — leather is on his ladder) and those slots run cloth 25 / leather 50 / plate 25. That's
+cosmetic only: nothing reads head/wrist material beyond the gate. Adding hide helms/bracers would
+even the split and change nothing mechanically.
 
 ## Resolved decisions
 - **Cleave + Spell splash share one splash resolver.** Melee cleave and spell splash both call a

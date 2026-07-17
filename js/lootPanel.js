@@ -4,8 +4,9 @@ import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
+import { noteAssigned } from './lootCoverage.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins } from './equipment.js';
+import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins, equipBlockReason } from './equipment.js';
 import { showItemTooltip, moveItemTooltip, hideItemTooltip } from './itemTooltip.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
@@ -208,7 +209,13 @@ function _renderItems() {
       if (!h) return '';
       const name     = UNIT_TYPES[type]?.name ?? type;
       const assigned = item.assignedTo === h ? ' lp-assigned' : '';
-      return `<button class="lp-assign-box${assigned}" data-item="${idx}" data-hero="${type}" title="${name}">` +
+      // Armor proficiency gates who this drop can even go to. Disabled rather than hidden:
+      // four boxes that stay in the same place every time are scannable, and the title says
+      // WHY. The click handler ignores disabled buttons, so this is also the enforcement.
+      const blocked  = equipBlockReason(h, item);
+      const title    = blocked ? `${name} — ${blocked}` : name;
+      return `<button class="lp-assign-box${assigned}${blocked ? ' lp-assign-blocked' : ''}" ` +
+        `data-item="${idx}" data-hero="${type}" title="${title}"${blocked ? ' disabled' : ''}>` +
         `<img class="lp-assign-avatar" src="${AVATAR_SRC[type] ?? ''}" alt="${name}"></button>`;
     }).join('');
     const destroyed = item.assignedTo === 'destroy' ? ' lp-assigned' : '';
@@ -284,6 +291,11 @@ function _collectLoot() {
   // A false return means every bag was full: the item is lost, same as destroying it.
   _allItems.forEach(item => {
     if (item.assignedTo === 'destroy' || item.assignedTo == null) return;
+    // Loot coverage: THIS is the moment the game learns who a drop was actually for, which
+    // is why the counter lives here and not at drop time. Future drops in this slot+tier
+    // will favour whichever hero is furthest behind. Destroyed items deliberately don't
+    // count — nobody got covered.
+    noteAssigned(item.slot, item.rarity, item.assignedTo.type);
     placeInFirstEmptyBagSlot(item.assignedTo, item);
   });
 

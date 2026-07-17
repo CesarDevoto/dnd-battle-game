@@ -3,8 +3,13 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getPotion } from './potions.js';
-import { getItem, ITEMS } from './items.js';
+import { getItem, ITEMS, isDroppable } from './items.js';
 import { rollAffixes } from './affixes.js';
+import { coveragePool } from './lootCoverage.js';
+// Safe: units.js does NOT import loot.js, so this is a one-way edge, not a cycle.
+// heroRoster is the LIVE array and is never cleared on death — a fallen hero still needs
+// gear, so coverage deliberately keeps counting them.
+import { heroRoster } from './units.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -124,11 +129,53 @@ function _rollDropCount(cr) {
   return 1;
 }
 
-// Everything the random table can hand out: anything with an equipment slot that isn't a
-// scripted one-off. Quest materials (goblin key, grassling dung) carry no `slot` and are
-// excluded by that alone; `noDrop` covers the ones that DO have a slot (soul shard amulet).
-// Built once — ITEMS is static.
-const _DROP_POOL = Object.values(ITEMS).filter(it => it.slot && !it.noDrop);
+// Everything the random table can hand out. `isDroppable` is shared with lootCoverage.js so
+// the drop pool and the coverage index can't disagree about what exists. Built once — ITEMS
+// is static.
+const _DROP_POOL = Object.values(ITEMS).filter(isDroppable);
+
+// ── Slot balance ──────────────────────────────────────────────────────────────
+// ⚠ Picking uniformly from _DROP_POOL makes drop frequency an ACCIDENT OF ART COUNT. We had
+// 58 main-hand items and 11 neck items, so a main-hand was 5x likelier than a neck purely
+// because more weapons got drawn — nobody decided that. Adding a picture silently rebalanced
+// the game. So: pick the SLOT first from this table, then an item uniformly WITHIN it. Art
+// count now only decides WHICH sword you get, never how often you get a sword at all.
+//
+// Weights are the tuning surface and are RELATIVE — they don't need to sum to anything.
+//   • Pairs (wrist, ring) get 2: you fill two of them, so double the drops is the same
+//     fill rate per physical slot, not twice the generosity.
+//   • Bags get 0.5: you need four, but they're a one-time fill rather than an upgrade
+//     treadmill, so a steady stream of them is dead loot.
+// A slot missing from this table can never drop (ammo has no items yet, so it's absent).
+const _SLOT_WEIGHTS = {
+  head: 1, neck: 1, chest: 1, cloak: 1, legs: 1, hands: 1, feet: 1, belt: 1,
+  'main-hand': 1, 'off-hand': 1,
+  wrist: 2, ring: 2,
+  bag: 0.5,
+};
+
+// Bucket the pool once — ITEMS is static, so this is built at module load like _DROP_POOL.
+const _POOL_BY_SLOT = {};
+for (const it of _DROP_POOL) (_POOL_BY_SLOT[it.slot] ??= []).push(it);
+
+// Only slots that BOTH have a weight and actually have items. Guards against a weight for a
+// slot with no art (silently impossible) and art for a slot with no weight (silently unreachable).
+const _WEIGHTED_SLOTS = Object.keys(_POOL_BY_SLOT).filter(s => _SLOT_WEIGHTS[s] > 0);
+const _TOTAL_WEIGHT   = _WEIGHTED_SLOTS.reduce((sum, s) => sum + _SLOT_WEIGHTS[s], 0);
+
+function _pickSlot() {
+  let r = Math.random() * _TOTAL_WEIGHT;
+  for (const s of _WEIGHTED_SLOTS) {
+    r -= _SLOT_WEIGHTS[s];
+    if (r < 0) return s;
+  }
+  return _WEIGHTED_SLOTS[_WEIGHTED_SLOTS.length - 1];   // float dust only
+}
+
+// Coverage — the "don't let RNG starve one hero" model — lives in lootCoverage.js. It's a
+// leaf (items.js + equipment.js), deliberately: this module imports three.js and the scene
+// for its 3D orbs, which would make the probability model impossible to test outside a
+// browser. See that file for the formula and the measurements behind it.
 
 // One drop: a random BASE wearing the ROLLED rarity, plus affixes rolled from that slot's
 // table. This is the rolled model — the base supplies name/icon/slot/material, the roll
@@ -139,8 +186,16 @@ const _DROP_POOL = Object.values(ITEMS).filter(it => it.slot && !it.noDrop);
 // bases, exactly as they did before, so nothing regresses while the tables land one at a time.
 function _rollItem(cr) {
   const rarity = _rollRarity(cr);
-  if (!rarity || !_DROP_POOL.length) return null;   // this roll came up empty
-  const base = _DROP_POOL[Math.floor(Math.random() * _DROP_POOL.length)];
+  if (!rarity || !_WEIGHTED_SLOTS.length) return null;   // this roll came up empty
+
+  // Slot FIRST (weighted) — see _SLOT_WEIGHTS. Then coverage narrows it to the material a
+  // starved hero could actually use; see lootCoverage.js.
+  const slot = _pickSlot();
+  const pool = coveragePool(slot, rarity, heroRoster.map(h => h.type))
+            ?? _POOL_BY_SLOT[slot];   // slots with no materials (weapons, rings, cloaks, bags)
+  if (!pool?.length) return null;
+
+  const base = pool[Math.floor(Math.random() * pool.length)];
   return { ...base, rarity, affixes: rollAffixes(base, rarity) };
 }
 

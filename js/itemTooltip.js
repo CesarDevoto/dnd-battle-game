@@ -8,7 +8,13 @@
 // Imports equipment.js only (for RARITY_LABEL), which is itself near-leaf. No cycles: nothing
 // in equipment.js reaches back here.
 
-import { RARITY_LABEL, itemValueCp, formatCoins } from './equipment.js';
+import { RARITY_LABEL, itemValueCp, formatCoins, ARMOR_DEX_CAP } from './equipment.js';
+
+// A material spelled out for the player. It's the first thing that matters about a piece of
+// armor: it decides who can wear it at all (proficiency), and on chest how much DEX it grants.
+// `cloth` is deliberately absent — "Cloth" on a robe is noise, and cloth needs no proficiency,
+// so there's nothing to warn about.
+const MATERIAL_LABEL = { leather: 'Light Armor', hide: 'Medium Armor', plate: 'Heavy Armor' };
 
 // Equipment keys are terse ('main-hand', 'wrist'); this is the human name for a tooltip.
 const SLOT_LABEL = {
@@ -43,12 +49,25 @@ export function itemTooltipHTML(item) {
   lines.push(`<div class="it-name rarity-text-${r}">${item.name}</div>`);
   const sub = [RARITY_LABEL[r] ?? (r === 'gem' ? 'Gem' : r)];
   if (item.slot) sub.push(SLOT_LABEL[item.slot] ?? item.slot);
+  if (MATERIAL_LABEL[item.material]) sub.push(MATERIAL_LABEL[item.material]);
   lines.push(`<div class="it-sub rarity-text-${r}">${sub.join(' · ')}</div>`);
 
   // Base stats — what any copy of this base does.
   const base = [];
   if (item.dmg)   base.push(`${item.dmg} ${item.dmgType ?? ''} damage`.trim());
-  if (item.ac)    base.push(`+${item.ac} AC`);
+  // ⚠ Armor SETS your AC; a shield ADDS to it. Rendering plate as "+18 AC" was actively
+  // misleading — it reads as 10+18=28 when the true answer is exactly 18. armorType is what
+  // tells the two apart, so a shield (no armorType) still correctly shows "+2 AC".
+  //
+  // The DEX suffix is read from the same ARMOR_DEX_CAP the AC math uses, so the tooltip
+  // cannot claim a cap that computeAC doesn't apply.
+  if (item.ac && ARMOR_DEX_CAP[item.material] !== undefined) {
+    const cap = ARMOR_DEX_CAP[item.material];
+    const dex = cap === 0 ? '' : cap === Infinity ? ' + Dex modifier' : ` + Dex modifier (max ${cap})`;
+    base.push(`AC ${item.ac}${dex}`);
+  } else if (item.ac) {
+    base.push(`+${item.ac} AC`);
+  }
   if (item.heal)  base.push(`Heals ${item.heal} HP`);
   if (item.slots) base.push(`Container · ${item.slots} slots`);
   if (base.length) {

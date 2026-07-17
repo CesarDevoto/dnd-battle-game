@@ -39,6 +39,31 @@ export const SLOT_AFFIXES = {
     // but the slot totals are pending a lowering pass and the affix would need to write
     // spellSlotsMaxByLevel — retune it together with that pass, not before.
   },
+  chest: {
+    // ⚠ NOT flat AC. This is a percentage-point REDUCTION of the attacker's hit chance — the
+    // defensive mirror of wrist's hit_pct, subtracted from the same rollToHit channel. Flat AC
+    // is a different thing that chest armour ALREADY provides via computeAC's chest.ac, and
+    // this stacks on top of it rather than replacing it.
+    //
+    // The ladder looks small next to head's mitigation and isn't: -10% against a 55% attacker
+    // means 45%, i.e. 18% FEWER HITS, so a point of ac_pct is worth ~1.8 points of mitigation
+    // at baseline — and MORE as enemy hit drops, since it's a proportion of a shrinking number.
+    // A red chest (2d6+8, a BELL curve, so typically ~15%) alongside a red hat lands around a
+    // third less damage taken; that pairing is what the top of this ladder was priced against.
+    //
+    // ⚠ ATTACK ROLLS ONLY. Save-based AoE and poison never touch rollToHit, so this does
+    // nothing against them — exactly like real AC vs a fireball. That asymmetry with
+    // mitigation_pct (which covers every damage path) is deliberate and is what keeps the
+    // bigger-looking numbers here from outclassing the hat.
+    ac_pct: {
+      label: 'Armor',
+      fmt:   v => `+${v}% armor (attackers' hit chance -${v}%)`,
+      dice:  { green: '1d3', blue: '1d4+2', purple: '1d6+4', orange: '1d6+7', red: '2d6+8' },
+    },
+    // NOT YET: [prof] (Grants proficiency) — blocked on there being no equipment proficiency
+    // gating in the code at all, same as head's. Until that exists, chest is a THIN slot: one
+    // stat, so no count axis (see AFFIX_COUNT.chest).
+  },
   wrist: {
     hit_pct: {
       label: 'Hit chance',
@@ -104,6 +129,14 @@ export const SLOT_AFFIXES = {
 // Don't paste a generic 2-3/3-4 ladder into a slot without the stats to fill it.
 export const AFFIX_COUNT = {
   head:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 2], red: [2, 2] },
+  // Chest is genuinely THIN — ac_pct is the only stat it owns until proficiency gating exists,
+  // so there's nothing a second pick could land on and the count is 1 at every tier. Tiers
+  // separate by SIZE alone here.
+  //
+  // Grey's [0,1] is INERT, here and in head/wrist alike: no stat in any table above has grey
+  // dice, so `eligible` is empty at grey and rollAffixes returns [] before the count is ever
+  // read. A grey item is ALWAYS a plain base — the [0,1] is shape-consistency, not a coin flip.
+  chest: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
   // Wrist stays at 1 even though it owns TWO stats from purple up — deliberately, not because
   // it's thin. STR/DEX must not stack with hit_pct on the same wrist: the slot is a PAIR so
   // both double, hit_pct's red pair already reaches +14-24% against rollToHit's 95 clamp, and

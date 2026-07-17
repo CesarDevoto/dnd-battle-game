@@ -10,7 +10,7 @@ import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked,
          totalSpellSlots, totalSpellSlotsMax, maxSlotsForLevel, slotsForDndLevel } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
-import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot } from './equipment.js';
+import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot, equipBlockReason } from './equipment.js';
 import { getXpProgress, MAX_HERO_LEVEL } from './progression.js';
 import { itemTooltipHTML } from './itemTooltip.js';
 
@@ -607,6 +607,15 @@ function _refreshEquipmentPanel(reopenBagKey) {
       if (accepts && sheetUnit) {
         const hero      = sheetUnit;
         const displaced = equipItem(hero, dragItem, targetSlotKey);
+        // null = armor proficiency refused it. Bail BEFORE touching the bag: the dragged item
+        // is only removed from its slot by the shift() below, so returning early leaves it
+        // exactly where it was. Dropping through here would crash on displaced.shift().
+        if (displaced === null) {
+          addLog(`${UNIT_TYPES[hero.type]?.name ?? hero.type} can't wear the ${dragItem.name} — ` +
+                 `${equipBlockReason(hero, dragItem)}.`, 'system');
+          dragEl.remove(); dragEl = null; dragItem = null;
+          return;
+        }
         // displaced[0] is the target slot's old occupant — it goes into the bag slot the
         // dragged item just vacated, which is the straight swap the player is expecting.
         const bag = hero.equipment?.[dragBagKey];
@@ -751,7 +760,14 @@ function _refreshEquipmentPanel(reopenBagKey) {
       const targets = _equipTargets(item);
       const free    = targets.find(k => !_hero.equipment?.[k]);
       const dest    = free ?? targets[0];
-      menuEl.appendChild(_row(free ? 'Equip' : `Equip <span class="eq-ctx-warn">(swaps)</span>`, {
+      // Armor proficiency: show the row greyed WITH the reason rather than hiding it. Hiding
+      // it would read as a bug ("why can't I equip this?"); the reason teaches the rule.
+      const blocked = equipBlockReason(_hero, item);
+      const label   = blocked ? `Equip <span class="eq-ctx-warn">(${blocked})</span>`
+                    : free    ? 'Equip'
+                              : `Equip <span class="eq-ctx-warn">(swaps)</span>`;
+      menuEl.appendChild(_row(label, {
+        disabled: !!blocked,
         onClick: () => {
           // equipItem returns everything it displaced (slot occupant + any two-handed
           // casualty). This used to hand-collect them before the call, because equipItem

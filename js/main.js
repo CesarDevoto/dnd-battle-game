@@ -5,7 +5,7 @@ import { updateParticles, updateWind, evergreenReady } from './environments.js';
 import { updateEnvironmentVisibility } from './environmentVisibility.js';
 import { initEngagementLines, updateEngagementLines } from './engagementLines.js';
 import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
-import { equipItem } from './equipment.js';
+import { equipItem, MATERIAL_PROF } from './equipment.js';
 import { getItem } from './items.js';
 import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
@@ -302,6 +302,11 @@ if (IS_DEV) {
     // here (you asked for the item, and you can dev-equip the old one back), but say what
     // went so it isn't a silent loss while you're testing.
     const displaced = equipItem(hero, item);
+    if (displaced === null) {
+      console.warn(`[DEV] ${UNIT_TYPES[heroType]?.name ?? heroType} can't equip ${item.name} — ` +
+        `${item.material} needs ${MATERIAL_PROF[item.material]} armor proficiency.`);
+      return;
+    }
     if (sheetUnit === hero) showSheet(hero);
     console.log(`[DEV] Equipped ${item.name} on ${UNIT_TYPES[heroType]?.name ?? heroType}` +
       (displaced.length ? ` — discarded ${displaced.map(d => d.name).join(', ')}` : ''), hero.equipment);

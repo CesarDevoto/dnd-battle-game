@@ -6776,6 +6776,18 @@ td.bst-col-retired { color: #343228 !important; }
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* Armor proficiency forbids this hero. Kept in place (not hidden) so the four boxes stay in
+   the same order on every card and the row is scannable; the greyed avatar reads as "not this
+   one" at a glance, and the button's title says which proficiency is missing. */
+.lp-assign-blocked {
+  opacity: 0.28;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: rgba(212,175,55,0.15);
+}
+.lp-assign-blocked:hover { border-color: rgba(212,175,55,0.15); }
+
 .lp-assign-box:hover {
   border-color: rgba(212,175,55,0.60);
 }

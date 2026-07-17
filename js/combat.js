@@ -2700,7 +2700,20 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
                      (_inOwnSmoke(target) ? SMOKE_AC_BONUS : 0);
   const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
   const targetAC   = targetBase + _acBonus;
-  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, precisionBonus);
+  // The DEFENDER's gear subtracts from the very same hit-% channel the attacker adds to: the
+  // Chest ac_pct affix is a percentage-point reduction of the attacker's hit chance, NOT flat
+  // AC — flat AC is targetAC above, which chest armour already supplies through computeAC, and
+  // ac_pct stacks on top of it.
+  //
+  // Netted here rather than given its own rollToHit parameter so hit% keeps exactly ONE
+  // adjustment channel with both sides of it visible on one line. The 5-95 clamp then applies
+  // to the result, so armour can never drive an attacker below a 5% chance.
+  //
+  // ⚠ This is the ONLY path ac_pct touches. Save-based AoE and poison never reach rollToHit,
+  // so armour does nothing against them — deliberately unlike mitigation_pct, which lives in
+  // damageMitigationOf and so covers every damage path there is.
+  const hitPctNet = precisionBonus - affixTotal(target, 'ac_pct');
+  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, hitPctNet);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   // Stealth ends here — after the roll (so the hidden bonus/advantage still applied):
@@ -2844,9 +2857,16 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     // The SUMMED fraction, so the float stays honest once gear mitigation stacks on top
     // of Rage — it reports what was actually taken off, not just Rage's share.
     const _mitPct = Math.round(damageMitigationOf(target) * 100);
+    // ⚠ Label by SOURCE. `resisted` is damageMitigationOf > 0, which is true for GEAR alone,
+    // so hardcoding "RAGE" here told Rasec/Milo/Leugren — none of whom can rage at all — that
+    // their mitigation hat was Rage, and said it about Gobo when he wasn't raging either.
+    const _isRage = !!(target.raging && UNIT_TYPES[target.type]?.rage);
+    const _isGear = affixTotal(target, 'mitigation_pct') > 0;
+    const _name   = _isRage && _isGear ? 'Rage + armor' : _isRage ? 'Rage resistance' : 'Armor';
     setTimeout(() => {
-      showFloatingDamage(target, `⚔ RAGE -${_mitPct}%`, '#ff8844');
-      addLog(`  ⚔ Rage resistance (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
+      showFloatingDamage(target, `${_isRage ? '⚔' : '🛡'} ${_name.toUpperCase()} -${_mitPct}%`,
+                         _isRage ? '#ff8844' : '#88aaff');
+      addLog(`  ${_isRage ? '⚔' : '🛡'} ${_name} (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
     }, hpUpdateDelay + RESULT_PAUSE + 500);
   }
 
