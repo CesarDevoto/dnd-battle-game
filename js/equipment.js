@@ -30,6 +30,66 @@ export const RARITY_LABEL = {
   red:    'Unique',
 };
 
+// ── Currency ──────────────────────────────────────────────────────────────────
+// 10 cp = 1 sp · 10 sp = 1 gp · 10 gp = 1 pp   (user's rates, 2026-07-16)
+//
+// COPPER is the base unit and the only thing values are stored in. Named constants rather
+// than a bare `/ 100` so a merchant payout, a price and a wallet can't drift apart.
+// hero.currency keeps the four denominations separately ({copper, silver, gold, platinum}),
+// so anything paying a hero has to convert FROM copper — see formatCoins for the split logic.
+export const CP_PER_SP = 10;
+export const CP_PER_GP = 100;
+export const CP_PER_PP = 1000;
+
+// ── Sell value ────────────────────────────────────────────────────────────────
+// Rarity sets what an item sells for (user's numbers, 2026-07-16).
+//
+// Stored in COPPER because the ladder spans SIX orders of magnitude: grey is 4 COPPER and
+// red is 10,000 GOLD. Gold alone can't hold grey without fractions (0.04 gp), and fractional
+// currency leaks into every total it touches. Integers in the smallest unit stay exact.
+//
+// The x10 steps after grey are deliberate — grey is deliberately worthless (4cp is a rounding
+// error next to green's 2gp), so vendoring trash is never a strategy.
+export const RARITY_VALUE_CP = {
+  grey:         4,   //      4 cp
+  green:      200,   //      2 gp   (2 x CP_PER_GP)
+  blue:      2000,   //     20 gp
+  purple:   20000,   //    200 gp
+  orange:  200000,   //  2,000 gp
+  red:    1000000,   // 10,000 gp = 1,000 pp
+};
+
+// What an item sells for, in copper. An explicit `value` (in GOLD — gems, quest items) WINS
+// over the rarity default: a 5,000 gp ruby is worth that because it's a ruby, not because of
+// a tier, and the goblin key's value:0 keeps it correctly worthless.
+export function itemValueCp(item) {
+  if (item?.value != null) return Math.round(item.value * 100);
+  return RARITY_VALUE_CP[item?.rarity] ?? 0;
+}
+
+// Copper → a readable price. Largest denomination first, empties skipped.
+//
+// ⚠ Stops at GOLD and does NOT roll into platinum, even though pp exists at 1 pp = 10 gp.
+// That's a display choice, not an oversight: a red item reads "10,000 gp" instantly, where
+// "1,000 pp" makes the player do arithmetic to compare it with a 200 gp purple. Prices stay
+// on one scale; the WALLET still uses all four denominations.
+//
+// So this is for PRICES. A merchant paying a hero needs the opposite job — copper split into
+// {copper, silver, gold, platinum} for hero.currency — and should use CP_PER_PP and friends
+// rather than reusing this.
+export function formatCoins(cp) {
+  const n = Math.max(0, Math.round(cp ?? 0));
+  if (!n) return '';
+  const gp = Math.floor(n / CP_PER_GP);
+  const sp = Math.floor((n % CP_PER_GP) / CP_PER_SP);
+  const c  = n % CP_PER_SP;
+  const parts = [];
+  if (gp) parts.push(`${gp.toLocaleString()} gp`);
+  if (sp) parts.push(`${sp} sp`);
+  if (c)  parts.push(`${c} cp`);
+  return parts.join(' ');
+}
+
 // A shield and a two-handed weapon both need the off-hand — equipping one bumps the other.
 // Physical constraint, not a class rule, so it applies to any hero (in practice only
 // Gobo/Leugren carry shields today).

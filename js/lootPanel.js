@@ -5,7 +5,7 @@ import { UNIT_TYPES } from './constants.js';
 import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { placeInFirstEmptyBagSlot } from './equipment.js';
+import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins } from './equipment.js';
 import { showItemTooltip, moveItemTooltip, hideItemTooltip } from './itemTooltip.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
@@ -219,7 +219,7 @@ function _renderItems() {
         ${item.icon ? `<img class="lp-item-icon" src="${item.icon}" alt="${item.name}">` : ''}
         <span class="lp-item-rarity">${_rarityLabel(item.rarity)}</span>
         <span class="lp-item-name">${item.name}</span>
-        ${item.value ? `<span class="lp-item-value">${item.value.toLocaleString()} gp</span>` : ''}
+        ${_valueTag(item)}
       </div>
       <div class="lp-item-desc">${item.description ?? ''}</div>
       <div class="lp-item-assign">${heroBoxes}${destroyBox}</div>`;
@@ -238,6 +238,14 @@ function _updateCollectBtnState() {
   const allAssigned = _allItems.every(it => it.assignedTo != null);
   btn.disabled = !allAssigned;
   btn.title = allAssigned ? '' : 'Assign every item to a hero or destroy it before collecting';
+}
+
+// Sell value on the card. Every item has one now (it derives from rarity), where before only
+// gems and quest pieces carried an explicit `value` — so this went from a rare tag to a
+// normal one, and it's in copper so a grey reads "4 cp" rather than "0.04 gp".
+function _valueTag(item) {
+  const coins = formatCoins(itemValueCp(item));
+  return coins ? `<span class="lp-item-value">${coins}</span>` : '';
 }
 
 function _rarityLabel(rarity) {

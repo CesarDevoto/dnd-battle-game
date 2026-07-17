@@ -8,7 +8,7 @@
 // Imports equipment.js only (for RARITY_LABEL), which is itself near-leaf. No cycles: nothing
 // in equipment.js reaches back here.
 
-import { RARITY_LABEL } from './equipment.js';
+import { RARITY_LABEL, itemValueCp, formatCoins } from './equipment.js';
 
 // Equipment keys are terse ('main-hand', 'wrist'); this is the human name for a tooltip.
 const SLOT_LABEL = {
@@ -66,7 +66,12 @@ export function itemTooltipHTML(item) {
   }
 
   if (item.description) lines.push(`<div class="it-desc">${item.description}</div>`);
-  if (item.value)       lines.push(`<div class="it-value">${item.value.toLocaleString()} gp</div>`);
+
+  // Sell value, last line — it's the tiebreaker you look at after everything else, and it's
+  // what a merchant will pay once towns have them (Phandalin first). Derived from rarity, so
+  // it tracks the roll: the same base is worth 4cp grey and 10,000gp red.
+  const coins = formatCoins(itemValueCp(item));
+  if (coins) lines.push(`<div class="it-value">Sells for ${coins}</div>`);
   return lines.join('');
 }
 
