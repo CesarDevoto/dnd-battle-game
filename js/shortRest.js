@@ -6,6 +6,7 @@ import { UNIT_TYPES } from './constants.js';
 import { restoreSpellSlots } from './spells.js';
 import { combatPhase, showFloatingDamage } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
+import { applyHeal } from './affixes.js';
 
 const SR_MAX = 1;
 const LS_KEY = 'dnd_sr_used';
@@ -132,9 +133,7 @@ function _executeRest() {
     const conMod = Math.floor((con - 10) / 2);
     const rolled = Math.ceil(Math.random() * die);
     const healed = Math.max(1, rolled + conMod);
-    const prev   = h.hp;
-    h.hp = Math.min(h.maxHp, h.hp + healed);
-    const actual = h.hp - prev;
+    const actual = applyHeal(h, healed);   // rest heal: received-only, no caster
 
     if (actual > 0) showFloatingDamage(h, `+${actual}`, '#55cc55');
   }

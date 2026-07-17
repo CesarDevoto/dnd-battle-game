@@ -5,6 +5,7 @@ import { scene } from './scene.js';
 import { getPotion } from './potions.js';
 import { getItem, ITEMS, isDroppable } from './items.js';
 import { rollAffixes } from './affixes.js';
+import { generateItemName } from './itemNames.js';
 import { coveragePool } from './lootCoverage.js';
 // Safe: units.js does NOT import loot.js, so this is a one-way edge, not a cycle.
 // heroRoster is the LIVE array and is never cleared on death — a fallen hero still needs
@@ -197,8 +198,11 @@ function _rollItem(cr) {
             ?? _POOL_BY_SLOT[slot];   // slots with no materials (weapons, rings, cloaks, bags)
   if (!pool?.length) return null;
 
-  const base = pool[Math.floor(Math.random() * pool.length)];
-  return { ...base, rarity, affixes: rollAffixes(base, rarity) };
+  const base    = pool[Math.floor(Math.random() * pool.length)];
+  const affixes = rollAffixes(base, rarity);
+  // Procedural name from (base, rarity, affixes) — "Blazing Pendant of Mending". Specific items
+  // (rider amulets, scripted, potions) keep their authored name; see generateItemName.
+  return { ...base, rarity, affixes, name: generateItemName(base, rarity, affixes) };
 }
 
 // ── Drop chances per bracket (gems only — item drops handled separately) ─────
