@@ -133,6 +133,19 @@ export function placeInFirstEmptyBagSlot(hero, item) {
   return false; // every bag is full
 }
 
+// Sum one affix across equipped gear. A local twin of affixes.js's affixTotal, on purpose:
+// affixes.js imports constants.js, and equipment.js is imported by units.js at module load,
+// so importing it here would create a cycle for the sake of one summation.
+function _gearBonus(hero, key) {
+  const eq = hero?.equipment;
+  if (!eq) return 0;
+  let total = 0;
+  for (const slotKey of Object.keys(eq)) {
+    for (const a of eq[slotKey]?.affixes ?? []) if (a.key === key) total += a.value;
+  }
+  return total;
+}
+
 // Hero AC: chest armor sets the base (Light/Medium add full DEX mod, Heavy
 // ignores DEX — chest items marked `heavy: true` are the Heavy tier). No
 // chest item → Unarmored: 10 + DEX mod, or 10 + DEX mod + CON mod for units
@@ -142,7 +155,11 @@ export function placeInFirstEmptyBagSlot(hero, item) {
 export function computeAC(hero) {
   const def      = UNIT_TYPES[hero.type] ?? {};
   const ab       = def.abilities ?? {};
-  const dexMod   = Math.floor(((ab.dex ?? 10) - 10) / 2);
+  // DEX folds in gear (the wrist dex affix); CON has no affix yet, so it reads the statblock.
+  // Deliberately inlined rather than importing affixes.js: that module imports constants.js
+  // and equipment.js is imported BY units.js at load — routing it through here would build a
+  // cycle for one addition. affixTotal's shape is trivial and stable.
+  const dexMod   = Math.floor(((ab.dex ?? 10) + _gearBonus(hero, 'dex') - 10) / 2);
   const conMod   = Math.floor(((ab.con ?? 10) - 10) / 2);
 
   // A chest item with no real ac (e.g. a cosmetic robe/linen at ac: 0) isn't

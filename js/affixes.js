@@ -8,6 +8,7 @@
 // Imports dice.js only (itself a leaf), so this module stays node-testable.
 
 import { roll, parseDiceFormula } from './dice.js';
+import { UNIT_TYPES } from './constants.js';
 
 // ── Slot tables ───────────────────────────────────────────────────────────────
 // One entry per stat the slot OWNS (the allocation is locked in the design doc: each stat
@@ -38,12 +39,59 @@ export const SLOT_AFFIXES = {
     // but the slot totals are pending a lowering pass and the affix would need to write
     // spellSlotsMaxByLevel — retune it together with that pass, not before.
   },
-  // Slots 2-15 are UNBUILT ON PURPOSE. Which stat each owns is already locked in the doc's
-  // allocation table, but the dice-per-tier are real design decisions and the rule is one
-  // slot at a time. An item in a slot with no table here simply rolls no affixes.
-  // Suggested next: wrist — it forces the calibration where precisionHitBonusForLevel (+1%
-  // hit) is a whole L4 class passive, yet the old catalog handed +1% hit to its weakest
-  // green item.
+  wrist: {
+    hit_pct: {
+      label: 'Hit chance',
+      fmt:   v => `+${v}% hit chance`,
+      // ⚠ WRIST IS A PAIR — wrist-l and wrist-r draw from the same pool and affixTotal sums
+      // BOTH, so every number here lands TWICE. A red wrist is +7-12%, but a red PAIR is
+      // +14-24%, taking a baseline 55% swing to ~79%. Price the pair, not the item.
+      //
+      // Ceiling matters: rollToHit clamps 5-95, so a ladder much above this wastes rolls at
+      // the top (a "punchy" option peaked at a +40% pair, which caps outright).
+      // Scale check: +1 attack bonus = +5% hit, so a red pair is worth ~4 attack bonus.
+      //
+      // ⚠ Green CAN roll 1%, which equals precisionHitBonusForLevel — an entire L4 class
+      // passive — off the cheapest tier. Known and accepted (gear should eventually outdo a
+      // low-level passive); the fix, if wanted, is to scale Precision when Rage's flat 10%
+      // gets its level curve, since they're the same kind of frozen class number.
+      dice:  { green: '1d2', blue: '1d3+1', purple: '1d4+2', orange: '1d6+3', red: '1d6+6' },
+    },
+    // The doc calls this bundle "STR/DEX", but they're TWO keys, not one: a single str_dex
+    // affix couldn't say WHICH stat it granted, and the answer matters — dex on Gobo (a STR
+    // attacker) is a dud. Split, `affixTotal(u, 'str')` reads directly, and the count row
+    // makes a wrist roll exactly one of hit_pct | str | dex.
+    //
+    // ⚠ EVEN ONLY (user's call). Modifiers are floor((score-10)/2) and the heroes' relevant
+    // scores are mostly EVEN (Gobo STR 16 / DEX 14, Milo DEX 16, Rasec DEX 14, Leugren
+    // STR 14), so an ODD bonus is INVISIBLE: 16 -> 17 is still a +3 modifier. `mult` doubles
+    // the roll so every point granted actually moves a modifier.
+    //
+    // Purple+ chase per the doc: an ability score pumps hit AND damage (and DEX also AC and
+    // saves), so it's a multiplier, not a linear boost.
+    //
+    // They do NOT stack with hit_pct — see AFFIX_COUNT.wrist, which is 1 for this slot. That's
+    // load-bearing: wrist is a PAIR so everything doubles, hit_pct's red pair already reaches
+    // +14-24% against rollToHit's 95 clamp, and even-only STR/DEX has a FLOOR of +4/pair =
+    // +2 mod = +10% hit. Both together would put a red pair at +34-54% — rolls thrown away
+    // above the ceiling. One stat per wrist keeps every tier under the clamp and makes the
+    // pair a decision.
+    str: {
+      label: 'Strength',
+      fmt:   v => `+${v} Strength`,
+      mult:  2,
+      dice:  { purple: '1d1', orange: '1d2', red: '1d2+1' },   // x2 -> +2 | +2/+4 | +4/+6
+    },
+    dex: {
+      label: 'Dexterity',
+      fmt:   v => `+${v} Dexterity`,
+      mult:  2,
+      dice:  { purple: '1d1', orange: '1d2', red: '1d2+1' },
+    },
+  },
+  // The remaining 13 slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
+  // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
+  // one slot at a time. An item in a slot with no table here simply rolls no affixes.
 };
 
 // ── Affix count ───────────────────────────────────────────────────────────────
@@ -55,7 +103,14 @@ export const SLOT_AFFIXES = {
 // Thin slots (Chest = AC% only, Legs = Max HP only) will have no count axis at all: always 1.
 // Don't paste a generic 2-3/3-4 ladder into a slot without the stats to fill it.
 export const AFFIX_COUNT = {
-  head: { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 2], red: [2, 2] },
+  head:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 2], red: [2, 2] },
+  // Wrist stays at 1 even though it owns TWO stats from purple up — deliberately, not because
+  // it's thin. STR/DEX must not stack with hit_pct on the same wrist: the slot is a PAIR so
+  // both double, hit_pct's red pair already reaches +14-24% against rollToHit's 95 clamp, and
+  // even-only STR/DEX has a floor of +10% hit per pair. Both together = +34-54% on a red pair,
+  // i.e. rolls thrown away above the ceiling. One stat per wrist keeps every tier under the
+  // clamp AND makes the pair a decision (two hit%, two STR/DEX, or one of each).
+  wrist: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
@@ -85,7 +140,10 @@ export function rollAffixes(base, rarity) {
 
   return _shuffled(eligible).slice(0, want).map(([key, a]) => {
     const f     = parseDiceFormula(a.dice[rarity]);
-    const value = f ? roll(f).total : 0;
+    // `mult` scales the roll AFTER the dice — it exists because parseDiceFormula only speaks
+    // NdS±M, which cannot express "even numbers only" (2d2 is 2,3,4). STR/DEX needs that:
+    // an odd score bump is invisible against an even base score.
+    const value = f ? roll(f).total * (a.mult ?? 1) : 0;
     return { key, label: a.label, value, display: a.fmt(value) };
   });
 }
@@ -106,4 +164,21 @@ export function affixTotal(hero, key) {
     }
   }
   return total;
+}
+
+// A unit's ability SCORE including gear, and the modifier that falls out of it.
+//
+// UNIT_TYPES.abilities is a STATIC base — the str/dex affixes add to it. Everything that
+// wants an ability must come through here, or gear silently won't apply: the raw pattern
+// `Math.floor(((UNIT_TYPES[u.type].abilities.dex ?? 10) - 10) / 2)` appears ~28 times in
+// combat.js alone, and each one is a place a +2 DEX wrist would be ignored.
+//
+// Takes the UNIT, not a def: a def has no equipment, so it cannot know about gear. That's
+// why the old inline reads can't just be patched in place — several only hold the def.
+export function abilityScoreOf(unit, stat) {
+  const base = UNIT_TYPES[unit?.type]?.abilities?.[stat] ?? 10;
+  return base + affixTotal(unit, stat);
+}
+export function abilityModOf(unit, stat) {
+  return Math.floor((abilityScoreOf(unit, stat) - 10) / 2);
 }

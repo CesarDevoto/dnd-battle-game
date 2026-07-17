@@ -17,7 +17,7 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { affixTotal } from './affixes.js';
+import { affixTotal, abilityModOf } from './affixes.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
          hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
@@ -1248,7 +1248,7 @@ function castSacredFlame(caster, target, onDone) {
   const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
 
-  const dexMod     = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
+  const dexMod     = abilityModOf(target, 'dex');
   const saveResult = rollSave(dexMod, spell.saveDC, target.dodging ? 'advantage' : 'normal');
   const dmgRoll    = roll({ sides: spell.sides, count: spell.dice });
   const dmg        = saveResult.isSave ? 0 : applySpellDamage(caster, dmgRoll.total);
@@ -1502,7 +1502,9 @@ function activateHide() {
   }
 
   const def    = UNIT_TYPES[u.type] ?? {};
-  const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+  // Hide is a DEX check, so gear counts — otherwise a +4 DEX wrist would improve Milo's
+  // attacks, AC, initiative and saves but leave his stealth untouched.
+  const dexMod = abilityModOf(u, 'dex');
   // Auto-success: inside his own cloud the heavy obscurement fully conceals him — Hide
   // succeeds with no roll. Standing still is NOT required; being in the smoke is enough.
   const autoHide = _inOwnSmoke(u);
@@ -1826,7 +1828,7 @@ function castBurningHands(caster) {
   } else {
     targets.forEach((target, i) => {
       setTimeout(() => {
-        const dexMod = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
+        const dexMod = abilityModOf(target, 'dex');
         const saveResult = roll({ sides: 20, modifier: dexMod });
         const saved = saveResult.total >= spell.saveDC;
         // Gear scales the full roll first, THEN the save halves it — so a saving target
@@ -2498,7 +2500,7 @@ export function setActionSave(u, save) {
   // roller's ability mod, so it differs per hero — Gobo (STR +3) needs ≥45, Milo (−2) needs
   // ≥70 against the same DC 12 web. Stored here so the button, badge and log all show the
   // correct per-hero number in d100 terms rather than a bare "DC 12".
-  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[save.stat] ?? 10) - 10) / 2);
+  const mod = abilityModOf(u, save.stat);   // includes gear — a +2 DEX wrist moves this number
   save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100)));
   save.threshold = 100 - save.chance;
   u.actionSave = save;
@@ -2517,7 +2519,7 @@ function _attemptActionSave(u) {
   if (!s || turnAttacked || isAnimating) return;
 
   turnAttacked = true;   // the attempt costs your Action whether it lands or not
-  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[s.stat] ?? 10) - 10) / 2);
+  const mod = abilityModOf(u, s.stat);
   const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal');
   const label = unitLabel(u);
 
@@ -2564,7 +2566,7 @@ function _checkConcentration(unit, dmgTaken, willDie) {
   }
   if (dmgTaken <= 0) return;
   const dc     = Math.max(10, Math.floor(dmgTaken / 2));
-  const conMod = Math.floor(((UNIT_TYPES[unit.type]?.abilities?.con ?? 10) - 10) / 2);
+  const conMod = abilityModOf(unit, 'con');   // no CON affix yet, but this is the right door
   const result = rollSave(conMod, dc, unit.dodging ? 'advantage' : 'normal');
   showRoll(`${label} · Concentration (CON DC ${dc})`, result, { autoDismiss: false });
   if (result.isSave) {
@@ -2595,7 +2597,7 @@ function _resolvePoison(target, poison, done) {
   const label  = unitLabel(target);
   const stat   = poison.saveStat ?? 'con';
   const dc     = poison.saveDC ?? 11;
-  const mod    = Math.floor(((UNIT_TYPES[target.type]?.abilities?.[stat] ?? 10) - 10) / 2);
+  const mod    = abilityModOf(target, stat);
   const res    = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
 
   showRoll(`${label} · Venom (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
@@ -2636,8 +2638,11 @@ function _resolvePoison(target, poison, done) {
 
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
-  const ab      = def.abilities ?? {};
-  const statMod = Math.floor(((ab[atk.statMod] ?? 10) - 10) / 2);
+  // abilityModOf, not the raw UNIT_TYPES read: it folds in the wrist str/dex affixes, which
+  // the static statblock knows nothing about. This ONE line covers both attack AND damage —
+  // atkMod and baseDmgMod below are both derived from statMod, which is exactly why an
+  // ability affix is a multiplier rather than a linear boost.
+  const statMod = abilityModOf(attacker, atk.statMod);
   // dmgBonus on attack overrides stat-derived damage mod (e.g. spell cantrips)
   const baseDmgMod   = atk.dmgBonus !== undefined ? atk.dmgBonus : statMod;
   // UNIT_TYPES.rage marks WHO rages; the damage comes from the barbarian table so it
@@ -2645,9 +2650,13 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   const rageDmgBonus = (attacker.raging && atk.type === 'melee' && UNIT_TYPES[attacker.type]?.rage)
     ? rageDamageForLevel(attacker.level ?? 1) : 0;
   const dmgMod  = baseDmgMod + rageDmgBonus;
-  // Precision passive (Gobo & Milo, L4+): flat % points added to hit chance on
-  // every attack — always active, independent of Rage/Hide.
-  const precisionBonus = precisionHitBonusForLevel(attacker.type, attacker.level);
+  // Flat percentage points added to hit chance, from two sources that share the one
+  // hitPctBonus channel rollToHit already exposes:
+  //   • Precision — the Gobo/Milo L4+ passive, always active, independent of Rage/Hide.
+  //   • Gear — the Wrist hit_pct affix. ⚠ Wrist is a PAIR, so affixTotal naturally counts
+  //     BOTH wrists; the ladder is priced for that (a red pair is ~+14-24%, not +7-12%).
+  const precisionBonus = precisionHitBonusForLevel(attacker.type, attacker.level)
+                       + affixTotal(attacker, 'hit_pct');
   const atkMod  = statMod + (def.profBonus ?? 0);
 
   const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to attack rolls
@@ -2893,8 +2902,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
   targets.forEach((hero, idx) => {
     setTimeout(() => {
       playGraveCurseBolt(attacker, hero, () => {
-        const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
-        const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
+        const saveMod       = abilityModOf(hero, saveType);
         const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to saving throws
         const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
         // Save halves first, THEN mitigation takes its cut of what's left — so a raging
@@ -3567,7 +3575,9 @@ export function rollInitiative() {
     u.dodging = false;
     // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
-    const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+    // Initiative is DEX-driven, so a +2 DEX wrist has to move it — leaving this on the static
+    // score would mean the same gear helped your attacks and AC but not your initiative.
+    const dexMod = abilityModOf(u, 'dex');
     const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
     u.initiative = roll({ sides: 20, modifier: bonus }).total;
     if (u.stealthed) setUnitStealth(u, true);
@@ -4880,7 +4890,7 @@ function _checkProximityAggro(hero) {
     u.grp.visible = true;
 
     // Re-roll initiative and re-slot after the current hero's position
-    const dexMod    = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+    const dexMod    = abilityModOf(u, 'dex');   // gear-aware, same as rollInitiative
     const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
     u.initiative    = roll({ sides: 20, modifier: initBonus }).total;
 
@@ -5449,7 +5459,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           return unitsHaveLOS(e, u);
         });
         if (inEnemyLOS) { onSkip(); return; }
-        const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
+        // `u`, not the 'halfling' literal: the literal can't see gear, and this is the
+        // automated twin of activateHide — the two must roll the same number.
+        const dexMod = abilityModOf(u, 'dex');
         // Auto-success anywhere inside his own smoke cloud (no stand-still requirement).
         const autoHide = _inOwnSmoke(u);
         const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
