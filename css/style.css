@@ -4799,8 +4799,9 @@ td.bst-col-retired { color: #343228 !important; }
   border-radius: 3px;
   border: 1px solid;
 }
-.sp-act-action { color: #cc7744; background: rgba(160,80,30,0.16); border-color: rgba(160,80,30,0.28); }
-.sp-act-bonus  { color: #6699cc; background: rgba(50,100,170,0.16); border-color: rgba(50,100,170,0.28); }
+.sp-act-action   { color: #cc7744; background: rgba(160,80,30,0.16);  border-color: rgba(160,80,30,0.28); }
+.sp-act-bonus    { color: #6699cc; background: rgba(50,100,170,0.16);  border-color: rgba(50,100,170,0.28); }
+.sp-act-reaction { color: #a879cc; background: rgba(130,70,180,0.16);  border-color: rgba(130,70,180,0.28); }
 
 .sp-range-cell {
   font-size: 0.72rem;
