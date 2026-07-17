@@ -1,6 +1,10 @@
 // js/equipment.js — item schema, equip/unequip helpers, AC calculation
 
 import { UNIT_TYPES } from './constants.js';
+// Safe: spells.js imports constants.js only, so this is a one-way edge. isFullCaster is the
+// same predicate the spell-slot table uses — so "can hold a focus" tracks "can cast" by
+// construction rather than by a second list someone has to remember to update.
+import { isFullCaster } from './spells.js';
 
 // Item schema:
 // {
@@ -242,16 +246,56 @@ export const ARMOR_DEX_CAP = { leather: Infinity, hide: 2, plate: 0 };
 // stat sheet's traits section. Nothing enforced it, so Rasec's own sheet said "cannot wear
 // light, medium, or heavy armor" while he was free to wear Plate.
 export function canEquip(hero, item) {
-  const need = MATERIAL_PROF[item?.material];
-  if (!need) return true;                       // cloth, or an item with no material at all
-  const prof = UNIT_TYPES[hero?.type]?.armorProficiency?.armor ?? [];
-  return prof.includes(need);
+  return equipBlockReason(hero, item) === null;
 }
 
-// Why not — for a tooltip/greyed-button explanation. Null when they CAN equip it.
+// ── Weapons, shields, foci ────────────────────────────────────────────────────
+// Weapons resolve against UNIT_TYPES.weaponProficiency, which — like armorProficiency —
+// already existed and was already shown in the traits window, and was equally unenforced.
+//
+// A hero may use a weapon if it's NAMED in their list, or if they have blanket proficiency in
+// its category. Gobo is simple+martial, so everything; Rasec is neither and gets only his five
+// named (Dagger, Dart, Sling, Quarterstaff, Light Crossbow).
+//
+// ⚠ Unlike armor, weapons genuinely PARTITION. Milo's named martials (Longsword, Rapier,
+// Shortsword, Shortbow, Hand Crossbow) and Leugren's (Battleaxe, Handaxe, Light Hammer,
+// Warhammer) are DISJOINT — so "this warhammer is Leugren's" is actually true, which was never
+// true of any armor material. Greataxe is martial and unnamed by anyone, so it's Gobo-only.
+function _weaponBlock(heroType, item) {
+  const wp = UNIT_TYPES[heroType]?.weaponProficiency;
+  if (!wp) return null;
+  if (wp.weapons?.includes(item.weaponType)) return null;   // named explicitly
+  if (item.category === 'simple'  && wp.simple)  return null;
+  if (item.category === 'martial' && wp.martial) return null;
+  return `Requires ${item.category} weapon proficiency`;
+}
+
+// Why a hero can't equip something — the string a greyed button explains itself with.
+// Null means they CAN. This is the single source of truth; canEquip is just `=== null`.
 export function equipBlockReason(hero, item) {
-  if (canEquip(hero, item)) return null;
-  return `Requires ${MATERIAL_PROF[item.material]} armor proficiency`;
+  const heroType = hero?.type;
+  if (!item) return null;
+
+  // Shield — the off-hand's own proficiency flag, separate from the armor list.
+  if (item.slot === 'off-hand' && item.ac) {
+    return UNIT_TYPES[heroType]?.armorProficiency?.shields ? null : 'Requires shield proficiency';
+  }
+
+  // Arcane/divine focus (orb, wand). NOT covered by any book proficiency — it's our rule
+  // (user, 2026-07-17): spellcasters only. isFullCaster is the same predicate the spell-slot
+  // table uses, so a hero who can cast can hold a focus, by construction.
+  if (item.focus) {
+    return isFullCaster(heroType) ? null : 'Requires spellcasting';
+  }
+
+  // Weapon.
+  if (item.weaponType) return _weaponBlock(heroType, item);
+
+  // Armor.
+  const need = MATERIAL_PROF[item.material];
+  if (!need) return null;                       // cloth, or an item with no material at all
+  const prof = UNIT_TYPES[heroType]?.armorProficiency?.armor ?? [];
+  return prof.includes(need) ? null : `Requires ${need} armor proficiency`;
 }
 
 // How good a material is, for a hero who can wear it. Only meaningful on CHEST, where it

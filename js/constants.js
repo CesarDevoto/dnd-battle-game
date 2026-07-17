@@ -997,7 +997,10 @@ export const UNIT_TYPES = {
     profBonus: 2,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', legs: 'chainlegs1', feet: 'plateboots4', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
+    // warhammer9's ART was renamed to lighthammer2, so that id no longer exists — repointed to
+    // warhammer1, an identical Warhammer (1d8 versatile 1d10). Keeps his kit unchanged; taken
+    // literally the rename would have handed him a 1d4 Light Hammer.
+    startingEquipment: { chest: 'chainarmor1', legs: 'chainlegs1', feet: 'plateboots4', 'main-hand': 'warhammer1', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -1043,7 +1046,11 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'sword4', 'off-hand': 'longbow4', 'bag-1': 'bag1' },
+    // sword4 -> longsword1 and longbow4 -> shortbow: both ids died when their art was renamed.
+    // Longsword is a step up from his old Shortsword (1d8 vs 1d6) and is in his named martials,
+    // so it's proficiency-legal. Note attacks still come from UNIT_TYPES.attacks, not the
+    // equipped weapon, so this changes his kit's LOOK and inventory, not his damage — yet.
+    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'longsword1', 'off-hand': 'shortbow', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

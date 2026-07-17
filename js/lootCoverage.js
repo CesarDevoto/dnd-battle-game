@@ -41,7 +41,7 @@
 // hero's best. Same destination, sound mechanism.
 
 import { ITEMS, isDroppable } from './items.js';
-import { materialLadder } from './equipment.js';
+import { materialLadder, MATERIAL_RANK, canEquip } from './equipment.js';
 
 const _KEY = 'dnd-loot-coverage';
 
@@ -67,12 +67,29 @@ export function noteAssigned(slot, rarity, heroType) {
 export function resetCoverage()    { _coverage = {}; _save(); }
 export function coverageSnapshot() { return JSON.parse(JSON.stringify(_coverage)); }
 
-// Which items of each material a slot actually stocks. Built once — ITEMS is static.
-// Same droppable predicate as loot.js's _DROP_POOL, shared from items.js so the two can't drift.
-const _BY_SLOT_MAT = {};
+// A drop's coverage CATEGORY — the thing a hero is or isn't proficient with. Armor uses its
+// material; weapons/ammo use their weaponType; shields and foci are their own kind. Anything
+// returning null (rings, cloaks, necklaces, bags) has no proficiency and can't starve anyone.
+const _categoryOf = it =>
+  it.material ?? it.weaponType ?? (it.ac ? '_shield' : it.focus ? '_focus' : null);
+
+// Which items of each category a slot actually stocks. Built once — ITEMS is static. Same
+// droppable predicate as loot.js's _DROP_POOL, shared from items.js so the two can't drift.
+const _BY_SLOT_CAT = {};
 for (const it of Object.values(ITEMS)) {
-  if (!isDroppable(it) || !it.material) continue;
-  ((_BY_SLOT_MAT[it.slot] ??= {})[it.material] ??= []).push(it);
+  const c = isDroppable(it) ? _categoryOf(it) : null;
+  if (!c) continue;
+  ((_BY_SLOT_CAT[it.slot] ??= {})[c] ??= []).push(it);
+}
+
+// Which of these heroes can use a (slot, category). Cached: canEquip needs a hero instance and
+// the roster is stable for a session, so this is a handful of entries computed once.
+const _usersCache = {};
+function _usersOf(slot, cat, heroTypes) {
+  const key = slot + '|' + cat + '|' + heroTypes.join(',');
+  if (_usersCache[key]) return _usersCache[key];
+  const probe = _BY_SLOT_CAT[slot][cat][0];
+  return (_usersCache[key] = heroTypes.filter(h => canEquip({ type: h }, probe)));
 }
 
 function _wpick(keys, wf) {
@@ -88,15 +105,37 @@ function _wpick(keys, wf) {
 // Null happens for slots with no materials at all (weapons, rings, cloaks, necklaces, bags):
 // those are equippable by anyone, so nobody can be starved of them and there is nothing to fix.
 export function coveragePool(slot, rarity, heroTypes) {
-  const mats = _BY_SLOT_MAT[slot];
-  if (!mats || !heroTypes?.length) return null;
+  const cats = _BY_SLOT_CAT[slot];
+  if (!cats || !heroTypes?.length) return null;
 
+  // STEP 1 — the hero this drop is for. Identical for armor and weapons.
   const n    = _coverage[slot]?.[rarity] ?? {};
   const hero = _wpick(heroTypes, h => 1 / (1 + (n[h] ?? 0)));
 
-  // Walk DOWN the hero's ladder to the first material this slot actually stocks. head and
-  // wrist carry no hide at all, so a Gobo-targeted drop there resolves to leather — he's
-  // still covered, because leather is on his ladder. Without the walk he'd get nothing.
-  for (const m of materialLadder(hero)) if (mats[m]?.length) return mats[m];
-  return null;   // this hero can wear nothing in this slot — let the caller fall back
+  // STEP 2 — the category. Two rules, because armor and weapons have different SHAPES.
+  //
+  // ARMOR is a perfect CHAIN: cloth ⊂ leather ⊂ hide ⊂ plate by proficiency, so each hero's
+  // ceiling is unique and every material has exactly one owner (cloth=Rasec, leather=Milo,
+  // hide=Gobo, plate=Leugren). Taking the ceiling gives an even 25/25/25/25.
+  //
+  // Walk DOWN the ladder to the first material the slot stocks: head and wrist carry no hide
+  // at all, so a Gobo-targeted drop there resolves to leather — still covered, since leather
+  // is on his ladder. Without the walk he'd get nothing.
+  if (Object.keys(cats).some(c => MATERIAL_RANK[c] !== undefined)) {
+    for (const m of materialLadder(hero)) if (cats[m]?.length) return cats[m];
+    return null;
+  }
+
+  // WEAPONS / SHIELDS / FOCI / AMMO are NOT a chain — Milo's named martials (Longsword,
+  // Shortsword) and Leugren's (Battleaxe, Warhammer) are DISJOINT, and nobody tops out at the
+  // 3-hero band. A ceiling rule here would leave Handaxe, Light Hammer and Javelin with no
+  // owner at all: 12 of 58 main-hand items permanently undroppable. Measured, not guessed.
+  //
+  // So weight by EXCLUSIVITY — 1 / (heroes who can use it). Every category stays reachable,
+  // and each hero is still pushed hard toward what's most distinctively theirs: Gobo to
+  // Greataxe/Greatsword (his alone, weight 1), Leugren to Warhammer/Battleaxe (1/2), Milo to
+  // Longsword/Shortsword (1/2), while shared simple weapons (1/3, 1/4) stay possible but rare.
+  const mine = Object.keys(cats).filter(c => _usersOf(slot, c, heroTypes).includes(hero));
+  if (!mine.length) return null;   // this hero can use nothing here — caller falls back
+  return cats[_wpick(mine, c => 1 / _usersOf(slot, c, heroTypes).length)];
 }

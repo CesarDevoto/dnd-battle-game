@@ -146,10 +146,12 @@ const _DROP_POOL = Object.values(ITEMS).filter(isDroppable);
 //     fill rate per physical slot, not twice the generosity.
 //   • Bags get 0.5: you need four, but they're a one-time fill rather than an upgrade
 //     treadmill, so a steady stream of them is dead loot.
-// A slot missing from this table can never drop (ammo has no items yet, so it's absent).
+// ⚠ A slot missing from this table can NEVER drop. That's the enforcement, not a comment:
+// _WEIGHTED_SLOTS filters on it, so adding art for a new slot without adding a weight here
+// means the art is silently unreachable forever.
 const _SLOT_WEIGHTS = {
   head: 1, neck: 1, chest: 1, cloak: 1, legs: 1, hands: 1, feet: 1, belt: 1,
-  'main-hand': 1, 'off-hand': 1,
+  'main-hand': 1, 'off-hand': 1, ammo: 1,
   wrist: 2, ring: 2,
   bag: 0.5,
 };
