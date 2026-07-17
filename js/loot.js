@@ -3,7 +3,13 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { getPotion } from './potions.js';
-import { getItem } from './items.js';
+import { getItem, ITEMS, isDroppable } from './items.js';
+import { rollAffixes } from './affixes.js';
+import { coveragePool } from './lootCoverage.js';
+// Safe: units.js does NOT import loot.js, so this is a one-way edge, not a cycle.
+// heroRoster is the LIVE array and is never cleared on death — a fallen hero still needs
+// gear, so coverage deliberately keeps counting them.
+import { heroRoster } from './units.js';
 
 // ── Dice helpers ──────────────────────────────────────────────────────────────
 function _d(n)        { return Math.ceil(Math.random() * n); }
@@ -79,8 +85,121 @@ function _pickGem(bracket) {
   return { name, rarity: 'gem', description: `A ${name.toLowerCase()} worth ${tier} gp.`, value: tier };
 }
 
-// ── Magic item tables — removed for now (2026-07-02), will be baked back in later ──
-// In the meantime, the only item drop is the Lesser Healing Potion (see below).
+// ══════════════════════════════════════════════════════════════════════════════
+//  ITEM DROP MODEL — see docs/loot-affix-design.md → "Drop model"
+// ══════════════════════════════════════════════════════════════════════════════
+// (Replaces the magic-item tables pulled on 2026-07-02. Until now the ONLY item drops were
+// the Lesser Healing Potion and two scripted quest pieces, so the 356-item catalog in
+// items.js was orphaned — nothing referenced it as a drop source.)
+//
+// TWO rolls per kill: how MANY items, then WHAT QUALITY each is.
+//
+// 1. QUALITY:  Q = 1d100 + 90 × √(CR/10)  → a rarity band, or nothing.
+//    One roll settles both "did anything drop" and "how good". Rarity gating falls out of
+//    the arithmetic for free — a goblin (CR ¼) tops out at Q≈114 and so CANNOT reach green's
+//    116 floor. No separate min-CR rule to keep in sync.
+//    The shift is CURVED on purpose: a straight CR×W steep enough to clear `nothing` by
+//    CR 10 would also hand a CR 10 enemy a red drop, since red sits only ~140 above
+//    nothing's edge. Steep early and shallow late is not a line.
+const _QUALITY_BANDS = [
+  { rarity: null,     upTo: 80  },   // nothing
+  { rarity: 'grey',   upTo: 115 },
+  { rarity: 'green',  upTo: 139 },
+  { rarity: 'blue',   upTo: 164 },
+  { rarity: 'purple', upTo: 200 },
+  { rarity: 'orange', upTo: 219 },
+  { rarity: 'red',    upTo: Infinity },
+];
+function _rollRarity(cr) {
+  const q = _d(100) + 90 * Math.sqrt(Math.max(0, cr ?? 0) / 10);
+  return (_QUALITY_BANDS.find(b => q <= b.upTo) ?? _QUALITY_BANDS[_QUALITY_BANDS.length - 1]).rarity;
+}
+
+// 2. COUNT: how many quality rolls this kill gets. 0% extra below CR 5; a 3rd opens at CR 10.
+//    The two are CUMULATIVE (P(≥3) ⊆ P(≥2)), so they're tested high-to-low.
+//    `start + slope` rather than one (CR−n)×k: that form can't set a value AND a slope
+//    independently — (CR−4)×10 gives the wanted 10% at CR 5 but saturates at 100% by CR 14.
+function _rollDropCount(cr) {
+  const c  = Math.max(0, cr ?? 0);
+  const p2 = c < 5  ? 0 : Math.min(100, 10 + (c - 5) * 3);
+  const p3 = c < 10 ? 0 : Math.min(100, 5  + (c - 10) * 2);
+  const r  = _pct();
+  if (r < p3) return 3;
+  if (r < p2) return 2;
+  return 1;
+}
+
+// Everything the random table can hand out. `isDroppable` is shared with lootCoverage.js so
+// the drop pool and the coverage index can't disagree about what exists. Built once — ITEMS
+// is static.
+const _DROP_POOL = Object.values(ITEMS).filter(isDroppable);
+
+// ── Slot balance ──────────────────────────────────────────────────────────────
+// ⚠ Picking uniformly from _DROP_POOL makes drop frequency an ACCIDENT OF ART COUNT. We had
+// 58 main-hand items and 11 neck items, so a main-hand was 5x likelier than a neck purely
+// because more weapons got drawn — nobody decided that. Adding a picture silently rebalanced
+// the game. So: pick the SLOT first from this table, then an item uniformly WITHIN it. Art
+// count now only decides WHICH sword you get, never how often you get a sword at all.
+//
+// Weights are the tuning surface and are RELATIVE — they don't need to sum to anything.
+//   • Pairs (wrist, ring) get 2: you fill two of them, so double the drops is the same
+//     fill rate per physical slot, not twice the generosity.
+//   • Bags get 0.5: you need four, but they're a one-time fill rather than an upgrade
+//     treadmill, so a steady stream of them is dead loot.
+// ⚠ A slot missing from this table can NEVER drop. That's the enforcement, not a comment:
+// _WEIGHTED_SLOTS filters on it, so adding art for a new slot without adding a weight here
+// means the art is silently unreachable forever.
+const _SLOT_WEIGHTS = {
+  head: 1, neck: 1, chest: 1, cloak: 1, legs: 1, hands: 1, feet: 1, belt: 1,
+  'main-hand': 1, 'off-hand': 1, ammo: 1,
+  wrist: 2, ring: 2,
+  bag: 0.5,
+};
+
+// Bucket the pool once — ITEMS is static, so this is built at module load like _DROP_POOL.
+const _POOL_BY_SLOT = {};
+for (const it of _DROP_POOL) (_POOL_BY_SLOT[it.slot] ??= []).push(it);
+
+// Only slots that BOTH have a weight and actually have items. Guards against a weight for a
+// slot with no art (silently impossible) and art for a slot with no weight (silently unreachable).
+const _WEIGHTED_SLOTS = Object.keys(_POOL_BY_SLOT).filter(s => _SLOT_WEIGHTS[s] > 0);
+const _TOTAL_WEIGHT   = _WEIGHTED_SLOTS.reduce((sum, s) => sum + _SLOT_WEIGHTS[s], 0);
+
+function _pickSlot() {
+  let r = Math.random() * _TOTAL_WEIGHT;
+  for (const s of _WEIGHTED_SLOTS) {
+    r -= _SLOT_WEIGHTS[s];
+    if (r < 0) return s;
+  }
+  return _WEIGHTED_SLOTS[_WEIGHTED_SLOTS.length - 1];   // float dust only
+}
+
+// Coverage — the "don't let RNG starve one hero" model — lives in lootCoverage.js. It's a
+// leaf (items.js + equipment.js), deliberately: this module imports three.js and the scene
+// for its 3D orbs, which would make the probability model impossible to test outside a
+// browser. See that file for the formula and the measurements behind it.
+
+// One drop: a random BASE wearing the ROLLED rarity, plus affixes rolled from that slot's
+// table. This is the rolled model — the base supplies name/icon/slot/material, the roll
+// supplies the tier and the numbers. `rarity` deliberately overwrites the base's own literal
+// (every catalog item says 'grey'), which is why bases don't need per-rarity duplicates.
+//
+// affixes is [] for any slot without a table yet (14 of 15 today) — those drop as plain
+// bases, exactly as they did before, so nothing regresses while the tables land one at a time.
+function _rollItem(cr) {
+  const rarity = _rollRarity(cr);
+  if (!rarity || !_WEIGHTED_SLOTS.length) return null;   // this roll came up empty
+
+  // Slot FIRST (weighted) — see _SLOT_WEIGHTS. Then coverage narrows it to the material a
+  // starved hero could actually use; see lootCoverage.js.
+  const slot = _pickSlot();
+  const pool = coveragePool(slot, rarity, heroRoster.map(h => h.type))
+            ?? _POOL_BY_SLOT[slot];   // slots with no materials (weapons, rings, cloaks, bags)
+  if (!pool?.length) return null;
+
+  const base = pool[Math.floor(Math.random() * pool.length)];
+  return { ...base, rarity, affixes: rollAffixes(base, rarity) };
+}
 
 // ── Drop chances per bracket (gems only — item drops handled separately) ─────
 const _CHANCES = [
@@ -135,6 +254,13 @@ export function rollLoot(cr, type = null, zoneId = null) {
   const ch = _CHANCES[b];
   const coins = _rollCoins(b);
   const items = [];
+
+  // Random gear. Each roll is independent and can come up empty, so N rolls is N CHANCES,
+  // not N items — only visible below CR 8, where `nothing` still has weight.
+  for (let i = 0, n = _rollDropCount(cr); i < n; i++) {
+    const it = _rollItem(cr);
+    if (it) items.push(it);
+  }
 
   if (Math.random() < ch.gem) items.push(_pickGem(ch.gemTier));
 

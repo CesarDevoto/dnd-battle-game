@@ -103,9 +103,108 @@ const SPELL_DATA = [
     conc:       false,
     desc: 'Roll 5d8 to determine how many hit points of creatures are affected. Starting from the creature with the lowest current HP, each target in range falls unconscious until the spell ends or the creature takes damage.',
   },
+  {
+    name:       'Silvery Barbs',
+    level:      1,
+    spellClass: 'Wizard',
+    actionType: 'Reaction',
+    range:      '60 ft',
+    effect:     'Force a reroll',
+    effectNote: 'lower roll · ally gains ADV',
+    conc:       false,
+    notImpl:    true,
+    desc: 'When a creature you can see within 60 ft succeeds on an attack roll, ability check, or saving throw, you can react to force it to reroll and use the lower result. A different creature you can see (you may choose yourself) then has advantage on its next attack roll, ability check, or saving throw within 1 minute.',
+  },
+  // ── 2nd Level ──────────────────────────────────────────────────────────────
+  {
+    name:       'Misty Step',
+    level:      2,
+    spellClass: 'Wizard',
+    actionType: 'Bonus',
+    range:      'Self',
+    effect:     'Teleport 30 ft',
+    effectNote: 'to a space you can see',
+    conc:       false,
+    notImpl:    true,
+    desc: 'Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see. Cast as a bonus action.',
+  },
+  {
+    name:       'Web',
+    level:      2,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      '60 ft',
+    effect:     'Restrain in webbing',
+    effectNote: 'DEX save · 20 ft cube · conc',
+    conc:       true,
+    notImpl:    true,
+    desc: 'You conjure a mass of thick, sticky webbing filling a 20-ft cube within range. The webs are difficult terrain and lightly obscure the area. A creature that starts its turn in the webs or enters them must make a DEX saving throw or be restrained while caught. A restrained creature can use its action to make a STR check to break free. Concentration, up to 1 hour.',
+  },
+  // ── 3rd Level ──────────────────────────────────────────────────────────────
+  {
+    name:       'Counterspell',
+    level:      3,
+    spellClass: 'Wizard',
+    actionType: 'Reaction',
+    range:      '60 ft',
+    effect:     'Negate a spell',
+    effectNote: 'lvl ≤ 3 auto · else check',
+    conc:       false,
+    notImpl:    true,
+    desc: "When you see a creature within 60 ft casting a spell, you attempt to interrupt it. If the creature is casting a spell of 3rd level or lower, its spell automatically fails. If 4th level or higher, make a spellcasting ability check (DC 10 + the spell's level); on a success the spell fails and has no effect.",
+  },
+  {
+    name:       'Fly',
+    level:      3,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      'Touch',
+    effect:     '60 ft fly speed',
+    effectNote: 'willing target · conc · 10 min',
+    conc:       true,
+    notImpl:    true,
+    desc: 'You touch a willing creature, granting it a flying speed of 60 feet for the duration. When the spell ends, the target falls if it is still aloft. Concentration, up to 10 minutes.',
+  },
+  {
+    name:       'Hypnotic Pattern',
+    level:      3,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      '120 ft',
+    effect:     'Charm & incapacitate',
+    effectNote: 'WIS save · 30 ft cube · conc',
+    conc:       true,
+    notImpl:    true,
+    desc: 'You create a twisting pattern of colors in a 30-ft cube within range. Each creature in the area that can see it must succeed on a WIS saving throw or become charmed — incapacitated, with a speed of 0 — for the duration. The effect ends for a creature if it takes any damage or if someone else uses an action to shake it out of the stupor. Concentration, up to 1 minute.',
+  },
+  {
+    name:       'Spirit Guardians',
+    level:      3,
+    spellClass: 'Cleric',
+    actionType: 'Action',
+    range:      'Self (15 ft)',
+    effect:     '3d8 radiant',
+    effectNote: 'WIS save half · speed halved · conc',
+    conc:       true,
+    notImpl:    true,
+    desc: 'Protective spirits flit around you in a 15-ft radius for the duration. An enemy that enters the area for the first time on a turn or starts its turn there takes 3d8 radiant damage (WIS saving throw for half), and the area is difficult terrain for your enemies. Concentration, up to 10 minutes.',
+  },
+  // ── 4th Level ──────────────────────────────────────────────────────────────
+  {
+    name:       'Polymorph',
+    level:      4,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      '60 ft',
+    effect:     'Transform into a beast',
+    effectNote: 'WIS save negates · conc',
+    conc:       true,
+    notImpl:    true,
+    desc: "You transform a creature you can see within range into a new form — a beast whose challenge rating is no higher than the target's level. An unwilling target makes a WIS saving throw to avoid the effect. Its game statistics are replaced by the beast's (it keeps its alignment and personality), and it can't cast spells or take actions the new form can't. It reverts when it drops to 0 hit points in beast form or when the spell ends. Concentration, up to 1 hour.",
+  },
 ];
 
-const LEVEL_LABELS = { 0: 'Cantrip', 1: '1st Level' };
+const LEVEL_LABELS = { 0: 'Cantrip', 1: '1st Level', 2: '2nd Level', 3: '3rd Level', 4: '4th Level' };
 
 const CLASS_META = {
   Cleric: { cls: 'sp-cleric', abbr: 'CLR' },
@@ -113,8 +212,9 @@ const CLASS_META = {
 };
 
 const ACTION_META = {
-  Action: { cls: 'sp-act-action', abbr: 'A' },
-  Bonus:  { cls: 'sp-act-bonus',  abbr: 'BA' },
+  Action:   { cls: 'sp-act-action',   abbr: 'A' },
+  Bonus:    { cls: 'sp-act-bonus',    abbr: 'BA' },
+  Reaction: { cls: 'sp-act-reaction', abbr: 'R' },
 };
 
 const COL_COUNT = 7;

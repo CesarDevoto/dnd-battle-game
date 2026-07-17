@@ -87,12 +87,15 @@ export const selectRing = new THREE.Mesh(
   new THREE.RingGeometry(INTERACTION.selectRingInner, INTERACTION.selectRingOuter, 32),
   new THREE.MeshBasicMaterial({
     color: COLORS.selectRing, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
-    depthTest: true,   // let the unit's body occlude the ring behind it
+    // depthTest off: a flat ring on the curved/sloped cave-roof blanket had its downhill
+    // half buried in the terrain and clipped away. Drawing it on top (like the other ground
+    // overlays) shows the full circle at the cost of the body no longer occluding its back arc.
+    depthTest: false, depthWrite: false,
   })
 );
 selectRing.rotation.x  = -Math.PI / 2;
 selectRing.position.y  = 0.06;
-selectRing.renderOrder = 3;
+selectRing.renderOrder = 12;
 selectRing.visible = false;
 scene.add(selectRing);
 

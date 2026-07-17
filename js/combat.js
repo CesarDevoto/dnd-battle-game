@@ -4,11 +4,14 @@ import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAni
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
+import { playFireEffect } from './fireEffect.js';
+import { playIceEffect } from './iceEffect.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
-         rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel } from './constants.js';
+         rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
+         rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive, layersCanSee } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
@@ -16,7 +19,9 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell } from './spells.js';
+import { affixTotal, abilityModOf } from './affixes.js';
+import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
+         hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
@@ -409,9 +414,10 @@ function showRangeRings(u) {
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = def.attacks ?? [];
   const meleeA = atks.find(a => a.type === 'melee');
-  // Rasec has no ranged weapon in attacks[] — Fire Bolt (90 ft) is his ranged
-  // attack via the synthetic _fireBoltAtk, so fall back to it for the ring.
-  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
+  // Rasec has no ranged WEAPON in attacks[] — Fire Bolt (90 ft) is what he throws at range,
+  // and it's a spell, so it never appears in a `type === 'ranged'` search. Fall back to it
+  // explicitly or the elf draws no ranged ring at all.
+  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   if (meleeA) {
@@ -731,6 +737,48 @@ function _isHiddenForSneak(u) {
 // the 'sneak_possible' tendency), where nothing has been torn down yet.
 function hasSneakAttackCondition(attacker, target, atkResult, wasHidden = _isHiddenForSneak(attacker)) {
   return atkResult.mode === 'advantage' || _allyAdjacentToTarget(attacker, target) || wasHidden;
+}
+
+// ── Damage mitigation ─────────────────────────────────────────────────────────
+// The fraction of incoming damage `target` shrugs off, summed across every source.
+//
+// RAGE MITIGATES ALL DAMAGE — not just weapon hits (user's rule, 2026-07-16). Anything
+// that reduces a hero's HP must come through here. Until 2026-07-16 the calc was inlined
+// in performAttack alone, so Morvath's AoE and poison riders bypassed Rage entirely and
+// hit a raging Gobo for full.
+//
+// Stacking is ADDITIVE: rage 10% + a 4% mitigation hat = 14%, applied as ONE multiply.
+// Not chained multipliers (×0.90 then ×0.96 = 13.6%) — that's a different, worse number.
+// The Head "Damage mitigation %" loot affix sums in here when it lands; see
+// docs/loot-affix-design.md → Mitigation stacking.
+function damageMitigationOf(target) {
+  let mit = 0;
+  if (target?.raging && UNIT_TYPES[target.type]?.rage) mit += rageMitigationForLevel(target.level);
+  // Gear. affixTotal sums the stat across every EQUIPPED item, so this one line covers any
+  // slot that ever rolls mitigation — and because every damage path already comes through
+  // here, gear mitigation applies to weapon hits, AoE and poison alike, for free.
+  mit += affixTotal(target, 'mitigation_pct') / 100;
+  return mit;
+}
+
+// Apply mitigation to a raw damage number. Floors at 1: a blow that lands always hurts,
+// however deep mitigation stacks — which is also the backstop against additive runaway.
+function applyMitigation(target, raw) {
+  const mit = damageMitigationOf(target);
+  return mit > 0 ? Math.max(1, Math.round(raw * (1 - mit))) : raw;
+}
+
+// Scale a SPELL's damage by the caster's gear. Rounds UP (user's rule, 2026-07-16) — which
+// matters more than it looks: spell damage is a percentage of a SMALL number (Fire Bolt is
+// 1d10, avg 5.5), so +6% of 7 is 7.42 and would round back to 7 and do literally nothing.
+// Ceil means a rolled bonus always moves the number.
+//
+// A percentage, not a flat bonus, precisely because of Magic Missile: it fires 4 darts rolled
+// separately, so a flat +2 would force a per-dart-vs-per-cast decision worth 4x. A % scales
+// whatever came out and leaves the dart breakdown in the log honest.
+function applySpellDamage(caster, raw) {
+  const pct = affixTotal(caster, 'spell_damage_pct');
+  return pct > 0 ? Math.ceil(raw * (1 + pct / 100)) : raw;
 }
 
 // Returns true when an attack has no qty limit OR still has shots remaining.
@@ -1130,15 +1178,16 @@ function castHeal(caster, target, spellKey) {
     showHealTargets(caster, spellKey);
     return;
   }
-  const isCantrip = (spell.level ?? 1) === 0;
-  if (!isCantrip && (caster.spellSlots ?? 0) <= 0) return;
+  const spellLvl  = spell.level ?? 1;
+  const isCantrip = spellLvl === 0;
+  if (!hasSpellSlot(caster, spellLvl)) return;
 
   faceTarget(caster, target);
   playUnitAttackAnim(caster, 'spell');
   hideHealTargets();
   hideSpellRangeRing();
   heroMode = null;
-  if (!isCantrip) caster.spellSlots--;
+  spendSpellSlot(caster, spellLvl);
 
   if (spell.actionType === 'action') turnAttacked      = true;
   else                               turnBonusActioned = true;
@@ -1201,10 +1250,10 @@ function castSacredFlame(caster, target, onDone) {
   const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
 
-  const dexMod     = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
+  const dexMod     = abilityModOf(target, 'dex');
   const saveResult = rollSave(dexMod, spell.saveDC, target.dodging ? 'advantage' : 'normal');
   const dmgRoll    = roll({ sides: spell.sides, count: spell.dice });
-  const dmg        = saveResult.isSave ? 0 : dmgRoll.total;
+  const dmg        = saveResult.isSave ? 0 : applySpellDamage(caster, dmgRoll.total);
 
   playSacredFlameEffect(caster, target, () => {
     target.aggro = true;
@@ -1227,7 +1276,7 @@ function castSacredFlame(caster, target, onDone) {
 }
 
 function castBless(caster) {
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('bless'))) return;
   playUnitAttackAnim(caster, 'spell');
   const rangeWU = atkRangeWU(SPELLS.bless.rangeFt) + 1.0;
   const targets = units.filter(u => u.team === 'blue' && u.hp > 0);
@@ -1240,7 +1289,7 @@ function castBless(caster) {
   }
 
   applyBless(caster, targets);
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('bless'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1288,9 +1337,7 @@ function handleSpellBtnClick(spellKey) {
   if (isAnimating) return;
   const u = turnOrder[turnIndex];
   if (!u || u.team !== 'blue') return;
-  const _spellDef  = SPELLS[spellKey];
-  const _isCantrip = (_spellDef?.level ?? 1) === 0;
-  if (!_isCantrip && (u.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
   // Toggle off if already in this mode
   if (heroMode === 'spell_' + spellKey) {
@@ -1424,10 +1471,10 @@ function activateMageArmor() {
   if (isAnimating || turnAttacked) return;
   const u = turnOrder[turnIndex];
   if (!u || u.type !== 'elf') return;
-  if ((u.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(u, spellLevelOf('mage_armor'))) return;
 
   u.mageArmored = true;
-  u.spellSlots--;
+  spendSpellSlot(u, spellLevelOf('mage_armor'));
   turnAttacked  = true;
 
   addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) for this combat`, 'spell');
@@ -1457,7 +1504,9 @@ function activateHide() {
   }
 
   const def    = UNIT_TYPES[u.type] ?? {};
-  const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+  // Hide is a DEX check, so gear counts — otherwise a +4 DEX wrist would improve Milo's
+  // attacks, AC, initiative and saves but leave his stealth untouched.
+  const dexMod = abilityModOf(u, 'dex');
   // Auto-success: inside his own cloud the heavy obscurement fully conceals him — Hide
   // succeeds with no roll. Standing still is NOT required; being in the smoke is enough.
   const autoHide = _inOwnSmoke(u);
@@ -1543,8 +1592,27 @@ function _heroPotion(u) {
   return item?.heal ? item : null;
 }
 
+// Whether this hero could drink right now. IN combat a potion is a bonus action on
+// their own turn; OUT of combat there's no turn economy to spend, so drinking is
+// free and bounded only by how many potions they're carrying. Exported so the
+// inventory right-click menu can grey its Use option for the same reasons the
+// Digit6 hotbar slot greys out.
+export function canUseHealingPotion(u) {
+  if (!u || u.hp <= 0 || isAnimating) return false;
+  if (!_heroPotion(u)) return false;
+  if (!combatPhase) return true;
+  return turnOrder[turnIndex] === u && !turnBonusActioned;
+}
+
+// Drink, from either entry point: the Digit6 hotbar slot (always in combat) or the
+// inventory right-click menu (either side of a fight). The in-combat-only bits are
+// gated on `inCombat` below — there's no bonus action to spend out of combat, and
+// _rebuildHotbar out there wrongly lights up End Turn/attacks before a fight starts.
+export function useHealingPotion(u) { _useHealingPotion(u); }
+
 function _useHealingPotion(u) {
-  if (isAnimating || turnBonusActioned) return;
+  if (!canUseHealingPotion(u)) return;
+  const inCombat = combatPhase && turnOrder[turnIndex] === u;
   const item = _heroPotion(u);
   if (!item) return;
   // Don't drink (or spend the bonus action / charge) at full HP.
@@ -1554,7 +1622,7 @@ function _useHealingPotion(u) {
     return;
   }
 
-  turnBonusActioned = true;
+  if (inCombat) turnBonusActioned = true;
 
   const formula = parseDiceFormula(item.heal);
   const healed  = formula ? Math.max(1, roll(formula).total) : 1;
@@ -1569,7 +1637,7 @@ function _useHealingPotion(u) {
   if (item.qty <= 0) u.equipment['bag-1'].contents[0] = null;
 
   updateCombatStatus();
-  _rebuildHotbar(u);
+  if (inCombat) _rebuildHotbar(u);
 }
 
 // ── Rage ─────────────────────────────────────────────────────────────────────
@@ -1580,7 +1648,7 @@ function activateRage(u) {
   turnBonusActioned = true;
   playSound('berserker_rage');
   showFloatingDamage(u, '⚔ RAGE!', '#ff6622');
-  const _bits = [`+${UNIT_TYPES[u.type]?.rage?.dmgBonus ?? 2} melee dmg`];
+  const _bits = [`+${rageDamageForLevel(u.level ?? 1)} melee dmg`];
   const _mit  = rageMitigationForLevel(u.level);
   if (_mit > 0) _bits.push(`resist ${Math.round(_mit * 100)}% dmg`);
   addLog(`${unitLabel(u)} enters RAGE! (${_bits.join(' · ')})`, 'spell');
@@ -1599,12 +1667,35 @@ function handleRageBtnClick() {
 
 // ── Elf (Rasec) spell casting ─────────────────────────────────────────────────
 
-// Fire Bolt as an attacks[]-shaped object — lets it reuse performAttack()'s
-// to-hit/damage/crit/VFX pipeline without living in UNIT_TYPES.attacks (which
-// would wrongly make it Rasec's "ranged weapon").
-function _fireBoltAtk() {
-  const sp = ELF_SPELLS.fire_bolt;
-  return { name: sp.name, type: 'ranged', range: sp.rangeFt, dice: sp.dice, sides: sp.sides, statMod: sp.statMod };
+// Fire Bolt is an ATTACK-ROLL spell (unlike Sacred Flame, which is a save spell), so it
+// resolves through performAttack — that's where to-hit, crit, advantage/disadvantage,
+// Bless, hit% and the projectile pipeline live, and duplicating them for spells would
+// guarantee the two copies drift apart.
+//
+// But it is NOT a weapon. `type: 'spell_attack'` keeps it out of every
+// `atks.find(a => a.type === 'ranged')` test — those mean "this hero's ranged WEAPON", and
+// Rasec hasn't got one. `spellKey` gives it a real spell identity, which is what lets the
+// coming damage affixes tell Spell damage from Weapon-attack damage (they must never touch
+// each other; see docs/loot-affix-design.md).
+//
+// Built ONCE from the spell definition — ELF_SPELLS.fire_bolt stays the single source of
+// truth for range/dice/stat, and this is frozen because it's now shared rather than rebuilt
+// per call, so an accidental write would corrupt every later cast.
+const FIRE_BOLT_ATK = Object.freeze({
+  name:     ELF_SPELLS.fire_bolt.name,
+  type:     'spell_attack',
+  spellKey: 'fire_bolt',
+  range:    ELF_SPELLS.fire_bolt.rangeFt,
+  dice:     ELF_SPELLS.fire_bolt.dice,
+  sides:    ELF_SPELLS.fire_bolt.sides,
+  statMod:  ELF_SPELLS.fire_bolt.statMod,
+});
+
+// Does this attack resolve like a ranged one — fly at the target, fire a projectile, check
+// long range? True for weapons AND attack-roll spells. This is the test performAttack wants;
+// `type === 'ranged'` on its own means "is a ranged WEAPON", which is a different question.
+function _resolvesRanged(atk) {
+  return atk?.type === 'ranged' || atk?.type === 'spell_attack';
 }
 
 function showMagicMissileTargets(caster) {
@@ -1629,13 +1720,13 @@ function showMagicMissileTargets(caster) {
 function castMagicMissile(caster, target, onDone) {
   const spell   = ELF_SPELLS.magic_missile;
   const freeUse = !caster.mmFreeUsed;
-  if (!freeUse && (caster.spellSlots ?? 0) <= 0) return;
+  if (!freeUse && !hasSpellSlot(caster, spellLevelOf('magic_missile'))) return;
   faceTarget(caster, target);
   playUnitAttackAnim(caster, 'ranged');
   hideAttackTargets();
   hideSpellRangeRing();
   heroMode = null;
-  if (freeUse) caster.mmFreeUsed = true; else caster.spellSlots--;
+  if (freeUse) caster.mmFreeUsed = true; else spendSpellSlot(caster, spellLevelOf('magic_missile'));
   turnAttacked = true;
 
   const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
@@ -1644,7 +1735,8 @@ function castMagicMissile(caster, target, onDone) {
   const darts = Array.from({ length: spell.darts }, () =>
     roll({ sides: spell.sides, modifier: spell.flatBonus })
   );
-  const totalDmg = darts.reduce((s, r) => s + r.total, 0);
+  // Scale the SUM, not each dart — the per-dart breakdown in the log stays the honest roll.
+  const totalDmg = applySpellDamage(caster, darts.reduce((s, r) => s + r.total, 0));
 
   // Visual — 4 neon purple arrows; damage applies when last bolt lands
   playMagicMissileEffect(caster, target, () => {
@@ -1664,9 +1756,9 @@ function castMagicMissile(caster, target, onDone) {
 
 function castSleep(caster) {
   const spell = ELF_SPELLS.sleep;
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('sleep'))) return;
   playUnitAttackAnim(caster, 'ranged');
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('sleep'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1713,9 +1805,9 @@ function castSleep(caster) {
 
 function castBurningHands(caster) {
   const spell = ELF_SPELLS.burning_hands;
-  if ((caster.spellSlots ?? 0) <= 0) return;
+  if (!hasSpellSlot(caster, spellLevelOf('burning_hands'))) return;
   playUnitAttackAnim(caster, 'ranged');
-  caster.spellSlots--;
+  spendSpellSlot(caster, spellLevelOf('burning_hands'));
   turnAttacked = true;
   heroMode = null;
 
@@ -1738,10 +1830,13 @@ function castBurningHands(caster) {
   } else {
     targets.forEach((target, i) => {
       setTimeout(() => {
-        const dexMod = Math.floor(((UNIT_TYPES[target.type]?.abilities?.dex ?? 10) - 10) / 2);
+        const dexMod = abilityModOf(target, 'dex');
         const saveResult = roll({ sides: 20, modifier: dexMod });
         const saved = saveResult.total >= spell.saveDC;
-        const dmg = saved ? Math.max(1, Math.floor(dmgResult.total / 2)) : dmgResult.total;
+        // Gear scales the full roll first, THEN the save halves it — so a saving target
+        // still feels the caster's Spell damage, just halved like everything else.
+        const _scaled = applySpellDamage(caster, dmgResult.total);
+        const dmg = saved ? Math.max(1, Math.floor(_scaled / 2)) : _scaled;
         target.aggro = true;
         buildTurnList();
         target.hp = Math.max(0, target.hp - dmg);
@@ -1763,7 +1858,7 @@ function handleElfSpellBtnClick(spellKey) {
   if (!u || u.type !== 'elf') return;
   if (turnAttacked) return;
   const hasFreeMM = spellKey === 'magic_missile' && !u.mmFreeUsed;
-  if (!hasFreeMM && (u.spellSlots ?? 0) <= 0) return;
+  if (!hasFreeMM && !hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
   if (spellKey === 'magic_missile') {
     if (heroMode === 'elfatk_magic_missile') {
@@ -2305,7 +2400,7 @@ function performAttack(attacker, target, atk, onSettled = null) {
     setTimeout(() => _executeAoeSave(attacker, target, atk, onSettled), 700);
     return;
   }
-  if (atk.type === 'ranged') {
+  if (_resolvesRanged(atk)) {
     _consumeAtkQty(attacker, atk);
     // Web is a ranged attack, but its projectile is the white ball spat by playWebEffect
     // (inside _executeAttack's web branch). The generic arrow from _projectileFor would fire
@@ -2407,7 +2502,7 @@ export function setActionSave(u, save) {
   // roller's ability mod, so it differs per hero — Gobo (STR +3) needs ≥45, Milo (−2) needs
   // ≥70 against the same DC 12 web. Stored here so the button, badge and log all show the
   // correct per-hero number in d100 terms rather than a bare "DC 12".
-  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[save.stat] ?? 10) - 10) / 2);
+  const mod = abilityModOf(u, save.stat);   // includes gear — a +2 DEX wrist moves this number
   save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100)));
   save.threshold = 100 - save.chance;
   u.actionSave = save;
@@ -2426,7 +2521,7 @@ function _attemptActionSave(u) {
   if (!s || turnAttacked || isAnimating) return;
 
   turnAttacked = true;   // the attempt costs your Action whether it lands or not
-  const mod = Math.floor(((UNIT_TYPES[u.type]?.abilities?.[s.stat] ?? 10) - 10) / 2);
+  const mod = abilityModOf(u, s.stat);
   const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal');
   const label = unitLabel(u);
 
@@ -2473,7 +2568,7 @@ function _checkConcentration(unit, dmgTaken, willDie) {
   }
   if (dmgTaken <= 0) return;
   const dc     = Math.max(10, Math.floor(dmgTaken / 2));
-  const conMod = Math.floor(((UNIT_TYPES[unit.type]?.abilities?.con ?? 10) - 10) / 2);
+  const conMod = abilityModOf(unit, 'con');   // no CON affix yet, but this is the right door
   const result = rollSave(conMod, dc, unit.dodging ? 'advantage' : 'normal');
   showRoll(`${label} · Concentration (CON DC ${dc})`, result, { autoDismiss: false });
   if (result.isSave) {
@@ -2504,7 +2599,7 @@ function _resolvePoison(target, poison, done) {
   const label  = unitLabel(target);
   const stat   = poison.saveStat ?? 'con';
   const dc     = poison.saveDC ?? 11;
-  const mod    = Math.floor(((UNIT_TYPES[target.type]?.abilities?.[stat] ?? 10) - 10) / 2);
+  const mod    = abilityModOf(target, stat);
   const res    = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
 
   showRoll(`${label} · Venom (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
@@ -2519,7 +2614,9 @@ function _resolvePoison(target, poison, done) {
   }
 
   const dmgResult = rollDnDDamage(poison, 0, false);
-  const poisonDmg = Math.max(1, dmgResult.total);
+  // Mitigated like everything else. Before 2026-07-16 poison went through a raging Gobo
+  // at full damage.
+  const poisonDmg = applyMitigation(target, Math.max(1, dmgResult.total));
   const willDie   = target.hp <= poisonDmg;
 
   setTimeout(() => {
@@ -2541,18 +2638,110 @@ function _resolvePoison(target, poison, done) {
   }, _POISON_BEAT);
 }
 
+// On-hit ELEMENTAL RIDER from the ATTACKER's neck amulet (Emberheart Pendant, etc.). The swing's
+// own damage has already landed; this adds the rider's element on top. Two things set it apart
+// from the spider's venom above: the source is the ATTACKER's gear (not the attack), and it's
+// save-for-HALF (user's rule) rather than save-negates — a made save halves the damage, it never
+// erases it. Instantaneous, no lingering condition. Its dice are stored as a formula on the rolled
+// affix (js/affixes.js) and rerolled HERE every hit, like weapon dice.
+//
+// done() fires exactly once, on every path, because the caller (onSettled) is waiting on it to
+// advance the turn — the same contract _resolvePoison keeps, and the class of bug /timing-audit hunts.
+const _RIDER_BEAT  = 0;
+const _RIDER_STYLE = {
+  fire:    { icon: '🔥', color: '#ff6622' },
+  cold:    { icon: '❄',  color: '#88ccff' },
+  poison:  { icon: '☠',  color: '#66dd44' },
+  disease: { icon: '☣',  color: '#a6c34a' },
+};
+function _resolveRider(attacker, target, rider, alreadyDead, done) {
+  if (!target) { done(); return; }
+
+  const label   = unitLabel(target);
+  const noun    = rider.damageType ?? 'elemental';
+  const stat    = rider.saveStat ?? 'con';
+  const dc      = rider.saveDC ?? 12;
+  const style   = _RIDER_STYLE[noun] ?? { icon: '✦', color: '#ffffff' };
+  const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const mod     = abilityModOf(target, stat);
+  const res     = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
+
+  showRoll(`${label} · ${nounCap} rider (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
+
+  const f       = parseDiceFormula(rider.dice);
+  const rawRoll = f ? roll(f) : { total: 1, dice: [1], modifier: 0, sides: 1, count: 1 };
+  // save-for-half: a made save halves the roll (floored, min 1); a failed save takes it in full.
+  const halved   = res.isSave;
+  const preMit   = Math.max(1, halved ? Math.floor(rawRoll.total / 2) : rawRoll.total);
+  const riderDmg = applyMitigation(target, preMit);
+  // alreadyDead: the swing itself was lethal, so this rider is OVERKILL. A kill must still SHOW all
+  // of its damage (the bug this fixes: Milo's ice vanished silently whenever the hit killed), so we
+  // display the float/effect/log regardless — we just don't drive hp past 0 or re-roll concentration,
+  // and WE own the removal (the lethal-swing path deferred it here so the mesh outlives the float).
+  const willDie  = alreadyDead || target.hp <= riderDmg;
+
+  setTimeout(() => {
+    addLog(halved
+      ? `${label} saves — half ${noun} (${saveBreakdown(res, stat)})`
+      : `${label} fails against the ${noun}! (${saveBreakdown(res, stat)})`, 'save');
+    addLog(`  ${style.icon} ${riderDmg} ${noun} damage (${dmgBreakdown(rawRoll)}${halved ? ' → half' : ''})`, 'dmg');
+    // Per-element burst on the struck target: dedicated fire/ice effects, and the poison burst
+    // stands in for the two organic riders (disease has no bespoke VFX yet).
+    if      (noun === 'fire') playFireEffect(target);
+    else if (noun === 'cold') playIceEffect(target);
+    else                      playPoisonEffect(target);   // poison + disease
+    showFloatingDamage(target, `${style.icon} -${riderDmg}`, style.color);
+
+    if (!alreadyDead) {
+      target.hp = Math.max(0, target.hp - riderDmg);
+      target.barShowUntil = Date.now() + 5000;
+      buildTurnList();
+      _checkConcentration(target, riderDmg, willDie);
+    }
+
+    if (willDie) {
+      setTimeout(() => { removeDefeatedUnit(target, attacker); done(); }, 400);
+    } else {
+      setTimeout(done, 150);
+    }
+  }, _RIDER_BEAT);
+}
+
+// The first on-hit rider on a unit's equipped gear (neck amulets today). ONE rider per hit — neck
+// is the only source, so there's never a second; if riders later spread to other slots, the
+// onSettled chain below would have to sequence them. Enemies carry no `equipment`, so this is
+// hero-only for free.
+function _onHitRiderOf(u) {
+  const eq = u?.equipment;
+  if (!eq) return null;
+  for (const slot of Object.keys(eq)) {
+    const r = eq[slot]?.affixes?.find(a => a.rider);
+    if (r) return r;
+  }
+  return null;
+}
+
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
-  const ab      = def.abilities ?? {};
-  const statMod = Math.floor(((ab[atk.statMod] ?? 10) - 10) / 2);
+  // abilityModOf, not the raw UNIT_TYPES read: it folds in the wrist str/dex affixes, which
+  // the static statblock knows nothing about. This ONE line covers both attack AND damage —
+  // atkMod and baseDmgMod below are both derived from statMod, which is exactly why an
+  // ability affix is a multiplier rather than a linear boost.
+  const statMod = abilityModOf(attacker, atk.statMod);
   // dmgBonus on attack overrides stat-derived damage mod (e.g. spell cantrips)
   const baseDmgMod   = atk.dmgBonus !== undefined ? atk.dmgBonus : statMod;
+  // UNIT_TYPES.rage marks WHO rages; the damage comes from the barbarian table so it
+  // scales +2 → +3 → +4 with level rather than sitting on the statblock's literal +2.
   const rageDmgBonus = (attacker.raging && atk.type === 'melee' && UNIT_TYPES[attacker.type]?.rage)
-    ? (UNIT_TYPES[attacker.type].rage.dmgBonus ?? 0) : 0;
+    ? rageDamageForLevel(attacker.level ?? 1) : 0;
   const dmgMod  = baseDmgMod + rageDmgBonus;
-  // Precision passive (Gobo & Milo, L4+): flat % points added to hit chance on
-  // every attack — always active, independent of Rage/Hide.
-  const precisionBonus = precisionHitBonusForLevel(attacker.type, attacker.level);
+  // Flat percentage points added to hit chance, from two sources that share the one
+  // hitPctBonus channel rollToHit already exposes:
+  //   • Precision — the Gobo/Milo L4+ passive, always active, independent of Rage/Hide.
+  //   • Gear — the Wrist hit_pct affix. ⚠ Wrist is a PAIR, so affixTotal naturally counts
+  //     BOTH wrists; the ladder is priced for that (a red pair is ~+14-24%, not +7-12%).
+  const precisionBonus = precisionHitBonusForLevel(attacker.type, attacker.level)
+                       + affixTotal(attacker, 'hit_pct');
   const atkMod  = statMod + (def.profBonus ?? 0);
 
   const blessBonus = blessedUnits.has(attacker) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to attack rolls
@@ -2580,7 +2769,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   if (_owlHelpTarget && target === _owlHelpTarget && attacker.type === 'elf') {
     hasAdvantage = true;
   }
-  if (atk.type === 'ranged' && atk.longRange) {
+  if (_resolvesRanged(atk) && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
     if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
@@ -2596,7 +2785,20 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
                      (_inOwnSmoke(target) ? SMOKE_AC_BONUS : 0);
   const targetBase = target.equipment ? computeAC(target) : (UNIT_TYPES[target.type]?.ac ?? COMBAT.defaultAC);
   const targetAC   = targetBase + _acBonus;
-  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, precisionBonus);
+  // The DEFENDER's gear subtracts from the very same hit-% channel the attacker adds to: the
+  // Chest ac_pct affix is a percentage-point reduction of the attacker's hit chance, NOT flat
+  // AC — flat AC is targetAC above, which chest armour already supplies through computeAC, and
+  // ac_pct stacks on top of it.
+  //
+  // Netted here rather than given its own rollToHit parameter so hit% keeps exactly ONE
+  // adjustment channel with both sides of it visible on one line. The 5-95 clamp then applies
+  // to the result, so armour can never drive an attacker below a 5% chance.
+  //
+  // ⚠ This is the ONLY path ac_pct touches. Save-based AoE and poison never reach rollToHit,
+  // so armour does nothing against them — deliberately unlike mitigation_pct, which lives in
+  // damageMitigationOf and so covers every damage path there is.
+  const hitPctNet = precisionBonus - affixTotal(target, 'ac_pct');
+  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, hitPctNet);
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   // Stealth ends here — after the roll (so the hidden bonus/advantage still applied):
@@ -2655,7 +2857,13 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     return;
   }
 
-  const sneakDef  = UNIT_TYPES[attacker.type]?.sneakAttack;
+  // UNIT_TYPES.sneakAttack only marks WHO has the ability (and the die size); the COUNT
+  // comes from the rogue table, so Milo's sneak scales 1d6 → 10d6 with level instead of
+  // sitting on the statblock's literal 1d6 forever.
+  const _sneakBase = UNIT_TYPES[attacker.type]?.sneakAttack;
+  const sneakDef  = _sneakBase
+    ? { ..._sneakBase, dice: sneakAttackDiceForLevel(attacker.level ?? 1) }
+    : null;
   const doSneak   = sneakDef && !sneakAttackUsed &&
                     hasSneakAttackCondition(attacker, target, atkResult, attackerWasHidden);
 
@@ -2668,12 +2876,17 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     sneakResult     = rollDnDDamage(sneakDef, 0, isCrit);
   }
 
-  const dmg      = Math.max(1, dmgResult.total);
+  // performAttack resolves BOTH weapon swings and attack-roll spells (Fire Bolt), so this is
+  // where "Spell damage" and "Weapon-attack damage" must not touch each other. atk.spellKey
+  // is what tells them apart — the whole reason Fire Bolt stopped being a fake type:'ranged'
+  // weapon. Sneak dice are deliberately outside it: they're the rogue's, not the caster's.
+  const dmg      = atk.spellKey
+    ? Math.max(1, applySpellDamage(attacker, dmgResult.total))
+    : Math.max(1, dmgResult.total);
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
   const totalRaw = dmg + sneakDmg;
-  const rageMit  = (target.raging && UNIT_TYPES[target.type]?.rage) ? rageMitigationForLevel(target.level) : 0;
-  const resisted = rageMit > 0;
-  const finalDmg = resisted ? Math.max(1, Math.round(totalRaw * (1 - rageMit))) : totalRaw;
+  const resisted = damageMitigationOf(target) > 0;
+  const finalDmg = applyMitigation(target, totalRaw);
 
   // When the damage-roll dice settle and display their number on screen.
   // If a sneak roll follows, the dmg roll plays fast; otherwise it is last (slow).
@@ -2709,7 +2922,10 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     } else {
       addLog(`${aLabel} hits ${tLabel} with ${atk.name} (${atkBreakdown(atkResult)})`, 'hit');
     }
-    playSound(atk.type === 'ranged' ? 'arrow_hit' : 'sword_hit');
+    // _resolvesRanged, not `type === 'ranged'`: without it Fire Bolt would fall through to
+    // sword_hit. It still plays arrow_hit, which is wrong for a bolt of flame but is the
+    // sound it already had — swapping it is a separate call, not a silent side effect here.
+    playSound(_resolvesRanged(atk) ? 'arrow_hit' : 'sword_hit');
     showFloatingDamage(target, `-${dmg}`, '#ff4422');
     addLog(`  ${dmg} damage (${dmgBreakdown(dmgResult)})`, 'dmg');
     if (atk.name === 'Inflict Wounds') playInflictWoundsEffect(target);
@@ -2723,24 +2939,45 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   }
 
   if (resisted) {
-    const _mitPct = Math.round(rageMit * 100);
+    // The SUMMED fraction, so the float stays honest once gear mitigation stacks on top
+    // of Rage — it reports what was actually taken off, not just Rage's share.
+    const _mitPct = Math.round(damageMitigationOf(target) * 100);
+    // ⚠ Label by SOURCE. `resisted` is damageMitigationOf > 0, which is true for GEAR alone,
+    // so hardcoding "RAGE" here told Rasec/Milo/Leugren — none of whom can rage at all — that
+    // their mitigation hat was Rage, and said it about Gobo when he wasn't raging either.
+    const _isRage = !!(target.raging && UNIT_TYPES[target.type]?.rage);
+    const _isGear = affixTotal(target, 'mitigation_pct') > 0;
+    const _name   = _isRage && _isGear ? 'Rage + armor' : _isRage ? 'Rage resistance' : 'Armor';
     setTimeout(() => {
-      showFloatingDamage(target, `⚔ RAGE -${_mitPct}%`, '#ff8844');
-      addLog(`  ⚔ Rage resistance (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
+      showFloatingDamage(target, `${_isRage ? '⚔' : '🛡'} ${_name.toUpperCase()} -${_mitPct}%`,
+                         _isRage ? '#ff8844' : '#88aaff');
+      addLog(`  ${_isRage ? '⚔' : '🛡'} ${_name} (-${_mitPct}%): ${totalRaw} → ${finalDmg}`, 'dmg');
     }, hpUpdateDelay + RESULT_PAUSE + 500);
   }
 
-  if (willDie) {
+  // An on-hit gear rider (elemental rider on the ATTACKER's neck) must STILL fire when the swing is
+  // lethal — a killing blow has to show ALL its damage, rider included (the bug: Milo's ice vanished
+  // silently on any kill). So when a rider will fire on a kill, DEFER the enemy's removal to the
+  // rider (_resolveRider does it) so its float/effect/log land before the mesh goes. Otherwise
+  // (no rider, or the spider's venom) remove on the normal beat.
+  const _rider     = _onHitRiderOf(attacker);
+  const _riderOnKill = !!_rider && !atk.poison;   // a gear rider shows even on a kill; venom keeps its old skip
+  if (willDie && !_riderOnKill) {
     setTimeout(() => removeDefeatedUnit(target, attacker), hpUpdateDelay + RESULT_PAUSE + 400);
   }
 
-  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable).
-  // A venomous attack (giant spider's bite) chains a save AFTER the bite damage lands, and
-  // onSettled must wait for that too — firing it early would advance the turn out from under
-  // the poison roll, which is exactly the class of turn-freeze bug /timing-audit hunts for.
+  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable). A follow-up
+  // save-and-damage — the spider's venom (enemy→hero) or a gear rider (hero→enemy) — chains AFTER
+  // the swing lands, and onSettled must wait for it too: firing early would advance the turn out
+  // from under the roll, the class of turn-freeze /timing-audit hunts. Venom keeps its already-dead
+  // skip (see _resolvePoison); the gear rider now fires even on a kill, taking `willDie` as its
+  // alreadyDead flag. The two are mutually exclusive in practice (venom is a statblock rider, the
+  // gear rider reads equipment); if both ever coexist, venom wins and the gear rider is skipped.
   const _settleAt = hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50);
   if (atk.poison && !willDie) {
     setTimeout(() => _resolvePoison(target, atk.poison, () => onSettled?.()), _settleAt + 250);
+  } else if (_rider) {
+    setTimeout(() => _resolveRider(attacker, target, _rider, willDie, () => onSettled?.()), _settleAt + 250);
   } else {
     setTimeout(() => onSettled?.(), _settleAt);
   }
@@ -2782,11 +3019,13 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
   targets.forEach((hero, idx) => {
     setTimeout(() => {
       playGraveCurseBolt(attacker, hero, () => {
-        const heroAb        = UNIT_TYPES[hero.type]?.abilities ?? {};
-        const saveMod       = Math.floor(((heroAb[saveType] ?? 10) - 10) / 2);
+        const saveMod       = abilityModOf(hero, saveType);
         const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to saving throws
         const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
-        const finalDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+        // Save halves first, THEN mitigation takes its cut of what's left — so a raging
+        // hero who also saves gets both. AoE was mitigated by nothing before 2026-07-16.
+        const savedDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
+        const finalDmg      = applyMitigation(hero, savedDmg);
         const tLabel        = unitLabel(hero);
         const outcome       = saveResult.isSave ? '½ dmg' : 'full dmg';
         const saveWord      = saveResult.isSave ? 'SAVES' : 'FAILS';
@@ -3453,7 +3692,9 @@ export function rollInitiative() {
     u.dodging = false;
     // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
-    const dexMod = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+    // Initiative is DEX-driven, so a +2 DEX wrist has to move it — leaving this on the static
+    // score would mean the same gear helped your attacks and AC but not your initiative.
+    const dexMod = abilityModOf(u, 'dex');
     const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
     u.initiative = roll({ sides: 20, modifier: bonus }).total;
     if (u.stealthed) setUnitStealth(u, true);
@@ -4096,7 +4337,7 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
       if (!isAbilityUnlocked(curU.type, curU.level, 'cure_wounds')) return false;
-      if ((curU.spellSlots ?? 0) <= 0) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('cure_wounds'))) return false;
       const rangeWU = atkRangeWU(SPELLS.cure_wounds.rangeFt);
       return units.some(ally => {
         if (ally.team !== 'blue' || ally.hp <= 0) return false;
@@ -4134,7 +4375,7 @@ const _ABILITY_HANDLERS = {
       const tgt = selectedTarget;
       turnAttacked = true;
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
-      performAttack(curU, tgt, _fireBoltAtk());
+      performAttack(curU, tgt, FIRE_BOLT_ATK);
       const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
       if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
       else { heroMode = null; }
@@ -4144,7 +4385,7 @@ const _ABILITY_HANDLERS = {
       if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf') return false;
-      const atk = _fireBoltAtk();
+      const atk = FIRE_BOLT_ATK;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
@@ -4157,7 +4398,8 @@ const _ABILITY_HANDLERS = {
     execute: () => handleSpellBtnClick('bless'),
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'dwarf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('bless'))) return false;
       return units.some(u => u.team === 'blue' && u.hp > 0);
     },
   },
@@ -4166,7 +4408,8 @@ const _ABILITY_HANDLERS = {
     execute: () => activateMageArmor(),
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
-      if (!curU || curU.type !== 'elf' || turnAttacked || (curU.spellSlots ?? 0) <= 0) return false;
+      if (!curU || curU.type !== 'elf' || turnAttacked) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('mage_armor'))) return false;
       return !curU.mageArmored;
     },
   },
@@ -4176,7 +4419,7 @@ const _ABILITY_HANDLERS = {
     isAvailable: () => {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf' || turnAttacked) return false;
-      if (curU.mmFreeUsed && (curU.spellSlots ?? 0) <= 0) return false;
+      if (curU.mmFreeUsed && !hasSpellSlot(curU, spellLevelOf('magic_missile'))) return false;
       if (!selectedTarget || selectedTarget.hp <= 0) return false;
       const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
@@ -4238,9 +4481,17 @@ const _ABILITY_HANDLERS = {
 // permanently the save's, and shows a greyed placeholder when the hero has no condition to
 // shake. assignHotbarSlot() rejects anything aimed at it, so the drag-drop can't reach it.
 const SAVE_SLOT = 'Digit1';
-const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT']);
+// The spare slots added when the bar was widened. They carry no fixed role (unlike
+// Digit2..Digit6) and no permanent binding (unlike Backquote/Tab, which are assignable
+// but hold NEXT HERO / NEXT TARGET), so they start empty and are safe to unbind wholesale
+// on a hero switch — see the pc-hero:selected handler.
+const SPARE_SLOTS = ['Digit7', 'Digit8', 'KeyU'];
+const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT',
+                                   ...SPARE_SLOTS]);
 
 // The QWERTY letter-row slots the auto-assigner fills, in order (Q→W→E→R→T→Y).
+// KeyU is deliberately NOT here: it's drag-drop only, so widening the bar didn't
+// silently change where level-up abilities land for existing heroes.
 const AUTO_FILL_SLOTS = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY'];
 
 // Level-1 signature ability for martial heroes that have no starting cantrip in
@@ -4552,18 +4803,10 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
   // Seed any freshly-unlocked signature ability into the next empty QWERTY slot
   // so it's on the bar even for a hero who isn't the active unit right now.
   autoAssignHotbarSlots(hero);
-  // Grant additional spell slots when leveling up
-  if (hero.type === 'dwarf') {
-    const clericSlots = newLevel >= 3 ? 3 : newLevel >= 2 ? 2 : 0;
-    const gain = clericSlots - (hero.spellSlotsMax ?? 0);
-    hero.spellSlotsMax = clericSlots;
-    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
-  } else if (hero.type === 'elf') {
-    const wizSlots = newLevel >= 2 ? 2 : 0;
-    const gain = wizSlots - (hero.spellSlotsMax ?? 0);
-    hero.spellSlotsMax = wizSlots;
-    if (gain > 0) hero.spellSlots = (hero.spellSlots ?? 0) + gain;
-  }
+  // Grant additional spell slots when leveling up. syncSlotsToLevel adds only the
+  // per-level DELTA to what's remaining — crossing a D&D band mid-fight hands over the
+  // new slots without refilling the ones already spent, same as the old code did.
+  syncSlotsToLevel(hero);
   if (!combatPhase) return;
   const curU = turnOrder[turnIndex];
   if (curU && curU === hero && curU.team === 'blue') _rebuildHotbar(curU);
@@ -4579,7 +4822,12 @@ window.addEventListener('pc-hero:selected', ({ detail }) => {
   const hero = detail?.hero;
   if (!hero || hero.team !== 'blue' || combatPhase) return;
   autoAssignHotbarSlots(hero);
-  for (const slot of AUTO_FILL_SLOTS) unbindHotkey(slot, false);
+  // Clear the previous hero's bindings before laying down this one's. SPARE_SLOTS are
+  // included: they're drag-drop targets like the QWERTY row, so without this an ability
+  // dropped on 7/8/U for one hero would still be sitting there after switching to another.
+  // Backquote/Tab are deliberately NOT cleared — they hold permanent NEXT HERO / NEXT
+  // TARGET bindings that unbindHotkey would happily destroy.
+  for (const slot of [...AUTO_FILL_SLOTS, ...SPARE_SLOTS]) unbindHotkey(slot, false);
   for (const [slotKey, abilityKey] of Object.entries(hero.hotbarSlots ?? {})) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
@@ -4715,9 +4963,19 @@ export function activateTurn(index) {
 }
 
 // ── Dynamic aggro radius ──────────────────────────────────────────────────────
-// CR ≤1 all map to effective level 1; CR 2+ map 1:1.
-const _XP_TO_EFF = { 25:1, 50:1, 100:1, 200:1, 450:2, 700:3, 1100:4, 1800:5 };
-function _effLevelOf(def) { return _XP_TO_EFF[def.xpReward ?? 0] ?? 1; }
+// CR ≤1 all map to effective level 1; CR 2+ map 1:1 — which is what the old comment here
+// always claimed, but NOT what the code did.
+//
+// ⚠ THIS WAS DEAD. It used to be `_XP_TO_EFF = {25:1, 50:1, 100:1, 200:1, 450:2, ...}` keyed
+// on xpReward — but those are D&D's RAW xp values, and we store the compressed scale
+// (5/10/20/40/90/...). The two sets intersected on exactly ONE enemy out of 58 (morvath at
+// 100), so `?? 1` fired for everyone and EVERY enemy resolved to effective level 1. The
+// dynamic aggro radius has never scaled. Reading CR directly is both the fix and the point:
+// CR is the source of truth, XP derives from it, so nothing should key off XP.
+function _effLevelOf(type) {
+  const cr = ENEMY_CR[type] ?? 0;
+  return cr <= 1 ? 1 : Math.ceil(cr);
+}
 
 function _partyHeroLevel() {
   const heroes = units.filter(u => u.team === 'blue' && u.hp > 0);
@@ -4727,7 +4985,7 @@ function _partyHeroLevel() {
 
 function _dynamicAggroRangeWU(u, def) {
   const baseWU   = u.detectRange ?? def.detect ?? 20;
-  const tierDiff = Math.ceil(_partyHeroLevel() / 5) - (_effLevelOf(def) + 4);
+  const tierDiff = Math.ceil(_partyHeroLevel() / 5) - (_effLevelOf(u.type) + 4);
   if (tierDiff < 0) return baseWU;
   return baseWU * Math.max(0, 1 - (tierDiff + 1) / 5);
 }
@@ -4749,7 +5007,7 @@ function _checkProximityAggro(hero) {
     u.grp.visible = true;
 
     // Re-roll initiative and re-slot after the current hero's position
-    const dexMod    = Math.floor(((def.abilities?.dex ?? 10) - 10) / 2);
+    const dexMod    = abilityModOf(u, 'dex');   // gear-aware, same as rollInitiative
     const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
     u.initiative    = roll({ sides: 20, modifier: initBonus }).total;
 
@@ -5190,7 +5448,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'cure_wounds') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'cure_wounds')) { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('cure_wounds'))) { onSkip(); return; }
         // Only fire for a critically wounded ally (<33% HP) — otherwise fall
         // through to Healing Word for lighter, slot-free healing.
         const critAlly = units
@@ -5198,7 +5456,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
         if (!critAlly) { onSkip(); return; }
         turnAttacked = true;
-        u.spellSlots--;
+        spendSpellSlot(u, spellLevelOf('cure_wounds'));
         const cw       = SPELLS.cure_wounds;
         const healRoll = roll({ sides: cw.healSides, count: cw.healDice, modifier: cw.healMod });
         const before   = critAlly.hp;
@@ -5220,7 +5478,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'bless') {
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'bless')) { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('bless'))) { onSkip(); return; }
         if (blessedUnits.size > 0)       { onSkip(); return; } // already active
         castBless(u);
         setTimeout(onDone, 900);
@@ -5246,7 +5504,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'mage_armor')) { onSkip(); return; }
         if (u.mageArmored)               { onSkip(); return; }
-        if ((u.spellSlots ?? 0) <= 0)    { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('mage_armor'))) { onSkip(); return; }
         activateMageArmor();
         setTimeout(onDone, 700);
         return;
@@ -5256,7 +5514,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'magic_missile') {
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'magic_missile')) { onSkip(); return; }
-        if (u.mmFreeUsed && (u.spellSlots ?? 0) <= 0) { onSkip(); return; }
+        if (u.mmFreeUsed && !hasSpellSlot(u, spellLevelOf('magic_missile'))) { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
         const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
@@ -5318,7 +5576,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           return unitsHaveLOS(e, u);
         });
         if (inEnemyLOS) { onSkip(); return; }
-        const dexMod = Math.floor(((UNIT_TYPES['halfling']?.abilities?.dex ?? 10) - 10) / 2);
+        // `u`, not the 'halfling' literal: the literal can't see gear, and this is the
+        // automated twin of activateHide — the two must roll the same number.
+        const dexMod = abilityModOf(u, 'dex');
         // Auto-success anywhere inside his own smoke cloud (no stand-still requirement).
         const autoHide = _inOwnSmoke(u);
         const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
@@ -5387,7 +5647,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'fire_bolt') {
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
-        const atk = _fireBoltAtk();
+        const atk = FIRE_BOLT_ATK;
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         const eDist = Math.sqrt(edx * edx + edz * edz);
@@ -5467,7 +5727,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       let _movFt;
       if (preferRange === 'ranged' || preferRange === 'kite') {
         const _atks    = UNIT_TYPES[u.type]?.attacks ?? [];
-        const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? _fireBoltAtk() : null);
+        const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
         const _rangeWU = _rangedA ? atkRangeWU(_rangedA.range) : 0;
         const _tdx = movTarget.grp.position.x - u.grp.position.x;
         const _tdz = movTarget.grp.position.z - u.grp.position.z;
@@ -5485,7 +5745,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const _tileLOS = (kx, kz, tx2, tz2) => hasLineOfSight(
           kx, kz, tx2, tz2, u.caveLayer ?? 'surface', movTarget.caveLayer ?? 'surface');
         dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, _tileLOS,
-                               u.type === 'elf' ? _fireBoltAtk() : null);
+                               u.type === 'elf' ? FIRE_BOLT_ATK : null);
       }
       hideMoveRange();
     }
@@ -5829,7 +6089,7 @@ function runAITurn(u) {
 
     function runSpellcasterPaths() {
       if (!combatPhase || !units.includes(u)) return;
-      const slots = u.spellSlots ?? 0;
+      const slots = totalSpellSlots(u);   // enemy statblocks keep the flat pool; helper reads both
       const _def  = UNIT_TYPES[u.type] ?? {};
       const atks  = _def.attacks ?? [];
       const meleeA   = atks.find(a => a.type === 'melee');

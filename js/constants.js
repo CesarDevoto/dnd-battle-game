@@ -153,7 +153,7 @@ export const UNIT_TYPES = {
     anchorY: 1.38,
     // CR 1/8 — Very Easy
     detect: 20,
-    hp: 5, ac: 12, speed: 30, initiative: 0, xpReward: 5,
+    hp: 5, ac: 12, speed: 30, initiative: 0,
     profBonus: 2,
     abilities: { str: 7, dex: 15, con: 9, int: 8, wis: 7, cha: 8 },
     attacks: [
@@ -171,7 +171,7 @@ export const UNIT_TYPES = {
     anchorY: 1.4,
     // CR 1/4 — Easy
     detect: 20,
-    hp: 7, ac: 15, speed: 30, initiative: 0, xpReward: 10,
+    hp: 7, ac: 15, speed: 30, initiative: 0,
     profBonus: 2,
     abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
     attacks: [
@@ -195,7 +195,7 @@ export const UNIT_TYPES = {
     anchorY: 0.85,
     // CR 0 — Commoner-tier (no XP)
     detect: 20,
-    hp: 4, ac: 10, speed: 30, initiative: 0, xpReward: 0,
+    hp: 4, ac: 10, speed: 30, initiative: 0,
     profBonus: 2,
     passivePerception: 10,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -215,7 +215,7 @@ export const UNIT_TYPES = {
     yOffset: 0.9,
     anchorY: 1.9,
     detect: 20,
-    hp: 4, ac: 10, speed: 30, initiative: 0, xpReward: 0,
+    hp: 4, ac: 10, speed: 30, initiative: 0,
     profBonus: 2,
     passivePerception: 10,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -233,7 +233,7 @@ export const UNIT_TYPES = {
     anchorY: 2.8,
     // CR 1/2 — Medium
     detect: 20,
-    hp: 15, ac: 13, speed: 30, initiative: 0, xpReward: 20,
+    hp: 15, ac: 13, speed: 30, initiative: 0,
     profBonus: 2,
     abilities: { str: 16, dex: 12, con: 16, int: 7, wis: 11, cha: 10 },
     attacks: [
@@ -259,7 +259,7 @@ export const UNIT_TYPES = {
     rangedRotY: 0,
     // CR 2 — Hard
     detect: 20,
-    hp: 59, ac: 11, speed: 40, initiative: 0, xpReward: 90,
+    hp: 59, ac: 11, speed: 40, initiative: 0,
     profBonus: 2,
     abilities: { str: 19, dex: 8, con: 16, int: 5, wis: 7, cha: 7 },
     attacks: [
@@ -271,7 +271,7 @@ export const UNIT_TYPES = {
   wolf: {
     name: 'Wolf', team: 'red',
     scale: [1.242, 1.242, 1.242], anchorY: 1.3,
-    hp: 11, ac: 13, speed: 40, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 11, ac: 13, speed: 40, initiative: 0, profBonus: 2,
     abilities: { str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'dex',
@@ -282,7 +282,7 @@ export const UNIT_TYPES = {
   ice_mephit: {
     name: 'Ice Mephit', team: 'red',
     scale: [0.75, 0.75, 0.75], anchorY: 1.2,
-    hp: 21, ac: 11, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 21, ac: 11, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 7, dex: 13, con: 10, int: 9, wis: 11, cha: 12 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'dex' },
@@ -305,7 +305,7 @@ export const UNIT_TYPES = {
     // clip, but the shot reads as leaving the bow rather than trailing it. Do NOT use the
     // peak-draw frame (~250ms): the arrow visibly leaves before he has finished drawing.
     rangedReleaseMs: 800,
-    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 22, ac: 15, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 11, int: 6, wis: 10, cha: 7 },
     attacks: [
       { name: 'Spear',   type: 'melee',  range: 5,   dice: 1, sides: 6, statMod: 'str' },
@@ -317,7 +317,7 @@ export const UNIT_TYPES = {
     name: 'Hyena', team: 'red',
     // ~3.3x the base export (0.825 → 2.72); anchorY tracks the scale so the HP bar stays overhead.
     scale: [2.7225, 2.7225, 2.7225], anchorY: 3.63,
-    hp: 5, ac: 11, speed: 50, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 5, ac: 11, speed: 50, initiative: 0, profBonus: 2,
     abilities: { str: 11, dex: 13, con: 12, int: 2, wis: 12, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'dex' },
@@ -330,7 +330,7 @@ export const UNIT_TYPES = {
     // Web shot was landing 45° clockwise of the target. Rotate the ranged clip 45°
     // counter-clockwise from the non-elf default (-π/2 → -π/4).
     rangedRotY: -Math.PI / 4,
-    hp: 26, ac: 14, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 26, ac: 14, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 14, dex: 16, con: 12, int: 2, wis: 11, cha: 4 },
     attacks: [
       // A landed bite ALSO forces a CON save or the venom bites deeper — see `poison`
@@ -351,7 +351,7 @@ export const UNIT_TYPES = {
   twig_blight: {
     name: 'Twig Blight', team: 'red',
     scale: [0.65, 0.65, 0.65], anchorY: 0.9,
-    hp: 4, ac: 13, speed: 20, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 4, ac: 13, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 6, dex: 13, con: 12, int: 4, wis: 8, cha: 3 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -361,7 +361,7 @@ export const UNIT_TYPES = {
   stirge: {
     name: 'Stirge', team: 'red',
     scale: [0.5, 0.5, 0.5], anchorY: 0.8, hoverY: 2.5,
-    hp: 2, ac: 14, speed: 40, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 2, ac: 14, speed: 40, initiative: 0, profBonus: 2,
     abilities: { str: 4, dex: 16, con: 11, int: 2, wis: 8, cha: 6 },
     attacks: [
       { name: 'Blood Drain', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
@@ -374,7 +374,7 @@ export const UNIT_TYPES = {
     // Model origin is centered (mesh min y ≈ -1.0), so feet sit below origin;
     // yOffset lifts them to ground. Grounding is bbox-derived — nudge with [ / ] if off.
     scale: [0.65, 0.65, 0.65], yOffset: 0.65, anchorY: 0.9,
-    hp: 7, ac: 12, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 7, ac: 12, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 7, dex: 15, con: 11, int: 2, wis: 10, cha: 4 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -384,7 +384,7 @@ export const UNIT_TYPES = {
   troglodyte: {
     name: 'Troglodyte', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 1.6,
-    hp: 13, ac: 11, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 13, ac: 11, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 14, dex: 10, con: 14, int: 6, wis: 10, cha: 6 },
     attacks: [
       { name: 'Claw', type: 'melee', range: 5, dice: 2, sides: 4, statMod: 'str' },
@@ -395,7 +395,7 @@ export const UNIT_TYPES = {
   constrictor_snake: {
     name: 'Constrictor Snake', team: 'red',
     scale: [2.5, 2.5, 2.5], anchorY: 2.0,
-    hp: 13, ac: 12, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 13, ac: 12, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
@@ -407,7 +407,7 @@ export const UNIT_TYPES = {
   lizardfolk: {
     name: 'Lizardfolk', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 22, ac: 15, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 22, ac: 15, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 7, wis: 12, cha: 7 },
     attacks: [
       { name: 'Heavy Club', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -418,7 +418,7 @@ export const UNIT_TYPES = {
   bugbear: {
     name: 'Bugbear', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.4,
-    hp: 27, ac: 16, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 27, ac: 16, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9 },
     attacks: [
       { name: 'Morningstar', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
@@ -429,7 +429,7 @@ export const UNIT_TYPES = {
   warg: {
     name: 'Warg', team: 'red',
     scale: [1.45, 1.45, 1.45], anchorY: 1.6,
-    hp: 26, ac: 13, speed: 50, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 26, ac: 13, speed: 50, initiative: 0, profBonus: 2,
     abilities: { str: 17, dex: 12, con: 13, int: 7, wis: 11, cha: 8 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -440,7 +440,7 @@ export const UNIT_TYPES = {
   dire_wolf: {
     name: 'Dire Wolf', team: 'red',
     scale: [1.3, 1.3, 1.3], anchorY: 1.9,
-    hp: 37, ac: 14, speed: 50, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 37, ac: 14, speed: 50, initiative: 0, profBonus: 2,
     abilities: { str: 17, dex: 15, con: 15, int: 3, wis: 12, cha: 7 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -453,7 +453,7 @@ export const UNIT_TYPES = {
     // 50% larger than the base export — anchorY scales with it, or the HP bar would
     // float at his chest instead of over his head.
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
-    hp: 11, ac: 18, speed: 30, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 11, ac: 18, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 13, dex: 12, con: 12, int: 10, wis: 10, cha: 9 },
     attacks: [
       { name: 'Longsword', type: 'melee',  range: 5,  dice: 1, sides: 8, statMod: 'str' },
@@ -467,7 +467,7 @@ export const UNIT_TYPES = {
     // ~1.37). scale 2.2 → ~2.39 WU in-world, ~15% taller than a rank-and-file hobgoblin
     // (1.5×1.37≈2.06). anchorY tracks the taller silhouette or the HP bar floats at his chest.
     scale: [2.2, 2.2, 2.2], anchorY: 3.5,
-    hp: 58, ac: 17, speed: 30, initiative: 0, xpReward: 140, profBonus: 2,
+    hp: 58, ac: 17, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 14, int: 12, wis: 10, cha: 13 },
     // Aura of Authority (10-ft emanation granting it + allies advantage on attacks and
     // saves) is NOT modelled — the combat engine has no team-buff aura system yet. Left as
@@ -498,7 +498,7 @@ export const UNIT_TYPES = {
     // no rangedRotY override (the default is right for Archery_Shot_1), and the arrow
     // loosed before the clip ends. See the gnoll entry above for why.
     rangedReleaseMs: 800,
-    hp: 49, ac: 15, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    hp: 49, ac: 15, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 11, cha: 9 },
     attacks: [
       { name: 'Flail',   type: 'melee',  range: 5,   dice: 1, sides: 8, statMod: 'str' },
@@ -509,7 +509,7 @@ export const UNIT_TYPES = {
   yuan_ti_pureblood: {
     name: 'Yuan-ti Pureblood', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.1,
-    hp: 40, ac: 11, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 40, ac: 11, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 11, dex: 16, con: 11, int: 13, wis: 12, cha: 14 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'dex' },
@@ -520,7 +520,7 @@ export const UNIT_TYPES = {
   snake: {
     name: 'Giant Poisonous Snake', team: 'red',
     scale: [3.0, 3.0, 3.0], anchorY: 2.4,
-    hp: 11, ac: 14, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 11, ac: 14, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 10, dex: 18, con: 11, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex',
@@ -531,7 +531,7 @@ export const UNIT_TYPES = {
   giant_constrictor_snake: {
     name: 'Giant Constrictor Snake', team: 'red',
     scale: [7.0, 7.0, 7.0], anchorY: 5.6,
-    hp: 60, ac: 12, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    hp: 60, ac: 12, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 19, dex: 14, con: 12, int: 1, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite',      type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str' },
@@ -543,7 +543,7 @@ export const UNIT_TYPES = {
   troll: {
     name: 'Troll', team: 'red',
     scale: [1.6, 1.6, 1.6], anchorY: 3.6,
-    hp: 84, ac: 15, speed: 30, initiative: 0, xpReward: 360, profBonus: 3,
+    hp: 84, ac: 15, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 13, con: 20, int: 7, wis: 9, cha: 7 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str' },
@@ -555,7 +555,7 @@ export const UNIT_TYPES = {
   yeti: {
     name: 'Yeti', team: 'red',
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
-    hp: 51, ac: 12, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 51, ac: 12, speed: 40, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 13, con: 16, int: 8, wis: 12, cha: 7 },
     attacks: [
       { name: 'Claw', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -566,7 +566,7 @@ export const UNIT_TYPES = {
   gnoll_fang: {
     name: 'Gnoll Fang of Yeenoghu', team: 'red',
     scale: [1.3, 1.3, 1.3], anchorY: 2.5,
-    hp: 65, ac: 14, speed: 30, initiative: 0, xpReward: 220, profBonus: 3,
+    hp: 65, ac: 14, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 17, dex: 12, con: 14, int: 10, wis: 11, cha: 12 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str' },
@@ -579,7 +579,7 @@ export const UNIT_TYPES = {
     // Three 20% bumps up from the original 1.5 (→ 1.8 → 2.16 → 2.59). anchorY tracks it
     // (3.0 → 5.18) or the HP bar floats inside the model's head instead of above it.
     scale: [2.59, 2.59, 2.59], anchorY: 5.18, large: true,
-    hp: 59, ac: 13, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 59, ac: 13, speed: 40, initiative: 0, profBonus: 3,
     abilities: { str: 20, dex: 12, con: 17, int: 3, wis: 12, cha: 7 },
     // Its loco clip (jump_push_up — see units.js) is authored far too slow for the ground
     // speed it actually covers, so it skated. Play it at 300% when charging. Run only:
@@ -606,7 +606,7 @@ export const UNIT_TYPES = {
   werewolf: {
     name: 'Werewolf', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 2.4,
-    hp: 58, ac: 12, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 58, ac: 12, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 15, dex: 13, con: 14, int: 10, wis: 11, cha: 10 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str',
@@ -618,7 +618,7 @@ export const UNIT_TYPES = {
   minotaur: {
     name: 'Minotaur', team: 'red',
     scale: [1.6, 1.6, 1.6], large: true, anchorY: 3.5,
-    hp: 114, ac: 14, speed: 40, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 114, ac: 14, speed: 40, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 11, con: 16, int: 6, wis: 16, cha: 9 },
     attacks: [
       { name: 'Greataxe', type: 'melee', range: 5, dice: 2, sides: 12, statMod: 'str' },
@@ -630,7 +630,7 @@ export const UNIT_TYPES = {
   yuan_ti_malison: {
     name: 'Yuan-ti Malison', team: 'red',
     scale: [1.25, 1.25, 1.25], anchorY: 2.3,
-    hp: 66, ac: 15, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 66, ac: 15, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 16, dex: 14, con: 13, int: 14, wis: 12, cha: 16 },
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 2, sides: 6, statMod: 'str' },
@@ -642,7 +642,7 @@ export const UNIT_TYPES = {
   shambling_mound: {
     name: 'Shambling Mound', team: 'red',
     scale: [1.6, 1.6, 1.6], large: true, anchorY: 3.5,
-    hp: 136, ac: 15, speed: 20, initiative: 0, xpReward: 360, profBonus: 3,
+    hp: 136, ac: 15, speed: 20, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 8, con: 16, int: 5, wis: 10, cha: 5 },
     attacks: [
       { name: 'Slam', type: 'melee', range: 5, dice: 2, sides: 8, statMod: 'str',
@@ -653,7 +653,7 @@ export const UNIT_TYPES = {
   giant_frog: {
     name: 'Giant Frog', team: 'red',
     scale: [0.85, 0.85, 0.85], anchorY: 1.2,
-    hp: 18, ac: 11, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 18, ac: 11, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 12, dex: 13, con: 11, int: 2, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str',
@@ -664,7 +664,7 @@ export const UNIT_TYPES = {
   bullywug: {
     name: 'Bullywug', team: 'red',
     scale: [0.90, 0.90, 0.90], anchorY: 1.5,
-    hp: 11, ac: 15, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 11, ac: 15, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 14, dex: 12, con: 13, int: 7, wis: 10, cha: 7 },
     attacks: [
       { name: 'Bite',  type: 'melee',  range: 5,  dice: 1, sides: 4, statMod: 'str' },
@@ -675,7 +675,7 @@ export const UNIT_TYPES = {
   mud_mephit: {
     name: 'Mud Mephit', team: 'red',
     scale: [0.75, 0.75, 0.75], anchorY: 1.1,
-    hp: 27, ac: 11, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 27, ac: 11, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 8, dex: 12, con: 14, int: 9, wis: 11, cha: 7 },
     attacks: [
       { name: 'Claws',      type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -687,7 +687,7 @@ export const UNIT_TYPES = {
   crocodile: {
     name: 'Crocodile', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 1.2,
-    hp: 19, ac: 12, speed: 20, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 19, ac: 12, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 2, wis: 10, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str',
@@ -698,7 +698,7 @@ export const UNIT_TYPES = {
   giant_toad: {
     name: 'Giant Toad', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 1.3,
-    hp: 39, ac: 11, speed: 20, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 39, ac: 11, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 13, con: 11, int: 2, wis: 10, cha: 3 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 10, statMod: 'str',
@@ -709,7 +709,7 @@ export const UNIT_TYPES = {
   bullywug_croaker: {
     name: 'Bullywug Croaker', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 1.8,
-    hp: 30, ac: 15, speed: 20, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 30, ac: 15, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 10, cha: 8 },
     attacks: [
       { name: 'Bite',  type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -720,7 +720,7 @@ export const UNIT_TYPES = {
   swarm_of_insects: {
     name: 'Swarm of Insects', team: 'red',
     scale: [0.80, 0.80, 0.80], anchorY: 0.8, hoverY: 2,
-    hp: 22, ac: 12, speed: 20, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 22, ac: 12, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 3, dex: 13, con: 10, int: 1, wis: 7, cha: 1 },
     attacks: [
       { name: 'Bites', type: 'melee', range: 0, dice: 4, sides: 4, statMod: 'dex',
@@ -731,7 +731,7 @@ export const UNIT_TYPES = {
   lizardfolk_shaman: {
     name: 'Lizardfolk Shaman', team: 'red',
     scale: [1.05, 1.05, 1.05], anchorY: 2.1,
-    hp: 45, ac: 13, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    hp: 45, ac: 13, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 10, con: 13, int: 11, wis: 14, cha: 11 },
     attacks: [
       { name: 'Claws',           type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'str' },
@@ -743,7 +743,7 @@ export const UNIT_TYPES = {
   green_hag: {
     name: 'Green Hag', team: 'red',
     scale: [1.10, 1.10, 1.10], anchorY: 2.2,
-    hp: 82, ac: 17, speed: 30, initiative: 0, xpReward: 140, profBonus: 3,
+    hp: 82, ac: 17, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 12, con: 16, int: 13, wis: 14, cha: 14 },
     attacks: [
       { name: 'Claws',          type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
@@ -755,7 +755,7 @@ export const UNIT_TYPES = {
   ghoul: {
     name: 'Ghoul', team: 'red', undead: true,
     scale: [1.5, 1.5, 1.5], anchorY: 3.0,
-    hp: 22, ac: 12, speed: 30, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 22, ac: 12, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 13, dex: 15, con: 10, int: 7, wis: 10, cha: 6 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 6, hitBonus: 2, dmgBonus: 2 },
@@ -767,7 +767,7 @@ export const UNIT_TYPES = {
   zombie: {
     name: 'Zombie', team: 'red', undead: true,
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 22, ac: 8, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 22, ac: 8, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
     attacks: [
       { name: 'Slam', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'str',
@@ -778,7 +778,7 @@ export const UNIT_TYPES = {
   skeleton: {
     name: 'Skeleton', team: 'red', undead: true,
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 13, ac: 13, speed: 30, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 13, ac: 13, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
@@ -790,7 +790,7 @@ export const UNIT_TYPES = {
   shadow: {
     name: 'Shadow', team: 'red', undead: true,
     scale: [1.771, 1.771, 1.771], anchorY: 3.54, hoverY: -1,
-    hp: 16, ac: 12, speed: 40, initiative: 0, xpReward: 20, profBonus: 2,
+    hp: 16, ac: 12, speed: 40, initiative: 0, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 6, wis: 10, cha: 8 },
     attacks: [
       { name: 'Strength Drain', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'dex',
@@ -801,7 +801,7 @@ export const UNIT_TYPES = {
   specter: {
     name: 'Specter', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.5,
-    hp: 22, ac: 12, speed: 50, initiative: 0, xpReward: 40, profBonus: 2,
+    hp: 22, ac: 12, speed: 50, initiative: 0, profBonus: 2,
     abilities: { str: 1, dex: 14, con: 11, int: 10, wis: 10, cha: 11 },
     attacks: [
       { name: 'Life Drain', type: 'melee', range: 5, dice: 3, sides: 6, statMod: 'dex', dmgBonus: 0,
@@ -812,7 +812,7 @@ export const UNIT_TYPES = {
   ghast: {
     name: 'Ghast', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.2,
-    hp: 36, ac: 13, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    hp: 36, ac: 13, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 16, dex: 14, con: 14, int: 11, wis: 10, cha: 8 },
     attacks: [
       { name: 'Bite',  type: 'melee', range: 5, dice: 2, sides: 8, hitBonus: 3, statMod: 'str' },
@@ -824,7 +824,7 @@ export const UNIT_TYPES = {
   wight: {
     name: 'Wight', team: 'red',
     scale: [1.1, 1.1, 1.1], anchorY: 2.2,
-    hp: 45, ac: 14, speed: 30, initiative: 0, xpReward: 140, profBonus: 2,
+    hp: 45, ac: 14, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 15, dex: 14, con: 16, int: 10, wis: 13, cha: 15 },
     attacks: [
       { name: 'Longsword',  type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -836,7 +836,7 @@ export const UNIT_TYPES = {
   banshee: {
     name: 'Banshee', team: 'red',
     scale: [1.0, 1.0, 1.0], anchorY: 2.8,
-    hp: 58, ac: 12, speed: 40, initiative: 0, xpReward: 220, profBonus: 3,
+    hp: 58, ac: 12, speed: 40, initiative: 0, profBonus: 3,
     abilities: { str: 1, dex: 14, con: 12, int: 12, wis: 11, cha: 17 },
     attacks: [
       { name: 'Corrupting Touch', type: 'melee', range: 5, dice: 3, sides: 6, statMod: 'dex', dmgBonus: 0,
@@ -847,7 +847,7 @@ export const UNIT_TYPES = {
   revenant: {
     name: 'Revenant', team: 'red',
     scale: [1.2, 1.2, 1.2], anchorY: 2.4,
-    hp: 136, ac: 13, speed: 30, initiative: 0, xpReward: 360, profBonus: 3,
+    hp: 136, ac: 13, speed: 30, initiative: 0, profBonus: 3,
     abilities: { str: 18, dex: 14, con: 18, int: 12, wis: 14, cha: 16 },
     attacks: [
       { name: 'Greatsword', type: 'melee', range: 5, dice: 2, sides: 6, statMod: 'str',
@@ -858,7 +858,7 @@ export const UNIT_TYPES = {
   hill_giant: {
     name: 'Hill Giant', team: 'red',
     scale: [1.0, 1.0, 1.0], large: true, anchorY: 3.2,
-    hp: 105, ac: 13, speed: 40, initiative: 0, xpReward: 360, profBonus: 3,
+    hp: 105, ac: 13, speed: 40, initiative: 0, profBonus: 3,
     abilities: { str: 21, dex: 8, con: 19, int: 5, wis: 9, cha: 6 },
     attacks: [
       { name: 'Greatclub', type: 'melee',  range: 5,  dice: 3, sides: 8,  statMod: 'str' },
@@ -869,7 +869,7 @@ export const UNIT_TYPES = {
   ettin: {
     name: 'Ettin', team: 'red',
     scale: [1.8, 1.8, 1.8], large: true, anchorY: 3.8,
-    hp: 85, ac: 12, speed: 40, initiative: 0, xpReward: 220, profBonus: 2,
+    hp: 85, ac: 12, speed: 40, initiative: 0, profBonus: 2,
     abilities: { str: 21, dex: 8, con: 17, int: 6, wis: 10, cha: 8 },
     // animClip: each head/arm swings its own weapon — battleaxe in the right hand,
     // morningstar in the left. Both clips are in ettin.glb; without these the generic
@@ -890,7 +890,7 @@ export const UNIT_TYPES = {
     scale: [0.85, 0.85, 0.85], anchorY: 1.4,
     // CR 1/8 — Very Easy
     detect: 20,
-    hp: 9, ac: 9, speed: 20, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 9, ac: 9, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 10, dex: 9, con: 13, int: 3, wis: 8, cha: 4 },
     attacks: [
       { name: 'Claws', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'str' },
@@ -903,7 +903,7 @@ export const UNIT_TYPES = {
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     // CR 1/4 — Easy
     detect: 20,
-    hp: 18, ac: 11, speed: 20, initiative: 0, xpReward: 10, profBonus: 2,
+    hp: 18, ac: 11, speed: 20, initiative: 0, profBonus: 2,
     abilities: { str: 9, dex: 12, con: 11, int: 5, wis: 8, cha: 5 },
     attacks: [
       { name: 'Bite', type: 'melee', range: 5, dice: 1, sides: 6, statMod: 'dex', dmgBonus: 1,
@@ -916,7 +916,7 @@ export const UNIT_TYPES = {
     scale: [0.66, 0.66, 0.66], anchorY: 0.47,
     // CR 1/8 — Very Easy (Tiny fiend)
     detect: 20,
-    hp: 10, ac: 13, speed: 30, initiative: 0, xpReward: 5, profBonus: 2,
+    hp: 10, ac: 13, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 6, dex: 14, con: 13, int: 4, wis: 8, cha: 5 },
     attacks: [
       { name: 'Bite',   type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'dex' },
@@ -933,7 +933,7 @@ export const UNIT_TYPES = {
     // ground (raises it by the same amount its lowest point sits below origin).
     scale: [1.0, 1.0, 1.0], yOffset: 0.90, anchorY: 2.0,
     // CR 2
-    hp: 45, ac: 15, speed: 30, initiative: 0, xpReward: 90, profBonus: 2,
+    hp: 45, ac: 15, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 14, dex: 16, con: 16, int: 13, wis: 8, cha: 12 },
     attacks: [
       { name: 'Bite',         type: 'melee',  range: 5,  dice: 1, sides: 10, statMod: 'str' },
@@ -950,7 +950,7 @@ export const UNIT_TYPES = {
     undead: true,
     aiStyle: 'spellcaster',
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
-    hp: 52, ac: 14, speed: 30, initiative: 0, xpReward: 100, profBonus: 2,
+    hp: 52, ac: 14, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 10, dex: 13, con: 11, int: 11, wis: 13, cha: 14 },
     spellSlots: 6,
     attacks: [
@@ -997,7 +997,10 @@ export const UNIT_TYPES = {
     profBonus: 2,
     armorProficiency: { armor: ['Light', 'Medium', 'Heavy'], shields: true },
     weaponProficiency: { simple: true, martial: false, weapons: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'] },
-    startingEquipment: { chest: 'chainarmor1', legs: 'chainlegs1', feet: 'plateboots4', 'main-hand': 'warhammer9', 'off-hand': 'shield1', 'bag-1': 'bag1' },
+    // warhammer9's ART was renamed to lighthammer2, so that id no longer exists — repointed to
+    // warhammer1, an identical Warhammer (1d8 versatile 1d10). Keeps his kit unchanged; taken
+    // literally the rename would have handed him a 1d4 Light Hammer.
+    startingEquipment: { chest: 'chainarmor1', legs: 'chainlegs1', feet: 'plateboots4', 'main-hand': 'warhammer1', 'off-hand': 'shield1', 'bag-1': 'bag1' },
     abilities: { str: 14, dex: 10, con: 14, int: 10, wis: 15, cha: 12 },
     attacks: [
       { name: 'Warhammer', type: 'melee', range: 5, dice: 1, sides: 8, statMod: 'str' },
@@ -1043,7 +1046,11 @@ export const UNIT_TYPES = {
     sneakAttack: { dice: 1, sides: 6 },
     armorProficiency: { armor: ['Light'], shields: false },
     weaponProficiency: { simple: true, martial: false, weapons: ['Hand Crossbow', 'Longsword', 'Rapier', 'Shortsword', 'Shortbow'] },
-    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'sword4', 'off-hand': 'longbow4', 'bag-1': 'bag1' },
+    // sword4 -> longsword1 and longbow4 -> shortbow: both ids died when their art was renamed.
+    // Longsword is a step up from his old Shortsword (1d8 vs 1d6) and is in his named martials,
+    // so it's proficiency-legal. Note attacks still come from UNIT_TYPES.attacks, not the
+    // equipped weapon, so this changes his kit's LOOK and inventory, not his damage — yet.
+    startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'longsword1', 'off-hand': 'shortbow', 'bag-1': 'bag1' },
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
@@ -1234,6 +1241,8 @@ export const ENEMY_CR = {
   yuan_ti_malison:  3,
   green_hag:        3,
   wight:            3,
+  hobgoblin_captain: 3,   // added 2026-07-16 — was the ONE red enemy with no CR row, so it
+                          // derived 0 XP and would have dropped no loot. MM lists it at CR 3.
   // ── CR 4 ────────────────────────────────────────────────────────
   gnoll_fang:       4,
   banshee:          4,
@@ -1244,8 +1253,57 @@ export const ENEMY_CR = {
   revenant:         5,
   hill_giant:       5,
   // ── Named bosses ────────────────────────────────────────────────
-  morvath:          1,
+  morvath:          2,   // was 1 (2026-07-16). CR now pays out loot + XP, and CR 1 made the
+                         // BOSS drop worse than an ordinary ogre. The bestiary already showed
+                         // him as CR 2 — this is the two numbers agreeing at last.
 };
+
+// ── CR → XP ───────────────────────────────────────────────────────────────────
+// CR IS THE SOURCE OF TRUTH. XP derives from it — never the reverse, and never typed
+// per-enemy (user's rule, 2026-07-16).
+//
+// Why: xpReward used to be an independent hand-set field, and other systems back-derived
+// from IT. That produced two live bugs:
+//   • morvath: ENEMY_CR said 1, xpReward said 100 (= CR 2). CR now pays out loot, so the
+//     BOSS would have dropped worse than an ordinary ogre. CR corrected to 2.
+//   • combat.js's _XP_TO_EFF was keyed on D&D's RAW xp (25/50/100/200/…) while we store the
+//     compressed scale (5/10/20/40/…). It matched ONE enemy out of 58, so every enemy
+//     resolved to effective level 1 and the dynamic aggro radius never scaled at all.
+// Both are the same mistake: deriving power from XP instead of from CR.
+//
+// These are OUR values, kept exactly as they were set — deliberately NOT D&D's raw XP.
+// (They happen to be D&D's ÷ 5, which mirrors our 5-levels-per-D&D-level scale; CR 0 is the
+// one exception, 0 rather than 2, so commoners are worth nothing.)
+export const CR_TO_XP = {
+  0:     0,
+  0.125: 5,
+  0.25:  10,
+  0.5:   20,
+  1:     40,
+  2:     90,
+  3:     140,
+  4:     220,
+  5:     360,
+  // CR 6–30 have no values yet — no enemy above CR 5 exists. Add them here (and ONLY here)
+  // when they do; xpRewardFor falls back to 0, so a new high-CR enemy is worth nothing until
+  // its row lands, which is loud enough to notice.
+};
+
+export function xpRewardFor(type) {
+  return CR_TO_XP[ENEMY_CR[type] ?? 0] ?? 0;
+}
+
+// Stamp the derived value onto each statblock at load. `xpReward` used to be typed by hand
+// on all 59 enemies; those literals are GONE, and this is now the only thing that writes it.
+// Done as a mutation rather than by threading xpRewardFor() through every reader because
+// def.xpReward is read from five places that only hold the def, not the type key — this way
+// they all keep working and all read the derived number.
+//
+// An enemy with no ENEMY_CR row (hobgoblin_captain today) gets 0 and is worth no XP. That's
+// deliberate: silent-zero is a visible bug, whereas an invented default would be a quiet one.
+for (const [type, def] of Object.entries(UNIT_TYPES)) {
+  if (def?.team === 'red') def.xpReward = xpRewardFor(type);
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  COMBAT DEFAULTS  (fallback when a type entry is missing)
@@ -1259,16 +1317,58 @@ export const COMBAT = {
   defaultDamage:     { dice: 1, sides: 6, bonus: 0 },
 };
 
-// Gobo's Rage progression — all benefits scale with his level.
-//   L1: 1 use,  no damage mitigation, +2 melee dmg
-//   L2: 10% damage mitigation while raging
-//   L3: 2 uses per combat
-//   L4: +1% chance to hit (permanent passive, applies always — not just while raging)
-export function rageUsesForLevel(level) {
-  return (level ?? 1) >= 3 ? 2 : 1;
+// ── D&D level mapping ─────────────────────────────────────────────────────────
+// OUR levels run 5 per D&D level, and the first band is short because we start at 1:
+//   game 1–4 → D&D 1 · game 5–9 → D&D 2 · game 10–14 → D&D 3 · … · game 95+ → D&D 20
+// i.e. floor(gameLevel/5) + 1. NOT ceil(gameLevel/5) — our level 5 IS D&D 2, not the
+// top of D&D 1. rollToHit already scales on `(atkLvl/5)+1`, the same curve; keep them
+// in agreement. XP_THRESHOLDS stops at game 20 (→ D&D 5) today, so table rows 6–20
+// below are dormant until progression.js expands toward 100 as its comment promises.
+export const DND_MAX_LEVEL = 20;
+export function dndLevelFor(gameLevel) {
+  return Math.max(1, Math.min(DND_MAX_LEVEL, Math.floor((gameLevel ?? 1) / 5) + 1));
 }
 
+// Proficiency bonus: D&D 1–4 → +2, 5–8 → +3, 9–12 → +4, 13–16 → +5, 17–20 → +6.
+export function proficiencyBonusFor(gameLevel) {
+  return 2 + Math.floor((dndLevelFor(gameLevel) - 1) / 4);
+}
+
+// ── Class progression tables (5e) ─────────────────────────────────────────────
+// Rows are D&D levels 1–20, index 0 = D&D 1. Transcribed from the class tables and
+// kept as LITERAL rows rather than formulas: the real steps are irregular (Rages go
+// 2/3/4/5/6 at levels 1/3/6/12/17 — no clean arithmetic), and a row you can diff
+// against the book beats a clever expression that's wrong in one band.
+const BARB_RAGES          = [2,2,3,3,3,4,4,4,4,4,4,5,5,5,5,5,6,6,6,6];
+const BARB_RAGE_DAMAGE    = [2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,4,4,4,4,4];
+const BARB_WEAPON_MASTERY = [2,2,2,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4];
+// Rogue Sneak Attack is always d6 — only the COUNT scales (+1d6 every odd D&D level).
+const ROGUE_SNEAK_DICE    = [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10];
+
+// Gobo's Rage — uses and damage now come from the barbarian table.
+// NOTE the mitigation below is a CUSTOM mechanic, not in any 5e table: real 5e Rage
+// grants resistance (50%) to physical damage. Don't "correct" it against the book.
+export function rageUsesForLevel(level)      { return BARB_RAGES[dndLevelFor(level) - 1]; }
+export function rageDamageForLevel(level)    { return BARB_RAGE_DAMAGE[dndLevelFor(level) - 1]; }
+// Weapon Mastery: how many weapon TYPES Gobo is proficient with. Exposed here, but not
+// yet consumed — there is no weapon-proficiency gating in the code at all (equipItem puts
+// anything in any slot), so a "pick a new weapon type" window has nothing to grant. Build
+// the restriction system first; the loot doc's Grants-proficiency affix waits on the same.
+export function weaponMasteryForLevel(level) { return BARB_WEAPON_MASTERY[dndLevelFor(level) - 1]; }
+
+// Milo's Sneak Attack dice count (sides are always 6).
+export function sneakAttackDiceForLevel(level) { return ROGUE_SNEAK_DICE[dndLevelFor(level) - 1]; }
+
 // Fraction of incoming damage Rage negates (0 = none, 0.10 = 10% off).
+//
+// OUR RULE, not D&D's — Rage mitigates ALL damage here, every source, and it's a flat
+// percentage rather than 5e's physical-only resistance. Don't reconcile it toward the book.
+//
+// ⚠ Flat 10% from level 2 is a PLACEHOLDER. This will grow at higher levels; the user is
+// supplying the amounts and the levels. This function is the only place to change — every
+// damage path reads it through damageMitigationOf() in combat.js.
+// NOTE it takes a GAME level, not a D&D level. If the numbers arrive as a D&D-level table,
+// wrap them with dndLevelFor() the way the class tables above do.
 export function rageMitigationForLevel(level) {
   return (level ?? 1) >= 2 ? 0.10 : 0;
 }

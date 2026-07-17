@@ -1,6 +1,53 @@
-import { UNIT_TYPES } from './constants.js';
+import { UNIT_TYPES, proficiencyBonusFor, rageUsesForLevel, rageDamageForLevel,
+         weaponMasteryForLevel, sneakAttackDiceForLevel, dndLevelFor } from './constants.js';
+import { maxSlotsForLevel } from './spells.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
+
+// ── Table-driven gains ────────────────────────────────────────────────────────
+// Everything that comes from a class table (proficiency, rages, rage damage, weapon
+// mastery, sneak dice, spell slots) is DERIVED by diffing the table at oldLevel vs
+// newLevel — never hand-listed in LEVEL_UNLOCKS below. Two reasons:
+//   1. Our levels are 5 per D&D level, so a gain lands on whatever game level crosses
+//      the band. Hand-listing it means guessing the band boundary, and the boundaries
+//      move the moment XP_THRESHOLDS expands toward 100.
+//   2. It was already wrong. LEVEL_UNLOCKS used to claim "Spell Slots ×2" at level 2
+//      and "Rage ×2 Uses" at level 3; both casters now have 2 slots from level 1 and
+//      Gobo 2 rages from level 1, so those rows were lying to the player.
+// Diffing also handles multi-level jumps for free (progression.js aggregates them and
+// keeps the ORIGINAL oldLevel), and prints nothing when a level-up crosses no band.
+const _ORD = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
+
+function _tableGains(hero, oldLevel, newLevel) {
+  const rows = [];
+  const add = (lbl, from, to, fmt = v => `${v}`) => {
+    if (from === to) return;
+    rows.push({ lbl, val: fmt(to), was: `was ${fmt(from)}` });
+  };
+
+  add('Proficiency', proficiencyBonusFor(oldLevel), proficiencyBonusFor(newLevel), v => `+${v}`);
+
+  if (hero.type === 'human') {
+    add('Rages',          rageUsesForLevel(oldLevel),      rageUsesForLevel(newLevel));
+    add('Rage Damage',    rageDamageForLevel(oldLevel),    rageDamageForLevel(newLevel), v => `+${v}`);
+    // Shown because it's a real table value, but nothing consumes it yet — there is no
+    // weapon-proficiency gating in the code, so this grants no actual choice today.
+    add('Weapon Mastery', weaponMasteryForLevel(oldLevel), weaponMasteryForLevel(newLevel));
+  } else if (hero.type === 'halfling') {
+    add('Sneak Attack', sneakAttackDiceForLevel(oldLevel), sneakAttackDiceForLevel(newLevel), v => `${v}d6`);
+  } else if (hero.type === 'elf' || hero.type === 'dwarf') {
+    // Per spell level, so gaining your first 2nd-level slots reads as its own line
+    // rather than being buried in a total.
+    const before = maxSlotsForLevel(hero.type, oldLevel);
+    const after  = maxSlotsForLevel(hero.type, newLevel);
+    for (let i = 0; i < after.length; i++) {
+      const b = before[i] ?? 0, a = after[i] ?? 0;
+      if (a === b) continue;
+      rows.push({ lbl: `${_ORD[i]}-level slots`, val: `${a}`, was: b ? `was ${b}` : 'new' });
+    }
+  }
+  return rows;
+}
 
 const HERO_COLORS = {
   dwarf:    '#c8860a',
@@ -9,7 +56,9 @@ const HERO_COLORS = {
   halfling: '#44dd66',
 };
 
-// What each hero unlocks at each level.
+// Bespoke unlocks — named abilities with their own art and rules text, keyed by GAME
+// level. Anything that comes from a class table belongs in _tableGains above, NOT here:
+// a hand-listed table value goes stale the moment a band boundary moves.
 // imgSrc → show image card. icon → show text icon. Neither → text-only row.
 const LEVEL_UNLOCKS = {
   dwarf: {
@@ -17,9 +66,6 @@ const LEVEL_UNLOCKS = {
       { name: 'Bless',
         imgSrc: 'assets/spells and skills/bless.jpg',
         desc: 'Target all allies · +1d2 to attack rolls & saving throws · Concentration · costs 1 spell slot' },
-      { name: 'Spell Slots ×2',
-        icon: '◈',
-        desc: '2 level-1 spell slots per combat · replenish on long rest' },
     ],
     3: [
       { name: 'Sacred Flame',
@@ -37,11 +83,6 @@ const LEVEL_UNLOCKS = {
       { name: 'Rage: Damage Resistance',
         imgSrc: 'assets/spells and skills/rage.jpg',
         desc: 'Rage now negates 10% of incoming damage (up from none)' },
-    ],
-    3: [
-      { name: 'Rage ×2 Uses',
-        imgSrc: 'assets/spells and skills/rage.jpg',
-        desc: 'Rage now usable twice per combat (up from once)' },
     ],
     4: [
       { name: 'Precision',
@@ -76,9 +117,6 @@ const LEVEL_UNLOCKS = {
       { name: 'Mage Armor',
         imgSrc: 'assets/spells and skills/magearmor.jpg',
         desc: 'Self · +3 AC until long rest · stacks with base AC · costs 1 spell slot' },
-      { name: 'Spell Slots ×2',
-        icon: '◈',
-        desc: '2 level-1 spell slots per combat · replenish on long rest' },
     ],
     3: [
       { name: 'Magic Missile',
@@ -125,11 +163,15 @@ export function showLevelUpModal(levelUps) {
     const isLast = idx === sections.length - 1;
 
     // Gather unlocks for every level gained (oldLevel+1 … newLevel)
+    const _from   = oldLevel ?? newLevel - 1;
     const unlocks = [];
     const lvlMap  = LEVEL_UNLOCKS[hero.type] ?? {};
-    for (let lvl = (oldLevel ?? newLevel - 1) + 1; lvl <= newLevel; lvl++) {
+    for (let lvl = _from + 1; lvl <= newLevel; lvl++) {
       unlocks.push(...(lvlMap[lvl] ?? []));
     }
+    // Table-driven gains across the whole jump. Empty on a level-up that crosses no
+    // D&D band, which is most of them — 4 of every 5 levels change nothing here.
+    const gains = _tableGains(hero, _from, newLevel);
 
     panel.style.setProperty('--hc', color);
 
@@ -178,7 +220,13 @@ export function showLevelUpModal(levelUps) {
           <span class="lum-gain-lbl">HP</span>
           <span class="lum-gain-val">+${hpGain}</span>
         </div>
+        ${gains.map(g => `
+        <div class="lum-gain-row">
+          <span class="lum-gain-lbl">${g.lbl}</span>
+          <span class="lum-gain-val">${g.val}<span class="lum-gain-was">${g.was}</span></span>
+        </div>`).join('')}
       </div>
+      ${gains.length ? `<div class="lum-band-note">Level ${newLevel} reaches D&amp;D tier ${dndLevelFor(newLevel)}</div>` : ''}
       ${unlocks.length ? `
         <div class="lum-new-hdr">NEW ABILITIES UNLOCKED</div>
         <div class="lum-abilities">${abilityHTML}</div>

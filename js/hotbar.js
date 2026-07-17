@@ -8,8 +8,15 @@ const TOP_KEYS = [
   { code: 'Digit4',    label: '4' },
   { code: 'Digit5',    label: '5' },
   { code: 'Digit6',    label: '6' },
+  { code: 'Digit7',    label: '7' },
+  { code: 'Digit8',    label: '8' },
 ];
 
+// Both rows mirror a physical keyboard — hence the half-key offset on
+// #hotbar-row-shift and the /13 in the button-width formula (13 = the real number
+// row, ` through =). Keep additions contiguous with the real layout: there is no
+// KeyI slot because I is the inventory panel (ui.js), and jumping Y→U→O would
+// leave a phantom gap where I physically sits.
 const BOTTOM_KEYS = [
   { code: 'Tab',  label: 'Tab' },
   { code: 'KeyQ', label: 'Q' },
@@ -18,6 +25,7 @@ const BOTTOM_KEYS = [
   { code: 'KeyR', label: 'R' },
   { code: 'KeyT', label: 'T' },
   { code: 'KeyY', label: 'Y' },
+  { code: 'KeyU', label: 'U' },
 ];
 
 const MOUSE_SLOTS_TOP    = [{ code: 'MouseMiddle', label: 'MMB', button: 1 }];
@@ -187,7 +195,8 @@ export function initHotbar() {
     _btns[k.code] = btn;
   }
 
-  // Top row — MMB slot (right of 6)
+  // Top row — MMB slot (right of 8). Appended after TOP_KEYS, so it always
+  // sits at the end of the row however many keys that row grows to.
   for (const ms of MOUSE_SLOTS_TOP) {
     const btn = document.createElement('button');
     btn.className = 'hb-btn hb-mouse-btn hb-disabled';
@@ -199,7 +208,7 @@ export function initHotbar() {
     _btns[ms.code] = btn;
   }
 
-  // Bottom row — RMB slot (right of Y). Permanent camera pan/swivel legend.
+  // Bottom row — RMB slot (right of U). Permanent camera pan/swivel legend.
   for (const ms of MOUSE_SLOTS_BOTTOM) {
     const btn = document.createElement('button');
     btn.className = 'hb-btn hb-mouse-btn hb-permanent';

@@ -69,6 +69,21 @@ body:not(.dev-mode) .dev-only { display: none !important; }
   --gold-glow:    rgba(212,175,55,0.40);
   --gold-subtle:  rgba(212,175,55,0.10);
   --gold-trace:   rgba(212,175,55,0.008);
+  /* Per-hero identity colours, matched to the HP-bar gradients (.hp-fill.elf etc.)
+     so a hero reads the same wherever they're tinted. Brightened from the bar ends
+     (#aa22ee / #22cc44 / #c8860a), which go muddy as small text on black. Gobo has
+     no bar colour of his own — he falls through to the generic hero blue — so his
+     orange starts here. Leugren's gold must stay BRIGHTER than --gold: panels are
+     gold-on-black already, so a mid gold reads as body text, not as a highlight. */
+  --hero-gobo:    #ff9040;
+  --hero-rasec:   #c07aff;
+  --hero-milo:    #3ddc61;
+  --hero-leugren: #ffcf5c;
+  /* Width of every inventory box border — gear slots, bag slots, and the boxes
+     inside an open bag. The border IS the rarity readout, so it's sized to be read
+     as a coloured frame, not a hairline. All three boxes are border-box, so this
+     eats inward and never shifts the grid. One knob: change it here only. */
+  --eq-slot-border: 5px;
   --border-outer: #4a3412;
   --border-inner: rgba(212,175,55,0.12);
   --panel-bg:
@@ -1446,6 +1461,11 @@ body {
 }
 #ss-side-panel      { width: 180px; }
 #ss-spell-list-panel { width: 270px; }
+/* The XP table runs up to 12 columns for a caster (Our Lv | D&D | Prof | 1st…9th), which
+   180px clips dead. Only the XP panel widens — the abilities/spellbook/traits panels are
+   plain lists and would just look sparse. .xp-table-scroll still scrolls as a backstop at
+   large --ui-scale. */
+#ss-side-panel.ss-side-wide { width: 520px; }
 #ss-side-panel.show,
 #ss-spell-list-panel.show { display: block; }
 
@@ -2258,9 +2278,14 @@ body {
   color: var(--hc);
 }
 
+/* Used to hold HP alone. A level-up that crosses a D&D band now adds derived rows
+   (proficiency, rages, rage damage, mastery, or per-level spell slots), so it wraps
+   instead of pushing out of the panel. */
 .lum-gains {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
+  row-gap: 11px;
   padding: 11px 16px;
   background: rgba(255,255,255,0.025);
   border: 1px solid rgba(212,175,55,0.13);
@@ -2285,6 +2310,25 @@ body {
   font-weight: 700;
   color: var(--hc);
   text-shadow: 0 0 12px var(--hc);
+}
+/* "was +2" trailing a derived gain — deliberately quiet: the NEW number is the news,
+   the old one is only there to show the size of the step. */
+.lum-gain-was {
+  font-family: var(--font-body);
+  font-size: 0.52rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: rgba(210,195,170,0.38);
+  text-shadow: none;
+  margin-left: 5px;
+}
+.lum-band-note {
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  color: rgba(210,195,170,0.42);
+  font-style: italic;
+  margin-top: -14px;
+  margin-bottom: 18px;
 }
 
 .lum-new-hdr {
@@ -2793,7 +2837,7 @@ body {
   position: relative;
   width: 67px;
   aspect-ratio: 1 / 1;
-  border: 2px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
   box-shadow:
@@ -2903,7 +2947,7 @@ body {
 .eq-slot-box {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 2px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background:
     linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
@@ -2922,33 +2966,46 @@ body {
     0 0 8px rgba(212,175,55,0.18);
 }
 
-/* ── Equipment rarity border colours ─────────────────────────────────── */
+/* ── Equipment rarity border colours ───────────────────────────────────
+   Applies to all three box kinds: gear slots, bag slots, and the boxes INSIDE an
+   open bag. Declared after .eq-bagslot-reserved so a filled potion slot shows the
+   potion's rarity and an empty one keeps its green "reserved" tint.
+
+   NOTE: nearly every item in items.js/potions.js is rarity:'grey' today (371 of 374,
+   with 3 green and nothing above it), so these mostly render grey until the catalog
+   grows — that's the data, not this CSS. */
 .eq-slot-box.rarity-grey,
-.eq-bag-box.rarity-grey {
+.eq-bag-box.rarity-grey,
+.eq-bagslot-box.rarity-grey {
   border-color: rgba(157,157,157,0.75);
 }
 .eq-slot-box.rarity-green,
-.eq-bag-box.rarity-green {
+.eq-bag-box.rarity-green,
+.eq-bagslot-box.rarity-green {
   border-color: rgba(30,255,0,0.70);
   box-shadow: inset 0 1px 5px rgba(0,0,0,0.70), 0 0 5px rgba(30,255,0,0.28);
 }
 .eq-slot-box.rarity-blue,
-.eq-bag-box.rarity-blue {
+.eq-bag-box.rarity-blue,
+.eq-bagslot-box.rarity-blue {
   border-color: rgba(0,112,221,0.85);
   box-shadow: inset 0 1px 5px rgba(0,0,0,0.70), 0 0 6px rgba(0,112,221,0.35);
 }
 .eq-slot-box.rarity-purple,
-.eq-bag-box.rarity-purple {
+.eq-bag-box.rarity-purple,
+.eq-bagslot-box.rarity-purple {
   border-color: rgba(163,53,238,0.85);
   box-shadow: inset 0 1px 5px rgba(0,0,0,0.70), 0 0 8px rgba(163,53,238,0.38);
 }
 .eq-slot-box.rarity-orange,
-.eq-bag-box.rarity-orange {
+.eq-bag-box.rarity-orange,
+.eq-bagslot-box.rarity-orange {
   border-color: rgba(255,128,0,0.90);
   box-shadow: inset 0 1px 5px rgba(0,0,0,0.70), 0 0 10px rgba(255,128,0,0.42);
 }
 .eq-slot-box.rarity-red,
-.eq-bag-box.rarity-red {
+.eq-bag-box.rarity-red,
+.eq-bagslot-box.rarity-red {
   border-color: rgba(232,55,62,0.95);
   box-shadow: inset 0 1px 5px rgba(0,0,0,0.70), 0 0 12px rgba(232,55,62,0.48);
 }
@@ -3018,7 +3075,7 @@ body {
 .eq-bag-box {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 2px solid rgba(212,175,55,0.24);
+  border: var(--eq-slot-border) solid rgba(212,175,55,0.24);
   border-radius: 4px;
   background: linear-gradient(145deg, rgba(30,20,6,0.85) 0%, rgba(10,6,2,0.95) 100%);
   box-shadow:
@@ -3061,30 +3118,190 @@ body {
   line-height: 1.5;
 }
 
-.eq-detail-name {
-  font-size: 0.60rem;
+/* .eq-detail-name/-stat/-props/-desc were removed 2026-07-16: the sheet's detail pane now
+   renders through the shared itemTooltipHTML, so it uses the .it-* classes and shows rarity
+   and rolled affixes like the loot tooltip does. #eq-detail (the container) is still used. */
+
+/* ── XP / level table panel (sheet side panel) ─────────────────────────────
+   Rendered by buildXpPanelHTML — one row per D&D level, columns per class. */
+.xp-panel-title {
+  font-family: var(--font-fantasy);
+  font-size: 0.72rem;
+  letter-spacing: 0.6px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+/* Backstop only: the panel is widened to fit the columns (#ss-side-panel.ss-side-wide),
+   so this should never scroll at default --ui-scale — it's here for large UI scales. */
+.xp-table-scroll { overflow-x: auto; }
+.xp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  white-space: nowrap;
+}
+.xp-table th {
+  text-align: center;
+  padding: 3px 5px;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(212,175,55,0.30);
   font-weight: 600;
+}
+.xp-table td {
+  text-align: center;
+  padding: 2px 5px;
+  color: rgba(212,175,55,0.72);
+  border-bottom: 1px solid rgba(212,175,55,0.06);
+}
+/* The hero's current band — the one row the player is actually looking for. */
+.xp-table tr.xp-row-cur td {
+  color: var(--gold-bright);
+  background: rgba(212,175,55,0.12);
+  font-weight: 600;
+}
+/* Past the XP cap: still shown (the ladder reads as a whole) but clearly not reachable. */
+.xp-table tr.xp-row-locked td { color: rgba(212,175,55,0.22); }
+.xp-panel-note {
+  font-size: 0.52rem;
+  color: rgba(200,185,150,0.50);
+  font-style: italic;
+  margin-top: 6px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+/* ── Item tooltip ──────────────────────────────────────────────────────────
+   Shared by the loot window's hover tooltip and the character sheet's item detail pane,
+   so a dropped item and an equipped one read identically. */
+
+/* Rarity text colours — the same values the .rarity-* slot BORDERS use, so an item's
+   colour is the one thing that never changes between the bag, the sheet and the tooltip. */
+.rarity-text-grey   { color: #9d9d9d; }
+.rarity-text-green  { color: #1eff00; }
+.rarity-text-blue   { color: #3d9bff; }   /* lifted from #0070dd: too dark to read on black */
+.rarity-text-purple { color: #b95cff; }   /* lifted from #a335ee for the same reason */
+.rarity-text-orange { color: #ff8000; }
+.rarity-text-red    { color: #ff5a61; }
+.rarity-text-gem    { color: #7ad7ff; }
+
+.item-tooltip {
+  position: fixed;
+  z-index: 500;                /* above the loot panel and the sheet's own panels */
+  pointer-events: none;        /* never eat the mouse — it follows the cursor */
+  max-width: 260px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(20,13,4,0.99) 0%, rgba(6,4,1,1.00) 100%);
+  border: 1px solid var(--border-outer);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.85), 0 8px 26px rgba(0,0,0,0.80);
+}
+.it-name {
+  font-family: var(--font-fantasy);
+  font-size: 0.72rem;
   letter-spacing: 0.4px;
-  color: var(--hc);
-  margin-bottom: 2px;
+  line-height: 1.25;
 }
-
-.eq-detail-stat {
+.it-sub {
+  font-family: var(--font-body);
+  font-size: 0.52rem;
+  opacity: 0.72;
+  margin-top: 1px;
+}
+.it-sep {
+  height: 1px;
+  background: rgba(212,175,55,0.16);
+  margin: 6px 0 5px;
+}
+.it-stat {
+  font-family: var(--font-body);
+  font-size: 0.57rem;
   color: rgba(212,175,55,0.85);
+  line-height: 1.4;
 }
-
-.eq-detail-props {
-  color: rgba(212,175,55,0.55);
+.it-props {
+  font-family: var(--font-body);
+  font-size: 0.53rem;
+  color: rgba(212,175,55,0.50);
   font-style: italic;
   margin-top: 2px;
 }
-
-.eq-detail-desc {
-  color: rgba(200,185,150,0.70);
-  font-size: 0.56rem;
-  line-height: 1.35;
-  margin-top: 4px;
+/* Rolled affixes get their own colour — they're what makes THIS copy different from every
+   other one of the same base, which is the entire question the tooltip exists to answer. */
+.it-affix {
+  font-family: var(--font-body);
+  font-size: 0.57rem;
+  color: #8fd0ff;
+  line-height: 1.45;
 }
+.it-desc {
+  font-family: var(--font-body);
+  font-size: 0.54rem;
+  color: rgba(200,185,150,0.68);
+  font-style: italic;
+  line-height: 1.35;
+  margin-top: 6px;
+}
+.it-value {
+  font-family: var(--font-body);
+  font-size: 0.54rem;
+  color: var(--gold-bright);
+  margin-top: 5px;
+}
+
+/* The loot card's icon is the hover target — say so. */
+.lp-item-icon { cursor: help; }
+
+/* ── Item right-click menu ─────────────────────────────────────────────────
+   Lives on <body> at a fixed position (built at the cursor by ui.js), so it can
+   overhang the equipment panel's edges instead of being clipped by it. z-index
+   sits above the sheet's own panels. */
+.eq-ctx-menu {
+  position: fixed;
+  z-index: 400;
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  padding: 3px;
+  gap: 1px;
+  background: linear-gradient(180deg, rgba(20,13,4,0.99) 0%, rgba(6,4,1,1.00) 100%);
+  border: 1px solid var(--border-outer);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.85), 0 6px 22px rgba(0,0,0,0.75);
+}
+.eq-ctx-row {
+  font-family: var(--font-body);
+  font-size: 0.58rem;
+  text-align: left;
+  padding: 5px 8px;
+  color: rgba(212,175,55,0.82);
+  background: none;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: background 0.10s, color 0.10s;
+}
+.eq-ctx-row:hover:not(:disabled) {
+  background: rgba(212,175,55,0.12);
+  color: var(--gold-bright);
+}
+/* Disabled rows are the menu's header and its confirm question — not greyed-out
+   actions, so they read as labels rather than as something broken. */
+.eq-ctx-row:disabled {
+  cursor: default;
+  color: rgba(212,175,55,0.45);
+}
+.eq-ctx-title {
+  font-family: var(--font-fantasy);
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.eq-ctx-danger { color: #d98a6a; }
+.eq-ctx-danger:hover:not(:disabled) { background: rgba(200,60,30,0.18); color: #ffb494; }
+.eq-ctx-warn { color: #d98a6a; font-size: 0.54rem; }
 
 .eq-slot.selected .eq-slot-box,
 .eq-bag.selected .eq-bag-box {
@@ -3280,13 +3497,23 @@ body {
   flex: 1;
   min-width: 0;
 }
-.hpc-sheet-btn {
-  pointer-events: auto;
+/* Sheet + bag stacked at the right of the meta row. The 6px nudge lives here rather
+   than on .hpc-sheet-btn so the pair moves as one block instead of offsetting only
+   the top icon against the stats column. */
+.hpc-btn-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   flex-shrink: 0;
   margin-top: 6px;
+}
+.hpc-sheet-btn,
+.hpc-inv-btn {
+  pointer-events: auto;
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
-  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3299,14 +3526,16 @@ body {
   transition: background 0.14s, color 0.14s, border-color 0.14s, box-shadow 0.14s;
   box-shadow: inset 0 1px 0 rgba(212,175,55,0.10), 0 1px 4px rgba(0,0,0,0.55);
 }
-.hpc-sheet-btn:hover:not(:disabled) {
+.hpc-sheet-btn:hover:not(:disabled),
+.hpc-inv-btn:hover:not(:disabled) {
   background: linear-gradient(180deg, rgba(58,42,8,0.98) 0%, rgba(30,20,4,0.99) 100%);
   border-color: var(--gold);
   color: #f0d060;
   box-shadow: 0 0 10px rgba(212,175,55,0.25), inset 0 1px 0 rgba(212,175,55,0.12);
   text-shadow: 0 0 8px rgba(212,175,55,0.55);
 }
-.hpc-sheet-btn:disabled {
+.hpc-sheet-btn:disabled,
+.hpc-inv-btn:disabled {
   opacity: 0.20;
   cursor: default;
   pointer-events: none;
@@ -4570,8 +4799,9 @@ td.bst-col-retired { color: #343228 !important; }
   border-radius: 3px;
   border: 1px solid;
 }
-.sp-act-action { color: #cc7744; background: rgba(160,80,30,0.16); border-color: rgba(160,80,30,0.28); }
-.sp-act-bonus  { color: #6699cc; background: rgba(50,100,170,0.16); border-color: rgba(50,100,170,0.28); }
+.sp-act-action   { color: #cc7744; background: rgba(160,80,30,0.16);  border-color: rgba(160,80,30,0.28); }
+.sp-act-bonus    { color: #6699cc; background: rgba(50,100,170,0.16);  border-color: rgba(50,100,170,0.28); }
+.sp-act-reaction { color: #a879cc; background: rgba(130,70,180,0.16);  border-color: rgba(130,70,180,0.28); }
 
 .sp-range-cell {
   font-size: 0.72rem;
@@ -5653,6 +5883,19 @@ td.bst-col-retired { color: #343228 !important; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A hero's signature options wear that hero's colour, so they stand out from the
+   generic entries (Dodge, Dash, Nearest enemy…) sharing the same priority list.
+   Keyed off data-value, which the renderer already stamps on every item. Every
+   value below is offered to exactly ONE hero (see optionsFor in combatAutomation.js),
+   so these don't need scoping by column — but if one is ever offered to a second
+   hero, it will wear the wrong colour there. */
+.tend-priority-item[data-value="rage"]             .tend-priority-label { color: var(--hero-gobo); }
+.tend-priority-item[data-value="fire_bolt"]        .tend-priority-label { color: var(--hero-rasec); }
+.tend-priority-item[data-value="sneak_attack"]     .tend-priority-label,
+.tend-priority-item[data-value="sneak_possible"]   .tend-priority-label { color: var(--hero-milo); }
+.tend-priority-item[data-value="healing_word"]     .tend-priority-label,
+.tend-priority-item[data-value="ally_lowest_hp"]   .tend-priority-label,
+.tend-priority-item[data-value="ally_any_wounded"] .tend-priority-label { color: var(--hero-leugren); }
 .tend-priority-btn {
   font-size: 0.54rem;
   color: rgba(212,175,55,0.38);
@@ -6534,6 +6777,18 @@ td.bst-col-retired { color: #343228 !important; }
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* Armor proficiency forbids this hero. Kept in place (not hidden) so the four boxes stay in
+   the same order on every card and the row is scannable; the greyed avatar reads as "not this
+   one" at a glance, and the button's title says which proficiency is missing. */
+.lp-assign-blocked {
+  opacity: 0.28;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: rgba(212,175,55,0.15);
+}
+.lp-assign-blocked:hover { border-color: rgba(212,175,55,0.15); }
+
 .lp-assign-box:hover {
   border-color: rgba(212,175,55,0.60);
 }

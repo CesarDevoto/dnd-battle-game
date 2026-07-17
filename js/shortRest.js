@@ -3,6 +3,7 @@
 
 import { heroRoster, reviveUnit } from './units.js';
 import { UNIT_TYPES } from './constants.js';
+import { restoreSpellSlots } from './spells.js';
 import { combatPhase, showFloatingDamage } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
 
@@ -138,12 +139,13 @@ function _executeRest() {
     if (actual > 0) showFloatingDamage(h, `+${actual}`, '#55cc55');
   }
 
-  // Restore 2 spell slots per hero (capped at max)
-  for (const h of heroRoster) {
-    const maxSlots = UNIT_TYPES[h.type]?.spellSlots ?? 0;
-    if (maxSlots <= 0) continue;
-    h.spellSlots = Math.min(maxSlots, (h.spellSlots ?? 0) + 2);
-  }
+  // Restore 2 spell slots per hero, LOWEST spell level first.
+  //
+  // This was dead code until 2026-07-16: it capped on `UNIT_TYPES[h.type].spellSlots`,
+  // but that field only exists on morvath (the boss). For elf/dwarf it read undefined
+  // → 0 → `continue`, so the short rest never restored a single slot despite saying so.
+  // restoreSpellSlots reads the hero's own per-level max, and no-ops for non-casters.
+  for (const h of heroRoster) restoreSpellSlots(h, 2);
 
   if (_tutArrowEl) { _markTutorialSeen(); _hideTutArrow(); }
 
