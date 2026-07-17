@@ -1,82 +1,33 @@
-// js/hideOOC.js — Milo's out-of-combat Hide (scouting).
+// js/hideOOC.js — scout rings shown while a hero SNEAKS out of combat.
 //
-// Hide is a normal Skills & Spells ability (see abilityRegistry + the `hide`
-// entry in combat.js's _ABILITY_HANDLERS). This module only supplies the
-// out-of-combat behaviour the handler calls into: toggling Milo's stealth,
-// and — while hidden — cutting every nearby enemy's detection radius vs him by
-// 50% (MILO_HIDE_DETECT_MULT, applied in precombat's _checkAggro) so he can
-// detach from the group (solo move) and scout without aggroing. No per-move
-// perception rolls. While hidden, rings are drawn around foes he can see (line
-// of sight) showing their reduced detection radius. Hiding breaks automatically
-// when an enemy still
-// manages to spot him (precombat dispatches 'milo:spotted'), unless he's
-// standing in his own smoke cloud.
-
+// When a hero is sneaking (the MOVE-widget Stealth button), amber rings are drawn around the
+// enemies they can see, marking each foe's SHRUNKEN detection radius (scaled by the sneaker's
+// Stealth roll) — so the player can judge how close they can creep before being spotted.
+//
+// Milo's old dedicated out-of-combat Hide was folded into the party-sneak system (he sneaks via
+// the same Stealth button, and a won sneak carries his Sneak Attack into combat — see
+// combat.js _determineSurprise). All that remains here is that hide's scouting UI.
 import * as THREE from 'three';
-import { units, setUnitStealth } from './units.js';
-import { UNIT_TYPES, MILO_HIDE_DETECT_MULT, WORLD_UNITS_PER_SQUARE } from './constants.js';
-
-// Even with clear line of sight, Milo's hide-scouting can't reveal an enemy's
-// aggro ring beyond this range — so in high-fog / darkness zones he doesn't get
-// indefinite LOS. 10 grid squares.
+import { units } from './units.js';
+import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE } from './constants.js';
+// Even with clear line of sight, scouting can't reveal an enemy's aggro ring beyond 10 squares —
+// so fog / darkness zones don't grant indefinite-range LOS.
 const MAX_SCOUT_RANGE = 10 * WORLD_UNITS_PER_SQUARE;
-import { combatPhase, addLog, unitsHaveLOS } from './combat.js';
+import { combatPhase, unitsHaveLOS, heroStealthPct } from './combat.js';
 import { capDetectRange } from './zoneLoader.js';
+import { sneakDetectMult } from './precombat.js';
 import { scene } from './scene.js';
 import { getTerrainHeight } from './terrain.js';
-import { playSound } from './audio.js';
 
 const RING_COLOR = 0xffb020; // amber "danger" ring, distinct from dev-mode red
 const _rings = new Map();     // enemy unit → ring mesh
 
-function _findMilo() { return units.find(u => u.type === 'halfling' && u.hp > 0) ?? null; }
-
-export function initHideOOC() {
-  window.addEventListener('combat:start', () => _onCombatStart());
-  // Enemy spotted the hidden Milo (dispatched from precombat _checkAggro) → break hide.
-  window.addEventListener('milo:spotted', e => {
-    const m = e.detail?.hero;
-    if (m && m.stealthedOOC) _setHidden(m, false, true);
-  });
+// The sneaking hero whose scout rings we draw: prefer Milo (the best scout), else any sneaker.
+function _scout() {
+  const sneakers = units.filter(u => u.team === 'blue' && u.hp > 0 && u.sneaking);
+  return sneakers.find(u => u.type === 'halfling') ?? sneakers[0] ?? null;
 }
 
-// ── Public API used by the `hide` ability handler (combat.js) ────────────────
-export function canMiloHideOOC()  { return !combatPhase && !!_findMilo(); }
-export function isMiloHiddenOOC() { const m = _findMilo(); return !!(m && m.stealthedOOC); }
-export function toggleMiloHideOOC() {
-  if (combatPhase) return;
-  const m = _findMilo();
-  if (m) _setHidden(m, !m.stealthedOOC);
-}
-
-function _setHidden(milo, on, spotted = false) {
-  milo.stealthedOOC = on;
-  setUnitStealth(milo, on);
-  if (on) {
-    playSound('hide');
-    addLog(`${UNIT_TYPES.halfling.name} slips into hiding — nearby enemies' detection greatly reduced.`, 'move');
-  } else if (spotted) {
-    addLog(`${UNIT_TYPES.halfling.name} is spotted — hiding broken!`, 'alert');
-  } else {
-    addLog(`${UNIT_TYPES.halfling.name} steps out of hiding.`, 'move');
-  }
-}
-
-function _onCombatStart() {
-  // Rings self-hide in combat (tick gates on !combatPhase). Milo keeps his
-  // stealth into combat if he wasn't the one spotted — the in-combat stealth
-  // system reads u.stealthed. Only clear the OOC scouting flag here.
-  //
-  // He carries the hide (and so the Sneak Attack it sets up) into the fight and keeps it
-  // while he moves. Only an enemy's Perception check (_checkHidePerception) or his own
-  // attack breaks it. This used to also pin a stealthOrigin for a "stationary hidden
-  // attacker" rule — that rule was never implemented (the field was written in three
-  // places and read in none), so it's gone.
-  const m = _findMilo();
-  if (m && m.stealthedOOC) m.stealthedOOC = false;
-}
-
-// ── Scout rings — reduced enemy detection radius, shown while Milo is hidden ──
 function _disposeRing(enemy, mesh) {
   scene.remove(mesh);
   mesh.geometry.dispose();
@@ -87,9 +38,13 @@ function _clearRings() { for (const [e, m] of _rings) _disposeRing(e, m); }
 
 // Called every frame from the main loop.
 export function tickHideScout() {
-  const milo   = _findMilo();
-  const active = !combatPhase && milo && milo.stealthedOOC;
+  const scout  = _scout();
+  const active = !combatPhase && scout;
   if (!active) { if (_rings.size) _clearRings(); return; }
+
+  // The scout's own detection-shrink — the rings show the radius THEY face (approximate for the
+  // rest of a group, whose per-hero rolls differ; exact when Milo scouts solo).
+  const mult = sneakDetectMult(heroStealthPct(scout));
 
   // Drop rings for enemies that died/left
   for (const [enemy, mesh] of _rings) {
@@ -99,18 +54,15 @@ export function tickHideScout() {
   for (const enemy of units) {
     if (enemy.team !== 'red' || enemy.hp <= 0) continue;
     const base   = capDetectRange(enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? 20);
-    const radius = base * MILO_HIDE_DETECT_MULT;
+    const radius = base * mult;
     const cx = enemy.grp.position.x, cz = enemy.grp.position.z;
 
-    // Only draw for enemies near enough to matter AND that Milo can actually
-    // see (line of sight) — he can't map the detection range of a foe hidden
-    // behind a wall. Hard-capped at MAX_SCOUT_RANGE (10 squares) so fog/darkness
-    // zones don't grant unlimited-range LOS.
-    const dx = cx - milo.grp.position.x, dz = cz - milo.grp.position.z;
+    // Only draw for enemies near enough to matter AND that the scout can actually see (LOS) —
+    // he can't map the detection range of a foe hidden behind a wall. Hard-capped at MAX_SCOUT_RANGE.
+    const dx = cx - scout.grp.position.x, dz = cz - scout.grp.position.z;
     const showR = Math.min(base * 3, MAX_SCOUT_RANGE);
     let mesh = _rings.get(enemy);
-    const visible = dx * dx + dz * dz <= showR * showR &&
-                    unitsHaveLOS(milo, enemy);
+    const visible = dx * dx + dz * dz <= showR * showR && unitsHaveLOS(scout, enemy);
     if (!visible) { if (mesh) _disposeRing(enemy, mesh); continue; }
 
     if (!mesh) {
@@ -125,7 +77,7 @@ export function tickHideScout() {
       mesh.userData.r    = radius;
       scene.add(mesh);
       _rings.set(enemy, mesh);
-    } else if (mesh.userData.r !== radius) {
+    } else if (Math.abs(mesh.userData.r - radius) > 0.01) {
       mesh.geometry.dispose();
       mesh.geometry   = new THREE.RingGeometry(radius - 0.15, radius + 0.15, 64);
       mesh.userData.r = radius;

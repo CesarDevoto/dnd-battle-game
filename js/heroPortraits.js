@@ -200,7 +200,7 @@ export function updateHeroUI() {
       if (u && concentrating === u)
         badges += `<span class="cond-badge cond-conc">◈ Concentrating: ${concentratingSpell}<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
       if (u && u.stealthed && u.team === 'blue')
-        badges += `<span class="cond-badge cond-stealth">👁 Hidden · Stealth ${u.hideRoll ?? '?'}</span>`;
+        badges += `<span class="cond-badge cond-stealth">👁 Hidden</span>`;
 
       // ── Debuffs. Everything above is a buff; these are the bad ones, and they all carry
       // cond-debuff, which is what paints them red. Any future debuff goes here with that

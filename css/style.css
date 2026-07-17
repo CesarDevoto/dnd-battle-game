@@ -5456,6 +5456,12 @@ td.bst-col-retired { color: #343228 !important; }
   width: 21px;
   height: 21px;
 }
+/* Stealth icon: a pair of footprints (sneak). Uses the shared .gm-btn / .active green states. */
+.gm-stealth-svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+}
 /* 4-dot icon: top-left dot + 3 box-shadow dots forming a 2×2 grid */
 .gm-dots-4 {
   display: block;

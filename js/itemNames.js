@@ -79,6 +79,9 @@ const AFFIX_WORDS = {
   dex:                  { prefix: 'Agile',    suffix: 'the Fox' },
   healing_received_pct: { prefix: 'Blessed',  suffix: 'Recovery' },
   healing_done_pct:     { prefix: 'Sacred',   suffix: 'Mending' },
+  saving_throw_pct:     { prefix: 'Resolute', suffix: 'Resolve' },
+  stealth_pct:          { prefix: 'Shadowed', suffix: 'Shadows' },
+  perception_pct:       { prefix: 'Watchful', suffix: 'the Owl' },
 };
 
 // A drop keeps its authored name when it's a specific/scripted item rather than generic loot:

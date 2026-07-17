@@ -169,6 +169,31 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d3', blue: '1d4+2', purple: '1d6+4', orange: '1d6+7', red: '2d6+8' },
     },
   },
+  cloak: {
+    // Saving throws — a percentage-point bonus to ALL saves, added to rollSave's chance channel
+    // (the defensive mirror of hit_pct). Ladder MIRRORS head's damage-mitigation numbers exactly
+    // (user's call). Situational today: only the spider zone + Morvath force hero saves.
+    saving_throw_pct: {
+      label: 'Saving throws',
+      fmt:   v => `+${v}% to all saving throws`,
+      dice:  { green: '1d2', blue: '1d4+1', purple: '1d6+2', orange: '2d6+4', red: '3d6+6' },
+    },
+    // Stealth + Perception are percentage-point bonuses on the d100 spot engine (spotChance in
+    // combat.js — same math as hit%/ac%): stealth% LOWERS an enemy's chance to notice the hero,
+    // perception% RAISES the party's chance to notice a sneaker. Both SHARE the saving-throw /
+    // damage-mitigation ladder (user's call). Wired: stealth feeds the hide/sneak checks + detection
+    // shrink; perception feeds the surprise/ambush contest.
+    stealth_pct: {
+      label: 'Stealth',
+      fmt:   v => `+${v}% Stealth`,
+      dice:  { green: '1d2', blue: '1d4+1', purple: '1d6+2', orange: '2d6+4', red: '3d6+6' },
+    },
+    perception_pct: {
+      label: 'Perception',
+      fmt:   v => `+${v}% Perception`,
+      dice:  { green: '1d2', blue: '1d4+1', purple: '1d6+2', orange: '2d6+4', red: '3d6+6' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -204,6 +229,8 @@ export const AFFIX_COUNT = {
   // pool). So this count governs how many healing affixes a plain necklace rolls, saturating at 2.
   // Mirrors head's count shape. A rider amulet ignores this entirely and always rolls just its rider.
   neck:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [1, 2], orange: [2, 2], red: [2, 2] },
+  // Cloak owns THREE stats (saves / stealth / perception), so its count can climb to 3 at the top.
+  cloak: { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 3], red: [3, 3] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
