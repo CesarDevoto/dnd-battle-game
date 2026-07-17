@@ -12,6 +12,7 @@ import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked,
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
 import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getXpProgress, MAX_HERO_LEVEL } from './progression.js';
+import { itemTooltipHTML } from './itemTooltip.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
 // _rayDir is normalised in-place so there are zero heap allocations per unit.
@@ -477,30 +478,13 @@ const BARB_AT  = (d, what) => {
        :                    weaponMasteryForLevel(g);
 };
 
+// Delegates to the shared renderer so an item reads IDENTICALLY here and in the loot
+// window's hover tooltip. This used to be its own copy that knew nothing about rarity or
+// rolled affixes — so an equipped +5% mitigation hat showed no sign of the roll that made
+// it worth keeping, while the loot tooltip that sold it to you did.
 function formatItemDetailHTML(item) {
   if (!item) return 'Select an item to view its stats';
-
-  const lines = [`<div class="eq-detail-name">${item.name}</div>`];
-
-  if (item.dmg)   lines.push(`<div class="eq-detail-stat">${item.dmg} ${item.dmgType ?? ''} dmg</div>`);
-  if (item.ac)    lines.push(`<div class="eq-detail-stat">AC +${item.ac}</div>`);
-  if (item.heal)  lines.push(`<div class="eq-detail-stat">Heals ${item.heal} HP</div>`);
-  if (item.slots) lines.push(`<div class="eq-detail-stat">Container</div><div class="eq-detail-stat">(${item.slots} slots)</div>`);
-  if (item.description) lines.push(`<div class="eq-detail-desc">${item.description}</div>`);
-
-  const props = [];
-  if (item.light)      props.push('Light');
-  if (item.finesse)    props.push('Finesse');
-  if (item.thrown)     props.push('Thrown');
-  if (item.heavy)      props.push('Heavy');
-  if (item.reach)      props.push('Reach');
-  if (item.versatile)  props.push(`Versatile (${item.versatile})`);
-  if (item.ammunition) props.push('Ammunition');
-  if (item.loading)    props.push('Loading');
-  if (props.length) lines.push(`<div class="eq-detail-props">${props.join(' · ')}</div>`);
-  if (item.twoHanded)  lines.push(`<div class="eq-detail-props">Two-Handed</div>`);
-
-  return lines.join('');
+  return itemTooltipHTML(item);
 }
 
 function buildBagContentsHTML(item, slotKey) {

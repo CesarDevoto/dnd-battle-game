@@ -6,6 +6,7 @@ import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { placeInFirstEmptyBagSlot } from './equipment.js';
+import { showItemTooltip, moveItemTooltip, hideItemTooltip } from './itemTooltip.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
@@ -30,10 +31,51 @@ registerPostCombatHandler(10, (ctx, done) => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+// Bound ONCE. #lp-items is static in index.html; only its children are rebuilt, so delegating
+// here survives every re-render and can't stack duplicates the way per-render binding did.
+function _bindItemsContainer() {
+  const container = _panelEl?.querySelector('#lp-items');
+  if (!container) return;
+
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('.lp-assign-box');
+    if (!btn) return;
+    const itemIdx  = +btn.dataset.item;
+    const heroType = btn.dataset.hero;
+    _allItems[itemIdx].assignedTo = heroType === 'destroy'
+      ? 'destroy'
+      : (heroRoster.find(u => u.type === heroType) ?? null);
+    const card = container.querySelector(`[data-idx="${itemIdx}"]`);
+    card.querySelectorAll('.lp-assign-box').forEach(b => {
+      b.classList.toggle('lp-assigned', b.dataset.hero === heroType);
+    });
+    _updateCollectBtnState();
+  });
+
+  // Hover the item's IMAGE to read it before deciding — name in its rarity colour, base
+  // stats, and the affixes THIS one rolled. The card itself only has room for a name, and
+  // the roll is the whole reason one Cloth Hood is worth keeping over another.
+  const _itemAt = e => {
+    const icon = e.target.closest('.lp-item-icon');
+    const card = icon?.closest('[data-idx]');
+    return card ? _allItems[+card.dataset.idx] : null;
+  };
+  container.addEventListener('mouseover', e => {
+    const it = _itemAt(e);
+    if (it) showItemTooltip(it, e.clientX, e.clientY);
+  });
+  container.addEventListener('mousemove', e => {
+    if (_itemAt(e)) moveItemTooltip(e.clientX, e.clientY);
+    else hideItemTooltip();   // slid off the icon without leaving the container
+  });
+  container.addEventListener('mouseleave', hideItemTooltip);
+}
+
 export function initLootPanel() {
   _panelEl = document.getElementById('loot-panel');
   document.getElementById('lp-collect-btn')?.addEventListener('click', _collectLoot);
   document.getElementById('lp-skip-btn')?.addEventListener('click', _skipLoot);
+  _bindItemsContainer();
   // Accumulate drops as enemies die. If the panel is already showing (second
   // combat wave while loot is unresolved), rebuild it so new drops are visible.
   window.addEventListener('enemy:looted', e => {
@@ -45,6 +87,7 @@ export function initLootPanel() {
   // Zone transition while panel is open (edge case): abort cleanly without
   // calling advance() — the new zone reinitialises all combat state anyway.
   window.addEventListener('zone:loaded', () => {
+    hideItemTooltip();
     if (_panelEl) _panelEl.style.display = 'none';
     _drops    = [];
     _allItems = [];
@@ -184,20 +227,9 @@ function _renderItems() {
     container.appendChild(card);
   });
 
-  container.addEventListener('click', e => {
-    const btn = e.target.closest('.lp-assign-box');
-    if (!btn) return;
-    const itemIdx  = +btn.dataset.item;
-    const heroType = btn.dataset.hero;
-    _allItems[itemIdx].assignedTo = heroType === 'destroy'
-      ? 'destroy'
-      : (heroRoster.find(u => u.type === heroType) ?? null);
-    const card = container.querySelector(`[data-idx="${itemIdx}"]`);
-    card.querySelectorAll('.lp-assign-box').forEach(b => {
-      b.classList.toggle('lp-assigned', b.dataset.hero === heroType);
-    });
-    _updateCollectBtnState();
-  });
+  // NB: no listeners are attached here — see _bindItemsContainer(), bound once at init.
+  // They used to live in this function, which re-runs on every enemy:looted while the panel
+  // is open, so each rebuild stacked another click handler on the same container.
 }
 
 function _updateCollectBtnState() {
@@ -256,6 +288,7 @@ function _skipLoot() {
 
 // ── Shared teardown — advances the post-combat sequence ──────────────────────
 function _finish() {
+  hideItemTooltip();   // the panel can vanish out from under a hovered icon
   _panelEl.style.display = 'none';
   _drops    = [];
   _allItems = [];

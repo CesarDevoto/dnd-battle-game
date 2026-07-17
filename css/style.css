@@ -3118,30 +3118,9 @@ body {
   line-height: 1.5;
 }
 
-.eq-detail-name {
-  font-size: 0.60rem;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: var(--hc);
-  margin-bottom: 2px;
-}
-
-.eq-detail-stat {
-  color: rgba(212,175,55,0.85);
-}
-
-.eq-detail-props {
-  color: rgba(212,175,55,0.55);
-  font-style: italic;
-  margin-top: 2px;
-}
-
-.eq-detail-desc {
-  color: rgba(200,185,150,0.70);
-  font-size: 0.56rem;
-  line-height: 1.35;
-  margin-top: 4px;
-}
+/* .eq-detail-name/-stat/-props/-desc were removed 2026-07-16: the sheet's detail pane now
+   renders through the shared itemTooltipHTML, so it uses the .it-* classes and shows rarity
+   and rolled affixes like the loot tooltip does. #eq-detail (the container) is still used. */
 
 /* ── XP / level table panel (sheet side panel) ─────────────────────────────
    Rendered by buildXpPanelHTML — one row per D&D level, columns per class. */
@@ -3192,6 +3171,87 @@ body {
   line-height: 1.35;
   white-space: normal;
 }
+
+/* ── Item tooltip ──────────────────────────────────────────────────────────
+   Shared by the loot window's hover tooltip and the character sheet's item detail pane,
+   so a dropped item and an equipped one read identically. */
+
+/* Rarity text colours — the same values the .rarity-* slot BORDERS use, so an item's
+   colour is the one thing that never changes between the bag, the sheet and the tooltip. */
+.rarity-text-grey   { color: #9d9d9d; }
+.rarity-text-green  { color: #1eff00; }
+.rarity-text-blue   { color: #3d9bff; }   /* lifted from #0070dd: too dark to read on black */
+.rarity-text-purple { color: #b95cff; }   /* lifted from #a335ee for the same reason */
+.rarity-text-orange { color: #ff8000; }
+.rarity-text-red    { color: #ff5a61; }
+.rarity-text-gem    { color: #7ad7ff; }
+
+.item-tooltip {
+  position: fixed;
+  z-index: 500;                /* above the loot panel and the sheet's own panels */
+  pointer-events: none;        /* never eat the mouse — it follows the cursor */
+  max-width: 260px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(20,13,4,0.99) 0%, rgba(6,4,1,1.00) 100%);
+  border: 1px solid var(--border-outer);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.85), 0 8px 26px rgba(0,0,0,0.80);
+}
+.it-name {
+  font-family: var(--font-fantasy);
+  font-size: 0.72rem;
+  letter-spacing: 0.4px;
+  line-height: 1.25;
+}
+.it-sub {
+  font-family: var(--font-body);
+  font-size: 0.52rem;
+  opacity: 0.72;
+  margin-top: 1px;
+}
+.it-sep {
+  height: 1px;
+  background: rgba(212,175,55,0.16);
+  margin: 6px 0 5px;
+}
+.it-stat {
+  font-family: var(--font-body);
+  font-size: 0.57rem;
+  color: rgba(212,175,55,0.85);
+  line-height: 1.4;
+}
+.it-props {
+  font-family: var(--font-body);
+  font-size: 0.53rem;
+  color: rgba(212,175,55,0.50);
+  font-style: italic;
+  margin-top: 2px;
+}
+/* Rolled affixes get their own colour — they're what makes THIS copy different from every
+   other one of the same base, which is the entire question the tooltip exists to answer. */
+.it-affix {
+  font-family: var(--font-body);
+  font-size: 0.57rem;
+  color: #8fd0ff;
+  line-height: 1.45;
+}
+.it-desc {
+  font-family: var(--font-body);
+  font-size: 0.54rem;
+  color: rgba(200,185,150,0.68);
+  font-style: italic;
+  line-height: 1.35;
+  margin-top: 6px;
+}
+.it-value {
+  font-family: var(--font-body);
+  font-size: 0.54rem;
+  color: var(--gold-bright);
+  margin-top: 5px;
+}
+
+/* The loot card's icon is the hover target — say so. */
+.lp-item-icon { cursor: help; }
 
 /* ── Item right-click menu ─────────────────────────────────────────────────
    Lives on <body> at a fixed position (built at the cursor by ui.js), so it can
