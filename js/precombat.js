@@ -1,6 +1,6 @@
 import { units, setUnitWalking } from './units.js';
-import { UNIT_TYPES, GROUND_SIZE, MILO_HIDE_DETECT_MULT } from './constants.js';
-import { rollInitiative, showCenterAlert, addLog, unitLabel, unitsHaveLOS } from './combat.js';
+import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
+import { rollInitiative, showCenterAlert, addLog, unitLabel, unitsHaveLOS, heroStealthPct } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
 import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
@@ -10,6 +10,7 @@ import { barrierBlocksLayer } from './terrain.js';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const WALK_SPEED          = 5.4;  // hero free-roam speed (world units/sec)
+const SNEAK_SPEED_MULT    = 0.66; // a sneaking hero (hero.sneaking) creeps at 66% walk speed
 const PATROL_SPEED        = 0.9;  // enemy patrol speed
 const DETECT_DEFAULT      = 20;   // fallback detection radius (world units)
 const SOCIAL_AGGRO_DEFAULT = 10;  // fallback social aggro radius (world units)
@@ -160,7 +161,8 @@ function _tickHeroes(dt) {
       }
     }
 
-    const heroResult = _stepToward(hero, bx, bz, WALK_SPEED, dt, true);
+    const heroSpeed  = WALK_SPEED * (hero.sneaking ? SNEAK_SPEED_MULT : 1);
+    const heroResult = _stepToward(hero, bx, bz, heroSpeed, dt, true);
 
     if (heroResult === 'arrived') {
       // Only finish when we've reached our own slot — reaching the leader beacon
@@ -319,6 +321,13 @@ function _stepToward(unit, tx, tz, speed, dt, deflect = false) {
 
 // ── Proximity aggro ───────────────────────────────────────────────────────────
 
+// A sneaking hero shrinks an enemy's detection radius against them, scaled by their stealth STRENGTH
+// (heroStealthPct: DEX mod ×5 + stealth% gear, in percentage points). Higher = smaller radius.
+// Clamped so they never fully vanish. ~15 (Milo, no gear) → 0.78×; ~35 (geared) → 0.48×; 47+ → 0.30×.
+export function sneakDetectMult(stealthPct) {
+  return Math.max(0.3, Math.min(1.0, 1 - (stealthPct ?? 0) * 0.015));
+}
+
 function _checkAggro() {
   const heroes  = units.filter(u => u.team === 'blue' && u.hp > 0);
   const enemies = units.filter(u => u.team === 'red'  && u.hp > 0);
@@ -326,12 +335,10 @@ function _checkAggro() {
     // capDetectRange shrinks this to 8 squares in fog / high-darkness zones.
     const baseRange = capDetectRange(enemy.detectRange ?? UNIT_TYPES[enemy.type]?.detect ?? DETECT_DEFAULT);
     for (const hero of heroes) {
-      // Milo's out-of-combat Hide: his stealth shrinks this enemy's detection
-      // radius vs him by 50%; while standing in his own smoke cloud he can't be
-      // detected at all. Applies only to Milo — the rest of the party is normal.
-      const hidden = !!hero.stealthedOOC;
-      if (hidden && hero.smokeActive) continue;
-      const range = hidden ? baseRange * MILO_HIDE_DETECT_MULT : baseRange;
+      // A sneaking hero shrinks this enemy's detection radius against them, scaled by their stealth
+      // strength (heroStealthPct: DEX + stealth% gear). Milo's old dedicated OOC hide folded into
+      // this — he now sneaks via the MOVE-widget Stealth button, his high DEX giving a strong shrink.
+      const range = hero.sneaking ? baseRange * sneakDetectMult(heroStealthPct(hero)) : baseRange;
       const dx = hero.grp.position.x - enemy.grp.position.x;
       const dz = hero.grp.position.z - enemy.grp.position.z;
       if (dx * dx + dz * dz <= range * range) {
@@ -346,7 +353,6 @@ function _checkAggro() {
         // Deliberately AFTER the range test: LOS costs a terrain walk plus a prop raycast, so
         // it only runs for the handful of pairs already close enough to matter.
         if (!unitsHaveLOS(enemy, hero)) continue;
-        if (hidden) window.dispatchEvent(new CustomEvent('milo:spotted', { detail: { hero } }));
         _triggerAggro(enemy);
         return;
       }

@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
 import { playFireEffect } from './fireEffect.js';
 import { playIceEffect } from './iceEffect.js';
-import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
@@ -1502,29 +1501,31 @@ function activateHide() {
     return;
   }
 
-  const def    = UNIT_TYPES[u.type] ?? {};
-  // Hide is a DEX check, so gear counts — otherwise a +4 DEX wrist would improve Milo's
-  // attacks, AC, initiative and saves but leave his stealth untouched.
-  const dexMod = abilityModOf(u, 'dex');
-  // Auto-success: inside his own cloud the heavy obscurement fully conceals him — Hide
-  // succeeds with no roll. Standing still is NOT required; being in the smoke is enough.
-  const autoHide = _inOwnSmoke(u);
-  const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
+  // Hide is a DEX-based Stealth check, so gear counts (a +4 DEX wrist has to move it too). Run it on
+  // the d100 engine like everything else: a DC-10 check → success% = ((DEX + 20 − 10)/20)×100 plus
+  // the cloak stealth%. Auto-success inside his own smoke (heavy obscurement fully conceals him).
+  const dexMod     = abilityModOf(u, 'dex');
+  const stealthPct = affixTotal(u, 'stealth_pct');
+  const autoHide   = _inOwnSmoke(u);
+  const chance     = Math.round(Math.max(5, Math.min(95, ((dexMod + 20 - 10) / 20) * 100 + stealthPct)));
+  const succeeded  = autoHide || (Math.floor(Math.random() * 100) + 1) >= (100 - chance);
 
   turnBonusActioned = true;
   u.hideCooldown    = 2;
   playSound('hide');
 
-  if (autoHide || stealth >= 10) {
-    u.hideRoll = stealth;
+  if (succeeded) {
+    // Store his stealth STRENGTH; each enemy spot check (_checkHidePerception) rolls d100 against it.
+    u.hideDexMod     = dexMod;
+    u.hideStealthPct = stealthPct;
     setUnitStealth(u, true);
     addLog(autoHide
-      ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
-      : `${unitLabel(u)} hides! Stealth ${stealth} — enemies need ${stealth}+ to spot you`, 'move');
-    showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
+      ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds!`
+      : `${unitLabel(u)} hides! (${chance}% Stealth check — enemies now roll to spot him)`, 'move');
+    showFloatingDamage(u, 'HIDDEN', '#44ff88');
   } else {
-    addLog(`${unitLabel(u)}: Hide failed! (Stealth ${stealth} vs DC 10)`, 'dmg');
-    showFloatingDamage(u, `HIDE FAIL (${stealth})`, '#ff6644');
+    addLog(`${unitLabel(u)}: Hide failed! (${chance}% Stealth check)`, 'dmg');
+    showFloatingDamage(u, 'HIDE FAIL', '#ff6644');
   }
   updateCombatStatus();
 }
@@ -1564,18 +1565,21 @@ function activateSmokeMirrors() {
 function _checkHidePerception(hero) {
   if (!hero.stealthed || hero.team !== 'blue') return;
   const hx = hero.grp.position.x, hz = hero.grp.position.z;
+  // The hero's stealth strength — from the Hide/sneak that set it, else his live values.
+  const stealthMod = hero.hideDexMod     ?? abilityModOf(hero, 'dex');
+  const stealthPct = hero.hideStealthPct ?? affixTotal(hero, 'stealth_pct');
   for (const e of units) {
     if (e.team !== 'red' || e.hp <= 0 || !e.aggro) continue;
     if (!unitsHaveLOS(e, hero)) continue;
-    const def        = UNIT_TYPES[e.type] ?? {};
-    const wisMod     = Math.floor(((def.abilities?.wis ?? 10) - 10) / 2);
+    const wisMod  = Math.floor(((UNIT_TYPES[e.type]?.abilities?.wis ?? 10) - 10) / 2);
     const dx = hx - e.grp.position.x, dz = hz - e.grp.position.z;
-    const distFt     = Math.sqrt(dx * dx + dz * dz) * (GRID_SQUARE_FEET / WORLD_UNITS_PER_SQUARE);
-    const distPenalty = Math.floor(distFt / 5);
-    const percRoll   = Math.floor(Math.random() * 20) + 1 + wisMod - distPenalty;
-    if (percRoll >= (hero.hideRoll ?? 10)) {
+    const distFt  = Math.sqrt(dx * dx + dz * dz) * (GRID_SQUARE_FEET / WORLD_UNITS_PER_SQUARE);
+    const distPct = -Math.floor(distFt / 5) * 5;   // −5% spot chance per 5 ft (was −1 per 5 ft on d20)
+    const chance  = spotChance(wisMod, stealthMod, 0, stealthPct, distPct);
+    const roll    = Math.floor(Math.random() * 100) + 1;
+    if (roll >= (100 - chance)) {
       setUnitStealth(hero, false);
-      addLog(`${unitLabel(e)} spots ${unitLabel(hero)}! Stealth broken (Perception ${percRoll} vs Stealth ${hero.hideRoll})`, 'dmg');
+      addLog(`${unitLabel(e)} spots ${unitLabel(hero)}! (rolled ${roll} vs ${chance}% spot chance)`, 'dmg');
       showFloatingDamage(hero, 'SPOTTED!', '#ff4444');
       return;
     }
@@ -2346,8 +2350,11 @@ function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal', hitPctBonus
 // saveChance = ((saveMod + 20 - dc) / 20) × 100, clamped [5–95].
 // Roll d100 high to succeed: need ≥ (100 - saveChance).
 // Advantage: keep higher die. Disadvantage: keep lower die.
-function rollSave(saveMod, dc, mode = 'normal') {
-  const rawPct     = ((saveMod + 20 - dc) / 20) * 100;
+// pctBonus: flat percentage POINTS added to the save chance — the cloak's saving_throw_pct affix,
+// the defensive mirror of rollToHit's hitPctBonus. Callers pass affixTotal(hero,'saving_throw_pct')
+// for hero saves and 0 for enemy saves (statblocks have no gear). The 5-95 clamp still applies.
+function rollSave(saveMod, dc, mode = 'normal', pctBonus = 0) {
+  const rawPct     = ((saveMod + 20 - dc) / 20) * 100 + pctBonus;
   const saveChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold  = 100 - saveChance;
 
@@ -2500,7 +2507,10 @@ export function setActionSave(u, save) {
   // ≥70 against the same DC 12 web. Stored here so the button, badge and log all show the
   // correct per-hero number in d100 terms rather than a bare "DC 12".
   const mod = abilityModOf(u, save.stat);   // includes gear — a +2 DEX wrist moves this number
-  save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100)));
+  // Fold in the cloak saving-throw % too, so the displayed break-free threshold matches the
+  // actual rollSave (which passes the same bonus) instead of showing a stale, easier number.
+  const savePct = affixTotal(u, 'saving_throw_pct');
+  save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100 + savePct)));
   save.threshold = 100 - save.chance;
   u.actionSave = save;
 }
@@ -2519,7 +2529,7 @@ function _attemptActionSave(u) {
 
   turnAttacked = true;   // the attempt costs your Action whether it lands or not
   const mod = abilityModOf(u, s.stat);
-  const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal');
+  const res = rollSave(mod, s.dc, u.dodging ? 'advantage' : 'normal', affixTotal(u, 'saving_throw_pct'));
   const label = unitLabel(u);
 
   showRoll(`${label} · ${s.name} (${s.stat.toUpperCase()} · need ≥ ${s.threshold})`, res, { autoDismiss: false });
@@ -2566,7 +2576,7 @@ function _checkConcentration(unit, dmgTaken, willDie) {
   if (dmgTaken <= 0) return;
   const dc     = Math.max(10, Math.floor(dmgTaken / 2));
   const conMod = abilityModOf(unit, 'con');   // no CON affix yet, but this is the right door
-  const result = rollSave(conMod, dc, unit.dodging ? 'advantage' : 'normal');
+  const result = rollSave(conMod, dc, unit.dodging ? 'advantage' : 'normal', affixTotal(unit, 'saving_throw_pct'));
   showRoll(`${label} · Concentration (CON DC ${dc})`, result, { autoDismiss: false });
   if (result.isSave) {
     addLog(`${label} maintains concentration on ${concentratingSpell} (${saveBreakdown(result, 'con')})`, 'spell');
@@ -2597,7 +2607,7 @@ function _resolvePoison(target, poison, done) {
   const stat   = poison.saveStat ?? 'con';
   const dc     = poison.saveDC ?? 11;
   const mod    = abilityModOf(target, stat);
-  const res    = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
+  const res    = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal', affixTotal(target, 'saving_throw_pct'));
 
   showRoll(`${label} · Venom (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
 
@@ -3018,7 +3028,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
       playGraveCurseBolt(attacker, hero, () => {
         const saveMod       = abilityModOf(hero, saveType);
         const blessSaveBonus = blessedUnits.has(hero) ? roll({ sides: 2 }).total : 0;   // Bless: +1d2 to saving throws
-        const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal');
+        const saveResult    = rollSave(saveMod + blessSaveBonus, dc, hero.dodging ? 'advantage' : 'normal', affixTotal(hero, 'saving_throw_pct'));
         // Save halves first, THEN mitigation takes its cut of what's left — so a raging
         // hero who also saves gets both. AoE was mitigated by nothing before 2026-07-16.
         const savedDmg      = saveResult.isSave ? Math.max(1, Math.floor(rawDmg / 2)) : rawDmg;
@@ -3628,6 +3638,78 @@ renderer.domElement.addEventListener('mouseup', e => {
 
 // ── Initiative ────────────────────────────────────────────────────────────────
 
+// ── Surprise / ambush ─────────────────────────────────────────────────────────
+// A side that sneaks up undetected gets a SURPRISE ROUND: every unit on the OTHER side loses its
+// first turn (5e surprise — see the skip in activateTurn). Either side can be the sneaker:
+//   • Heroes sneak per-hero via `hero.sneaking` — set by the MOVE-widget stealth button
+//     (stealthToggle.js): group move flags all four, solo move flags just the selected hero.
+//   • Enemies sneak when EVERY aggro'd enemy is an ambusher (`ambush` on the statblock or unit).
+// The contest is the sneaking side's Stealth (a d20 roll, the group only as quiet as its clumsiest)
+// vs the other side's PASSIVE Perception (10 + best WIS + perception gear — no roll). This is where
+// the cloak's stealth_pct and perception_pct affixes finally do work.
+
+// d100 spot check — the SAME percentage engine as rollToHit/rollSave. A DETECTOR (perception) tries
+// to notice a SNEAKER (stealth): perceptionMod/stealthMod are the WIS/DEX ability mods, the cloak
+// affixes net as percentage POINTS (perception% raises the chance, stealth% lowers it — exactly like
+// hit% vs ac%), and extraPct folds in flat modifiers like distance. Clamped 5–95.
+function spotChance(perceptionMod, stealthMod, percPct = 0, stealthPct = 0, extraPct = 0) {
+  const raw = ((perceptionMod + 20 - (10 + stealthMod)) / 20) * 100 + percPct - stealthPct + extraPct;
+  return Math.round(Math.max(5, Math.min(95, raw)));
+}
+// Roll d100 against a spot chance. Mirrors rollToHit: a high roll spots (>= 100 − chance).
+function _rollSpot(chance) {
+  const roll = Math.floor(Math.random() * 100) + 1;
+  return { chance, roll, spotted: roll >= (100 - chance) };
+}
+// A hero's stealth STRENGTH in percentage points — DEX mod ×5 (the d20→d100 scale) + stealth gear.
+// Shrinks enemy detection radius on the approach (precombat sneakDetectMult).
+export function heroStealthPct(u) {
+  return abilityModOf(u, 'dex') * 5 + affixTotal(u, 'stealth_pct');
+}
+// A unit's total perception / stealth in % points, for picking a side's best perceiver (most likely
+// to notice) and weakest sneaker (easiest to notice).
+const _percTotal    = u => abilityModOf(u, 'wis') * 5 + affixTotal(u, 'perception_pct');
+const _stealthTotal = u => abilityModOf(u, 'dex') * 5 + affixTotal(u, 'stealth_pct');
+
+// Decide surprise at combat start. A side that slips past the other's spot check surprises it —
+// every unit on the caught-out side gets `surprised` (loses its first turn). Consumes the sneak.
+function _determineSurprise() {
+  const heroes  = units.filter(u => u.team === 'blue' && u.hp > 0);
+  const enemies = units.filter(u => u.team === 'red'  && u.hp > 0 && u.aggro !== false);
+  if (!heroes.length || !enemies.length) { heroes.forEach(h => setUnitSneaking(h, false)); return; }
+
+  const sneakers        = heroes.filter(h => h.sneaking);   // solo move flags one; group flags all
+  const heroesSneaking  = sneakers.length > 0;
+  const enemiesSneaking = enemies.every(e => UNIT_TYPES[e.type]?.ambush || e.ambush);
+
+  // One spot roll: the DETECTING side's best perceiver vs the SNEAKING side's weakest sneaker.
+  const spotRoll = (detectors, sneaks) => {
+    const d = detectors.reduce((a, b) => _percTotal(b)    > _percTotal(a)    ? b : a);
+    const s = sneaks.reduce((a, b)    => _stealthTotal(b) < _stealthTotal(a) ? b : a);
+    return _rollSpot(spotChance(abilityModOf(d, 'wis'), abilityModOf(s, 'dex'),
+                                affixTotal(d, 'perception_pct'), affixTotal(s, 'stealth_pct')));
+  };
+
+  const heroesWin  = heroesSneaking  && !spotRoll(enemies, sneakers).spotted;   // enemies failed to spot the party
+  const enemiesWin = !heroesWin && enemiesSneaking && !spotRoll(heroes, enemies).spotted;
+  heroes.forEach(h => setUnitSneaking(h, false));   // the sneak attempt is spent (also clears the look)
+
+  if (heroesWin) {
+    enemies.forEach(e => { e.surprised = true; });
+    // A clean sneak carries MILO into the fight still hidden (his removed OOC hide's job) — only
+    // Milo, since Sneak Attack is his. His stealth carries as hideDexMod/hideStealthPct so enemy
+    // spot checks (_checkHidePerception) run against his ACTUAL stealth rather than a default.
+    const milo = sneakers.find(h => h.type === 'halfling');
+    if (milo) { milo.hideDexMod = abilityModOf(milo, 'dex'); milo.hideStealthPct = affixTotal(milo, 'stealth_pct'); setUnitStealth(milo, true); }
+    showCenterAlert('SURPRISE ROUND!', '#88cc66');
+    addLog('The party slips in unseen — SURPRISE ROUND!', 'alert');
+  } else if (enemiesWin) {
+    heroes.forEach(h => { h.surprised = true; });
+    showCenterAlert('AMBUSH!', '#ff4400');
+    addLog('Ambush! The enemy strikes from hiding — you are surprised!', 'alert');
+  }
+}
+
 export function rollInitiative() {
   combatPhase = true;
   // Find Familiar is once per combat. Iffir has 1 HP and dies easily, and without a cap
@@ -3686,6 +3768,7 @@ export function rollInitiative() {
     // Magic Missile: first cast each combat is free, then costs a spell slot
     if (u.type === 'elf')      { u.mmFreeUsed = false; }
     u.dodging = false;
+    u.surprised = false;   // cleared each combat; _determineSurprise re-sets the losing side below
     // mageArmored is intentionally NOT reset — persists until long rest
     const def    = UNIT_TYPES[u.type] ?? {};
     // Initiative is DEX-driven, so a +2 DEX wrist has to move it — leaving this on the static
@@ -3704,6 +3787,7 @@ export function rollInitiative() {
   _clearOwlHelp();          // no stale distract-mark carried in from a prior fight
   enterCombatFamiliar();    // owl leaves the shoulder to become a combatant
   { const _owl = getFamiliar(); if (_owl) _placeFamiliarForCombat(_owl); }
+  _determineSurprise();     // stealth vs perception → sets `surprised` on the ambushed side
   buildTurnList();
   activateTurn(0);
   playSound('combat_start');
@@ -4279,11 +4363,12 @@ const _ABILITY_HANDLERS = {
   },
   hide: {
     actionType: 'bonus',
-    // In combat: normal Hide bonus action. Out of combat: toggle Milo's scouting
-    // Hide (semi-transparent, shrinks enemy detection radius by 50%).
-    execute: () => { if (combatPhase) activateHide(); else toggleMiloHideOOC(); },
+    // Combat only: Milo's Hide bonus action (sets up Sneak Attack). Out of combat he sneaks via the
+    // MOVE-widget Stealth button (solo move) — that folded in his old scouting hide, and a WON sneak
+    // carries him into the fight already hidden (see _determineSurprise), so his opener is preserved.
+    execute: () => { if (combatPhase) activateHide(); },
     isAvailable: () => {
-      if (!combatPhase) return canMiloHideOOC();
+      if (!combatPhase) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'halfling' || turnBonusActioned) return false;
       return (curU.hideCooldown ?? 0) === 0;
@@ -4915,6 +5000,20 @@ export function activateTurn(index) {
 
     if (combatPhase) {
       heroMode = null;
+      // A SURPRISED unit loses its whole first turn (5e surprise) — no move, no action. One-shot:
+      // cleared here so it acts normally next round. Applies to heroes AND enemies, whoever the
+      // pre-combat stealth/perception contest caught off guard (_determineSurprise).
+      if (u.surprised) {
+        u.surprised = false;
+        clearAllHotkeys();          // blank the just-built hotbar so a surprised hero can't sneak an action in
+        endTurnBtn.disabled = true; // and can't end early either — the auto-end below owns it
+        addLog(`${unitLabel(u)} is surprised and loses its turn!`, 'alert');
+        showFloatingDamage(u, 'SURPRISED', '#ffcc44');
+        document.getElementById('turn-round').textContent = `Round ${round}`;
+        updateCombatStatus();
+        setTimeout(() => doEndTurn(), 1000);
+        return;
+      }
       if (u.team === 'red') {
         // An enemy held by a turn-locking action-save has no UI to click, so it spends its
         // Action on the save itself and then ends the turn. Handing it to runAITurn would
@@ -5568,22 +5667,25 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (inEnemyLOS) { onSkip(); return; }
         // `u`, not the 'halfling' literal: the literal can't see gear, and this is the
         // automated twin of activateHide — the two must roll the same number.
-        const dexMod = abilityModOf(u, 'dex');
+        const dexMod     = abilityModOf(u, 'dex');
+        const stealthPct = affixTotal(u, 'stealth_pct');
         // Auto-success anywhere inside his own smoke cloud (no stand-still requirement).
-        const autoHide = _inOwnSmoke(u);
-        const stealth  = autoHide ? 20 + dexMod : Math.floor(Math.random() * 20) + 1 + dexMod;
+        const autoHide   = _inOwnSmoke(u);
+        const chance     = Math.round(Math.max(5, Math.min(95, ((dexMod + 20 - 10) / 20) * 100 + stealthPct)));
+        const succeeded  = autoHide || (Math.floor(Math.random() * 100) + 1) >= (100 - chance);
         u.hideCooldown    = 2;
         turnBonusActioned = true;
         playSound('hide');
-        if (autoHide || stealth >= 10) {
-          u.hideRoll = stealth;
+        if (succeeded) {
+          u.hideDexMod     = dexMod;
+          u.hideStealthPct = stealthPct;
           setUnitStealth(u, true);
           addLog(autoHide
-            ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds! (Stealth ${stealth})`
-            : `${unitLabel(u)} hides! Stealth ${stealth}`, 'move');
-          showFloatingDamage(u, `HIDDEN (${stealth})`, '#44ff88');
+            ? `${unitLabel(u)} melts into his smoke — Hide auto-succeeds!`
+            : `${unitLabel(u)} hides! (${chance}% Stealth check)`, 'move');
+          showFloatingDamage(u, 'HIDDEN', '#44ff88');
         } else {
-          addLog(`${unitLabel(u)} tries to hide but fails (${stealth})`, 'move');
+          addLog(`${unitLabel(u)} tries to hide but fails (${chance}% check)`, 'move');
           showFloatingDamage(u, 'HIDE FAILED', '#ff8844');
         }
         updateCombatStatus();

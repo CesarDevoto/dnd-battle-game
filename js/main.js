@@ -54,7 +54,7 @@ import { tickLoot } from './loot.js';
 import { initLootPanel } from './lootPanel.js';
 import { initShortRest } from './shortRest.js';
 import { initHealingWordOOC } from './healingWordOOC.js';
-import { initHideOOC, tickHideScout } from './hideOOC.js';
+import { tickHideScout } from './hideOOC.js';
 import { updateFamiliar } from './familiar.js';
 import { tickBleakmireWoods } from './bleakmireWoodsEvent.js';
 import './mausoleumEvent.js';
@@ -68,6 +68,7 @@ import { updateXPBar, showLevelUpFloat } from './progression.js';
 import { showLevelUpModal } from './levelUpModal.js';
 import { playSound } from './audio.js';
 import { initGroupMove } from './groupMove.js';
+import { initStealthToggle } from './stealthToggle.js';
 import { initFogEditor } from './fogEditor.js';
 import { initQuests } from './quests.js';
 import { initDevLevelTool } from './devLevelTool.js';
@@ -174,8 +175,8 @@ initAmbush({ getActiveZoneId: () => getActiveZone()?.id });
 initLootPanel();
 initShortRest();
 initHealingWordOOC();
-initHideOOC();
 initGroupMove();
+initStealthToggle();
 initQuests();
 initWorldMap();
 
@@ -324,6 +325,13 @@ if (IS_DEV) {
      ['elf',      'viperfang_amulet'],
      ['dwarf',    'plaguewrought_charm']].forEach(([type, id]) => window.devEquipItem(type, id, rarity));
     console.log(`[DEV] Equipped all four rider amulets (${rarity}). Land a hit to see them fire.`);
+  };
+
+  // Flag every enemy as an ambusher so the NEXT fight tests the enemy-surprise path (no statblock
+  // has `ambush` yet). Party sneak (hero surprise) is the K key, out of combat.
+  window.devAmbush = () => {
+    units.forEach(u => { if (u.team === 'red') u.ambush = true; });
+    console.log('[DEV] All enemies set to ambush — start a fight to get surprised.');
   };
 }
 

@@ -83,7 +83,7 @@ export function updateHUD() {
     u.barEl.style.top     = (sy - 4) + 'px';
     u.fill.style.width    = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
     // Milo hiding (in-combat stealth or out-of-combat scouting) → black→grey bar
-    u.fill.classList.toggle('hp-hidden', u.team === 'blue' && (!!u.stealthed || !!u.stealthedOOC));
+    u.fill.classList.toggle('hp-hidden', u.team === 'blue' && (!!u.stealthed || !!u.stealthedOOC || !!u.sneaking));
 
     // Terrain occlusion test — only run when bar is eligible to show, and only every
     // OCCLUSION_STRIDE frames (see the raycaster comment above: this is an unaccelerated

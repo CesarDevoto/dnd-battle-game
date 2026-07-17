@@ -1047,27 +1047,43 @@ export function applyUnitAnimOverride(unit, role, clipIdx) {
 const STEALTH_OPACITY = 0.28;
 const STEALTH_TINT     = 0.32; // fraction of original color kept when stealthed
 
-export function setUnitStealth(unit, stealthed) {
-  unit.stealthed = stealthed;
+// The ghostly LOOK — low opacity + darkened color/emissive — applied when a unit is in ANY stealth
+// state (combat stealth, Milo's OOC hide, or the party sneak). Split from the flag-setting so the
+// several states can share it and OR together (a unit stays ghostly while any one of them holds).
+function _applyStealthMaterial(unit, on) {
   unit.grp.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     mats.forEach(m => {
       if (!m) return;
-      m.transparent = stealthed;
-      m.opacity     = stealthed ? STEALTH_OPACITY : 1.0;
+      m.transparent = on;
+      m.opacity     = on ? STEALTH_OPACITY : 1.0;
       m.needsUpdate = true;
 
       if (m.color) {
         if (!m.userData._stealthOrigColor) m.userData._stealthOrigColor = m.color.clone();
-        if (stealthed) m.color.copy(m.userData._stealthOrigColor).multiplyScalar(STEALTH_TINT);
-        else            m.color.copy(m.userData._stealthOrigColor);
+        if (on) m.color.copy(m.userData._stealthOrigColor).multiplyScalar(STEALTH_TINT);
+        else    m.color.copy(m.userData._stealthOrigColor);
       }
       if (m.emissive) {
         if (!m.userData._stealthOrigEmissive) m.userData._stealthOrigEmissive = m.emissive.clone();
-        if (stealthed) m.emissive.copy(m.userData._stealthOrigEmissive).multiplyScalar(STEALTH_TINT);
-        else            m.emissive.copy(m.userData._stealthOrigEmissive);
+        if (on) m.emissive.copy(m.userData._stealthOrigEmissive).multiplyScalar(STEALTH_TINT);
+        else    m.emissive.copy(m.userData._stealthOrigEmissive);
       }
     });
   });
+}
+const _wantsStealthLook = u => !!(u.stealthed || u.stealthedOOC || u.sneaking);
+
+export function setUnitStealth(unit, stealthed) {
+  unit.stealthed = stealthed;
+  _applyStealthMaterial(unit, _wantsStealthLook(unit));
+}
+
+// OOC party sneak (the MOVE-widget Stealth button): the same ghostly look + black healthbar as a
+// stealthed unit, but WITHOUT the combat `stealthed` flag — so flagging all four heroes doesn't
+// hand them in-combat hide / Sneak Attack (that stays Milo's). Purely a "who's creeping" indicator.
+export function setUnitSneaking(unit, on) {
+  unit.sneaking = on;
+  _applyStealthMaterial(unit, _wantsStealthLook(unit));
 }
