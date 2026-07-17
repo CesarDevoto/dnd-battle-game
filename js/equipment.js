@@ -133,6 +133,7 @@ export function equipItem(hero, item, slotOverride) {
   }
 
   hero.equipment[slot] = item;
+  syncGearHp(hero);
   return displaced;
 }
 
@@ -140,7 +141,24 @@ export function unequipItem(hero, slotId) {
   if (!hero.equipment) return null;
   const item = hero.equipment[slotId] ?? null;
   delete hero.equipment[slotId];
+  syncGearHp(hero);
   return item;
+}
+
+// The Legs Max-HP affix, baked into hero.maxHp rather than summed at a read site (maxHp is a stored
+// field read raw in ~28 places with no accessor). Reconciles maxHp — and current hp — to the gear's
+// current total whenever equipment changes; `_gearMaxHp` tracks how much is already applied so this
+// is idempotent and only ever moves by the DELTA. Current hp rides with the ceiling (equipping the
+// bonus grants it, unequipping removes it), clamped to [1, maxHp] for a living hero; a downed hero
+// (hp 0) keeps its 0. Heroes persist across zones, so once baked in the bonus carries.
+export function syncGearHp(hero) {
+  if (!hero) return;
+  const target  = _gearBonus(hero, 'max_hp');
+  const delta   = target - (hero._gearMaxHp ?? 0);
+  if (delta === 0) return;
+  hero.maxHp = Math.max(1, (hero.maxHp ?? 1) + delta);
+  if (hero.hp > 0) hero.hp = Math.max(1, Math.min(hero.maxHp, hero.hp + delta));
+  hero._gearMaxHp = target;
 }
 
 export function getEquipped(hero, slotId) {

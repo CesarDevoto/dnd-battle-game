@@ -194,6 +194,19 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d2', blue: '1d4+1', purple: '1d6+2', orange: '2d6+4', red: '3d6+6' },
     },
   },
+  legs: {
+    // Max HP — a FLAT hit-point bonus (the doc's Legs stat). Unlike the % affixes it isn't summed
+    // at a read site: maxHp is a stored field read raw in ~28 places with no accessor, so instead
+    // equipment.js's syncGearHp BAKES this total into hero.maxHp on equip/unequip (heroes persist,
+    // so it carries across zones). Flat HP scales down over levels — a chase stat early, minor late.
+    max_hp: {
+      label: 'Max HP',
+      fmt:   v => `+${v} max HP`,
+      // Beefy top end with high FLOORS (user's call) — big flat mods keep the minimums strong so a
+      // top-tier drop is never a dud: orange 17–32, red 25–40.
+      dice:  { green: '1d4+2', blue: '1d6+4', purple: '2d6+10', orange: '3d6+14', red: '3d6+22' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -231,6 +244,8 @@ export const AFFIX_COUNT = {
   neck:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [1, 2], orange: [2, 2], red: [2, 2] },
   // Cloak owns THREE stats (saves / stealth / perception), so its count can climb to 3 at the top.
   cloak: { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 3], red: [3, 3] },
+  // Legs is a THIN slot — Max HP is the only stat, so the count is always 1; tiers separate by size.
+  legs:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same

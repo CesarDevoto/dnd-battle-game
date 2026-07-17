@@ -82,6 +82,7 @@ const AFFIX_WORDS = {
   saving_throw_pct:     { prefix: 'Resolute', suffix: 'Resolve' },
   stealth_pct:          { prefix: 'Shadowed', suffix: 'Shadows' },
   perception_pct:       { prefix: 'Watchful', suffix: 'the Owl' },
+  max_hp:               { prefix: 'Vital',    suffix: 'Vitality' },
 };
 
 // A drop keeps its authored name when it's a specific/scripted item rather than generic loot:
