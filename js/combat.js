@@ -19,7 +19,7 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { affixTotal, abilityModOf } from './affixes.js';
+import { affixTotal, abilityModOf, applyHeal } from './affixes.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
          hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
@@ -1195,8 +1195,7 @@ function castHeal(caster, target, spellKey) {
   const wisMod   = Math.floor(((UNIT_TYPES[caster.type]?.abilities?.wis ?? 10) - 10) / 2);
   const healMod  = spell.healMod ?? wisMod;
   const healRoll = roll({ sides: spell.healSides, count: spell.healDice, modifier: healMod });
-  const healed   = Math.min(healRoll.total, target.maxHp - target.hp);
-  target.hp      = Math.min(target.maxHp, target.hp + healRoll.total);
+  const healed   = applyHeal(target, healRoll.total, { caster });
   target.barShowUntil = Date.now() + 4000;
 
   showRoll(`${unitLabel(caster)}  →  ${unitLabel(target)}  ·  ${spell.name}`, healRoll, { autoDismiss: false });
@@ -1626,9 +1625,7 @@ function _useHealingPotion(u) {
 
   const formula = parseDiceFormula(item.heal);
   const healed  = formula ? Math.max(1, roll(formula).total) : 1;
-  const prev    = u.hp;
-  u.hp = Math.min(u.maxHp, u.hp + healed);
-  const actual = u.hp - prev;
+  const actual  = applyHeal(u, healed);   // potion: a heal RECEIVED, no caster/healing-done
 
   showFloatingDamage(u, `+${actual}`, '#55cc55');
   addLog(`${unitLabel(u)} drinks a ${item.name}, restoring ${actual} HP`, 'heal');
@@ -3088,8 +3085,7 @@ function hideSoulShardPrompt() {
 soulShardPromptBtn?.addEventListener('click', () => {
   const hero = _soulShardHero;
   if (!hero || !units.includes(hero) || hero.hp <= 0) { hideSoulShardPrompt(); return; }
-  const healed = roll({ sides: 4, count: 1 }).total;
-  hero.hp = Math.min(hero.maxHp, hero.hp + healed);
+  const healed = applyHeal(hero, roll({ sides: 4, count: 1 }).total);   // soul shard: received-only
   hero.barShowUntil = Date.now() + 5000;
   turnReactionUsed = true;
   showFloatingDamage(hero, `+${healed}`, '#44ff88');
@@ -5425,13 +5421,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           count:    hw.healDice,
           modifier: hw.healMod ?? hwWisMod,
         });
-        // Bug fix: this used to read the hero's base UNIT_TYPES hp (stale
-        // once they've leveled up) instead of their real current maxHp,
-        // capping — or even reducing — HP for anyone past their starting max.
-        const maxHp    = allyWounded.maxHp ?? UNIT_TYPES[allyWounded.type]?.hp ?? allyWounded.hp;
-        const before   = allyWounded.hp;
-        allyWounded.hp = Math.min(allyWounded.hp + healRoll.total, maxHp);
-        const healed   = allyWounded.hp - before;
+        // applyHeal clamps to allyWounded.maxHp (the real current max), which also fixes the old
+        // bug where this read the stale base UNIT_TYPES hp and capped/reduced HP past the start max.
+        const healed   = applyHeal(allyWounded, healRoll.total, { caster: u });
         allyWounded.barShowUntil = Date.now() + 4000;
         hideUndoBtn();
         updateCombatStatus();
@@ -5459,9 +5451,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         spendSpellSlot(u, spellLevelOf('cure_wounds'));
         const cw       = SPELLS.cure_wounds;
         const healRoll = roll({ sides: cw.healSides, count: cw.healDice, modifier: cw.healMod });
-        const before   = critAlly.hp;
-        critAlly.hp    = Math.min(critAlly.hp + healRoll.total, critAlly.maxHp);
-        const healed   = critAlly.hp - before;
+        const healed   = applyHeal(critAlly, healRoll.total, { caster: u });
         critAlly.barShowUntil = Date.now() + 4000;
         hideUndoBtn();
         updateCombatStatus();

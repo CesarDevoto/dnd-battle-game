@@ -152,8 +152,22 @@ export const SLOT_AFFIXES = {
       noun: 'disease', damageType: 'disease', saveStat: 'con', halfOnSave: true,
       dice: RIDER_DICE, dc: RIDER_DC,
     },
-    // NOT YET: Healing power (the neck's other stat) — needs a heal choke point that doesn't
-    // exist yet (8 inlined heal sites); extract applyHeal() first, same as applyMitigation was.
+    // Healing power, split into TWO affixes (user's call) that share ONE ladder: healing_received
+    // reads on whoever is HEALED and lifts heals from every source; healing_done reads on the
+    // CASTER and lifts the heals they cast. Both are normal (not signatureOnly) so a plain necklace
+    // rolls 1-2 of them (see AFFIX_COUNT.neck); the rider amulets force their rider and skip these.
+    // They stack ADDITIVELY inside applyHeal (sum the fractions, one multiply) — same rule as
+    // mitigation. Ladder mirrors chest's AC% curve; retune freely.
+    healing_received_pct: {
+      label: 'Healing received',
+      fmt:   v => `+${v}% healing received`,
+      dice:  { green: '1d3', blue: '1d4+2', purple: '1d6+4', orange: '1d6+7', red: '2d6+8' },
+    },
+    healing_done_pct: {
+      label: 'Healing power',
+      fmt:   v => `+${v}% healing done`,
+      dice:  { green: '1d3', blue: '1d4+2', purple: '1d6+4', orange: '1d6+7', red: '2d6+8' },
+    },
   },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
@@ -185,11 +199,11 @@ export const AFFIX_COUNT = {
   // i.e. rolls thrown away above the ceiling. One stat per wrist keeps every tier under the
   // clamp AND makes the pair a decision (two hit%, two STR/DEX, or one of each).
   wrist: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
-  // Neck's stats today are all signatureOnly riders, which bypass this count row entirely (they
-  // roll ONLY via a base's signatureAffix, not the random pool). So the random path always finds
-  // an empty `eligible` here and drops a plain base — the row is shape-consistency, and it's what
-  // will govern Healing power once that (non-signature) stat lands.
-  neck:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
+  // Neck owns two ROLLABLE stats now — healing_received + healing_done — plus the signatureOnly
+  // riders (which bypass this row: they roll only via a base's signatureAffix, never the random
+  // pool). So this count governs how many healing affixes a plain necklace rolls, saturating at 2.
+  // Mirrors head's count shape. A rider amulet ignores this entirely and always rolls just its rider.
+  neck:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [1, 2], orange: [2, 2], red: [2, 2] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
@@ -273,6 +287,27 @@ export function affixTotal(hero, key) {
     }
   }
   return total;
+}
+
+// ── Healing ─────────────────────────────────────────────────────────────────
+// The single choke point for restoring HP — every heal in the game (Healing Word, Cure Wounds,
+// potions, short rest, soul-shard, zone-load) routes through here so the neck's two healing
+// affixes apply in ONE place instead of at ~8 inlined sites. Mirrors the applyMitigation/
+// damageMitigationOf extraction that let the head mitigation affix plug in cleanly.
+//
+// Two affixes, summed ADDITIVELY then applied as one multiply (same rule as mitigation, never
+// chained): `healing_received_pct` on the TARGET lifts heals from any source; `healing_done_pct`
+// on the CASTER (passed as opts.caster, only the cast heals have one) lifts what they heal. Clamps
+// to maxHp. Returns the HP actually restored (after the clamp) so callers log the real number.
+export function applyHeal(target, amount, { caster = null } = {}) {
+  if (!target || !(amount > 0)) return 0;
+  const recv  = affixTotal(target, 'healing_received_pct') / 100;
+  const given = caster ? affixTotal(caster, 'healing_done_pct') / 100 : 0;
+  const boosted = Math.max(1, Math.round(amount * (1 + recv + given)));
+  const before  = target.hp ?? 0;
+  const maxHp   = target.maxHp ?? before;
+  target.hp = Math.min(maxHp, before + boosted);
+  return target.hp - before;
 }
 
 // A unit's ability SCORE including gear, and the modifier that falls out of it.

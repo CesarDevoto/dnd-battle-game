@@ -15,6 +15,7 @@ import { renderHeroPortrait } from './heroPortraits.js';
 import { isDevMode } from './devMode.js';
 import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPhase } from './combat.js';
 import { applyHeroSkin } from './heroSkins.js';
+import { applyHeal } from './affixes.js';
 import { filterZoneSpawns, tagSpawnedEnemy, setEnemySpawner } from './respawn.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_road_to_phandelver.js';
 import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
@@ -588,9 +589,7 @@ function _showShortRestPanel(targetZoneId, arrivalPos = null) {
         const conMod = Math.floor((con - 10) / 2);
         const rolled = Math.ceil(Math.random() * die);
         const healed = Math.max(1, rolled + conMod);
-        const prev = h.hp;
-        h.hp = Math.min(h.maxHp, h.hp + healed);
-        const actual = h.hp - prev;
+        const actual = applyHeal(h, healed);   // rest heal: received-only, no caster
 
         // Update row visuals
         const pct = h.hp / h.maxHp;

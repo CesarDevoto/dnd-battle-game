@@ -15,6 +15,7 @@ import {
 } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
 import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
+import { applyHeal } from './affixes.js';
 
 let _used     = false;
 let _selected = null;   // currently PC-selected hero (from pc-hero:selected)
@@ -101,9 +102,7 @@ function _cast(target) {
 
   const wisMod = Math.floor(((UNIT_TYPES.dwarf?.abilities?.wis ?? 10) - 10) / 2);
   const healed = Math.max(1, Math.ceil(Math.random() * 8) + wisMod);
-  const prev   = target.hp;
-  target.hp    = Math.min(target.maxHp, target.hp + healed);
-  const actual = target.hp - prev;
+  const actual = applyHeal(target, healed, { caster: _selected });   // _selected is Leugren, the caster
 
   const targetName = UNIT_TYPES[target.type]?.name ?? target.type;
   showFloatingDamage(target, `+${actual}`, '#55cc55');
