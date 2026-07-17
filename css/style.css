@@ -2887,8 +2887,16 @@ body {
   pointer-events: none;
 }
 
-/* eq-content is the actual flex-row that holds .eq-left and .eq-right */
+/* eq-content stacks the columns row (.eq-cols) above the full-width detail box */
 #eq-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* the actual flex-row that holds .eq-left and .eq-right */
+.eq-cols {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
