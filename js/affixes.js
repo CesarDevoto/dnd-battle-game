@@ -10,6 +10,16 @@
 import { roll, parseDiceFormula } from './dice.js';
 import { UNIT_TYPES } from './constants.js';
 
+// ── Shared rider ladders ──────────────────────────────────────────────────────
+// The four Neck damage riders (fire/ice/poison/disease) all share ONE damage ladder and
+// ONE save-DC ladder — they differ only in damage type and which save resists them. The
+// dice ladder is the user's spec (green 1d2, blue 1d3+1, "and so on"), which is the same
+// curve wrist's hit% climbs; DC rises one step per tier so higher-tier riders land full
+// damage more often. Unlike the numeric affixes, a rider stores its FORMULA and rerolls
+// per hit in combat (like weapon dice) rather than pre-rolling one permanent value.
+const RIDER_DICE = { green: '1d2', blue: '1d3+1', purple: '1d4+2', orange: '1d6+3', red: '1d6+6' };
+const RIDER_DC   = { green: 12,    blue: 13,      purple: 14,       orange: 15,      red: 16 };
+
 // ── Slot tables ───────────────────────────────────────────────────────────────
 // One entry per stat the slot OWNS (the allocation is locked in the design doc: each stat
 // appears on exactly one slot type). `dice` is keyed by rarity, and a tier with NO entry
@@ -114,7 +124,38 @@ export const SLOT_AFFIXES = {
       dice:  { purple: '1d1', orange: '1d2', red: '1d2+1' },
     },
   },
-  // The remaining 13 slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
+  neck: {
+    // On-hit DAMAGE RIDERS (the doc's "weakest — flat damage riders", concretised into four
+    // elements). Each is `rider: true`, so rollAffixes stamps the tier's dice FORMULA + save +
+    // DC + type onto the instance and combat rerolls the dice every hit — half damage on a
+    // successful save (user's rule). They're `signatureOnly`: they never roll on a generic
+    // Necklace, only on their own named amulet (which forces its element via `signatureAffix`),
+    // so a plain neck drop can't randomly sprout one. Save stat is the elemental counterplay —
+    // fire is dodged (DEX), the rest are endured (CON).
+    rider_fire: {
+      label: 'Fire rider', rider: true, signatureOnly: true,
+      noun: 'fire', damageType: 'fire', saveStat: 'dex', halfOnSave: true,
+      dice: RIDER_DICE, dc: RIDER_DC,
+    },
+    rider_ice: {
+      label: 'Ice rider', rider: true, signatureOnly: true,
+      noun: 'cold', damageType: 'cold', saveStat: 'con', halfOnSave: true,
+      dice: RIDER_DICE, dc: RIDER_DC,
+    },
+    rider_poison: {
+      label: 'Poison rider', rider: true, signatureOnly: true,
+      noun: 'poison', damageType: 'poison', saveStat: 'con', halfOnSave: true,
+      dice: RIDER_DICE, dc: RIDER_DC,
+    },
+    rider_disease: {
+      label: 'Disease rider', rider: true, signatureOnly: true,
+      noun: 'disease', damageType: 'disease', saveStat: 'con', halfOnSave: true,
+      dice: RIDER_DICE, dc: RIDER_DC,
+    },
+    // NOT YET: Healing power (the neck's other stat) — needs a heal choke point that doesn't
+    // exist yet (8 inlined heal sites); extract applyHeal() first, same as applyMitigation was.
+  },
+  // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
 };
@@ -144,6 +185,11 @@ export const AFFIX_COUNT = {
   // i.e. rolls thrown away above the ceiling. One stat per wrist keeps every tier under the
   // clamp AND makes the pair a decision (two hit%, two STR/DEX, or one of each).
   wrist: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
+  // Neck's stats today are all signatureOnly riders, which bypass this count row entirely (they
+  // roll ONLY via a base's signatureAffix, not the random pool). So the random path always finds
+  // an empty `eligible` here and drops a plain base — the row is shape-consistency, and it's what
+  // will govern Healing power once that (non-signature) stat lands.
+  neck:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
@@ -157,28 +203,58 @@ function _shuffled(arr) {
   return a;
 }
 
+// Build ONE affix instance for a stat at a rarity. Two shapes come out of here:
+//   • Numeric affix → pre-rolls one permanent `value` (the stat), displayed via a.fmt.
+//   • Damage rider  → stamps the tier's dice FORMULA + save + DC + type, and combat rerolls
+//     the dice every hit. It carries no `value`; its numbers happen at swing time, not here.
+function _rollOne(key, a, rarity) {
+  if (a.rider) {
+    const formula = a.dice[rarity];
+    const f  = parseDiceFormula(formula);
+    const lo = f ? f.count + f.modifier : 0;
+    const hi = f ? f.count * f.sides + f.modifier : 0;
+    const range  = lo === hi ? `${lo}` : `${lo}–${hi}`;
+    const saveDC = a.dc[rarity];
+    return {
+      key, label: a.label, rider: true,
+      dice: formula, damageType: a.damageType, saveStat: a.saveStat,
+      saveDC, halfOnSave: a.halfOnSave ?? true,
+      display: `On hit: ${range} ${a.noun} damage · ${a.saveStat.toUpperCase()} save DC ${saveDC} for half`,
+    };
+  }
+  const f = parseDiceFormula(a.dice[rarity]);
+  // `mult` scales the roll AFTER the dice — it exists because parseDiceFormula only speaks
+  // NdS±M, which cannot express "even numbers only" (2d2 is 2,3,4). STR/DEX needs that:
+  // an odd score bump is invisible against an even base score.
+  const value = f ? roll(f).total * (a.mult ?? 1) : 0;
+  return { key, label: a.label, value, display: a.fmt(value) };
+}
+
 // Roll the affixes for one dropped item. Returns [] for a slot with no table yet, a rarity
 // that gates everything out, or a count roll of 0 — all legitimate, all meaning "plain base".
 export function rollAffixes(base, rarity) {
   const table = SLOT_AFFIXES[base?.slot];
   if (!table || !rarity) return [];
 
-  // Eligible = has dice AT THIS TIER. A stat gated above this rarity simply isn't here.
-  const eligible = Object.entries(table).filter(([, a]) => a.dice?.[rarity]);
+  // A SIGNATURE item's whole identity is one bespoke affix — a Fire pendant is Fire at every
+  // tier it can roll. It bypasses the random eligible/count logic and just rolls THAT affix at
+  // the dropped rarity, or drops as a plain base if the affix is gated out here (e.g. grey, where
+  // no rider has dice — a grey Emberheart Pendant is inert flavor, consistent with grey elsewhere).
+  if (base.signatureAffix) {
+    const a = table[base.signatureAffix];
+    return a?.dice?.[rarity] ? [_rollOne(base.signatureAffix, a, rarity)] : [];
+  }
+
+  // Random roll. Eligible = has dice AT THIS TIER and is NOT signatureOnly (riders exist only on
+  // their named item, never on a generic base). A stat gated above this rarity simply isn't here.
+  const eligible = Object.entries(table).filter(([, a]) => a.dice?.[rarity] && !a.signatureOnly);
   if (!eligible.length) return [];
 
   const [lo, hi] = AFFIX_COUNT[base.slot]?.[rarity] ?? [0, 0];
   const want = Math.min(eligible.length, lo + Math.floor(Math.random() * (hi - lo + 1)));
   if (want <= 0) return [];
 
-  return _shuffled(eligible).slice(0, want).map(([key, a]) => {
-    const f     = parseDiceFormula(a.dice[rarity]);
-    // `mult` scales the roll AFTER the dice — it exists because parseDiceFormula only speaks
-    // NdS±M, which cannot express "even numbers only" (2d2 is 2,3,4). STR/DEX needs that:
-    // an odd score bump is invisible against an even base score.
-    const value = f ? roll(f).total * (a.mult ?? 1) : 0;
-    return { key, label: a.label, value, display: a.fmt(value) };
-  });
+  return _shuffled(eligible).slice(0, want).map(([key, a]) => _rollOne(key, a, rarity));
 }
 
 // ── Consumption ───────────────────────────────────────────────────────────────

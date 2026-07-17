@@ -4,6 +4,8 @@ import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAni
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
+import { playFireEffect } from './fireEffect.js';
+import { playIceEffect } from './iceEffect.js';
 import { toggleMiloHideOOC, canMiloHideOOC } from './hideOOC.js';
 import { triggerHealingWordOOC, canHealingWordOOC } from './healingWordOOC.js';
 import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
@@ -2636,6 +2638,89 @@ function _resolvePoison(target, poison, done) {
   }, _POISON_BEAT);
 }
 
+// On-hit ELEMENTAL RIDER from the ATTACKER's neck amulet (Emberheart Pendant, etc.). The swing's
+// own damage has already landed; this adds the rider's element on top. Two things set it apart
+// from the spider's venom above: the source is the ATTACKER's gear (not the attack), and it's
+// save-for-HALF (user's rule) rather than save-negates — a made save halves the damage, it never
+// erases it. Instantaneous, no lingering condition. Its dice are stored as a formula on the rolled
+// affix (js/affixes.js) and rerolled HERE every hit, like weapon dice.
+//
+// done() fires exactly once, on every path, because the caller (onSettled) is waiting on it to
+// advance the turn — the same contract _resolvePoison keeps, and the class of bug /timing-audit hunts.
+const _RIDER_BEAT  = 0;
+const _RIDER_STYLE = {
+  fire:    { icon: '🔥', color: '#ff6622' },
+  cold:    { icon: '❄',  color: '#88ccff' },
+  poison:  { icon: '☠',  color: '#66dd44' },
+  disease: { icon: '☣',  color: '#a6c34a' },
+};
+function _resolveRider(attacker, target, rider, alreadyDead, done) {
+  if (!target) { done(); return; }
+
+  const label   = unitLabel(target);
+  const noun    = rider.damageType ?? 'elemental';
+  const stat    = rider.saveStat ?? 'con';
+  const dc      = rider.saveDC ?? 12;
+  const style   = _RIDER_STYLE[noun] ?? { icon: '✦', color: '#ffffff' };
+  const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const mod     = abilityModOf(target, stat);
+  const res     = rollSave(mod, dc, target.dodging ? 'advantage' : 'normal');
+
+  showRoll(`${label} · ${nounCap} rider (${stat.toUpperCase()} DC ${dc})`, res, { autoDismiss: false });
+
+  const f       = parseDiceFormula(rider.dice);
+  const rawRoll = f ? roll(f) : { total: 1, dice: [1], modifier: 0, sides: 1, count: 1 };
+  // save-for-half: a made save halves the roll (floored, min 1); a failed save takes it in full.
+  const halved   = res.isSave;
+  const preMit   = Math.max(1, halved ? Math.floor(rawRoll.total / 2) : rawRoll.total);
+  const riderDmg = applyMitigation(target, preMit);
+  // alreadyDead: the swing itself was lethal, so this rider is OVERKILL. A kill must still SHOW all
+  // of its damage (the bug this fixes: Milo's ice vanished silently whenever the hit killed), so we
+  // display the float/effect/log regardless — we just don't drive hp past 0 or re-roll concentration,
+  // and WE own the removal (the lethal-swing path deferred it here so the mesh outlives the float).
+  const willDie  = alreadyDead || target.hp <= riderDmg;
+
+  setTimeout(() => {
+    addLog(halved
+      ? `${label} saves — half ${noun} (${saveBreakdown(res, stat)})`
+      : `${label} fails against the ${noun}! (${saveBreakdown(res, stat)})`, 'save');
+    addLog(`  ${style.icon} ${riderDmg} ${noun} damage (${dmgBreakdown(rawRoll)}${halved ? ' → half' : ''})`, 'dmg');
+    // Per-element burst on the struck target: dedicated fire/ice effects, and the poison burst
+    // stands in for the two organic riders (disease has no bespoke VFX yet).
+    if      (noun === 'fire') playFireEffect(target);
+    else if (noun === 'cold') playIceEffect(target);
+    else                      playPoisonEffect(target);   // poison + disease
+    showFloatingDamage(target, `${style.icon} -${riderDmg}`, style.color);
+
+    if (!alreadyDead) {
+      target.hp = Math.max(0, target.hp - riderDmg);
+      target.barShowUntil = Date.now() + 5000;
+      buildTurnList();
+      _checkConcentration(target, riderDmg, willDie);
+    }
+
+    if (willDie) {
+      setTimeout(() => { removeDefeatedUnit(target, attacker); done(); }, 400);
+    } else {
+      setTimeout(done, 150);
+    }
+  }, _RIDER_BEAT);
+}
+
+// The first on-hit rider on a unit's equipped gear (neck amulets today). ONE rider per hit — neck
+// is the only source, so there's never a second; if riders later spread to other slots, the
+// onSettled chain below would have to sequence them. Enemies carry no `equipment`, so this is
+// hero-only for free.
+function _onHitRiderOf(u) {
+  const eq = u?.equipment;
+  if (!eq) return null;
+  for (const slot of Object.keys(eq)) {
+    const r = eq[slot]?.affixes?.find(a => a.rider);
+    if (r) return r;
+  }
+  return null;
+}
+
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
   // abilityModOf, not the raw UNIT_TYPES read: it folds in the wrist str/dex affixes, which
@@ -2870,17 +2955,29 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     }, hpUpdateDelay + RESULT_PAUSE + 500);
   }
 
-  if (willDie) {
+  // An on-hit gear rider (elemental rider on the ATTACKER's neck) must STILL fire when the swing is
+  // lethal — a killing blow has to show ALL its damage, rider included (the bug: Milo's ice vanished
+  // silently on any kill). So when a rider will fire on a kill, DEFER the enemy's removal to the
+  // rider (_resolveRider does it) so its float/effect/log land before the mesh goes. Otherwise
+  // (no rider, or the spider's venom) remove on the normal beat.
+  const _rider     = _onHitRiderOf(attacker);
+  const _riderOnKill = !!_rider && !atk.poison;   // a gear rider shows even on a kill; venom keeps its old skip
+  if (willDie && !_riderOnKill) {
     setTimeout(() => removeDefeatedUnit(target, attacker), hpUpdateDelay + RESULT_PAUSE + 400);
   }
 
-  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable).
-  // A venomous attack (giant spider's bite) chains a save AFTER the bite damage lands, and
-  // onSettled must wait for that too — firing it early would advance the turn out from under
-  // the poison roll, which is exactly the class of turn-freeze bug /timing-audit hunts for.
+  // Notify caller that HP is fully settled (after removeDefeatedUnit if applicable). A follow-up
+  // save-and-damage — the spider's venom (enemy→hero) or a gear rider (hero→enemy) — chains AFTER
+  // the swing lands, and onSettled must wait for it too: firing early would advance the turn out
+  // from under the roll, the class of turn-freeze /timing-audit hunts. Venom keeps its already-dead
+  // skip (see _resolvePoison); the gear rider now fires even on a kill, taking `willDie` as its
+  // alreadyDead flag. The two are mutually exclusive in practice (venom is a statblock rider, the
+  // gear rider reads equipment); if both ever coexist, venom wins and the gear rider is skipped.
   const _settleAt = hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50);
   if (atk.poison && !willDie) {
     setTimeout(() => _resolvePoison(target, atk.poison, () => onSettled?.()), _settleAt + 250);
+  } else if (_rider) {
+    setTimeout(() => _resolveRider(attacker, target, _rider, willDie, () => onSettled?.()), _settleAt + 250);
   } else {
     setTimeout(() => onSettled?.(), _settleAt);
   }

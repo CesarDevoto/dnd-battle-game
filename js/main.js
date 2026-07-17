@@ -7,6 +7,7 @@ import { initEngagementLines, updateEngagementLines } from './engagementLines.js
 import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
 import { equipItem, MATERIAL_PROF } from './equipment.js';
 import { getItem } from './items.js';
+import { rollAffixes } from './affixes.js';
 import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
@@ -293,11 +294,14 @@ if (IS_DEV) {
   // Force-equip an item onto a hero by type ('elf'/'dwarf'/'human'/'halfling')
   // and item id (see items.js). Refreshes the character sheet immediately if
   // that hero's sheet is already open, since it otherwise only rebuilds on open.
-  window.devEquipItem = (heroType, itemId) => {
+  window.devEquipItem = (heroType, itemId, rarity) => {
     const hero = units.find(u => u.team === 'blue' && u.type === heroType);
     if (!hero) { console.warn(`[DEV] No hero of type "${heroType}" found`); return; }
     const item = getItem(itemId);
     if (!item) { console.warn(`[DEV] No item "${itemId}" found`); return; }
+    // Roll the base to a chosen rarity so its AFFIXES actually land — getItem alone returns the
+    // plain affix-less base, so an on-hit rider (or any affix) would be absent and test nothing.
+    if (rarity) { item.rarity = rarity; item.affixes = rollAffixes(item, rarity); }
     // Dev tool: whatever this displaces is DISCARDED rather than re-homed to a bag. Fine
     // here (you asked for the item, and you can dev-equip the old one back), but say what
     // went so it isn't a silent loss while you're testing.
@@ -310,6 +314,16 @@ if (IS_DEV) {
     if (sheetUnit === hero) showSheet(hero);
     console.log(`[DEV] Equipped ${item.name} on ${UNIT_TYPES[heroType]?.name ?? heroType}` +
       (displaced.length ? ` — discarded ${displaced.map(d => d.name).join(', ')}` : ''), hero.equipment);
+  };
+
+  // Kit all four heroes with one elemental on-hit rider amulet each, to test the neck riders.
+  // Fire→Gobo (human), Ice→Milo (halfling), Poison→Rasec (elf), Disease→Leugren (dwarf).
+  window.devEquipRiders = (rarity = 'green') => {
+    [['human',    'emberheart_pendant'],
+     ['halfling', 'rimefrost_locket'],
+     ['elf',      'viperfang_amulet'],
+     ['dwarf',    'plaguewrought_charm']].forEach(([type, id]) => window.devEquipItem(type, id, rarity));
+    console.log(`[DEV] Equipped all four rider amulets (${rarity}). Land a hit to see them fire.`);
   };
 }
 

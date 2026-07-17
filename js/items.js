@@ -2369,6 +2369,47 @@ export const ITEMS = {
     undeadReactionHeal: '1d4',
     description: "When you kill an undead creature, you may use your reaction to absorb a tiny fragment of its undead life force and regain 1d4 hit points.",
   },
+  // ── On-hit rider amulets ─────────────────────────────────────────────────────
+  // Each locks ONE elemental damage rider via signatureAffix (see js/affixes.js neck table):
+  // on a hit the wearer sears the target for the tier's dice, and the target's save halves it.
+  // `rarity` here is just the base's default; a drop overwrites it (loot.js _rollItem), so these
+  // scale green→red like any rolled item, the rider damage climbing with the tier.
+  emberheart_pendant: {
+    id:     'emberheart_pendant',
+    name:   'Emberheart Pendant',
+    slot:   'neck',
+    rarity: 'green',
+    icon:   'assets/items/jewelry/necklace2.png',
+    signatureAffix: 'rider_fire',
+    description: 'Your strikes carry a searing ember. On a hit the target takes fire damage — a Dexterity save halves it.',
+  },
+  rimefrost_locket: {
+    id:     'rimefrost_locket',
+    name:   'Rimefrost Locket',
+    slot:   'neck',
+    rarity: 'green',
+    icon:   'assets/items/jewelry/necklace3.png',
+    signatureAffix: 'rider_ice',
+    description: 'Your strikes bite with sudden cold. On a hit the target takes cold damage — a Constitution save halves it.',
+  },
+  viperfang_amulet: {
+    id:     'viperfang_amulet',
+    name:   'Viperfang Amulet',
+    slot:   'neck',
+    rarity: 'green',
+    icon:   'assets/items/jewelry/necklace4.png',
+    signatureAffix: 'rider_poison',
+    description: 'Your strikes drip venom. On a hit the target takes poison damage — a Constitution save halves it.',
+  },
+  plaguewrought_charm: {
+    id:     'plaguewrought_charm',
+    name:   'Plaguewrought Charm',
+    slot:   'neck',
+    rarity: 'green',
+    icon:   'assets/items/jewelry/necklace7.png',
+    signatureAffix: 'rider_disease',
+    description: 'Your strikes fester with sickness. On a hit the target takes disease damage — a Constitution save halves it.',
+  },
   necklace11: {
     id:     'necklace11',
     name:   'Necklace XI',
