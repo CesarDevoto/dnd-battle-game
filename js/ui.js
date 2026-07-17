@@ -947,37 +947,43 @@ function buildEquipmentPanelHTML(u) {
   if (!u.currency) u.currency = { copper: 0, silver: 0, gold: 5, platinum: 0 };
   const { copper, silver, gold, platinum } = u.currency;
 
+  // The detail box sits BELOW the two columns at full panel width (not inside the narrow 116px
+  // right column) so a long item name like "Plaguewrought Charm" fits on one line instead of
+  // spilling past the border. .eq-cols is the old left|right flex-row; #eq-content now stacks it
+  // above .eq-detail.
   return (
-    `<div class="eq-left">` +
-      `<div class="eq-title">EQUIPMENT</div>` +
-      `<div class="eq-grid">` +
-        slot('head',      'Head')      +
-        slot('neck',      'Neck')      +
-        slot('chest',     'Chest')     +
-        slot('cloak',     'Cloak')     +
-        slot('wrist-l',   'Wrist')     +
-        slot('legs',      'Legs')      +
-        slot('hands',     'Hands')     +
-        slot('wrist-r',   'Wrist')     +
-        slot('ring-l',    'Ring')      +
-        slot('feet',      'Feet')      +
-        slot('belt',      'Belt')      +
-        slot('ring-r',    'Ring')      +
-        slot('main-hand', 'Main Hand') +
-        slot('off-hand',  'Off Hand')  +
-        slot('ammo',      'Ammo')      +
+    `<div class="eq-cols">` +
+      `<div class="eq-left">` +
+        `<div class="eq-title">EQUIPMENT</div>` +
+        `<div class="eq-grid">` +
+          slot('head',      'Head')      +
+          slot('neck',      'Neck')      +
+          slot('chest',     'Chest')     +
+          slot('cloak',     'Cloak')     +
+          slot('wrist-l',   'Wrist')     +
+          slot('legs',      'Legs')      +
+          slot('hands',     'Hands')     +
+          slot('wrist-r',   'Wrist')     +
+          slot('ring-l',    'Ring')      +
+          slot('feet',      'Feet')      +
+          slot('belt',      'Belt')      +
+          slot('ring-r',    'Ring')      +
+          slot('main-hand', 'Main Hand') +
+          slot('off-hand',  'Off Hand')  +
+          slot('ammo',      'Ammo')      +
+        `</div>` +
+      `</div>` +
+      `<div class="eq-right">` +
+        `<div class="eq-bags">${bag(1)}${bag(2)}${bag(3)}${bag(4)}</div>` +
+        `<div class="eq-currency">` +
+          cur('Copper',   copper)   +
+          cur('Silver',   silver)   +
+          cur('Gold',     gold)     +
+          cur('Platinum', platinum) +
+        `</div>` +
       `</div>` +
     `</div>` +
-    `<div class="eq-right">` +
-      `<div class="eq-bags">${bag(1)}${bag(2)}${bag(3)}${bag(4)}</div>` +
-      `<div class="eq-detail" id="eq-detail">Select an item to view its stats</div>` +
-      `<div class="eq-currency">` +
-        cur('Copper',   copper)   +
-        cur('Silver',   silver)   +
-        cur('Gold',     gold)     +
-        cur('Platinum', platinum) +
-      `</div>` +
-    `</div>`
+    `<div class="eq-detail" id="eq-detail">Select an item to view its stats</div>`
   );
 }
 
