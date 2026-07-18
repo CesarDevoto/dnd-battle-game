@@ -1217,7 +1217,7 @@ function buildActionsPanelHTML(u) {
             <div class="ss-spell-top">
               <span class="ss-spell-name">Combat Hide</span>
             </div>
-            <div class="ss-spell-desc">Bonus action in combat · Stealth check · 2-turn cooldown. Permits subsequent sneak attack on any target if successful. Requires that no enemy has line of sight (unless inside your own Smoke &amp; Mirrors); Milo becomes semi-transparent on success. Attacking breaks stealth; moving keeps it unless an enemy's Perception spots him.</div>
+            <div class="ss-spell-desc">Bonus action in combat · Stealth check · 2-turn cooldown. Only usable when no enemy has line of sight to Milo (unless he is inside his own Smoke &amp; Mirrors). Permits subsequent sneak attack on any target if successful. He becomes semi-transparent while hidden; attacking breaks stealth, and moving keeps it unless an enemy's Perception spots him.</div>
           </div>
           <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
         </div>

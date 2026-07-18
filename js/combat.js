@@ -2715,6 +2715,47 @@ export function setActionSave(u, save) {
   save.chance    = Math.round(Math.max(5, Math.min(95, ((mod + 20 - save.dc) / 20) * 100 + savePct)));
   save.threshold = 100 - save.chance;
   u.actionSave = save;
+  if (u.team === 'blue') _maybeShowSaveTutorial();
+}
+
+// ── First-restraint tutorial arrow ───────────────────────────────────────────
+// The first time any HERO is grabbed by something they must spend an Action to escape (web,
+// ghoul paralysis, future hard-CC riders), an arrow bounces over button 1 to teach that the
+// save is a button you press — not something rolled for you. Same shape as the first-death
+// REST arrow and the Ready Action tip.
+//
+// Once globally, not per hero (user: "when a player is FIRST restrained") — the lesson is
+// where the button lives, and that's the same button for everyone.
+const LS_SAVE_TUT_KEY = 'dnd_save_tutorial_seen';
+
+function _saveTutSeen() {
+  try { return !!localStorage.getItem(LS_SAVE_TUT_KEY); } catch { return false; }
+}
+function _hideSaveTutorial() {
+  document.getElementById('save-tutorial')?.remove();
+}
+function _maybeShowSaveTutorial() {
+  if (_saveTutSeen() || document.getElementById('save-tutorial')) return;
+  // The hotbar is rebuilt per turn, so the button only exists once it's the hero's go. Defer to
+  // the next frame: setActionSave fires mid-resolution (the web lands on the ENEMY's turn),
+  // long before the victim's own hotbar is built.
+  requestAnimationFrame(() => {
+    if (_saveTutSeen()) return;
+    const btn = document.querySelector(`.hb-btn[data-hb-key="${SAVE_SLOT}"]`);
+    if (!btn) return;   // not this hero's turn yet — retried on the next setActionSave
+    const el = document.createElement('div');
+    el.id = 'save-tutorial';
+    el.innerHTML =
+      `<div class="save-tut-label">Click to break free</div>` +
+      `<div class="save-tut-arrow">▼</div>`;
+    btn.appendChild(el);
+  });
+}
+// Learned once they actually press it — dismissing any other way (the web breaking on its own,
+// combat ending) would burn the flag without teaching anything, so the arrow simply returns.
+function _markSaveTutorialSeen() {
+  try { localStorage.setItem(LS_SAVE_TUT_KEY, '1'); } catch {}
+  _hideSaveTutorial();
 }
 export function clearActionSave(u) {
   if (u) u.actionSave = null;
@@ -4819,6 +4860,26 @@ function _endDelayInterrupt() {
 // so there's exactly one copy of each ability's logic; player-assigned and
 // auto-filled QWERTY slots (Q/W/E/R/T/Y, via drag-and-drop or
 // autoAssignHotbarSlots) look these up generically.
+// ── Party-wide buff availability ──────────────────────────────────────────────
+// True when EVERY living hero already carries a group buff — i.e. casting it again would do
+// nothing for anybody. Group buffs grey out on this (user's rule, 2026-07-18): they become
+// available again only once the buff has actually dropped off someone.
+//
+// Takes a PREDICATE rather than hardcoding Bless, so the next party-wide buff reuses it
+// instead of growing a second copy of the rule.
+//
+// ⚠ Per-HERO, deliberately — NOT "is the buff active at all". A hero revived by a short rest
+// after Bless was cast is unblessed while everyone else still has it, and re-casting to cover
+// them is legitimate. The automated path used to test `blessedUnits.size > 0`, which called
+// that "already active" and left the revived hero permanently unblessed for the fight.
+//
+// Empty party returns false (nothing to buff, but nothing "fully buffed" either) — the caller's
+// other guards handle that case.
+function _allLivingHeroesHave(pred) {
+  const living = units.filter(u => u.team === 'blue' && u.hp > 0);
+  return living.length > 0 && living.every(pred);
+}
+
 const _ABILITY_HANDLERS = {
   dash: {
     actionType: 'action',
@@ -4995,7 +5056,8 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
       if (!hasSpellSlot(curU, spellLevelOf('bless'))) return false;
-      return units.some(u => u.team === 'blue' && u.hp > 0);
+      // Greyed while the WHOLE party already has it — see _allLivingHeroesHave.
+      return !_allLivingHeroesHave(u => blessedUnits.has(u));
     },
   },
   mage_armor: {
@@ -5188,12 +5250,15 @@ function _abilityHandlerFor(abilityKey) {
   return _ABILITY_HANDLERS[abilityKey] ?? _readyAbilityHandler(abilityKey);
 }
 
-// Label for a ready shortcut's button. ABILITY_META has no entry for a composite key, so the
-// trigger's own human label is used — abbreviated, since a hotbar cell is narrow.
+// Label for a ready shortcut's button. Deliberately GENERIC — "Ready Trigger", not the trigger's
+// own name (user, 2026-07-18). Trigger labels are full sentences ("Ally enters enemy melee
+// range") and a hotbar cell can't carry one legibly; the tooltip names the specific trigger, so
+// nothing is lost. Slots holding different triggers therefore look alike — hover to tell them
+// apart, which is the trade the user chose.
 function _abilityIconHTML(abilityKey) {
   const trigger = _readyTriggerOf(abilityKey);
   if (!trigger) return hotbarIconHTML(abilityKey);
-  return `<span class="hb-ready-trigger">⚡ ${_READY_LABELS[trigger] ?? trigger}</span>`;
+  return `<span class="hb-ready-trigger">⚡ READY<br>TRIGGER</span>`;
 }
 function _abilityTitle(abilityKey) {
   const trigger = _readyTriggerOf(abilityKey);
@@ -5421,6 +5486,11 @@ function _rebuildHotbar(u) {
     _bindAbilitySlot(slotKey, abilityKey);
   }
 
+  // The hotbar was just torn down and rebuilt, taking any tutorial arrow with it. Re-show it if
+  // this hero is the one held — this is the path that actually lands the tip, since the grab
+  // happens on the ENEMY's turn when no hero hotbar exists yet.
+  if (u.team === 'blue' && u.actionSave) _maybeShowSaveTutorial();
+
   // ── SAVING THROW slot (permanently Digit1) ──────────────────────────────────
   // Always bound, so its position never moves and the player learns where it lives — greyed
   // out with no condition to shake, red and live the moment something grabs them. This is the
@@ -5436,6 +5506,7 @@ function _rebuildHotbar(u) {
       () => {
         const curU = turnOrder[turnIndex];
         if (curU !== u || !u.actionSave) return;
+        _markSaveTutorialSeen();   // pressing it IS the lesson
         _attemptActionSave(u);
       },
       () => {
@@ -6189,7 +6260,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'bless')) { onSkip(); return; }
         if (!hasSpellSlot(u, spellLevelOf('bless'))) { onSkip(); return; }
-        if (blessedUnits.size > 0)       { onSkip(); return; } // already active
+        // Same rule the manual button greys on. Was `blessedUnits.size > 0`, which treated a
+        // PARTIALLY blessed party as done — so a hero revived mid-fight never got blessed.
+        if (_allLivingHeroesHave(h => blessedUnits.has(h))) { onSkip(); return; }
         castBless(u);
         setTimeout(onDone, 900);
         return;
@@ -6497,6 +6570,22 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
 
 // ── Enemy AI (helpers in js/combatAI.js) ────────────────────────────────────
 
+// Keep the screen on the ACTION during an enemy's turn: pan to the hero that enemy has chosen
+// to attack (user, 2026-07-18), so a fight on the far side of the map never happens off-camera.
+//
+// ⚠ Follows the TARGETED HERO — never the enemy. The standing rule in this project is that the
+// camera only ever follows blue units, and the `team === 'blue'` guard here is what keeps that
+// true even if aiPickTarget ever returns something else (an NPC, a summon).
+//
+// setFollowUnit rather than focusCameraOnUnit, and that's load-bearing: updateCameraFocus
+// re-derives its look from _followUnit EVERY frame, so a one-shot focus would be overwritten on
+// the very next frame while the previously-acting hero is still the follow unit. Handing over
+// the follow is the only thing that actually moves the camera here. activateTurn reassigns it on
+// each hero's turn, so this never strands the camera on a victim.
+function _followAttackTarget(target) {
+  if (target?.team === 'blue' && target.hp > 0) setFollowUnit(target);
+}
+
 function runAITurn(u) {
   endTurnBtn.disabled = true;
 
@@ -6636,6 +6725,7 @@ function runAITurn(u) {
       setTimeout(doEndTurn, END_PAUSE);
       return;
     }
+    _followAttackTarget(target);   // keep the screen on the hero about to be hit
 
     function endAITurn() {
       setTimeout(() => { doEndTurn(); }, END_PAUSE);
@@ -6737,6 +6827,9 @@ function runAITurn(u) {
         const t = aiPickTarget(u, units, unitsHaveLOS);
         if (!t) { cb(); return; }           // nobody left to hit
         foe = t;
+        // Re-picked per swing (a multiattack can switch victims mid-sequence), so the camera
+        // follows along rather than sitting on whoever the first blow landed on.
+        _followAttackTarget(t);
 
         const atk  = seq[i];
         const dx   = t.grp.position.x - u.grp.position.x;

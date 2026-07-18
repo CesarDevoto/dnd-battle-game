@@ -6190,23 +6190,62 @@ td.bst-col-retired { color: #343228 !important; }
   text-shadow: 0 0 10px rgba(255,220,50,1), 0 0 22px rgba(255,200,30,0.70);
   letter-spacing: 0.4px;
 }
-/* A specific readied TRIGGER dragged onto a hotbar slot from the Ready Action window.
-   Trigger labels are full sentences ("Ally enters enemy melee range") in a narrow cell, so
-   this wraps and shrinks hard rather than overflowing — the ⚡ and the hover title carry the
-   identity when the text has to clip. */
+/* A readied TRIGGER dragged onto a hotbar slot from the Ready Action window. The label is the
+   generic "⚡ READY TRIGGER" (the tooltip names the specific trigger), so it's short and can be
+   set at the same weight as the other hotbar labels instead of clamped down to fit a sentence. */
+/* First-restraint tutorial — arrow over button 1 the first time a hero is webbed/paralysed,
+   teaching that the escape save is a button you press. Anchored to the hotbar button itself so
+   it tracks the slot, and pointer-events:none so it can never eat the click it's pointing at. */
+#save-tutorial {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;               /* pure anchor — children center off it */
+  height: 0;
+  pointer-events: none;
+  z-index: 400;
+  animation: save-tut-bob 1.05s ease-in-out infinite;
+}
+.save-tut-label {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-fantasy);
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  color: #ffd0d0;
+  text-shadow: 0 0 10px rgba(0,0,0,0.98), 0 0 22px rgba(0,0,0,0.92),
+               0 0 34px rgba(255,80,80,0.75);
+}
+.save-tut-arrow {
+  position: absolute;
+  bottom: 0.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2.2rem;
+  line-height: 1;
+  color: #ff7a6a;
+  text-shadow: 0 0 12px rgba(0,0,0,0.95), 0 0 24px rgba(255,80,60,0.80);
+}
+@keyframes save-tut-bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #save-tutorial { animation: none; }
+}
+
 .hb-ready-trigger {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   color: #ffe066;
   text-shadow: 0 0 8px rgba(255,220,50,0.60);
-  font-size: 0.42rem;
-  line-height: 1.12;
-  letter-spacing: 0.2px;
+  font-size: 0.52rem;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
   white-space: normal;
   text-align: center;
-  padding: 0 2px;
 }
 
 /* ── Turn-list ready indicator ─────────────────────────────────────────── */
