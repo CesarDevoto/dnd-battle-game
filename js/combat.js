@@ -535,6 +535,20 @@ let _halfGroundSize = GROUND_SIZE / 2;
 export function setGroundBounds(half) { _halfGroundSize = half; }
 let turnMovedFt  = 0;   // feet used this turn (can interleave with attack)
 let turnAttacked = false;
+// Gloves action economy: extra WEAPON attacks (attack_speed affix) / SPELL casts (cast_speed affix)
+// the active hero may take BEYOND their normal action this turn. Reset each turn in activateTurn from
+// the acting unit's gear. Instead of an action immediately setting turnAttacked (locking the hero out),
+// _spendHeroAction consumes an extra of the matching type first — so with cast_speed 1 a hero can cast
+// Fire Bolt AND then Magic Missile (two DIFFERENT spells, freely chosen), and only the final action
+// (no extras left) actually sets turnAttacked. Non-gloved heroes have 0 extras → first action locks,
+// exactly as before. The availability gates already read turnAttacked, so nothing else needs changing.
+let _extraAttacksLeft = 0;
+let _extraCastsLeft   = 0;
+function _spendHeroAction(type) {
+  if (type === 'weapon' && _extraAttacksLeft > 0) { _extraAttacksLeft--; return; }
+  if (type === 'spell'  && _extraCastsLeft  > 0) { _extraCastsLeft--;  return; }
+  turnAttacked = true;
+}
 // Find Familiar: one summon per fight. Cleared in rollInitiative().
 let _familiarSummonedThisCombat = false;
 
@@ -1187,7 +1201,7 @@ function castHeal(caster, target, spellKey) {
   heroMode = null;
   spendSpellSlot(caster, spellLvl);
 
-  if (spell.actionType === 'action') turnAttacked      = true;
+  if (spell.actionType === 'action') _spendHeroAction('spell');
   else                               turnBonusActioned = true;
 
   const wisMod   = Math.floor(((UNIT_TYPES[caster.type]?.abilities?.wis ?? 10) - 10) / 2);
@@ -1242,7 +1256,7 @@ function castSacredFlame(caster, target, onDone) {
   hideAttackTargets();
   hideSpellRangeRing();
   heroMode = null;
-  turnAttacked = true;   // cantrip — no spell slot cost
+  _spendHeroAction('spell');   // cantrip — no spell slot cost
 
   const postSpellRemaining = (speedOf(caster)) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
@@ -1287,7 +1301,7 @@ function castBless(caster) {
 
   applyBless(caster, targets);
   spendSpellSlot(caster, spellLevelOf('bless'));
-  turnAttacked = true;
+  _spendHeroAction('spell');
   heroMode = null;
 
   const names = targets.map(u => UNIT_TYPES[u.type]?.name ?? u.type).join(', ');
@@ -1322,7 +1336,7 @@ function handleSneakAttackBtnClick() {
   if (!atk) return;
 
   const tgt = selectedTarget;
-  turnAttacked = true;
+  _spendHeroAction('weapon');
   hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
   performAttack(u, tgt, atk);
   const rem = (speedOf(u)) - turnMovedFt;
@@ -1472,7 +1486,7 @@ function activateMageArmor() {
 
   u.mageArmored = true;
   spendSpellSlot(u, spellLevelOf('mage_armor'));
-  turnAttacked  = true;
+  _spendHeroAction('spell');
 
   addLog(`${unitLabel(u)} casts Mage Armor! +3 AC (now ${(u.ac ?? 12) + 3}) for this combat`, 'spell');
   showMageArmorFloat(u);
@@ -1727,7 +1741,7 @@ function castMagicMissile(caster, target, onDone) {
   hideSpellRangeRing();
   heroMode = null;
   if (freeUse) caster.mmFreeUsed = true; else spendSpellSlot(caster, spellLevelOf('magic_missile'));
-  turnAttacked = true;
+  _spendHeroAction('spell');
 
   const postSpellRemaining = (speedOf(caster)) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
@@ -1759,7 +1773,7 @@ function castSleep(caster) {
   if (!hasSpellSlot(caster, spellLevelOf('sleep'))) return;
   playUnitAttackAnim(caster, 'ranged');
   spendSpellSlot(caster, spellLevelOf('sleep'));
-  turnAttacked = true;
+  _spendHeroAction('spell');
   heroMode = null;
 
 
@@ -1808,7 +1822,7 @@ function castBurningHands(caster) {
   if (!hasSpellSlot(caster, spellLevelOf('burning_hands'))) return;
   playUnitAttackAnim(caster, 'ranged');
   spendSpellSlot(caster, spellLevelOf('burning_hands'));
-  turnAttacked = true;
+  _spendHeroAction('spell');
   heroMode = null;
 
   playSleepEffect(caster);
@@ -2919,6 +2933,17 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     buildTurnList();
     if (sleepingUnits.has(target)) wakeUnit(target, 'damage');
     _checkConcentration(target, finalDmg, willDie);
+
+    // Life steal (gloves): the attacker heals for a % of the damage this hit dealt, via the shared
+    // applyHeal choke (clamps to maxHp). Skipped if the attacker is already down.
+    const lifeStealPct = affixTotal(attacker, 'life_steal_pct');
+    if (lifeStealPct > 0 && finalDmg > 0 && attacker.hp > 0) {
+      const stolen = applyHeal(attacker, Math.max(1, Math.round(finalDmg * lifeStealPct / 100)));
+      if (stolen > 0) {
+        showFloatingDamage(attacker, `+${stolen}`, '#66dd44');
+        addLog(`  🩸 ${unitLabel(attacker)} drains ${stolen} HP (${lifeStealPct}% life steal)`, 'heal');
+      }
+    }
   }, hpUpdateDelay + RESULT_PAUSE);
 
   // Hit log + floating damage + damage log — after damage dice settle + reading pause
@@ -3239,7 +3264,7 @@ attackConfirmBtn.addEventListener('click', e => {
   if (!u) return;
   const tgt = selectedTarget;
   const atk = selectedTargetAtk;
-  turnAttacked = true;
+  _spendHeroAction('weapon');
   hideUndoBtn();
   hideAttackTargets();
   hideTargetMarker();
@@ -4157,6 +4182,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
     // Set hero as active with a clean action slate
     turnIndex         = heroIdx;
     turnAttacked      = false;
+    _extraAttacksLeft = 0; _extraCastsLeft = 0;   // a readied action is a single reaction — no flurry
     turnMovedFt       = 0;
     turnBonusActioned = _readiedBonusActioned.get(hero) ?? false;
     _readiedBonusActioned.delete(hero);
@@ -4189,6 +4215,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   // Temporarily make this hero the active unit so all hotbar callbacks work naturally
   turnIndex         = heroIdx;
   turnAttacked      = false;
+  _extraAttacksLeft = 0; _extraCastsLeft = 0;   // a readied action is a single reaction — no flurry
   // A readied action is a reaction — it grants NO movement (only an action/bonus/
   // reaction). Max out turnMovedFt so every "remaining movement" calc
   // (postAtkRemaining = speed - turnMovedFt, and the equivalent in spell handlers)
@@ -4472,7 +4499,7 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
       const tgt = selectedTarget;
-      turnAttacked = true;
+      _spendHeroAction('spell');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, FIRE_BOLT_ATK);
       const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
@@ -4749,7 +4776,7 @@ function _rebuildHotbar(u) {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
       const tgt = selectedTarget;
-      turnAttacked = true;
+      _spendHeroAction('weapon');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, firstMelee);
       const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
@@ -4771,7 +4798,7 @@ function _rebuildHotbar(u) {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
       const tgt = selectedTarget;
-      turnAttacked = true;
+      _spendHeroAction('weapon');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, firstRanged);
       const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
@@ -4960,6 +4987,9 @@ export function activateTurn(index) {
     showSelectionHighlight(u);
     turnMovedFt     = 0;
     turnAttacked    = false;
+    // Gloves extras for THIS hero's turn (enemies use their own multiattack, so never granted here).
+    _extraAttacksLeft = (u.team === 'blue') ? affixTotal(u, 'attack_speed') : 0;
+    _extraCastsLeft   = (u.team === 'blue') ? affixTotal(u, 'cast_speed')   : 0;
     turnReactionUsed = false;
     sneakAttackUsed = false;
     u.dodging       = false;

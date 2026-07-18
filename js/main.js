@@ -352,6 +352,26 @@ if (IS_DEV) {
     const base = UNIT_TYPES[heroType]?.speed ?? 30;
     console.log(`[DEV] ${UNIT_TYPES[heroType]?.name ?? heroType}: ${rarity} boots +${ft}ft → speed ${base} → ${base + ft}`);
   };
+
+  // Give a hero test gloves with GUARANTEED attack_speed / cast_speed / life_steal affixes to test the
+  // Gloves action economy. Examples (start the hero's turn, then take TWO actions):
+  //   devGloves('elf',      { cast: 1 })     → Rasec: Fire Bolt THEN Magic Missile (two spells)
+  //   devGloves('dwarf',    { cast: 1 })     → Leugren: Bless THEN Heal
+  //   devGloves('human',    { attack: 1 })   → Gobo: attack twice (same or different target)
+  //   devGloves('halfling', { steal: 25 })   → Milo: heals 25% of each hit's damage
+  window.devGloves = (heroType, { attack = 0, cast = 0, steal = 0, rarity = 'purple' } = {}) => {
+    const hero = units.find(u => u.team === 'blue' && u.type === heroType);
+    if (!hero) { console.warn(`[DEV] no hero "${heroType}"`); return; }
+    if (!hero.equipment) hero.equipment = {};
+    const base = getItem('clothgloves1') ?? { slot: 'hands' };
+    const affixes = [];
+    if (attack) affixes.push({ key: 'attack_speed',   value: attack, label: 'Attack speed', display: `+${attack} extra attack${attack > 1 ? 's' : ''}/turn` });
+    if (cast)   affixes.push({ key: 'cast_speed',     value: cast,   label: 'Cast speed',   display: `+${cast} extra spell${cast > 1 ? 's' : ''}/turn` });
+    if (steal)  affixes.push({ key: 'life_steal_pct', value: steal,  label: 'Life steal',   display: `+${steal}% life steal` });
+    hero.equipment.hands = { ...base, name: 'Test Gloves', rarity, affixes };
+    if (sheetUnit === hero) showSheet(hero);
+    console.log(`[DEV] ${UNIT_TYPES[heroType]?.name ?? heroType}: gloves atk+${attack} cast+${cast} steal+${steal}% — start their turn and act twice.`);
+  };
 }
 
 bindPermanentHotkey('Backquote','NEXT<br>HERO', cycleHero,      null);

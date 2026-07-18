@@ -387,7 +387,7 @@ function _triggerAggro(spotter) {
           b.aggro = true;
           alerted.add(b);
           changed = true;
-          addLog(`⚠ ${unitLabel(b)} attacks the heroes!`, 'alert');
+          addLog(`⚠ ${unitLabel(b)} is alerted by nearby allies!`, 'alert');
         }
       }
     }

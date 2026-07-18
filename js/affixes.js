@@ -226,6 +226,34 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d2', blue: '1d3', purple: '1d3+1', orange: '1d3+3', red: '1d3+5' },
     },
   },
+  hands: {
+    // Gloves = action economy (the doc's Hands identity). Attack/Cast speed grant extra weapon
+    // attacks / spells per turn (user's tiers: none green/blue, 1 at purple & orange, 2 at red).
+    // Both are "speeds", so with the orange/red count of 2 at least one speed always lands plus a
+    // guaranteed SECOND affix (see AFFIX_COUNT.hands). Life steal heals the wearer for a % of damage
+    // dealt, on the healing ladder, and rolls at every tier.
+    //
+    // MECHANICS WIRED (combat.js, 2026-07-17): life_steal via the on-hit hook in _executeAttack;
+    // attack_speed/cast_speed via _spendHeroAction — a MANUAL hero's action consumes an extra of the
+    // matching type before turnAttacked finally locks, so they take 1+N attacks/spells and freely
+    // choose each (Fire Bolt then Magic Missile, Bless then Heal). ⚠ Automated-mode heroes don't yet
+    // get the extras (only the manual attack/cast sites were converted). UNPLAYTESTED.
+    attack_speed: {
+      label: 'Attack speed',
+      fmt:   v => `+${v} extra attack${v > 1 ? 's' : ''}/turn`,
+      dice:  { purple: '1d1', orange: '1d1', red: '2d1' },   // 1 · 1 · 2
+    },
+    cast_speed: {
+      label: 'Cast speed',
+      fmt:   v => `+${v} extra spell${v > 1 ? 's' : ''}/turn`,
+      dice:  { purple: '1d1', orange: '1d1', red: '2d1' },
+    },
+    life_steal_pct: {
+      label: 'Life steal',
+      fmt:   v => `+${v}% life steal`,
+      dice:  { green: '1d3', blue: '1d3+1', purple: '1d4+2', orange: '1d4+4', red: '2d4+5' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -267,6 +295,9 @@ export const AFFIX_COUNT = {
   legs:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
   // Feet owns TWO stats (movement / initiative), so its count can reach 2.
   feet:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 2], red: [2, 2] },
+  // Hands: green/blue roll ONLY life steal (speed is purple+). purple = 1 affix. Orange/red = 2, the
+  // user's "guaranteed second affix" — and since 2 of the 3 eligible are speeds, a speed always lands.
+  hands: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [2, 2], red: [2, 2] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
