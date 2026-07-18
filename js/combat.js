@@ -3665,10 +3665,18 @@ function _rollSpot(chance) {
 export function heroStealthPct(u) {
   return abilityModOf(u, 'dex') * 5 + affixTotal(u, 'stealth_pct');
 }
-// A unit's total perception / stealth in % points, for picking a side's best perceiver (most likely
-// to notice) and weakest sneaker (easiest to notice).
+// A unit's total perception / stealth in % points (WIS/DEX mod ×5 + gear).
 const _percTotal    = u => abilityModOf(u, 'wis') * 5 + affixTotal(u, 'perception_pct');
 const _stealthTotal = u => abilityModOf(u, 'dex') * 5 + affixTotal(u, 'stealth_pct');
+// spotChance straight from those totals: 50% at parity, shifting 1:1. (Algebraically identical to
+// spotChance() — perceptionMod×5+percPct − (stealthMod×5+stealthPct) + 50.) Used per-enemy below.
+function _spotChanceFromTotals(percTotal, stealthTotal) {
+  return Math.round(Math.max(5, Math.min(95, 50 + percTotal - stealthTotal)));
+}
+// The party's stealth level for round-1 LATE-JOINER spot checks after a won surprise — a straggler
+// that wanders into the fight still has to notice the party. null when no surprise is active; set by
+// _determineSurprise and read (round 1 only) by _checkProximityAggro.
+let _surpriseStealth = null;
 
 // Decide surprise at combat start. A side that slips past the other's spot check surprises it —
 // every unit on the caught-out side gets `surprised` (loses its first turn). Consumes the sneak.
@@ -3679,33 +3687,51 @@ function _determineSurprise() {
 
   const sneakers        = heroes.filter(h => h.sneaking);   // solo move flags one; group flags all
   const heroesSneaking  = sneakers.length > 0;
-  const enemiesSneaking = enemies.every(e => UNIT_TYPES[e.type]?.ambush || e.ambush);
-
-  // One spot roll: the DETECTING side's best perceiver vs the SNEAKING side's weakest sneaker.
-  const spotRoll = (detectors, sneaks) => {
-    const d = detectors.reduce((a, b) => _percTotal(b)    > _percTotal(a)    ? b : a);
-    const s = sneaks.reduce((a, b)    => _stealthTotal(b) < _stealthTotal(a) ? b : a);
-    return _rollSpot(spotChance(abilityModOf(d, 'wis'), abilityModOf(s, 'dex'),
-                                affixTotal(d, 'perception_pct'), affixTotal(s, 'stealth_pct')));
-  };
-
-  const heroesWin  = heroesSneaking  && !spotRoll(enemies, sneakers).spotted;   // enemies failed to spot the party
-  const enemiesWin = !heroesWin && enemiesSneaking && !spotRoll(heroes, enemies).spotted;
+  const ambushers       = enemies.filter(e => UNIT_TYPES[e.type]?.ambush || e.ambush);
+  const enemiesSneaking = ambushers.length === enemies.length && enemies.length > 0;   // whole side ambushes
+  const avg = arr => arr.reduce((s, x) => s + x, 0) / arr.length;
+  _surpriseStealth = null;
   heroes.forEach(h => setUnitSneaking(h, false));   // the sneak attempt is spent (also clears the look)
 
-  if (heroesWin) {
-    enemies.forEach(e => { e.surprised = true; });
-    // A clean sneak carries MILO into the fight still hidden (his removed OOC hide's job) — only
-    // Milo, since Sneak Attack is his. His stealth carries as hideDexMod/hideStealthPct so enemy
-    // spot checks (_checkHidePerception) run against his ACTUAL stealth rather than a default.
-    const milo = sneakers.find(h => h.type === 'halfling');
-    if (milo) { milo.hideDexMod = abilityModOf(milo, 'dex'); milo.hideStealthPct = affixTotal(milo, 'stealth_pct'); setUnitStealth(milo, true); }
-    showCenterAlert('SURPRISE ROUND!', '#88cc66');
-    addLog('The party slips in unseen — SURPRISE ROUND!', 'alert');
-  } else if (enemiesWin) {
-    heroes.forEach(h => { h.surprised = true; });
-    showCenterAlert('AMBUSH!', '#ff4400');
-    addLog('Ambush! The enemy strikes from hiding — you are surprised!', 'alert');
+  // PER-UNIT rolls (user's call): each member of the DETECTING side rolls its OWN Perception vs the
+  // sneaking side's AVERAGE stealth. Only those who FAIL to notice are surprised — so a mixed result
+  // is possible (some caught off guard, some spot you and act). Logged one line each.
+  const resolve = (detectors, stealthVal, verb) => {
+    let caught = 0;
+    for (const d of detectors) {
+      const r = _rollSpot(_spotChanceFromTotals(_percTotal(d), stealthVal));
+      addLog(`${unitLabel(d)} Perception: ${r.chance}% to ${verb}, rolled ${r.roll} → ${r.spotted ? 'SPOTTED!' : 'surprised'}.`, 'move');
+      if (!r.spotted) { d.surprised = true; caught++; }
+    }
+    return caught;
+  };
+
+  if (heroesSneaking) {
+    const partyStealth = avg(sneakers.map(_stealthTotal));
+    addLog(`The party sneaks up (avg Stealth +${Math.round(partyStealth)}%) — each enemy rolls Perception:`, 'move');
+    const caught = resolve(enemies, partyStealth, 'notice the party');
+    if (caught > 0) {
+      _surpriseStealth = partyStealth;   // arm late-joiner spot checks for round 1
+      // A clean sneak carries MILO into the fight still hidden (his removed OOC hide's job) — only
+      // Milo, since Sneak Attack is his; stealth carries as hideDexMod/hideStealthPct for the
+      // in-combat spot checks (_checkHidePerception).
+      const milo = sneakers.find(h => h.type === 'halfling');
+      if (milo) { milo.hideDexMod = abilityModOf(milo, 'dex'); milo.hideStealthPct = affixTotal(milo, 'stealth_pct'); setUnitStealth(milo, true); }
+      showCenterAlert('SURPRISE ROUND!', '#88cc66');
+      const s = enemies.filter(e => e.surprised);
+      addLog(`SURPRISE ROUND! ${s.map(unitLabel).join(', ')} surprised — ${s.length === 1 ? 'it skips' : 'they skip'} the first round.`, 'alert');
+    } else {
+      addLog('The whole enemy group noticed you — no surprise.', 'move');
+    }
+  } else if (enemiesSneaking) {
+    const enemyStealth = avg(ambushers.map(_stealthTotal));
+    addLog(`The enemy ambushes (avg Stealth +${Math.round(enemyStealth)}%) — each hero rolls Perception:`, 'move');
+    const caught = resolve(heroes, enemyStealth, 'spot the ambush');
+    if (caught > 0) {
+      showCenterAlert('AMBUSH!', '#ff4400');
+      const s = heroes.filter(h => h.surprised);
+      addLog(`AMBUSH! ${s.map(unitLabel).join(', ')} surprised — ${s.length === 1 ? 'it skips' : 'they skip'} the first round.`, 'alert');
+    }
   }
 }
 
@@ -3802,18 +3828,11 @@ export function rollInitiative() {
 export function buildTurnList() {
   const list = document.getElementById('turn-list');
   list.innerHTML = '';
-  const counter = {};
-
-  // Assign stable labels in turnOrder sequence, then sort display by initiative
+  // Label via unitLabel (spawn-order "Goblin N") — the SAME scheme the combat log and HUD use, so a
+  // given goblin has ONE number everywhere. Display is still sorted by initiative, so the panel can
+  // read "Goblin 3, Goblin 1, Goblin 2" top-to-bottom — the numbers are stable IDs, not the order.
   const entries = turnOrder
-    .map((u, i) => {
-      if (u.team === 'red' && !u.aggro) return null;
-      const key    = u.team + u.type;
-      counter[key] = (counter[key] || 0) + 1;
-      const baseName = UNIT_TYPES[u.type]?.name ?? u.type;
-      const label    = (u.team === 'blue' || u.familiar) ? baseName : baseName + ' ' + counter[key];
-      return { u, i, label };
-    })
+    .map((u, i) => (u.team === 'red' && !u.aggro) ? null : { u, i, label: unitLabel(u) })
     .filter(Boolean)
     .sort((a, b) => b.u.initiative - a.u.initiative);
 
@@ -5118,7 +5137,20 @@ function _checkProximityAggro(hero) {
     }
     turnOrder.splice(insertAt, 0, u);
 
-    addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'alert');
+    // Late-joiner in a WON surprise round 1: it still has to notice the party. Roll ITS Perception
+    // vs the party's stealth; a fail means it wandered in caught off guard → surprised too (skips its
+    // upcoming turn, same as the initial group). Only in round 1, only while a surprise is armed.
+    if (round === 1 && _surpriseStealth != null) {
+      const r = _rollSpot(_spotChanceFromTotals(_percTotal(u), _surpriseStealth));
+      if (!r.spotted) {
+        u.surprised = true;
+        addLog(`⚠ ${unitLabel(u)} wanders into the fight but is surprised (Perception ${r.chance}%, rolled ${r.roll})!`, 'alert');
+      } else {
+        addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (spots you — Perception ${r.chance}%, rolled ${r.roll})`, 'alert');
+      }
+    } else {
+      addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'alert');
+    }
     anyNew = true;
   }
   if (anyNew) buildTurnList();
