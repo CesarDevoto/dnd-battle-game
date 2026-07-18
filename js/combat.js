@@ -6494,61 +6494,10 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           updateCombatStatus();
           cb(); return;
         }
-        if (action === 'dash') {
-          // Dash grants a SECOND full move. Until 2026-07-18 this branch only logged and called
-          // cb(), so an automated hero SPENT ITS ACTION AND MOVED NOWHERE — the tendency was
-          // selectable, live, and did strictly nothing but waste the turn.
-          //
-          // Resetting the budget alone isn't enough: the movement phase runs BEFORE the action
-          // phase, so by the time we get here the hero has already moved and nothing would
-          // re-read the restored budget. The extra move has to be taken right here.
-          turnMovedFt = 0;
-          addLog(`${unitLabel(u)} Dashes! Movement reset to ${speedOf(u)} ft`, 'move');
-          updateCombatStatus();
-
-          const dashTgt = movTarget;
-          if (!dashTgt || !units.includes(dashTgt) || preferRange === 'stay') { cb(); return; }
-
-          // Rebuild the reach ring at the restored budget, then reuse the SAME destination
-          // pickers the movement phase uses, so a dash closes distance exactly the way a normal
-          // move does (including the kiting and near-ally behaviours) rather than a second,
-          // subtly different rule.
-          showMoveRange(u);
-          const _dashLOS = (kx, kz, tx2, tz2) => hasLineOfSight(
-            kx, kz, tx2, tz2, u.caveLayer ?? 'surface', dashTgt.caveLayer ?? 'surface');
-          const dashDest = (isAllyMode || dashTgt.team === 'blue')
-            ? aiPickAllyDest(u, allies, validTiles)
-            : aiPickHeroDest(u, dashTgt, validTiles, preferRange, atkTriggerWU, atkRangeWU,
-                             _dashLOS, u.type === 'elf' ? FIRE_BOLT_ATK : null);
-          hideMoveRange();
-          if (!dashDest) { cb(); return; }
-
-          const ox = u.grp.position.x, oz = u.grp.position.z;
-          const dashPath = findPath(ox, oz, dashDest.x, dashDest.z, u.caveLayer);
-          // ⚠ animatePath on an EMPTY path never fires its callback — the turn-freeze class
-          // /timing-audit hunts. Guard BEFORE animating, never after.
-          if (!dashPath.length) { cb(); return; }
-          animatePath(u, dashPath, () => {
-            // cb() on EVERY path, including a mid-animation teardown: this is the action phase,
-            // and the turn cannot advance without it.
-            if (!combatPhase || !units.includes(u)) { cb(); return; }
-            const mdx = u.grp.position.x - ox, mdz = u.grp.position.z - oz;
-            const movedFt = Math.round(
-              Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE
-            ) * GRID_SQUARE_FEET;
-            if (movedFt > 0) {
-              turnMovedFt += movedFt;
-              addLog(`${unitLabel(u)} dashes ${movedFt} ft`, 'walk');
-            }
-            if (units.includes(dashTgt)) {
-              const tdx = dashTgt.grp.position.x - u.grp.position.x;
-              const tdz = dashTgt.grp.position.z - u.grp.position.z;
-              u.grp.rotation.y = Math.atan2(tdx, tdz);
-            }
-            cb();
-          });
-          return;
-        }
+        // Dash is deliberately ABSENT here: it was removed from the tendency lists entirely
+        // (user, 2026-07-18). The automated turn already moves toward its target before picking
+        // an action, so spending the Action on a second move is strictly worse than readying or
+        // dodging — nobody would ever choose it. Manual Dash (doSprint) is unaffected.
         cb(); // end_turn or unknown
       }
       tryIdx(0);
