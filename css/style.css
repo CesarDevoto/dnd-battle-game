@@ -5390,7 +5390,12 @@ td.bst-col-retired { color: #343228 !important; }
   align-items: flex-end;
   gap: 4px;
   z-index: 200;
+  /* The wrap's box is as TALL as its tallest child (the vertical MOVE widget), so its empty upper
+     area — at z-index 200 — would sit over the START PLAY MODE button and eat its clicks. Make the
+     wrap itself click-through; its real controls (hotbar, MOVE widget) opt back in below. */
+  pointer-events: none;
 }
+#bottom-bar-wrap > * { pointer-events: auto; }
 
 /* ── Group move widget ───────────────────────────────────────────────── */
 #group-move-widget {
