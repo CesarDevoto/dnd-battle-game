@@ -178,7 +178,6 @@ const CATEGORIES = [
           { value: 'dodge',        label: 'Dodge'        },
           { value: 'ready_action', label: 'Ready Action' },
           { value: 'end_turn',     label: 'End turn'     },
-          { value: 'dash',         label: 'Dash'         },
         ],
         optionsFor: {
           // No Magic Missile here: it needs a target, so in the no-enemy-in-range branch
@@ -190,7 +189,6 @@ const CATEGORIES = [
             { value: 'dodge',         label: 'Dodge'         },
             { value: 'ready_action',  label: 'Ready Action'  },
             { value: 'end_turn',      label: 'End turn'      },
-            { value: 'dash',          label: 'Dash'          },
           ],
           dwarf: [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
@@ -201,7 +199,6 @@ const CATEGORIES = [
             { value: 'dodge',        label: 'Dodge'        },
             { value: 'ready_action', label: 'Ready Action' },
             { value: 'end_turn',     label: 'End turn'     },
-            { value: 'dash',         label: 'Dash'         },
           ],
           human: [
             { value: 'use_potion',       label: 'Use Healing Potion (<33% HP)' },
@@ -209,7 +206,6 @@ const CATEGORIES = [
             { value: 'dodge',            label: 'Dodge'            },
             { value: 'ready_action',     label: 'Ready Action'     },
             { value: 'end_turn',         label: 'End turn'         },
-            { value: 'dash',             label: 'Dash'             },
           ],
           halfling: [
             { value: 'use_potion',    label: 'Use Healing Potion (<33% HP)' },
@@ -218,7 +214,6 @@ const CATEGORIES = [
             { value: 'dodge',         label: 'Dodge'        },
             { value: 'ready_action',  label: 'Ready Action' },
             { value: 'end_turn',      label: 'End turn'     },
-            { value: 'dash',          label: 'Dash'         },
           ],
         },
         defaults: {
@@ -267,7 +262,12 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 17;   // 17: Rasec's thrown Dart added LAST in the enemy-in-range list
+// 18: Dash REMOVED from the no-enemy-in-range lists entirely (user, 2026-07-18: "who would ever
+//     use it?"). It was never in any hero's DEFAULTS — only an opt-in option nobody would pick,
+//     since the automated turn already moves toward the target before choosing an action, so
+//     spending the Action on a second move is strictly worse than readying or dodging.
+//     Manual Dash (doSprint, hotbar/QWERTY) is UNAFFECTED — a human can see a reason to sprint.
+const TENDENCIES_VERSION = 18;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
