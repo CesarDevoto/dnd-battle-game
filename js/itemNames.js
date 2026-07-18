@@ -77,6 +77,8 @@ const AFFIX_WORDS = {
   hit_pct:              { prefix: 'Keen',     suffix: 'Precision' },
   str:                  { prefix: 'Mighty',   suffix: 'the Bear' },
   dex:                  { prefix: 'Agile',    suffix: 'the Fox' },
+  con:                  { prefix: 'Stalwart', suffix: 'the Ox' },
+  resource_regen:       { prefix: 'Replenishing', suffix: 'Renewal' },
   healing_received_pct: { prefix: 'Blessed',  suffix: 'Recovery' },
   healing_done_pct:     { prefix: 'Sacred',   suffix: 'Mending' },
   saving_throw_pct:     { prefix: 'Resolute', suffix: 'Resolve' },

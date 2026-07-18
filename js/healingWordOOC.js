@@ -15,21 +15,29 @@ import {
 } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
 import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
-import { applyHeal } from './affixes.js';
+import { applyHeal, affixTotal } from './affixes.js';
 
-let _used     = false;
-let _selected = null;   // currently PC-selected hero (from pc-hero:selected)
-let _picking  = false;  // true while the green targeting rings are up
+let _usedCount = 0;      // OOC Healing Words cast since the last combat ended
+let _selected  = null;   // currently PC-selected hero (from pc-hero:selected)
+let _picking   = false;  // true while the green targeting rings are up
+
+// Base 1 use between combats, plus belt Resource-regen (extra OUT-OF-COMBAT uses). Read LIVE from
+// Leugren's gear so equipping a belt between fights raises the cap immediately, and consumed uses
+// (_usedCount) persist across that until the next combat resets them.
+function _maxUses() {
+  const leugren = _selected?.type === 'dwarf' ? _selected : heroRoster.find(h => h.type === 'dwarf');
+  return 1 + (leugren ? affixTotal(leugren, 'resource_regen') : 0);
+}
 
 export function initHealingWordOOC() {
   window.addEventListener('pc-hero:selected',   e => { _selected = e.detail?.hero ?? null; _stopPicking(); _render(); });
   window.addEventListener('pc-hero:deselected', () => { _selected = null; _stopPicking(); _render(); });
   window.addEventListener('combat:start',       () => { _picking = false; _render(); });
-  window.addEventListener('combat:ended',       () => { _used = false; _render(); });
+  window.addEventListener('combat:ended',       () => { _usedCount = 0; _render(); });
 }
 
 function _canCast() {
-  return !combatPhase && !_used && !!_selected && _selected.type === 'dwarf' && _selected.hp > 0;
+  return !combatPhase && _usedCount < _maxUses() && !!_selected && _selected.type === 'dwarf' && _selected.hp > 0;
 }
 
 // Exposed so the Skills & Spells window's Healing Word button (a plain click,
@@ -98,7 +106,7 @@ function _cast(target) {
     _render();
     return;
   }
-  _used = true;
+  _usedCount++;
 
   const wisMod = Math.floor(((UNIT_TYPES.dwarf?.abilities?.wis ?? 10) - 10) / 2);
   const healed = Math.max(1, Math.ceil(Math.random() * 8) + wisMod);

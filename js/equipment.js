@@ -151,10 +151,19 @@ export function unequipItem(hero, slotId) {
 // is idempotent and only ever moves by the DELTA. Current hp rides with the ceiling (equipping the
 // bonus grants it, unequipping removes it), clamped to [1, maxHp] for a living hero; a downed hero
 // (hp 0) keeps its 0. Heroes persist across zones, so once baked in the bonus carries.
+// +5 HP per CON MODIFIER point. Belt CON is even (mult:2), so `con/2` is the clean modifier count.
+// Deliberately level-INDEPENDENT (unlike 5e's per-level HP): base hero HP here is a flat authored
+// number, not CON-derived, and keeping this off `level` means syncGearHp stays a pure equip-time
+// delta — no need to re-run it on level-up. Tunable via this one constant.
+const HP_PER_CON_MOD = 5;
+
 export function syncGearHp(hero) {
   if (!hero) return;
-  const target  = _gearBonus(hero, 'max_hp');
-  const delta   = target - (hero._gearMaxHp ?? 0);
+  // Two gear HP sources reconciled together: legs' flat max_hp affix, and belt CON (via its modifier).
+  const flatHp = _gearBonus(hero, 'max_hp');
+  const conHp  = Math.floor(_gearBonus(hero, 'con') / 2) * HP_PER_CON_MOD;
+  const target = flatHp + conHp;
+  const delta  = target - (hero._gearMaxHp ?? 0);
   if (delta === 0) return;
   hero.maxHp = Math.max(1, (hero.maxHp ?? 1) + delta);
   if (hero.hp > 0) hero.hp = Math.max(1, Math.min(hero.maxHp, hero.hp + delta));

@@ -61,6 +61,12 @@ const HELP_RISE  = 2.2;   // world units the owl lifts while distracting
 const DEATH_DUR  = 1.6;   // seconds to fly out of sight on death
 const DEATH_RISE = 22;    // world units it climbs before vanishing (≈ its entrance height)
 
+// OOC scouting flight (Phase 3): the owl leaves the shoulder, flies out to a far point and back,
+// then re-perches. Two eased legs at a cruise altitude above the terrain.
+const SCOUT_HEIGHT   = 3.4;  // cruise altitude above terrain during the pass
+const SCOUT_OUT_DUR  = 1.9;  // seconds to fly out to the far point
+const SCOUT_BACK_DUR = 1.7;  // seconds to fly back to the shoulder
+
 // Blob shadow — a soft dark oval on the ground beneath the owl. The scene's only
 // real shadow-caster is the moon, which several biomes switch off (and even where
 // it's on, a creature 1.5u up barely casts under itself), so this fake shadow is
@@ -241,6 +247,27 @@ export function familiarHelpGesture(cb) {
   playSound('owl');
 }
 
+// OOC scouting pass (Phase 3): the owl detaches from the shoulder, flies out to `dest` (an {x,z}
+// point) and back to the LIVE perch, then re-perches. `onProgress(x, z)` fires every frame with the
+// owl's current ground position — the caller uses it to reveal what the owl flies over. `onDone`
+// fires once it has re-perched. No-op (returns false) if the owl is busy (arriving/diving/dying/
+// already scouting) or in combat, so the caller can refund the resource.
+export function isFamiliarScouting() { return !!(owl && owl._scouting); }
+export function startFamiliarScout(dest, { onProgress = null, onDone = null } = {}) {
+  if (!owl || owl._scouting || owl._dying || owl._arriving || owl._diving) return false;
+  owl.bound      = false;
+  owl._scouting  = true;
+  owl._scoutBack = false;   // false = outbound leg, true = returning
+  owl._scoutT    = 0;
+  owl._scoutFrom = { x: owl.grp.position.x, y: owl.grp.position.y, z: owl.grp.position.z };
+  owl._scoutDest = { x: dest.x, y: getTerrainHeight(dest.x, dest.z) + SCOUT_HEIGHT, z: dest.z };
+  owl._scoutProg = onProgress;
+  owl._scoutDone = onDone;
+  setUnitWalking(owl, true);
+  playSound('owl');
+  return true;
+}
+
 // Death: the owl climbs straight back up the way it came and disappears, then
 // frees itself so Rasec can re-summon. Called from combat's removeDefeatedUnit.
 export function startFamiliarDeath() {
@@ -250,6 +277,7 @@ export function startFamiliarDeath() {
   owl._dieStartY = owl.grp.position.y;
   owl.bound      = false;
   owl._arriving  = false;
+  owl._scouting  = false;
   owl._helpRising = false;
   setUnitWalking(owl, true);  // flap as it flees skyward
   playSound('owl');
@@ -261,8 +289,10 @@ export function startFamiliarDeath() {
 // places it on a valid grid tile beside Rasec (needs the grid/occupancy helpers).
 export function enterCombatFamiliar() {
   if (!owl) return;
-  owl.bound     = false;
-  owl._arriving = false;
+  owl.bound      = false;
+  owl._arriving  = false;
+  owl._scouting  = false;   // abort any OOC scout pass — it becomes a combatant now
+  owl._scoutDone = null; owl._scoutProg = null;
   setUnitWalking(owl, true);  // airborne combatant — flap continuously (kept alive each frame in updateFamiliar)
 }
 
@@ -307,6 +337,46 @@ export function updateFamiliar(dt) {
       owl.grp.rotation.set(-PERCH_PITCH * Math.PI / 180, yaw + PERCH_YAW, 0, 'YXZ');
     }
     owl.anchor.set(owl.grp.position.x, owl.grp.position.y + owl.anchorY, owl.grp.position.z);
+    return;
+  }
+
+  // OOC scouting flight (Phase 3): fly the outbound leg to the far point, turn around, fly back to
+  // the live perch, then re-perch. Fully owns the owl's transform (like the perched/dive branches),
+  // so it overrides whatever the main positioning loop wrote this frame.
+  if (owl._scouting) {
+    owl._scoutT += dt;
+    const from = owl._scoutFrom;
+    let tx, ty, tz, dur;
+    if (!owl._scoutBack) {
+      tx = owl._scoutDest.x; ty = owl._scoutDest.y; tz = owl._scoutDest.z; dur = SCOUT_OUT_DUR;
+    } else {
+      computePerch();                       // re-target the LIVE shoulder (Rasec may have moved)
+      tx = _tgt.x; ty = _tgt.y; tz = _tgt.z; dur = SCOUT_BACK_DUR;
+    }
+    const p = Math.min(owl._scoutT / dur, 1);
+    const e = p * p * (3 - 2 * p);          // smoothstep ease in/out
+    const sx = from.x + (tx - from.x) * e;
+    const sy = from.y + (ty - from.y) * e;
+    const sz = from.z + (tz - from.z) * e;
+    owl.grp.position.set(sx, sy, sz);
+    const fdx = tx - sx, fdz = tz - sz;      // face the direction of travel
+    if (fdx * fdx + fdz * fdz > 1e-4) owl.grp.rotation.set(0, Math.atan2(fdx, fdz), 0, 'YXZ');
+    owl._scoutProg?.(sx, sz);
+    owl.anchor.set(sx, sy + owl.anchorY, sz);
+    if (p >= 1) {
+      if (!owl._scoutBack) {                 // reached the far point — turn around
+        owl._scoutBack = true;
+        owl._scoutT    = 0;
+        owl._scoutFrom = { x: sx, y: sy, z: sz };
+      } else {                               // home — settle back onto the shoulder
+        owl._scouting = false;
+        owl.bound     = true;
+        setUnitWalking(owl, false);
+        const done = owl._scoutDone;
+        owl._scoutDone = null; owl._scoutProg = null;
+        done?.();
+      }
+    }
     return;
   }
 
