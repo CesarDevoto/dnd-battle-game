@@ -794,6 +794,18 @@ function applySpellDamage(caster, raw) {
   return pct > 0 ? Math.ceil(raw * (1 + pct / 100)) : raw;
 }
 
+// Scale a WEAPON attack's damage by the attacker's gear (main-hand weapon_damage_pct). The exact
+// mirror of applySpellDamage — same ceil rule, same reason — on the other side of the atk.spellKey
+// split, so a hit is scaled by one of the two and never both.
+//
+// "Melee or ranged attacks" (user, 2026-07-18): both weapon types, no spells. Sneak Attack sits
+// OUTSIDE this on purpose — the rogue's dice are a class feature with its own level curve, not
+// weapon output, exactly as they sit outside applySpellDamage.
+function applyWeaponDamage(attacker, raw) {
+  const pct = affixTotal(attacker, 'weapon_damage_pct');
+  return pct > 0 ? Math.ceil(raw * (1 + pct / 100)) : raw;
+}
+
 // Returns true when an attack has no qty limit OR still has shots remaining.
 function atkHasQty(unit, atk) {
   if (atk.qty === undefined) return true;
@@ -1288,6 +1300,21 @@ function castSacredFlame(caster, target, onDone) {
       showFloatingDamage(target, 'SAVE', '#88ccff');
       addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: SAVES (${saveBreakdown(saveResult, 'dex')}) — no damage`, 'spell');
     }
+
+    // Spell splash (off-hand): Sacred Flame is single-target, so it qualifies. The splash mirrors
+    // the PARENT spell's resolution — a DEX save per foe, save-NEGATES exactly as above — rather
+    // than an attack roll, which is why _resolveSplash takes toHit as a callback. Only splashes off
+    // a landed hit: a target who saved took no damage, so there's nothing to share out.
+    const _sfSplash = _splashAffixOf(caster, 'spell');
+    if (_sfSplash && dmg > 0) {
+      const _sfOrigin = { x: target.grp.position.x, z: target.grp.position.z };
+      _resolveSplash(caster, target, _sfOrigin, _sfSplash, dmg, (foe) => {
+        const r = rollSave(abilityModOf(foe, 'dex'), spell.saveDC,
+                           foe.dodging ? 'advantage' : 'normal', affixTotal(foe, 'saving_throw_pct'));
+        return { isHit: !r.isSave, label: `SAVES ${saveBreakdown(r, 'dex')}` };
+      }, () => onDone?.());
+      return;
+    }
     onDone?.();
   });
 
@@ -1770,6 +1797,17 @@ function castMagicMissile(caster, target, onDone) {
     showFloatingDamage(target, `-${totalDmg}`, '#aa66ff');
     addLog(`${unitLabel(caster)} casts Magic Missile${freeUse ? ' (free cast)' : ''} → ${unitLabel(target)}: ${dartStr} = ${totalDmg} force dmg`, 'spell');
     if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target, caster), 400);
+
+    // Spell splash (off-hand): single-target, so it qualifies. toHit is NULL here — Magic Missile
+    // AUTO-HITS by definition, so its splash auto-hits too and the full ladder is always dealt out.
+    // That makes it the strongest partner for this affix, which is the natural cost of a spell that
+    // never misses; it's also exactly the case the resolver's null-toHit branch exists for.
+    const _mmSplash = _splashAffixOf(caster, 'spell');
+    if (_mmSplash && totalDmg > 0) {
+      const _mmOrigin = { x: target.grp.position.x, z: target.grp.position.z };
+      _resolveSplash(caster, target, _mmOrigin, _mmSplash, totalDmg, null, () => onDone?.());
+      return;
+    }
     onDone?.();
   });
 
@@ -1835,7 +1873,11 @@ function castBurningHands(caster) {
 
   playSleepEffect(caster);
 
-  const rangeWU = atkRangeWU(spell.rangeFt);
+  // Burning Hands is the game's ONLY hero AoE, so it's the only consumer of the off-hand aoe_radius
+  // affix. Its area is a radius around the CASTER (spell.rangeFt), not a cone, despite the
+  // description — so the affix widens exactly the circle the targeting below already uses.
+  const areaFt  = aoeRadiusFtOf(caster, spell.rangeFt);
+  const rangeWU = atkRangeWU(areaFt);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
   const targets = units.filter(e => {
     if (e.team === caster.team || e.hp <= 0) return false;
@@ -1845,7 +1887,8 @@ function castBurningHands(caster) {
 
   const dmgResult = roll({ sides: spell.sides, count: spell.dice });
   showRoll(`${unitLabel(caster)}  ·  Burning Hands`, dmgResult, { autoDismiss: false });
-  addLog(`${unitLabel(caster)} casts Burning Hands (DEX DC ${spell.saveDC})`, 'spell');
+  addLog(`${unitLabel(caster)} casts Burning Hands (${areaFt} ft · DEX DC ${spell.saveDC})` +
+         (areaFt > spell.rangeFt ? ` — widened from ${spell.rangeFt} ft` : ''), 'spell');
 
   if (targets.length === 0) {
     addLog('  Burning Hands: no enemies in range', 'spell');
@@ -2752,6 +2795,159 @@ function _onHitRiderOf(u) {
   return null;
 }
 
+// The splash affix on a unit's gear that fires for a given KIND of hit: 'melee' → main-hand Cleave,
+// 'spell' → off-hand Spell splash. Both exist at once on a fully-geared caster-martial, and they
+// must not cross-fire — an axe doesn't splash a Fire Bolt and a focus doesn't cleave a swing — so
+// `kind` is matched against the affix's own `appliesTo` rather than taking the first splash found.
+//
+// ⚠ Deliberately NOT affixTotal: a splash affix carries a falloff LADDER, not a scalar, and summing
+// across slots would read as one bigger splash — not what two splashing items should mean.
+function _splashAffixOf(u, kind) {
+  const eq = u?.equipment;
+  if (!eq) return null;
+  for (const slot of Object.keys(eq)) {
+    const s = eq[slot]?.affixes?.find(a => a.splash && a.appliesTo === kind);
+    if (s) return s;
+  }
+  return null;
+}
+
+// An AoE spell's radius in FEET including the caster's off-hand aoe_radius affix.
+//
+// ⚠ THE AFFIX IS A DIAMETER BONUS, SO HALF OF IT GOES ON THE RADIUS (user's word: "merely expands
+// the diameter of AoE spells"). This is the single conversion point — every AoE consumer calls
+// here, so the diameter/radius distinction can never be got wrong twice.
+//
+// Enemies carry no equipment, so affixTotal is 0 for them: Morvath's Grave Curse is unaffected for
+// free without needing a hero-only test.
+function aoeRadiusFtOf(caster, baseFt) {
+  return baseFt + affixTotal(caster, 'aoe_radius') / 2;
+}
+
+// Shared splash resolver — the doc's "one routine, parameterized" for melee Cleave and (later)
+// caster Spell splash. Bleeds a landed hit onto the foes nearest `originPos` within `radiusFt`,
+// following the affix's FALLOFF LADDER: `pcts[i]` is the % of the primary hit that the i-th
+// NEAREST foe takes, and the ladder's length is the target cap (red cleave is [100, 85, 40, 25],
+// so four foes take 100/85/40/25% respectively).
+//
+// Sort order is therefore load-bearing, not cosmetic: it decides who gets the big number, not just
+// who gets included.
+//
+// ⚠ originPos is a PLAIN {x, z} captured by the caller, not the primary unit — read on purpose,
+// because a lethal swing schedules removeDefeatedUnit BEFORE this resolver's timer fires, and
+// reading `primary.grp.position` here would touch a mesh that's already gone. Cleaving off a kill
+// is the whole point of the affix, so the origin has to outlive the corpse.
+//
+// `raw` is the PRE-mitigation damage of the primary hit, not the post-mitigation number: each
+// splashed foe then takes its own applyMitigation cut. Splashing the already-mitigated figure would
+// apply the primary's armor to everyone standing near it.
+//
+// ⚠ EACH SPLASHED FOE ROLLS ITS OWN TO-HIT (user's call, 2026-07-18) — "otherwise hit or miss is
+// massively OP or underpowered". One shared roll would make a landed red cleave auto-deal
+// 100/85/40/25% to four foes with no further counterplay, while a missed swing erases all of it:
+// the affix would be pure variance amplification on a single d100. Per-target rolls give each foe
+// its own AC and dodge state a say, which is what makes the falloff ladder a curve instead of a
+// coin flip.
+//
+// ⚠ THE LADDER IS ASSIGNED TO THE FOES THAT HIT, NOT TO DISTANCE (user's spec, 2026-07-18).
+// One attack roll per foe in range, up to the ladder's length — then the percentages are dealt out
+// to whichever foes CONNECTED, best share first, in nearest-first order among them. The user's
+// worked example: purple is [66, 25] against two adjacent foes, so two rolls go out, and "if either
+// hits, then the 66% affects the one hit" — a lone connecting foe takes the TOP of the ladder, not
+// the entry matching where it stood.
+//
+// So a miss doesn't blank a slot, it SHORTENS the ladder. Orange [85, 40, 25] landing one of three
+// rolls deals 85% once; landing two deals 85% and 40%. This is why the rolls must all be taken
+// BEFORE any damage is assigned — pct depends on how many hit, which isn't known until they're in.
+//
+// `toHit` is a CALLBACK, not baked in, because the resolver is shared: melee cleave passes a
+// weapon-attack roll, and off-hand's Spell splash will pass its own profile (or null to auto-hit,
+// which is what a save-based splash would want). It returns a rollToHit result, or null for
+// auto-hit — with null every foe "hits" and the ladder is dealt out in full.
+//
+// done() fires exactly once on every path — including "no neighbours", "everything missed" and
+// "everything died" — because the attack chain is waiting on it to advance the turn. Same contract
+// _resolvePoison and _resolveRider keep, and the class of freeze /timing-audit hunts.
+function _resolveSplash(attacker, primary, originPos, splash, raw, toHit, done) {
+  const pcts = splash?.pcts ?? [];
+  if (!originPos || !pcts.length || raw <= 0) { done(); return; }
+
+  const radiusWU = (splash.radiusFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const ox = originPos.x;
+  const oz = originPos.z;
+
+  // Foes of the ATTACKER, excluding the primary target (it already took the full hit). The
+  // hp > 0 test also excludes team:'npc' units, which are built with hp = 0 on purpose.
+  const foes = units
+    .filter(u => u !== primary && u !== attacker && u.hp > 0 && u.team !== attacker.team && u.team !== 'npc')
+    .map(u => {
+      const dx = u.grp.position.x - ox;
+      const dz = u.grp.position.z - oz;
+      return { u, d: Math.sqrt(dx * dx + dz * dz) };
+    })
+    .filter(e => e.d <= radiusWU)
+    .sort((a, b) => a.d - b.d)              // nearest first — this ASSIGNS the ladder, see below
+    .slice(0, pcts.length)                  // the ladder's length IS the target cap
+    .map(e => e.u);
+
+  if (!foes.length) { done(); return; }
+
+  // ALL the rolls first, then the assignment — pct depends on how MANY connected, so no foe's
+  // share can be known until every roll is in. `hitIdx` walks the ladder across the hits only, in
+  // nearest-first order, which is what shortens the ladder on a miss instead of blanking a slot.
+  let hitIdx = 0;
+  const plan = foes.map(foe => {
+    const res   = toHit ? toHit(foe) : null;
+    const isHit = !res || res.isHit;            // null toHit = auto-hit (save-based splash)
+    return { foe, res, isHit, pct: isHit ? pcts[hitIdx++] : 0 };
+  });
+  const landed = plan.filter(p => p.isHit);
+
+  addLog(`  ⚔ ${splash.label} sweeps ${foes.length === 1 ? 'the adjacent foe' : `the ${foes.length} nearest foes`}` +
+         (toHit ? ` — ${foes.length} attack roll${foes.length > 1 ? 's' : ''}` : '') +
+         (landed.length ? `, ${landed.map(p => `${p.pct}%`).join(' / ')}` : ', all missed'), 'dmg');
+
+  // ⚠ NO STAGGER, NO SWING ANIMATION (user, 2026-07-18): "just do the damage and float the damage
+  // text over the cleaved targets." An earlier version spaced the foes 220ms apart, which bought
+  // nothing but latency — a red cleave added up to ~2.6s to a single swing, straight onto the
+  // known automation turn-delay problem. Everything below lands on ONE beat; the only wait left is
+  // the corpse pause, which exists so the float is readable before the mesh goes.
+  const dead = [];
+  plan.forEach(({ foe, res, isHit, pct }) => {
+    foe.aggro = true;                          // swung at them — they notice hit or miss
+    if (sleepingUnits.has(foe)) wakeUnit(foe, 'damage');
+
+    if (!isHit) {
+      // `res.label` lets a caller describe its own failure — a save-based splash (Sacred Flame)
+      // reports "SAVES (…)", where atkBreakdown would print attack-roll wording for a save.
+      addLog(`  ⚔ ${splash.label} misses ${unitLabel(foe)} (${res.label ?? atkBreakdown(res)})`, 'miss');
+      showFloatingDamage(foe, 'MISS', '#999999');
+      return;
+    }
+
+    // ⚠ A CRIT on a splash roll is treated as a plain hit (user, 2026-07-18). `raw` is the primary
+    // swing's damage, which ALREADY doubled if that swing crit — doubling again would compound one
+    // crit into two. The splash is a share of the hit that happened, not an independent attack.
+    const dmg     = applyMitigation(foe, Math.max(1, Math.ceil(raw * pct / 100)));
+    const willDie = foe.hp <= dmg;
+
+    // `noun` is the affix's own word — "cleave damage" off a weapon, "splash damage" off a spell —
+    // so the log names what actually hit them rather than a generic resolver term.
+    addLog(`  ⚔ ${unitLabel(foe)} suffers ${dmg} ${splash.noun} damage (${pct}%)`, 'dmg');
+    showFloatingDamage(foe, `⚔ -${dmg}`, '#ffaa44');
+    foe.hp = Math.max(0, foe.hp - dmg);
+    foe.barShowUntil = Date.now() + 5000;
+    _checkConcentration(foe, dmg, willDie);
+    if (willDie) dead.push(foe);
+  });
+
+  buildTurnList();   // once, after every foe has taken its share — not per foe
+
+  // done() exactly once, on both paths.
+  if (dead.length) setTimeout(() => { dead.forEach(f => removeDefeatedUnit(f, attacker)); done(); }, 400);
+  else             setTimeout(done, 150);
+}
+
 function _executeAttack(attacker, target, atk, onSettled = null) {
   const def     = UNIT_TYPES[attacker.type] ?? {};
   // abilityModOf, not the raw UNIT_TYPES read: it folds in the wrist str/dex affixes, which
@@ -2913,7 +3109,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // weapon. Sneak dice are deliberately outside it: they're the rogue's, not the caster's.
   const dmg      = atk.spellKey
     ? Math.max(1, applySpellDamage(attacker, dmgResult.total))
-    : Math.max(1, dmgResult.total);
+    : Math.max(1, applyWeaponDamage(attacker, dmgResult.total));
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
   // Crit damage (ring): flat bonus added on a crit, on top of the doubled dice. It's a value affix
   // (rolled once at drop, e.g. 1d4+1), so affixTotal sums both rings; added pre-mitigation like the
@@ -3020,12 +3216,73 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // alreadyDead flag. The two are mutually exclusive in practice (venom is a statblock rider, the
   // gear rider reads equipment); if both ever coexist, venom wins and the gear rider is skipped.
   const _settleAt = hpUpdateDelay + RESULT_PAUSE + (willDie ? 450 : 50);
-  if (atk.poison && !willDie) {
-    setTimeout(() => _resolvePoison(target, atk.poison, () => onSettled?.()), _settleAt + 250);
-  } else if (_rider) {
-    setTimeout(() => _resolveRider(attacker, target, _rider, willDie, () => onSettled?.()), _settleAt + 250);
+
+  // The tail of the chain, unchanged from before cleave existed — same branches, same +250 beat.
+  // Pulled into a closure only so cleave can run AHEAD of it and hand off, keeping the "onSettled
+  // fires exactly once" contract intact on every path through both stages.
+  const _chainTail = () => {
+    if (atk.poison && !willDie) {
+      setTimeout(() => _resolvePoison(target, atk.poison, () => onSettled?.()), 250);
+    } else if (_rider) {
+      setTimeout(() => _resolveRider(attacker, target, _rider, willDie, () => onSettled?.()), 250);
+    } else {
+      onSettled?.();
+    }
+  };
+
+  // Cleave (main-hand): splash a % of THIS hit onto foes near the one we struck.
+  //
+  // ⚠ MELEE ONLY, per the doc's wording ("melee hit splashes pct damage to foes near the target").
+  // _resolvesRanged covers both halves of what must be excluded: ranged WEAPONS (an arrow doesn't
+  // sweep through a crowd) and attack-roll SPELLS like Fire Bolt, whose splash is off-hand's own
+  // affix with its own numbers. Note this differs from weapon_damage_pct one screen up, which the
+  // user scoped to "melee or ranged" — the two main-hand stats deliberately have different reach.
+  //
+  // The cost: a bow hero who rolls cleave gets a dead affix, which is the same starvation problem
+  // lootCoverage exists to fight. Flagged rather than silently widened — dropping !_resolvesRanged
+  // is the one-word change if ranged should ricochet.
+  //
+  // Origin captured NOW, while the target is still on the board (see _resolveSplash); totalRaw,
+  // not finalDmg, so each splashed foe takes its own mitigation cut.
+  // 'melee' for a weapon swing, 'spell' for an attack-roll cantrip like Fire Bolt — the one call
+  // site that can be either, since _executeAttack resolves both. atk.spellKey is the same test the
+  // damage scalers split on, so a hit can never draw both splash affixes.
+  const _splash = _splashAffixOf(attacker, atk.spellKey ? 'spell' : 'melee');
+  // Melee cleave additionally excludes RANGED weapons (an arrow doesn't sweep a crowd); Fire Bolt
+  // is a spell and is governed by the off-hand affix instead, so it is NOT excluded here.
+  const _splashOk = atk.spellKey ? true : !_resolvesRanged(atk);
+  if (_splash && _splashOk && dmg > 0) {
+    const _origin = { x: target.grp.position.x, z: target.grp.position.z };
+    // Per-foe to-hit for the sweep. The ATTACKER-side terms are the ones already computed for the
+    // primary swing (same weapon, same arm, same instant) — atkMod and precisionBonus are reused
+    // verbatim so a cleave can never be more or less accurate than the swing that caused it.
+    // Everything DEFENDER-side is recomputed per foe: its own AC, its own ac_pct, its own dodge.
+    //
+    // Bless rerolls per foe because it's 1d2 PER ATTACK ROLL and each of these is its own roll.
+    //
+    // The primary swing's situational ADVANTAGES are deliberately not carried over: smoke, Owl's
+    // Help and the hidden-attacker bonus are all relationships with the PRIMARY target, not with
+    // whoever happens to be standing beside it. Dodge is, so it comes along.
+    const _splashToHit = (foe) => {
+      const foeACBonus = (foe.defStanceActive ? 3 : 0) + (foe.mageArmored ? 3 : 0) +
+                         (_inOwnSmoke(foe) ? SMOKE_AC_BONUS : 0);
+      const foeAC      = (foe.equipment ? computeAC(foe) : (UNIT_TYPES[foe.type]?.ac ?? COMBAT.defaultAC)) + foeACBonus;
+      const foeBless   = blessedUnits.has(attacker) ? roll({ sides: 2 }).total : 0;
+      return rollToHit(atkMod + foeBless, foeAC, unitCombatLevel(attacker), unitCombatLevel(foe),
+                       foe.dodging ? 'disadvantage' : 'normal',
+                       precisionBonus - affixTotal(foe, 'ac_pct'),
+                       affixTotal(attacker, 'crit_chance_pct'));
+    };
+    // ⚠ SPLASH BASE EXCLUDES SNEAK ATTACK (user, 2026-07-18: "sneak attack does all damage on a
+    // single target"). totalRaw is dmg + sneakDmg + critDmg; the sneak dice are the rogue's
+    // precision strike on ONE foe, not weapon output, so they must not bleed onto the neighbours —
+    // otherwise a red cleave would splash 100% of a 10d6 sneak sideways. Same principle that keeps
+    // sneak out of weapon_damage_pct and spell_damage_pct. The ring's flat crit bonus stays in:
+    // that IS part of the swing that landed.
+    const _splashBase = dmg + critDmg;
+    setTimeout(() => _resolveSplash(attacker, target, _origin, _splash, _splashBase, _splashToHit, _chainTail), _settleAt + 250);
   } else {
-    setTimeout(() => onSettled?.(), _settleAt);
+    setTimeout(_chainTail, _settleAt);
   }
 
   // Ammo-remaining message fires after all damage/effect lines settle
