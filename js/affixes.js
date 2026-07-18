@@ -254,6 +254,32 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d3', blue: '1d3+1', purple: '1d4+2', orange: '1d4+4', red: '2d4+5' },
     },
   },
+  belt: {
+    // Belt = CON (doc allocation). Same progression as the wrist STR/DEX: `mult: 2` doubles the
+    // roll so every point lands on an EVEN score, because an odd ability bump is INVISIBLE (16->17
+    // is still a +3 modifier). CON is broad — it feeds HP, CON saves, and unarmored AC — so like
+    // STR/DEX it's a purple+ chase stat, no green/blue roll. The other belt stat, Resource regen,
+    // is NOT built yet (pending design).
+    //
+    // CON is fully wired: saves (rollSave) and unarmored AC read abilityModOf('con'), and HP now
+    // bakes in via syncGearHp (+5 maxHp per CON modifier, i.e. per +2 CON).
+    con: {
+      label: 'Constitution',
+      fmt:   v => `+${v} Constitution`,
+      mult:  2,
+      dice:  { purple: '1d1', orange: '1d2', red: '1d2+1' },   // x2 -> +2 | +2/+4 | +4/+6
+    },
+    // Resource regen = extra OUT-OF-COMBAT uses of a hero's limited OOC ability. Today that's ONLY
+    // Leugren's between-combats Healing Word (js/healingWordOOC.js reads affixTotal(hero,
+    // 'resource_regen') as bonus charges on top of the base 1); any future OOC-limited ability can
+    // read the same key. It does nothing for a hero with no OOC ability (e.g. a martial's belt),
+    // which is accepted — CON is the universal half of the slot. Integer charges, so d1/d2 dice.
+    resource_regen: {
+      label: 'Out-of-combat uses',
+      fmt:   v => `+${v} out-of-combat ability use${v > 1 ? 's' : ''}`,
+      dice:  { green: '1d1', blue: '1d1', purple: '1d2', orange: '1d2+1', red: '1d3+1' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -298,6 +324,9 @@ export const AFFIX_COUNT = {
   // Hands: green/blue roll ONLY life steal (speed is purple+). purple = 1 affix. Orange/red = 2, the
   // user's "guaranteed second affix" — and since 2 of the 3 eligible are speeds, a speed always lands.
   hands: { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [2, 2], red: [2, 2] },
+  // Belt owns CON (purple+, even-only) + Resource regen (all tiers). green/blue roll ONLY regen (CON
+  // is purple+); purple+ can pair both. Mirrors the hands shape where a gated stat joins from purple.
+  belt:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 2], orange: [2, 2], red: [2, 2] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
