@@ -221,6 +221,17 @@ function _renderItems() {
     const destroyed = item.assignedTo === 'destroy' ? ' lp-assigned' : '';
     const destroyBox = `<button class="lp-assign-box lp-assign-destroy${destroyed}" data-item="${idx}" data-hero="destroy" title="Destroy">✕</button>`;
 
+    // ROLLED affixes, inline on the card — the roll is the entire basis for the decision this
+    // panel is asking for ("which hero gets this?"), so it must be readable without hovering
+    // every icon in turn. Same `a.display` strings the tooltip uses, so the two can never
+    // disagree about what an item does.
+    //
+    // Absent for grey items, which roll no affixes at all — the block collapses rather than
+    // leaving an empty gap above the assign row.
+    const affixHtml = item.affixes?.length
+      ? `<div class="lp-item-affixes">${item.affixes.map(a => `<div class="lp-affix">${a.display}</div>`).join('')}</div>`
+      : '';
+
     card.innerHTML = `
       <div class="lp-item-header">
         ${item.icon ? `<img class="lp-item-icon" src="${item.icon}" alt="${item.name}">` : ''}
@@ -228,6 +239,7 @@ function _renderItems() {
         <span class="lp-item-name">${item.name}</span>
         ${_valueTag(item)}
       </div>
+      ${affixHtml}
       <div class="lp-item-desc">${item.description ?? ''}</div>
       <div class="lp-item-assign">${heroBoxes}${destroyBox}</div>`;
 
