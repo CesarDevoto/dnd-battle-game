@@ -1988,6 +1988,48 @@ body {
   50%       { opacity: 1.0; transform: translate(-50%, -115%) scale(1.10); }
 }
 
+/* ── Surprised: closed-eye marker ────────────────────────────────────── */
+/* Overhead icon, pinned just above the floating health bar — same geometry and
+   z-index as .unit-ready-icon (⚡) so the two read as one family of unit state
+   markers. Amber matches the 'SURPRISED' float and the alert log lines. */
+.unit-surprise-icon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  line-height: 0;
+  color: #ffcc44;
+  pointer-events: none;
+  z-index: 15;
+  animation: surprise-icon-pulse 1.4s ease-in-out infinite alternate;
+}
+.unit-surprise-icon .surprise-eye {
+  width: 1.35rem;
+  height: auto;
+  display: block;
+  filter:
+    drop-shadow(0 0 6px rgba(255,200,60,0.90))
+    drop-shadow(0 0 14px rgba(210,140,20,0.50));
+}
+@keyframes surprise-icon-pulse {
+  from { opacity: 0.60; transform: translate(-50%, -50%) scale(0.93); }
+  to   { opacity: 1.00; transform: translate(-50%, -50%) scale(1.07); }
+}
+
+/* Same eye inline in the initiative panel, sized to sit on the name baseline. */
+.turn-surprise-tag {
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: middle;
+  color: #ffcc44;
+  line-height: 0;
+}
+.turn-surprise-tag .surprise-eye {
+  width: 0.85em;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 5px rgba(255,190,60,0.80));
+}
+
 
 
 /* ── Active unit marker ──────────────────────────────────────────────── */

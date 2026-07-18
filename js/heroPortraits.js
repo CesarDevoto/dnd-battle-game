@@ -1,7 +1,7 @@
 import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { combatPhase, turnOrder, turnIndex } from './combat.js';
-import { showSheet, showInventory } from './ui.js';
+import { showInventory } from './ui.js';
 import { blessedUnits, concentrating, concentratingSpell, getBlessRoundsLeft } from './spells.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
@@ -52,41 +52,31 @@ export function buildHeroPortraits() {
     const statsCol = document.createElement('div');
     statsCol.className = 'hpc-stats';
 
-    const sheetBtn = document.createElement('button');
-    sheetBtn.className = 'hpc-sheet-btn';
-    sheetBtn.title     = 'Character Sheet';
-    sheetBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 18" width="15" height="19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4L11 4L11 15L3 15Z" fill="currentColor" fill-opacity="0.15" stroke-width="0.9"/><path d="M1.5 4 Q7 1.8 12.5 4 Q7 6.2 1.5 4Z" fill="currentColor" fill-opacity="0.4" stroke-width="0.9"/><path d="M1.5 15 Q7 12.8 12.5 15 Q7 17.2 1.5 15Z" fill="currentColor" fill-opacity="0.4" stroke-width="0.9"/><line x1="4.5" y1="7.5" x2="9.5" y2="7.5" stroke-width="1.1"/><line x1="4.5" y1="10" x2="9.5" y2="10" stroke-width="1.1"/><line x1="4.5" y1="12.5" x2="7.5" y2="12.5" stroke-width="1.1"/></svg>`;
-    sheetBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      // heroRoster (not units) — a dead/removed-from-combat hero is still a
-      // real, persistent hero whose equipment/bag must stay editable (e.g.
-      // assigning loot right after they fall). units.find would return
-      // undefined for them and fall back to a disconnected stub with an
-      // empty bag, making just-assigned items appear to vanish.
-      const u = heroRoster.find(u => u.type === type);
-      showSheet(u ?? { type, hp: UNIT_TYPES[type].hp });
-    });
-
-    // Inventory — sits directly under the sheet button. Equipment used to live behind
-    // a 👕 tab INSIDE the character sheet, so reaching a hero's gear cost two clicks
-    // (open sheet, then the tab); this opens both at once. Drawn as an SVG rather than
-    // an emoji to match the sheet icon beside it — the card's icons are all line art.
+    // ONE button opens the hero's sheet (user, 2026-07-18: the separate scroll/sheet icon was
+    // removed and this one relabelled "Character Sheet"). It was never a second destination —
+    // showInventory() calls showSheet() and then opens the equipment side panel, so this always
+    // opened the sheet; the two icons were one screen reached two ways. Once it's open, the
+    // sheet's own side buttons (spellbook / traits / XP / equipment) do the rest.
+    //
+    // Drawn as an SVG rather than an emoji — the card's icons are all line art.
     const invBtn = document.createElement('button');
     invBtn.className = 'hpc-inv-btn';
-    invBtn.title     = 'Inventory';
+    invBtn.title     = 'Character Sheet';
     invBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 18" width="15" height="19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5 Q5 3 7 3 Q9 3 9 6.5" stroke-width="0.9"/><path d="M2.5 8 Q2.5 6.5 4 6.5 L10 6.5 Q11.5 6.5 11.5 8 L11.5 14.5 Q11.5 16 10 16 L4 16 Q2.5 16 2.5 14.5 Z" fill="currentColor" fill-opacity="0.15" stroke-width="0.9"/><path d="M2.5 10.5 L11.5 10.5" stroke-width="0.9"/><path d="M6.1 11 L6.1 12.8 L7.9 12.8 L7.9 11" fill="currentColor" fill-opacity="0.4" stroke-width="0.85"/></svg>`;
     invBtn.addEventListener('click', e => {
       e.stopPropagation();
-      // heroRoster, not units — same reason as the sheet button above: a fallen hero's
-      // bag must stay reachable, and that matters more here than anywhere else.
+      // heroRoster, NOT units — a dead/removed-from-combat hero is still a real, persistent
+      // hero whose equipment and bag must stay editable (e.g. assigning loot right after they
+      // fall). units.find returns undefined for them, which would fall back to a disconnected
+      // stub with an empty bag and make just-assigned items appear to vanish.
       const u = heroRoster.find(u => u.type === type);
       showInventory(u ?? { type, hp: UNIT_TYPES[type].hp });
     });
 
-    // Sheet and bag stack vertically at the right of the meta row.
+    // Column kept even though it now holds a single button — the CSS positions the COLUMN
+    // (see .hpc-btn-col), so collapsing it would move the button.
     const btnCol = document.createElement('div');
     btnCol.className = 'hpc-btn-col';
-    btnCol.appendChild(sheetBtn);
     btnCol.appendChild(invBtn);
 
     meta.appendChild(statsCol);
@@ -132,7 +122,7 @@ export function buildHeroPortraits() {
     slot.appendChild(condEl);
     bar.appendChild(slot);
 
-    _cards[type] = { card, fill: fillEl, hpText: hpCurEl, sheetBtn, invBtn, maxHp: def.hp, condEl };
+    _cards[type] = { card, fill: fillEl, hpText: hpCurEl, invBtn, maxHp: def.hp, condEl };
   }
 
   // Collapse toggle — appended after cards so it sits at the bottom of the bar
@@ -166,23 +156,20 @@ export function updateHeroUI() {
 
     const u = units.find(u => u.team === 'blue' && u.type === type);
 
-    // HP / dead state. The bag button tracks the sheet button exactly — out of combat
-    // both stay live even for a fallen hero, which is what makes assigning loot to them
-    // possible (see the heroRoster note on the click handlers).
+    // HP / dead state. The sheet button is disabled ONLY for a hero who is dead DURING combat;
+    // out of combat it stays live even for a fallen hero, which is what makes assigning loot to
+    // them possible (see the heroRoster note on the click handler).
     if (u) {
       refs.card.classList.remove('hpc-dead');
       refs.fill.style.width   = Math.max(0, (u.hp / u.maxHp) * 100) + '%';
       refs.hpText.textContent = `${Math.max(0, u.hp)}/${u.maxHp}`;
-      refs.sheetBtn.disabled  = false;
       refs.invBtn.disabled    = false;
     } else if (combatPhase) {
       refs.card.classList.add('hpc-dead');
       refs.fill.style.width   = '0%';
       refs.hpText.textContent = `0/${refs.maxHp}`;
-      refs.sheetBtn.disabled  = true;
       refs.invBtn.disabled    = true;
     } else {
-      refs.sheetBtn.disabled = false;
       refs.invBtn.disabled   = false;
     }
 

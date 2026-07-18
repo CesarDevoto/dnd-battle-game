@@ -126,6 +126,11 @@ export const ZONE = {
     { x: 168, z: 170, type: 'halfling' },
   ],
   enemies: [
+    // Solrac — shackled quest-giver. His 5 shackle props sit right on him at (136.7, 57.43).
+    // ⚠ RESTORED 2026-07-18: this line was silently dropped by an editor save in 032a8ec (a commit
+    // about barriers/paint), which left warrensEvent.js's whole quest chain unreachable — _findSolrac
+    // returned null every frame. No caveLayer, matching his immediate neighbours below.
+    { type: 'solrac', x: 136.7, z: 57.34 },
     { type: 'goblin', x: 141.09, z: 110.23, caveLayer: 'surface', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'goblin', x: 139.09, z: 110.23, caveLayer: 'surface', animOverrides: {idle:4,walk:7,run:6,attack:1,rangedAttack:0,death:3} },
     { type: 'giant_rat', x: 138.31, z: 108.55 },

@@ -22,6 +22,11 @@ function saveZonePropsPlugin() {
 
             let src = fs.readFileSync(filePath, 'utf-8');
 
+            // Loss guard — props keyed by `model` rather than `type`. This is the writer that
+            // dropped the mausoleum waystone's id (restored by dea5bc0). _warnOnZoneLoss is a
+            // hoisted declaration, so calling it from this earlier plugin is fine.
+            const lossWarnings = _warnOnZoneLoss('props', zoneId, src, props, p => p.model);
+
             if (biome) {
               src = src.replace(/biome:\s*'[^']*'/, `biome: '${biome}'`);
             }
@@ -71,7 +76,7 @@ function saveZonePropsPlugin() {
             fs.writeFileSync(filePath, src, 'utf-8');
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
+            res.end(JSON.stringify({ ok: true, warnings: lossWarnings }));
           } catch (err) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
@@ -81,6 +86,65 @@ function saveZonePropsPlugin() {
       });
     },
   };
+}
+
+// ── Editor-save loss guard ────────────────────────────────────────────────────
+// The zone writers below REPLACE a whole array with whatever the browser held in memory, so
+// anything not loaded at save time is silently deleted. This has cost real content three times:
+//   • Solrac's spawn line      — dropped by 032a8ec (a barriers/paint commit), which left the
+//                                entire Warrens quest chain unreachable for weeks
+//   • Phandalin's 5 townsfolk  — dropped by f9b3b57 ("Update building12 model")
+//   • the mausoleum waystoneId — dropped, then restored by dea5bc0
+//
+// So: compare what's about to be written against what's on disk and SHOUT about losses. This
+// warns rather than blocks — deleting things on purpose is a normal editor operation, and a
+// writer that refuses saves would be worse than the bug. The point is that the loss is never
+// silent again.
+//
+// Per-TYPE, not just totals: `solrac` going 1 → 0 is invisible in a total that also holds 89
+// goblins, and a whole type disappearing is exactly the shape this failure takes.
+function _warnOnZoneLoss(label, zoneId, existingSrc, incoming, typeOf) {
+  const warnings = [];
+
+  // Count types on disk from the CURRENT array text only (bracket-matched), so props elsewhere
+  // in the file can't contaminate the tally.
+  const startIdx = existingSrc.search(new RegExp(`[ \\t]*${label}\\s*:`));
+  let onDisk = [];
+  if (startIdx !== -1) {
+    const arrStart = existingSrc.indexOf('[', startIdx);
+    let depth = 0, arrEnd = -1;
+    for (let i = arrStart; i < existingSrc.length; i++) {
+      if (existingSrc[i] === '[') depth++;
+      else if (existingSrc[i] === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
+    }
+    if (arrEnd !== -1) {
+      const body = existingSrc.slice(arrStart, arrEnd);
+      onDisk = [...body.matchAll(/\b(?:type|model)\s*:\s*'([^']+)'/g)].map(m => m[1]);
+    }
+  }
+
+  const tally = (arr, get) => arr.reduce((m, e) => {
+    const k = get(e); if (k) m[k] = (m[k] ?? 0) + 1; return m;
+  }, {});
+  const before = tally(onDisk, s => s);
+  const after  = tally(incoming, typeOf);
+
+  for (const [type, n] of Object.entries(before)) {
+    if (!after[type]) warnings.push(`ALL ${n} '${type}' would be REMOVED`);
+  }
+  if (onDisk.length && !incoming.length) {
+    warnings.push(`array goes ${onDisk.length} -> 0 (emptied completely)`);
+  }
+
+  if (warnings.length) {
+    console.warn(
+      `\n\x1b[41m\x1b[97m ZONE SAVE LOSS WARNING \x1b[0m zone_${zoneId}.js  [${label}]\n` +
+      warnings.map(w => `  \x1b[33m!\x1b[0m ${w}`).join('\n') +
+      `\n  \x1b[90mIf unintended: the editor writes the WHOLE array from memory, so anything not\n` +
+      `  loaded at save time is dropped. Reload the page and re-save, or git-restore the line.\x1b[0m\n`
+    );
+  }
+  return warnings;
 }
 
 function saveZoneEnemiesPlugin() {
@@ -102,6 +166,10 @@ function saveZoneEnemiesPlugin() {
               throw new Error(`Zone file not found: zone_${zoneId}.js`);
 
             let src = fs.readFileSync(filePath, 'utf-8');
+
+            // Compare against disk BEFORE overwriting — this is how Solrac's disappearance would
+            // have been caught the day it happened instead of weeks later by an audit.
+            const lossWarnings = _warnOnZoneLoss('enemies', zoneId, src, enemies, e => e.type);
 
             if (biome) {
               src = src.replace(/biome:\s*'[^']*'/, `biome: '${biome}'`);
@@ -156,7 +224,9 @@ function saveZoneEnemiesPlugin() {
             fs.writeFileSync(filePath, src, 'utf-8');
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
+            // Hand the warnings back so the editor can surface them in-browser too — the terminal
+            // is often not what you're looking at while placing props.
+            res.end(JSON.stringify({ ok: true, warnings: lossWarnings }));
           } catch (err) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');

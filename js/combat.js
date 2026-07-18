@@ -99,6 +99,65 @@ export function trackSleepUI() {
   }
 }
 
+// ── Surprise indicator ────────────────────────────────────────────────────────
+// A closed eye marks a unit that hasn't noticed the fight yet: it appears the moment
+// _determineSurprise sets `surprised` and vanishes when that unit's turn comes up and it loses it.
+//
+// Inline SVG rather than an emoji because there IS no closed-eye emoji — the near misses (🙈 a
+// monkey, 😑 a face) all read as something else. `currentColor` lets the ONE definition serve both
+// places it's needed: the overhead label and the initiative row, each colouring it from its own CSS.
+export const SURPRISE_EYE_SVG =
+  '<svg class="surprise-eye" viewBox="0 0 24 15" aria-hidden="true">' +
+  '<path d="M2 4.5 Q12 13.5 22 4.5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>' +
+  '<path d="M5.2 9.2 L3.6 12.2 M12 11.4 L12 14.2 M18.8 9.2 L20.4 12.2" ' +
+  'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+  '</svg>';
+
+// unit → overhead icon element. Built lazily and torn down the frame a unit stops being surprised,
+// so nothing has to remember to clean up at the places `surprised` is cleared.
+//
+// Deliberately modelled on updateReadyIcons (the ⚡ armed-action icon), NOT on the sleep Zzz: it
+// projects the unit's BARE anchor and nudges in SCREEN space, so the eye stays pinned just above
+// the floating health bar at any camera distance. A world-space Y offset (what Zzz uses) drifts
+// away from the bar as you zoom, because the bar itself only nudges by a few CSS px.
+const _surpriseIconEls = new Map();
+
+export function trackSurpriseUI() {
+  // Sweep units that left units[] entirely — a surprised enemy can be killed during the surprise
+  // round before it ever gets a turn, so it never reaches the `!active` branch below.
+  for (const [u, el] of _surpriseIconEls) {
+    if (!units.includes(u)) { el.remove(); _surpriseIconEls.delete(u); }
+  }
+
+  const cw = renderer.domElement.clientWidth, ch = renderer.domElement.clientHeight;
+  for (const u of units) {
+    const active = !!u.surprised && u.hp > 0;
+    let el = _surpriseIconEls.get(u);
+
+    if (!active) {
+      if (el) { el.remove(); _surpriseIconEls.delete(u); }
+      continue;
+    }
+
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'unit-surprise-icon';
+      el.innerHTML = SURPRISE_EYE_SVG;
+      document.getElementById('app').appendChild(el);
+      _surpriseIconEls.set(u, el);
+    }
+
+    // Same anchor + screen-space nudge as the ⚡ ready icon, so both sit on the same line above
+    // the bar. They can't collide in practice: a ready action is armed on a hero's own turn,
+    // and surprise is spent the moment that turn begins.
+    _sv.set(u.anchor.x, u.anchor.y, u.anchor.z).project(camera);
+    if (_sv.z > 1) { el.style.display = 'none'; continue; }   // behind the camera
+    el.style.display = 'block';
+    el.style.left = ((_sv.x * 0.5 + 0.5) * cw) + 'px';
+    el.style.top  = ((-_sv.y * 0.5 + 0.5) * ch - 22) + 'px';
+  }
+}
+
 function playSleepEffect(caster) {
   const COUNT = 80;
   const geo   = new THREE.BufferGeometry();
@@ -4149,9 +4208,14 @@ export function buildTurnList() {
       ? '<span class="turn-ready-tag">⚡</span>' : '';
     const arrowTag  = isActiveDelay
       ? '<span class="turn-ready-arrow">◀</span>' : '';
+    // Closed eye = hasn't noticed the fight and will lose its first turn. Same SVG as the overhead
+    // label, so the two markers are self-evidently the same state. Applies to heroes too — an
+    // AMBUSH surprises the party, and the panel should say so on their rows as well.
+    const surpriseTag = u.surprised
+      ? `<span class="turn-surprise-tag" title="Surprised — loses its first turn">${SURPRISE_EYE_SVG}</span>` : '';
     el.innerHTML  =
       `<div class="turn-hpbar-wrap"><div class="turn-hpbar" style="width:${hpPct}%;background:${barColor}"></div></div>` +
-      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${readyTag}${arrowTag}</span>` +
+      `<span class="turn-name"${color ? ` style="color:${color}"` : ''}>${label}${surpriseTag}${readyTag}${arrowTag}</span>` +
       `<span class="turn-init">${u.initiative}</span>`;
     el.addEventListener('click', () => {
       if (u.team === 'red' && u.hp > 0) showTargetMarker(u);
@@ -5330,6 +5394,7 @@ export function activateTurn(index) {
         addLog(`${unitLabel(u)} is surprised and loses its turn!`, 'alert');
         showFloatingDamage(u, 'SURPRISED', '#ffcc44');
         document.getElementById('turn-round').textContent = `Round ${round}`;
+        buildTurnList();            // drop this unit's closed-eye tag now that it has spent its surprise
         updateCombatStatus();
         setTimeout(() => doEndTurn(), 1000);
         return;
