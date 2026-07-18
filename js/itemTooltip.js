@@ -23,8 +23,34 @@ const SLOT_LABEL = {
   'main-hand': 'Main Hand', 'off-hand': 'Off Hand', ammo: 'Ammo', bag: 'Bag',
 };
 
+// Base stats — what ANY copy of this base does, before affixes. Exported because the loot
+// card renders them too: a grey weapon rolls no affixes at all, so without this its card was
+// just a name, and "Simple Greataxe" tells you nothing about whether it's worth taking.
+// Shared rather than duplicated so the card and the tooltip can never disagree.
+export function itemBaseStats(item) {
+  const base = [];
+  if (!item) return base;
+  if (item.dmg)   base.push(`${item.dmg} ${item.dmgType ?? ''} damage`.trim());
+  // ⚠ Armor SETS your AC; a shield ADDS to it. Rendering plate as "+18 AC" was actively
+  // misleading — it reads as 10+18=28 when the true answer is exactly 18. material is what
+  // tells the two apart, so a shield (no armor material) still correctly shows "+2 AC".
+  //
+  // The DEX suffix is read from the same ARMOR_DEX_CAP the AC math uses, so this cannot
+  // claim a cap that computeAC doesn't apply.
+  if (item.ac && ARMOR_DEX_CAP[item.material] !== undefined) {
+    const cap = ARMOR_DEX_CAP[item.material];
+    const dex = cap === 0 ? '' : cap === Infinity ? ' + Dex modifier' : ` + Dex modifier (max ${cap})`;
+    base.push(`AC ${item.ac}${dex}`);
+  } else if (item.ac) {
+    base.push(`+${item.ac} AC`);
+  }
+  if (item.heal)  base.push(`Heals ${item.heal} HP`);
+  if (item.slots) base.push(`Container · ${item.slots} slots`);
+  return base;
+}
+
 // Weapon/armour properties that are flags rather than numbers.
-function _props(item) {
+export function itemProps(item) {
   const p = [];
   if (item.light)      p.push('Light');
   if (item.finesse)    p.push('Finesse');
@@ -52,29 +78,13 @@ export function itemTooltipHTML(item) {
   if (MATERIAL_LABEL[item.material]) sub.push(MATERIAL_LABEL[item.material]);
   lines.push(`<div class="it-sub rarity-text-${r}">${sub.join(' · ')}</div>`);
 
-  // Base stats — what any copy of this base does.
-  const base = [];
-  if (item.dmg)   base.push(`${item.dmg} ${item.dmgType ?? ''} damage`.trim());
-  // ⚠ Armor SETS your AC; a shield ADDS to it. Rendering plate as "+18 AC" was actively
-  // misleading — it reads as 10+18=28 when the true answer is exactly 18. armorType is what
-  // tells the two apart, so a shield (no armorType) still correctly shows "+2 AC".
-  //
-  // The DEX suffix is read from the same ARMOR_DEX_CAP the AC math uses, so the tooltip
-  // cannot claim a cap that computeAC doesn't apply.
-  if (item.ac && ARMOR_DEX_CAP[item.material] !== undefined) {
-    const cap = ARMOR_DEX_CAP[item.material];
-    const dex = cap === 0 ? '' : cap === Infinity ? ' + Dex modifier' : ` + Dex modifier (max ${cap})`;
-    base.push(`AC ${item.ac}${dex}`);
-  } else if (item.ac) {
-    base.push(`+${item.ac} AC`);
-  }
-  if (item.heal)  base.push(`Heals ${item.heal} HP`);
-  if (item.slots) base.push(`Container · ${item.slots} slots`);
+  // Base stats — what any copy of this base does. Shared with the loot card (see itemBaseStats).
+  const base = itemBaseStats(item);
   if (base.length) {
     lines.push('<div class="it-sep"></div>');
     base.forEach(b => lines.push(`<div class="it-stat">${b}</div>`));
   }
-  const props = _props(item);
+  const props = itemProps(item);
   if (props.length) lines.push(`<div class="it-props">${props.join(' · ')}</div>`);
 
   // ROLLED affixes — what makes THIS one different from every other copy of the base.
