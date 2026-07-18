@@ -6,9 +6,15 @@
 html { font-size: calc(16px * var(--ui-scale, 1)); }
 
 /* ── Dev / Play mode toggle button ──────────────────────────────────── */
+/* Sits on the SAME row as #bottom-action-bar, directly above the hotbar (user, 2026-07-18 —
+   was a row higher at 208px). 160px clears the hotbar, which measures ~154px tall:
+   5 pad + ~30 xp bar + 10 + 46 row + 10 + 46 row + 7 pad.
+   ⚠ Stays position:fixed and OUTSIDE #app on purpose — see the note in index.html. If it were
+   nested in the hotbar it would inherit any future play-mode hide rule, and losing this button
+   means being stuck in play view with no way back. */
 #dev-mode-btn {
   position: fixed;
-  bottom: 208px;
+  bottom: 160px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -380,11 +386,15 @@ body {
   box-shadow: inset 0 2px 5px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.18), 0 0 8px rgba(212,175,55,0.14);
 }
 /* #start-battle-btn-wrap is now a flex child of #bottom-action-bar */
+/* Shifted OFF-CENTRE to the left (user, 2026-07-18) so it shares this row with the centred
+   #dev-mode-btn instead of overlapping it.
+   left:50% puts its left edge on centre; translateX(-100%) swings the whole button to the
+   left of centre; the extra -62px clears the dev button's left half (~55px) plus a gap. */
 #bottom-action-bar {
   position: fixed;
   bottom: 160px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-100% - 62px));
   z-index: 20;
   display: flex;
   align-items: center;
@@ -6836,6 +6846,21 @@ td.bst-col-retired { color: #343228 !important; }
   font-size: 0.48rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
+}
+/* BASE stats on the loot card (damage dice, AC, properties) — shown at every rarity, so a
+   grey weapon that rolls no affixes still says what it does. Gold-ish to read as "the item
+   itself", distinct from the blue affix block below it, which is "the roll". */
+.lp-item-stats { margin-bottom: 4px; }
+.lp-stat {
+  color: rgba(212,175,55,0.88);
+  font-size: 0.58rem;
+  line-height: 1.4;
+}
+.lp-props {
+  color: rgba(200,185,150,0.55);
+  font-size: 0.55rem;
+  font-style: italic;
+  line-height: 1.35;
 }
 /* Rolled affixes on the loot card. Same blue as the tooltip's .it-affix so "this is the
    roll" reads identically wherever an item is shown. Sits above the flavour description,

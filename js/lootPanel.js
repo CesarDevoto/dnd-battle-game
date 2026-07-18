@@ -7,7 +7,7 @@ import { clearLootLabels } from './loot.js';
 import { noteAssigned } from './lootCoverage.js';
 import { registerPostCombatHandler } from './postCombat.js';
 import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins, equipBlockReason } from './equipment.js';
-import { showItemTooltip, moveItemTooltip, hideItemTooltip } from './itemTooltip.js';
+import { showItemTooltip, moveItemTooltip, hideItemTooltip, itemBaseStats, itemProps } from './itemTooltip.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
 
@@ -232,6 +232,19 @@ function _renderItems() {
       ? `<div class="lp-item-affixes">${item.affixes.map(a => `<div class="lp-affix">${a.display}</div>`).join('')}</div>`
       : '';
 
+    // BASE stats — damage dice, AC, properties. Shown for every rarity INCLUDING grey (user,
+    // 2026-07-18): grey rolls no affixes by design, so without this a "Simple Greataxe" card
+    // was a bare name and gave no basis at all for the assign decision the panel demands.
+    // Shared with the tooltip via itemBaseStats/itemProps so the two can't disagree.
+    const stats = itemBaseStats(item);
+    const props = itemProps(item);
+    const statsHtml = (stats.length || props.length)
+      ? `<div class="lp-item-stats">` +
+        stats.map(s => `<div class="lp-stat">${s}</div>`).join('') +
+        (props.length ? `<div class="lp-props">${props.join(' · ')}</div>` : '') +
+        `</div>`
+      : '';
+
     card.innerHTML = `
       <div class="lp-item-header">
         ${item.icon ? `<img class="lp-item-icon" src="${item.icon}" alt="${item.name}">` : ''}
@@ -239,6 +252,7 @@ function _renderItems() {
         <span class="lp-item-name">${item.name}</span>
         ${_valueTag(item)}
       </div>
+      ${statsHtml}
       ${affixHtml}
       <div class="lp-item-desc">${item.description ?? ''}</div>
       <div class="lp-item-assign">${heroBoxes}${destroyBox}</div>`;
