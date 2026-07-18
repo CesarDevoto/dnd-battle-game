@@ -13,6 +13,7 @@ import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegist
 import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot, equipBlockReason } from './equipment.js';
 import { getXpProgress, MAX_HERO_LEVEL } from './progression.js';
 import { itemTooltipHTML } from './itemTooltip.js';
+import { speedOf } from './affixes.js';
 
 // ── Occlusion raycaster — allocated once, reused every frame ─────────────────
 // _rayDir is normalised in-place so there are zero heap allocations per unit.
@@ -1244,7 +1245,7 @@ function buildSheetHTML(u) {
       </div>
       <div class="ss-stat">
         <span class="ss-lbl">SPD</span>
-        <span class="ss-val">${def.speed}ft</span>
+        <span class="ss-val">${u.equipment ? speedOf(u) : def.speed}ft</span>
       </div>
       ${def.profBonus ? `<div class="ss-stat">
         <span class="ss-lbl">PROF</span>

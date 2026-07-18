@@ -8,7 +8,7 @@
 // Imports dice.js only (itself a leaf), so this module stays node-testable.
 
 import { roll, parseDiceFormula } from './dice.js';
-import { UNIT_TYPES } from './constants.js';
+import { UNIT_TYPES, GRID_SQUARE_FEET } from './constants.js';
 
 // ── Shared rider ladders ──────────────────────────────────────────────────────
 // The four Neck damage riders (fire/ice/poison/disease) all share ONE damage ladder and
@@ -207,6 +207,25 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d4+2', blue: '1d6+4', purple: '2d6+10', orange: '3d6+14', red: '3d6+22' },
     },
   },
+  feet: {
+    // Boots = movement (the doc's Feet identity). Movement is a flat ft/turn bonus folded into the
+    // gear-aware speedOf() accessor; Initiative is a flat bonus to the d20 initiative roll (turn
+    // order — a sort, the one remaining d20 that isn't a % contest). Two stats, so count reaches 2.
+    // Movement rolls in SQUARES, not feet — a grid game only benefits from WHOLE squares (a stray
+    // +2 ft that doesn't buy a 5-ft tile is dead value). speedOf multiplies this by GRID_SQUARE_FEET,
+    // and base speeds are all multiples of 5, so every point lands on a clean tile boundary.
+    move_speed: {
+      label: 'Movement',
+      fmt:   v => `+${v * GRID_SQUARE_FEET} ft movement`,
+      dice:  { green: '1d2', blue: '1d2+1', purple: '1d3+1', orange: '1d3+2', red: '1d3+3' },
+    },
+    // Initiative stays a FLAT +N to the d20 initiative roll (not grid-based).
+    initiative_bonus: {
+      label: 'Initiative',
+      fmt:   v => `+${v} initiative`,
+      dice:  { green: '1d2', blue: '1d3', purple: '1d3+1', orange: '1d3+3', red: '1d3+5' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -246,6 +265,8 @@ export const AFFIX_COUNT = {
   cloak: { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 3], red: [3, 3] },
   // Legs is a THIN slot — Max HP is the only stat, so the count is always 1; tiers separate by size.
   legs:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
+  // Feet owns TWO stats (movement / initiative), so its count can reach 2.
+  feet:  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [2, 2], orange: [2, 2], red: [2, 2] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
@@ -367,4 +388,13 @@ export function abilityScoreOf(unit, stat) {
 }
 export function abilityModOf(unit, stat) {
   return Math.floor((abilityScoreOf(unit, stat) - 10) / 2);
+}
+
+// A unit's movement speed in ft/turn INCLUDING gear — the boots `move_speed` affix. Same accessor
+// pattern as abilityScoreOf: the raw `UNIT_TYPES[u.type]?.speed ?? 30` appeared ~30 times across
+// combat.js, and each was a spot a movement bonus would be silently ignored. Enemies carry no gear,
+// so affixTotal is 0 for them and this just returns their base speed.
+export function speedOf(unit) {
+  // move_speed is in SQUARES; convert to feet so the whole-tile bonus lands cleanly on the grid.
+  return (UNIT_TYPES[unit?.type]?.speed ?? 30) + affixTotal(unit, 'move_speed') * GRID_SQUARE_FEET;
 }

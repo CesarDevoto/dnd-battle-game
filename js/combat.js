@@ -18,7 +18,7 @@ import { playSacredFlameEffect }   from './sacredflame.js';
 import { spawnSmokeCloud }         from './smokemirrors.js';
 import { propPositions, losBlockerMeshes, getSurfaceHeight, activeEnv, barrierSegments } from './environments.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
-import { affixTotal, abilityModOf, applyHeal } from './affixes.js';
+import { affixTotal, abilityModOf, applyHeal, speedOf } from './affixes.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
          hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
@@ -577,7 +577,7 @@ function handleUndo() {
     turnMovedFt = movedFt;
     addLog(`${unitLabel(u)} undoes move`, 'walk');
     heroMode = 'move';
-    const remaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+    const remaining = (speedOf(u)) - turnMovedFt;
     if (remaining > 0) showMoveRange(u);
     updateCombatStatus();
   
@@ -1027,8 +1027,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
 function showMoveRange(u, overrideFt) {
   if (_saveImmobilizes(u)) { hideMoveRange(); return; }   // held by an unbroken action-save — speed 0
   _conformLayer = u.caveLayer ?? 'surface';
-  const def      = UNIT_TYPES[u.type] ?? {};
-  const remainFt = overrideFt !== undefined ? overrideFt : (def.speed ?? 30) - turnMovedFt;
+  const remainFt = overrideFt !== undefined ? overrideFt : speedOf(u) - turnMovedFt;
   if (remainFt <= 0) { hideMoveRange(); return; }
 
   const maxDist = (remainFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
@@ -1210,7 +1209,7 @@ function castHeal(caster, target, spellKey) {
     setTimeout(_onHealLand, 800);
   }
 
-  const _remFt = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
+  const _remFt = (speedOf(caster)) - turnMovedFt;
   if (_remFt > 0) { heroMode = 'move'; showMoveRange(caster); } else { heroMode = null; }
   updateCombatStatus();
 
@@ -1245,7 +1244,7 @@ function castSacredFlame(caster, target, onDone) {
   heroMode = null;
   turnAttacked = true;   // cantrip — no spell slot cost
 
-  const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
+  const postSpellRemaining = (speedOf(caster)) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
 
   const dexMod     = abilityModOf(target, 'dex');
@@ -1326,7 +1325,7 @@ function handleSneakAttackBtnClick() {
   turnAttacked = true;
   hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
   performAttack(u, tgt, atk);
-  const rem = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const rem = (speedOf(u)) - turnMovedFt;
   if (rem > 0) { heroMode = 'move'; showMoveRange(u); } else { heroMode = null; }
   updateCombatStatus();
 }
@@ -1359,7 +1358,7 @@ function handleSpellBtnClick(spellKey) {
       hideCastConfirm();
       hideAttackTargets();
       hideSpellRangeRing();
-      const cancelRemaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+      const cancelRemaining = (speedOf(u)) - turnMovedFt;
       if (cancelRemaining > 0) { heroMode = 'move'; showMoveRange(u); }
       updateCombatStatus();
       return;
@@ -1413,7 +1412,7 @@ function doSprint() {
   turnMovedFt  = 0;
   heroMode     = 'move';
   showMoveRange(u);
-  addLog(`${unitLabel(u)} Dashes! Movement reset to ${UNIT_TYPES[u.type]?.speed ?? 30} ft`, 'move');
+  addLog(`${unitLabel(u)} Dashes! Movement reset to ${speedOf(u)} ft`, 'move');
   updateCombatStatus();
 }
 
@@ -1653,7 +1652,7 @@ function activateRage(u) {
   const _mit  = rageMitigationForLevel(u.level);
   if (_mit > 0) _bits.push(`resist ${Math.round(_mit * 100)}% dmg`);
   addLog(`${unitLabel(u)} enters RAGE! (${_bits.join(' · ')})`, 'spell');
-  const rem = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const rem = (speedOf(u)) - turnMovedFt;
   if (rem > 0) { heroMode = 'move'; showMoveRange(u); } else { heroMode = null; }
   updateCombatStatus();
 }
@@ -1730,7 +1729,7 @@ function castMagicMissile(caster, target, onDone) {
   if (freeUse) caster.mmFreeUsed = true; else spendSpellSlot(caster, spellLevelOf('magic_missile'));
   turnAttacked = true;
 
-  const postSpellRemaining = (UNIT_TYPES[caster.type]?.speed ?? 30) - turnMovedFt;
+  const postSpellRemaining = (speedOf(caster)) - turnMovedFt;
   if (postSpellRemaining > 0) { heroMode = 'move'; showMoveRange(caster); }
 
   const darts = Array.from({ length: spell.darts }, () =>
@@ -1867,7 +1866,7 @@ function handleElfSpellBtnClick(spellKey) {
       hideCastConfirm();
       hideAttackTargets();
       hideSpellRangeRing();
-      const cancelRemaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+      const cancelRemaining = (speedOf(u)) - turnMovedFt;
       if (cancelRemaining > 0) { heroMode = 'move'; showMoveRange(u); }
       updateCombatStatus();
       return;
@@ -1904,7 +1903,7 @@ function updateCombatStatus() {
     const _c = _readyCtx;
     _readyAutoCloseTimer = setTimeout(() => { if (_readyCtx === _c) _endDelayInterrupt(); }, 1500);
   }
-  const speedFt  = UNIT_TYPES[u.type]?.speed ?? 30;
+  const speedFt  = speedOf(u);
   const remainFt = Math.max(0, speedFt - turnMovedFt);
   const p = u.team;
   const hudMoveEl = document.getElementById(`${p}-hud-move`);
@@ -3245,7 +3244,7 @@ attackConfirmBtn.addEventListener('click', e => {
   hideAttackTargets();
   hideTargetMarker();
   performAttack(u, tgt, atk);
-  const postAtkRemaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const postAtkRemaining = (speedOf(u)) - turnMovedFt;
   if (postAtkRemaining > 0) {
     heroMode = 'move';
     showMoveRange(u);
@@ -3269,7 +3268,7 @@ shakeAwakeBtn.addEventListener('click', e => {
   hideTargetMarker();
   addLog(`${unitLabel(u)} shakes ${unitLabel(tgt)} awake! (action spent)`, 'spell');
   wakeUnit(tgt);
-  const shakeRemaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const shakeRemaining = (speedOf(u)) - turnMovedFt;
   if (shakeRemaining > 0) {
     heroMode = 'move';
     showMoveRange(u);
@@ -3327,7 +3326,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'w' || e.key === 'W') {
     // Halfling and human have W bound via hotbar for Sneak Attack / Rage
     if (u.type === 'halfling' || u.type === 'human') return;
-    const remaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+    const remaining = (speedOf(u)) - turnMovedFt;
     if (remaining <= 0) return;
     heroMode = 'move';
     hideAttackTargets();
@@ -3485,7 +3484,7 @@ renderer.domElement.addEventListener('click', e => {
             addLog(`${unitLabel(curU)} moves ${movedFt} ft`, 'walk');
             _checkProximityAggro(curU);
             _checkHidePerception(curU);
-            const remaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+            const remaining = (speedOf(curU)) - turnMovedFt;
             if (remaining > 0) { heroMode = 'move'; showMoveRange(curU); }
             else { heroMode = null; }
             showUndoBtn();
@@ -3774,7 +3773,7 @@ export function rollInitiative() {
     // Initiative is DEX-driven, so a +2 DEX wrist has to move it — leaving this on the static
     // score would mean the same gear helped your attacks and AC but not your initiative.
     const dexMod = abilityModOf(u, 'dex');
-    const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
+    const bonus  = (def.initiative ?? COMBAT.defaultInitiative) + dexMod + affixTotal(u, 'initiative_bonus');
     u.initiative = roll({ sides: 20, modifier: bonus }).total;
     if (u.stealthed) setUnitStealth(u, true);
   });
@@ -4175,7 +4174,7 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   // reaction). Max out turnMovedFt so every "remaining movement" calc
   // (postAtkRemaining = speed - turnMovedFt, and the equivalent in spell handlers)
   // resolves to 0, keeping the hero out of move mode after they act.
-  turnMovedFt       = UNIT_TYPES[hero.type]?.speed ?? 30;
+  turnMovedFt       = speedOf(hero);
   turnBonusActioned = _readiedBonusActioned.get(hero) ?? false;
   _readiedBonusActioned.delete(hero);
   heroMode          = null;
@@ -4250,7 +4249,7 @@ function _restoreInterruptedTurn(saved) {
   _rebuildHotbar(u);
 
   if (saved.savedHeroMode !== 'move') return;
-  const remaining = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const remaining = (speedOf(u)) - turnMovedFt;
   if (remaining > 0) showMoveRange(u);
 }
 
@@ -4457,7 +4456,7 @@ const _ABILITY_HANDLERS = {
       turnAttacked = true;
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, FIRE_BOLT_ATK);
-      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
       if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
       else { heroMode = null; }
       updateCombatStatus();
@@ -4734,7 +4733,7 @@ function _rebuildHotbar(u) {
       turnAttacked = true;
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, firstMelee);
-      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
       if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
       else { heroMode = null; }
       updateCombatStatus();
@@ -4756,7 +4755,7 @@ function _rebuildHotbar(u) {
       turnAttacked = true;
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
       performAttack(curU, tgt, firstRanged);
-      const postAtkRemaining = (UNIT_TYPES[curU.type]?.speed ?? 30) - turnMovedFt;
+      const postAtkRemaining = (speedOf(curU)) - turnMovedFt;
       if (postAtkRemaining > 0) { heroMode = 'move'; showMoveRange(curU); }
       else { heroMode = null; }
       updateCombatStatus();
@@ -5103,7 +5102,7 @@ function _checkProximityAggro(hero) {
 
     // Re-roll initiative and re-slot after the current hero's position
     const dexMod    = abilityModOf(u, 'dex');   // gear-aware, same as rollInitiative
-    const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod;
+    const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod + affixTotal(u, 'initiative_bonus');
     u.initiative    = roll({ sides: 20, modifier: initBonus }).total;
 
     const oldIdx = turnOrder.indexOf(u);
@@ -5332,7 +5331,7 @@ const _readiedAutomated = new Set(); // heroes whose delay was set in automated 
 
 // Fly `u` as far toward `destPos` as its remaining movement allows, then onDone.
 function _familiarMoveToward(u, destPos, onDone) {
-  const remFt = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+  const remFt = (speedOf(u)) - turnMovedFt;
   if (remFt <= 0) { onDone(); return; }
   const maxDist = (remFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   const ux = u.grp.position.x, uz = u.grp.position.z;
@@ -5810,7 +5809,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
     const isAllyMovTgt = movTarget?.team === 'blue';
     let dest = null;
     if (!noMove && preferRange !== 'stay' && movTarget) {
-      const _remFt = (UNIT_TYPES[u.type]?.speed ?? 30) - turnMovedFt;
+      const _remFt = (speedOf(u)) - turnMovedFt;
       // Only halve movement once already within striking range — caps how far
       // a kiting hero retreats each turn without also crippling their ability
       // to close the gap on a retreating enemy (e.g. Morvath) from far away,
@@ -5908,7 +5907,7 @@ function runAITurn(u) {
         setTimeout(() => { doEndTurn(); }, 250);
         return;
       }
-      const speedFt = UNIT_TYPES[u.type]?.speed ?? 30;
+      const speedFt = speedOf(u);
       const maxWU   = (speedFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
       const cx = u.grp.position.x, cz = u.grp.position.z;
       const tx = nearest.grp.position.x, tz = nearest.grp.position.z;
@@ -6301,13 +6300,13 @@ function runAITurn(u) {
         const _destInMelee  = _meleeTrigger > 0 && _destDist <= _meleeTrigger;
         if (!_destInMelee) {
           turnAttacked = true;
-          const _sprintBudgetFt = (_def0.speed ?? 30) * 2 - turnMovedFt;
+          const _sprintBudgetFt = speedOf(u) * 2 - turnMovedFt;
           showMoveRange(u, _sprintBudgetFt);
           const sprintDest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
           hideMoveRange();
           updateCombatStatus();
           if (!sprintDest) { endAITurn(); return; }
-          addLog(`${unitLabel(u)} uses Dash (action) — double move: ${(_def0.speed ?? 30) * 2} ft`, 'move');
+          addLog(`${unitLabel(u)} uses Dash (action) — double move: ${speedOf(u) * 2} ft`, 'move');
           moveToAndThen(sprintDest, endAITurn);
           return;
         }

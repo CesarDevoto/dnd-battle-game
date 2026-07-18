@@ -333,6 +333,25 @@ if (IS_DEV) {
     units.forEach(u => { if (u.team === 'red') u.ambush = true; });
     console.log('[DEV] All enemies set to ambush — start a fight to get surprised.');
   };
+
+  // Give a hero test boots with a GUARANTEED +ft movement affix at a chosen rarity/colour. Bypasses
+  // proficiency (direct-equip) since it's a test. Select the hero and start a turn to see the
+  // extended move range; check the sheet's SPD too.
+  window.devMoveBoots = (heroType, ft = 5, rarity = 'green') => {
+    const hero = units.find(u => u.team === 'blue' && u.type === heroType);
+    if (!hero) { console.warn(`[DEV] no hero "${heroType}"`); return; }
+    if (!hero.equipment) hero.equipment = {};
+    // Clone a REAL feet base (complete icon/material fields) so no renderer trips on a missing field.
+    const feetBase = getItem('sandals1') ?? { slot: 'feet' };
+    const sq = Math.max(1, Math.round(ft / 5));   // move_speed is in SQUARES now; convert the ft arg
+    hero.equipment.feet = {
+      ...feetBase, name: `Test Boots (+${sq * 5}ft)`, rarity,
+      affixes: [{ key: 'move_speed', value: sq, label: 'Movement', display: `+${sq * 5} ft movement` }],
+    };
+    ft = sq * 5;
+    const base = UNIT_TYPES[heroType]?.speed ?? 30;
+    console.log(`[DEV] ${UNIT_TYPES[heroType]?.name ?? heroType}: ${rarity} boots +${ft}ft → speed ${base} → ${base + ft}`);
+  };
 }
 
 bindPermanentHotkey('Backquote','NEXT<br>HERO', cycleHero,      null);
