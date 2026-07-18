@@ -162,7 +162,10 @@ export function initHotbar() {
     let _typeIcon = '';
     if (k.code === 'Digit2') _typeIcon = '<span class="hb-type-icon hb-melee">⚔</span>';
     if (k.code === 'Digit3') _typeIcon = '<span class="hb-type-icon hb-ranged">🏹</span>';
-    if (k.code === 'Digit6') _typeIcon = '<img class="hb-type-icon hb-potion-icon" src="assets/items/potions/potion5.png" alt="">';
+    // Potion lives on Digit8 (user, 2026-07-18 — moved from Digit6). This baked-in icon is
+    // what makes the slot read as the potion's even when the hero is carrying none, so it
+    // must track the bindHotkey code in combat.js.
+    if (k.code === 'Digit8') _typeIcon = '<img class="hb-type-icon hb-potion-icon" src="assets/items/potions/potion5.png" alt="">';
 
     btn.innerHTML =
       _typeIcon +

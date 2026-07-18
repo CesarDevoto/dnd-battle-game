@@ -54,7 +54,11 @@ export function itemProps(item) {
   const p = [];
   if (item.light)      p.push('Light');
   if (item.finesse)    p.push('Finesse');
-  if (item.thrown)     p.push('Thrown');
+  // Thrown carries its own range band in 5e notation ("Thrown (range 20/60)") — for a dart
+  // that IS the stat, and without it the card would claim a throwing weapon with no reach.
+  if (item.thrown)     p.push(item.range
+    ? `Thrown (range ${item.range}${item.longRange ? `/${item.longRange}` : ''})`
+    : 'Thrown');
   if (item.heavy)      p.push('Heavy');
   if (item.reach)      p.push('Reach');
   if (item.versatile)  p.push(`Versatile (${item.versatile})`);

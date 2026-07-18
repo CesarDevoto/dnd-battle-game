@@ -22,10 +22,19 @@ import { getTerrainHeight } from './terrain.js';
 const RING_COLOR = 0xffb020; // amber "danger" ring, distinct from dev-mode red
 const _rings = new Map();     // enemy unit → ring mesh
 
-// The sneaking hero whose scout rings we draw: prefer Milo (the best scout), else any sneaker.
+// The hero whose scout rings we draw — MILO, SNEAKING ALONE, and nobody else (user,
+// 2026-07-18). Returns null in every other case, which tickHideScout already treats as
+// "clear the rings".
+//
+// Why alone: scouting is Milo's edge, not a party-travel HUD. It used to draw for any sneaker
+// and merely PREFER Milo, so a whole party creeping together lit up every enemy's radius —
+// and the numbers were a lie there anyway, since each hero rolls their own stealth and the
+// rings could only ever show one of them (the old comment admitted they were "approximate for
+// the rest of a group"). One sneaker means one honest number.
 function _scout() {
   const sneakers = units.filter(u => u.team === 'blue' && u.hp > 0 && u.sneaking);
-  return sneakers.find(u => u.type === 'halfling') ?? sneakers[0] ?? null;
+  if (sneakers.length !== 1) return null;                     // group sneak → no rings
+  return sneakers[0].type === 'halfling' ? sneakers[0] : null; // solo, but not Milo → no rings
 }
 
 function _disposeRing(enemy, mesh) {
@@ -42,8 +51,8 @@ export function tickHideScout() {
   const active = !combatPhase && scout;
   if (!active) { if (_rings.size) _clearRings(); return; }
 
-  // The scout's own detection-shrink — the rings show the radius THEY face (approximate for the
-  // rest of a group, whose per-hero rolls differ; exact when Milo scouts solo).
+  // Milo's own detection-shrink. Exact, not approximate — _scout() now guarantees he's the
+  // only sneaker, so there are no other heroes' rolls for this radius to misrepresent.
   const mult = sneakDetectMult(heroStealthPct(scout));
 
   // Drop rings for enemies that died/left

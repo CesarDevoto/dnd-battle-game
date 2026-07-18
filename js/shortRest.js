@@ -1,7 +1,7 @@
 // js/shortRest.js — short rest widget: one rest available between combats,
 // refreshed after every battle.
 
-import { heroRoster, reviveUnit } from './units.js';
+import { heroRoster, reviveUnit, corpses, units } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { restoreSpellSlots } from './spells.js';
 import { combatPhase, showFloatingDamage } from './combat.js';
@@ -115,7 +115,15 @@ function _executeRest() {
   localStorage.setItem(LS_KEY, String(_used));
 
   for (const h of heroRoster) {
-    if (h.hp <= 0) {
+    // ⚠ "Down" is CORPSE STATE, not hp <= 0. Those two can disagree, and when they did it
+    // stranded a hero permanently: levelling up while dead used to add HP to a corpse (fixed
+    // in progression.js 2026-07-18), leaving Gobo on 2 HP, still dead, and invisible to an
+    // `hp <= 0` test — REST just skipped him every time.
+    //
+    // corpses[] is what reviveUnit actually reverses, so testing it is testing the real state.
+    // The units[] check catches a hero downed by any future path that forgets the corpse list.
+    // Keeping this broader than the cause also RECOVERS saves already stuck that way.
+    if (h.hp <= 0 || corpses.includes(h) || !units.includes(h)) {
       // Any dead hero revives at 1 HP on a short rest — pulled out of their
       // corpse pose and back into the live unit list so they show up correctly
       // without a zone reload. (The one-shot Dagna sequence that fires on the

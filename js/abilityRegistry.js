@@ -11,7 +11,9 @@ export const ABILITY_META = {
   dodge:            { name: 'Dodge',            label: 'DODGE',              cssClass: 'hb-dodge' },
   rage:             { name: 'Rage',             imgSrc: 'assets/spells and skills/rage.jpg' },
   sneak_attack:     { name: 'Sneak Attack',     imgSrc: 'assets/spells and skills/sneak attack.jpg' },
-  hide:             { name: 'Hide',             imgSrc: 'assets/spells and skills/hide.jpg' },
+  // "Combat Hide" since 2026-07-18 — out-of-combat stealth is the whole party's now, so this
+  // key is specifically the in-combat bonus-action version.
+  hide:             { name: 'Combat Hide',     imgSrc: 'assets/spells and skills/hide.jpg' },
   defensive_stance: { name: 'Defensive Stance', imgSrc: 'assets/spells and skills/defensive stance.jpg' },
   smoke_mirrors:    { name: 'Smoke & Mirrors',  imgSrc: 'assets/spells and skills/smoke and mirrors.jpg' },
   healing_word:     { name: 'Healing Word',     imgSrc: 'assets/spells and skills/healingword.jpg' },

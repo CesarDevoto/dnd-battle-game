@@ -6,7 +6,9 @@ import { AVATAR_SRC } from './heroPortraits.js';
 import { clearLootLabels } from './loot.js';
 import { noteAssigned } from './lootCoverage.js';
 import { registerPostCombatHandler } from './postCombat.js';
-import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins, equipBlockReason } from './equipment.js';
+import { placeInFirstEmptyBagSlot, itemValueCp, formatCoins, equipBlockReason,
+         firstEmptyEquipSlot, equipItem } from './equipment.js';
+import { addLog } from './combat.js';
 import { showItemTooltip, moveItemTooltip, hideItemTooltip, itemBaseStats, itemProps } from './itemTooltip.js';
 
 const HERO_ORDER = ['dwarf', 'human', 'elf', 'halfling'];
@@ -322,7 +324,22 @@ function _collectLoot() {
     // will favour whichever hero is furthest behind. Destroyed items deliberately don't
     // count — nobody got covered.
     noteAssigned(item.slot, item.rarity, item.assignedTo.type);
-    placeInFirstEmptyBagSlot(item.assignedTo, item);
+
+    // AUTO-EQUIP into a slot the hero has EMPTY (user, 2026-07-18) — picking up your first
+    // cloak and having it go straight on is the obviously-wanted behaviour, and it's the
+    // common case early when most slots are bare.
+    //
+    // ⚠ Only ever fills an EMPTY slot; it never replaces worn gear. firstEmptyEquipSlot
+    // returns null for a full slot, a consumable (no `.slot`), or an item this hero isn't
+    // proficient with — so silently downgrading someone is impossible, and everything that
+    // isn't auto-equipped falls through to the bag exactly as before.
+    const autoSlot = firstEmptyEquipSlot(item.assignedTo, item);
+    if (autoSlot) {
+      equipItem(item.assignedTo, item, autoSlot);
+      addLog(`${UNIT_TYPES[item.assignedTo.type]?.name ?? item.assignedTo.type} equips ${item.name}`, 'loot');
+    } else {
+      placeInFirstEmptyBagSlot(item.assignedTo, item);
+    }
   });
 
   _finish();

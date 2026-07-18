@@ -279,7 +279,11 @@ if (IS_DEV) {
       const _frac    = (hero.hpFrac ?? 0) + levelsUp * _hpRate;
       const hpGain   = Math.floor(_frac);
       hero.hpFrac    = _frac - hpGain;
-      if (hpGain > 0) { hero.maxHp += hpGain; hero.hp += hpGain; }
+      // Same downed-hero rule as progression.js: maxHp always rises, but current hp must NOT
+      // be raised on a corpse — that desyncs hp from corpse state and makes the short rest's
+      // revive skip them. This is the dev level tool, so it's the likelier of the two to be
+      // pointed at a dead party.
+      if (hpGain > 0) { hero.maxHp += hpGain; if (hero.hp > 0) hero.hp += hpGain; }
       if (levelsUp > 0) dinging.push({ hero, oldLevel, hpGain });
     });
     initSpellSlots(blues);

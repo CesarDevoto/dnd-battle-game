@@ -10,7 +10,8 @@ import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked,
          totalSpellSlots, totalSpellSlotsMax, maxSlotsForLevel, slotsForDndLevel } from './spells.js';
 import { getAvailableAbilities, sbIconHTML, ABILITY_META } from './abilityRegistry.js';
-import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot, equipBlockReason } from './equipment.js';
+import { computeAC, equipItem, unequipItem, placeInFirstEmptyBagSlot, equipBlockReason,
+         EQUIP_TARGETS } from './equipment.js';
 import { getXpProgress, MAX_HERO_LEVEL } from './progression.js';
 import { itemTooltipHTML } from './itemTooltip.js';
 import { speedOf } from './affixes.js';
@@ -186,6 +187,27 @@ document.getElementById('ss-btn-xp')?.addEventListener('click',        () => _to
 export function showInventory(u) {
   showSheet(u);
   _toggleSidePanel('ss-btn-equipment');
+  _openFirstBag();
+}
+
+// Open the hero's first equipped bag alongside the equipment grid (user, 2026-07-18), so one
+// click on the avatar card lands on sheet + equipment + bag contents instead of leaving the
+// bag a further click away.
+//
+// Driven by a synthesised click on the bag's own slot rather than by duplicating the panel
+// logic: that click handler is what builds the contents grid, wires its per-slot listeners and
+// shows the panel, so replicating it here would be three chances to drift. Same trick
+// _refreshEquipmentPanel already uses to re-open a bag after a drag-drop.
+//
+// Safe to call synchronously — _toggleSidePanel('ss-btn-equipment') fills eqContentEl and runs
+// _initEquipmentPanel() before it returns, so the slot element and its listener both exist.
+function _openFirstBag() {
+  const eq = sheetUnit?.equipment;
+  if (!eq) return;
+  // `.slots` is what marks a real container: a bag SLOT can be empty, and an empty slot has
+  // nothing to show. Falls through silently for a hero carrying no bag at all.
+  const key = ['bag-1', 'bag-2', 'bag-3', 'bag-4'].find(k => eq[k]?.slots);
+  if (key) eqContentEl?.querySelector(`[data-slot="${key}"]`)?.click();
 }
 
 // If a hero levels up (commonly mid-combat) while their own character sheet is
@@ -696,12 +718,9 @@ function _refreshEquipmentPanel(reopenBagKey) {
   // four, so those expand (see the equipment.js schema note). Everything else is 1:1.
   // NOTE this covers bags, unlike the drag-drop's GENERIC_SLOT map — which has no bag
   // entries, and is why a bag can't be dragged onto a bag slot today.
-  const _EQUIP_TARGETS = {
-    ring:  ['ring-l', 'ring-r'],
-    wrist: ['wrist-l', 'wrist-r'],
-    bag:   ['bag-1', 'bag-2', 'bag-3', 'bag-4'],
-  };
-  const _equipTargets = item => _EQUIP_TARGETS[item?.slot] ?? (item?.slot ? [item.slot] : []);
+  // Shared with the loot panel's auto-equip — see EQUIP_TARGETS in equipment.js. It used to be
+  // a private copy here, which meant two places had to agree that a ring may go in either hand.
+  const _equipTargets = item => EQUIP_TARGETS[item?.slot] ?? (item?.slot ? [item.slot] : []);
 
   // An item's home, resolved live rather than captured — the panel rebuilds under us.
   function _itemAt() {
@@ -1196,9 +1215,9 @@ function buildActionsPanelHTML(u) {
         <div class="ss-spell-inner">
           <div class="ss-spell-text">
             <div class="ss-spell-top">
-              <span class="ss-spell-name">Hide</span>
+              <span class="ss-spell-name">Combat Hide</span>
             </div>
-            <div class="ss-spell-desc">In combat: requires no enemy has line of sight (unless inside your own Smoke & Mirrors) · DC 10 Stealth check · becomes semi-transparent on success · 2-turn cooldown · while hidden, sneak attack works on any target in range; attacking breaks stealth (moving keeps stealth unless an enemy's Perception spots you). Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% (shown as rings) so he can move solo without aggroing; toggle off with the same button, breaks if an enemy still spots him.</div>
+            <div class="ss-spell-desc">Bonus action in combat · Stealth check · 2-turn cooldown. Permits subsequent sneak attack on any target if successful. Requires that no enemy has line of sight (unless inside your own Smoke &amp; Mirrors); Milo becomes semi-transparent on success. Attacking breaks stealth; moving keeps it unless an enemy's Perception spots him.</div>
           </div>
           <img src="${ABILITY_META.hide.imgSrc}" class="ss-spell-inline-img" alt="Hide">
         </div>
@@ -1625,24 +1644,49 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
     dragHero    = null;
   }
 
-  body.addEventListener('mousedown', e => {
-    if (!e.shiftKey) return;
-    const btn     = e.target.closest('.sb-btn');
-    const ability = btn?.dataset.ability;
-    if (!btn || !ability) return;
+  // Start a drag from any source element that maps to an ability key. Shared so the Skills &
+  // Spells window and the Ready Action window behave identically — same ghost, same drop
+  // target, same assignHotbarSlot call.
+  function _beginAbilityDrag(e, srcEl, abilityKey, ghostHTML) {
     e.preventDefault();
-
-    dragAbility = ability;
+    dragAbility = abilityKey;
     dragHero    = combatPhase ? turnOrder[turnIndex] : getPCSelected();
 
     dragEl = document.createElement('div');
     dragEl.className = 'sb-drag-ghost';
-    dragEl.innerHTML = btn.innerHTML;
+    dragEl.innerHTML = ghostHTML ?? srcEl.innerHTML;
     document.body.appendChild(dragEl);
     _moveGhost(e.clientX, e.clientY);
 
     document.addEventListener('mousemove', _onDragMove);
     document.addEventListener('mouseup', _onDragEnd, { once: true });
+  }
+
+  body.addEventListener('mousedown', e => {
+    if (!e.shiftKey) return;
+    const btn     = e.target.closest('.sb-btn');
+    const ability = btn?.dataset.ability;
+    if (!btn || !ability) return;
+    _beginAbilityDrag(e, btn, ability);
+  });
+
+  // Shift-click-drag a TRIGGER out of the Ready Action window onto a hotbar slot (user,
+  // 2026-07-18). The slot then arms that specific trigger and ends the turn in one click,
+  // so a hero who always readies the same thing never opens the modal again.
+  //
+  // The trigger becomes the composite key `ready:<trigger>`; combat.js synthesises a handler
+  // for it, so it flows through assignHotbarSlot / persistence / rebuild like any ability.
+  //
+  // ⚠ Bound on the MODAL, not the button list: the buttons get their onclick reassigned every
+  // time _openReadyModal runs, and a listener attached to them would be re-added per open.
+  // The modal element itself is static, so one delegated listener is enough.
+  const readyModal = document.getElementById('ready-action-modal');
+  readyModal?.addEventListener('mousedown', e => {
+    if (!e.shiftKey) return;
+    const btn = e.target.closest('.dam-trigger-btn');
+    if (!btn?.dataset.trigger) return;
+    _beginAbilityDrag(e, btn, `ready:${btn.dataset.trigger}`,
+                      `<span class="hb-ready-trigger">⚡ ${btn.textContent.trim()}</span>`);
   });
 })();
 

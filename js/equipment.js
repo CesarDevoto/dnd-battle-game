@@ -178,9 +178,33 @@ export function getEquipped(hero, slotId) {
 // Bag-1 slot 0 is reserved exclusively for healing potions (anything with a
 // `heal` field — today just Potion of Lesser Healing, but greater tiers can slot
 // into the same reserved spot later). Non-potions can never land there, and
-// potions can never land anywhere else — which is what lets the Digit6 hotbar
+// potions can never land anywhere else — which is what lets the Digit8 hotbar
 // slot and the inventory's Use option both assume bag-1[0] is THE potion.
 export function isHealingPotion(item) { return !!item?.heal; }
+
+// ── Where an item can be WORN ─────────────────────────────────────────────────
+// An item's `.slot` is a CATALOG slot, not always an equipment key: 'ring'/'wrist' are
+// interchangeable PAIRS and 'bag' is one of four, so those expand. Everything else is 1:1.
+// Lifted out of a closure in ui.js so the loot auto-equip and the inventory UI can't drift
+// apart about which physical slots a ring may occupy.
+export const EQUIP_TARGETS = {
+  ring:  ['ring-l', 'ring-r'],
+  wrist: ['wrist-l', 'wrist-r'],
+  bag:   ['bag-1', 'bag-2', 'bag-3', 'bag-4'],
+};
+export const equipTargetsFor = item => EQUIP_TARGETS[item?.slot] ?? (item?.slot ? [item.slot] : []);
+
+// The first slot this item could be worn in that is currently EMPTY, or null.
+//
+// Null covers every "don't auto-equip" case in one test, which is why callers need no
+// special-casing: a consumable (potions carry no `.slot`, so there are no targets), an item
+// the hero isn't proficient with, or a hero whose relevant slots are all already filled —
+// auto-equipping over worn gear would silently downgrade a hero, so a full slot means "bag it".
+export function firstEmptyEquipSlot(hero, item) {
+  if (!hero || !item || !canEquip(hero, item)) return null;
+  const eq = hero.equipment ?? {};
+  return equipTargetsFor(item).find(k => !eq[k]) ?? null;
+}
 
 // Walks a hero's bag-1..bag-4 in order and drops `item` into the first empty (or
 // same-item, for stacking) slot. `.contents` arrays are created lazily, same as
