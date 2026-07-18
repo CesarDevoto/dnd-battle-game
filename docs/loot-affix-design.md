@@ -196,13 +196,14 @@ slot — so both physical slots of a pair draw from the same bundled pool.
 | Feet (boots) | Movement/turn · Initiative · [prof] |
 | Belt | CON ⬥ · Resource regen |
 | Ring (×2, interchangeable) | Crit chance · Crit damage · Cooldown reduction |
-| Main-hand | Weapon-attack damage · Cleave · Grants spell (caster wands/staves) · [prof] |
+| Main-hand | Weapon-attack damage · Cleave · Grants spell (caster wands/staves) |
 | Off-hand | Spell splash · AoE spell radius · Two-handed wielding · [prof] |
 | Ammo | Attack range |
 
-**[prof]** = *Grants proficiency*, a multi-slot affix. Rolls on weapon/shield/armor slots only:
-head, chest, wrist, legs, hands, feet, main-hand, off-hand. NOT on neck, cloak, belt, ring, ammo
-(jewelry / cloth / consumable).
+**[prof]** = *Grants proficiency*, a multi-slot affix. Rolls on **armor** slots only:
+head, chest, wrist, legs, hands, feet, off-hand. NOT on neck, cloak, belt, ring, ammo
+(jewelry / cloth / consumable), and **NOT on main-hand** (user, 2026-07-18 — removed when the slot
+was built; off-hand keeps it for shields).
 
 **⬥ = purple+ chase affixes (rarity-gated).** STR/DEX, Attack speed, Cast speed, and CON only roll
 on **purple / orange / red** items — they're power multipliers, not linear boosts:
@@ -367,10 +368,13 @@ The count axis only does real work on fat slots (Hands = 4, Head/Ring/Main-hand 
 Unlock affixes (Grants proficiency, Two-handed wielding, Grants spell) are **not** counted in that
 row — they're not stats. They roll independently, at their own rarity floor.
 
-Building these SLOWLY, one slot at a time — same rule as the item catalog.
-**Done: Head, Wrist, Chest.** Remaining 12: neck, cloak, legs, hands, feet, belt, ring, main-hand,
-off-hand, ammo. An item in a slot with no table simply rolls no affixes — so unbuilt slots are inert,
-not broken.
+Built SLOWLY, one slot at a time — same rule as the item catalog.
+
+**✅ ALL 13 SLOTS ARE BUILT** (finished 2026-07-18 with main-hand, then off-hand): head, neck, chest,
+cloak, wrist, legs, hands, feet, belt, ring, main-hand, off-hand, ammo.
+
+If a new slot is ever added, note that an item in a slot with no table simply rolls no affixes — an
+unbuilt slot is inert, not broken.
 
 ---
 
@@ -532,6 +536,205 @@ rather than redundant: a red chest + red hat ≈ **31–47% less damage taken**,
 parameter, so hit% keeps exactly one adjustment channel with both sides visible on one line. The 5–95
 clamp applies to the result, so armour can never drive an attacker below 5%. No log work was needed:
 `atkBreakdown` already prints `needed ≥ threshold`, so AC% surfaces as a visibly higher bar.
+
+---
+
+### Main-hand — Weapon-attack damage % · Cleave · [Grants spell]
+
+| Stat | grey | green | blue | purple | orange | red |
+|---|---|---|---|---|---|---|
+| **Weapon damage %** | — | `1d2` (1–2) | `1d4+1` (2–5) | `1d6+2` (3–8) | `2d6+4` (6–16) | `3d6+6` (9–24) |
+| **Cleave — falloff ladder** | — | `[25]` | `[40]` | `[66, 25]` | `[85, 40, 25]` | `[100, 85, 40, 25]` |
+| **↳ how many of the above roll** | 0–1 | 1 | 1–2 | 1–2 | 2 | 2 |
+
+**Weapon damage % is the user's ladder (2026-07-18)** — the same curve as head's mitigation and
+cloak's saves. Scoped to **"melee or ranged attacks"**: every weapon swing, no spells. It plugs into
+`applyWeaponDamage`, an exact mirror of `applySpellDamage` on the other side of the `atk.spellKey`
+split in `_executeAttack`, so a hit is scaled by one of the two and **never both**.
+
+⚠ **`ceil` makes even green land.** Both damage scalers round UP, so +1% of a 13-damage greataxe
+swing is 13.13 → **14**. The cheapest tier is worth a guaranteed +1, not zero — which is the whole
+reason the spell-damage rule chose `ceil` and is why this small-looking ladder is playable.
+
+⚠ **Sneak Attack sits OUTSIDE it**, exactly as it sits outside spell damage. The rogue's dice are a
+class feature with their own level curve (`sneakAttackDiceForLevel`), not weapon output, so a weapon
+roll must not multiply Milo's burst on top of it.
+
+**Main-hand is a SINGLE slot, not a pair** — unlike wrist and ring, nothing here doubles. That's why
+both stats may land on one item without the clamp problem that pins wrist's count to 1.
+
+**Cleave is a per-target FALLOFF LADDER** (user's spec, 2026-07-18). Entry `i` is the % of the
+primary hit that the **i-th nearest** foe takes, within a flat 5 ft ("adjacent") at every tier:
+
+| tier | 1st adjacent | 2nd | 3rd | 4th |
+|---|---|---|---|---|
+| green | 25% | · | · | · |
+| blue | 40% | · | · | · |
+| purple | 66% | 25% | · | · |
+| orange | 85% | 40% | 25% | · |
+| red | **100%** | 85% | 40% | 25% |
+
+Each tier both **raises the front number and grows the tail**, so a tier up is felt twice — the first
+neighbour hurts more *and* another neighbour joins. At red the nearest neighbour takes the **full**
+hit. Radius never changes: this affix scales by how many it catches and how hard, never by reach.
+
+⚠ **NOTHING about cleave is rolled.** Every other affix in the file rolls dice for its magnitude;
+cleave does not — a green cleave is 25% on every green cleaving weapon. That's why it carries
+`falloff` where others carry `dice`, and why `_tierEntry()` exists: the eligibility test in
+`rollAffixes` has to read *either* key or cleave would be gated out of every tier. Tier variety comes
+entirely from the ladder's SHAPE.
+
+**`maxTargets` is the ladder's LENGTH** (1/1/2/3/4), never stored as a second field — so the cap and
+the ladder cannot drift apart.
+
+⚠ **Sort order is load-bearing, not cosmetic.** `foes` is sorted nearest-first and the ladder
+descends, so the sort decides *who gets the big number*, not merely who is included.
+
+### Each cleaved foe rolls its OWN to-hit (user's call, 2026-07-18)
+
+> *"otherwise hit or miss is massively OP or underpowered"*
+
+One shared roll would make a landed red cleave auto-deal 100/85/40/25% to four foes with no further
+counterplay, while a missed swing erases all of it — the affix would be **pure variance amplification
+on a single d100**. Per-target rolls give each foe's own AC and dodge state a say, which is what makes
+the falloff ladder a curve rather than a coin flip.
+
+- **Attacker-side terms are reused verbatim** from the primary swing (`atkMod`, `precisionBonus`), so
+  a cleave can never be more or less accurate than the swing that caused it.
+- **Defender-side is recomputed per foe:** its own AC, its own `ac_pct`, its own dodge.
+- **Bless rerolls per foe** — it's 1d2 *per attack roll*, and each of these is its own roll.
+- **Situational advantages do NOT carry over.** Smoke & Mirrors, Owl's Help and the hidden-attacker
+  bonus are relationships with the *primary target*, not with whoever stands beside it. Dodge is a
+  property of the foe, so that one comes along.
+- ⚠ **A crit on a splash roll is treated as a plain hit** (confirmed 2026-07-18). `raw` already
+  doubled if the primary swing crit; doubling again would compound one crit into two. The splash is
+  a *share of the hit that happened*, not an independent attack.
+
+⚠ **THE LADDER IS DEALT TO THE FOES THAT HIT, NOT TO DISTANCE.** This is the subtle part, and I got
+it backwards on the first pass. One roll goes out per foe in range (up to the ladder's length), then
+the percentages are handed to whichever foes **connected**, best share first. The user's worked
+example: purple is `[66, 25]` against two adjacent foes, so two rolls go out, and *"if either hits,
+then the 66% affects the one hit"* — a lone connecting foe takes the **top** of the ladder, not the
+entry matching where it stood.
+
+So **a miss SHORTENS the ladder rather than blanking a slot.** Orange `[85, 40, 25]` landing one of
+three rolls deals 85% once; landing two deals 85% and 40%. This is why every roll must be taken
+*before* any damage is assigned — a foe's share isn't knowable until the whole volley is in, which
+is what the `hitIdx` walk in `_resolveSplash` implements.
+
+`toHit` is a **callback**, not baked into the resolver — melee cleave passes a weapon-attack roll,
+and off-hand's Spell splash can pass its own profile, or `null` to auto-hit (which is what a
+save-based splash would want).
+
+⚠ **Cleave is MELEE ONLY — confirmed by the user 2026-07-18**, and deliberately NARROWER than
+`weapon_damage_pct`, which they scoped to "melee or ranged". The two main-hand stats have different
+reach on purpose. `_resolvesRanged` excludes both ranged weapons and attack-roll spells.
+
+**The known cost:** a bow hero who rolls cleave gets a dead affix — the same starvation problem
+`lootCoverage` exists to fight. Accepted, not overlooked. (`lootCoverage` abstains on main-hand
+anyway, since weapons have no `material`.)
+
+**Cleave is the first NON-SCALAR stat affix.** It carries a whole ladder instead of one `value`, so
+`affixTotal` can't read it — summing across two slots would read as one bigger cleave, which isn't
+what two cleaving weapons should mean. Consumers look it up **by shape** (`_splashAffixOf`), the way
+`_onHitRiderOf` finds a rider. `affixTotal` now guards with `a.value ?? 0` so a stray call on a
+non-scalar key returns 0 instead of poisoning the sum to `NaN`.
+
+**The shared splash resolver is built** (`_resolveSplash` in combat.js) — the doc's "one routine,
+parameterized" that **off-hand's Spell splash will reuse** with its own numbers. Two things it gets
+right that are easy to get wrong:
+- **Origin is a captured `{x, z}`, not the target unit.** A lethal swing schedules
+  `removeDefeatedUnit` *before* the splash timer fires, so reading `primary.grp.position` inside the
+  resolver would touch a mesh that's already gone. Cleaving off a kill is the point of the affix, so
+  the origin has to outlive the corpse.
+- **It splashes a PRE-mitigation number, not `finalDmg`.** Each splashed foe takes its *own*
+  `applyMitigation` cut; splashing the already-mitigated figure would apply the primary target's
+  armor to everyone standing near it.
+- ⚠ **The base is `dmg + critDmg` — Sneak Attack is EXCLUDED** (user, 2026-07-18: *"sneak attack
+  does all damage on a single target"*). `totalRaw` is `dmg + sneakDmg + critDmg`; the sneak dice are
+  the rogue's precision strike on ONE foe, not weapon output, so they must not bleed onto the
+  neighbours — otherwise a red cleave would splash 100% of a 10d6 sneak sideways. Same principle
+  that keeps sneak out of `weapon_damage_pct` and `spell_damage_pct`. The ring's flat crit bonus
+  stays in: that *is* part of the swing that landed.
+- ⚠ **No stagger and no swing animation** (user, 2026-07-18: *"just do the damage and float the
+  damage text over the cleaved targets"*). An earlier pass spaced foes 220ms apart, which bought
+  nothing but latency — a red cleave added ~2.6s to one swing, straight onto the known automation
+  turn-delay problem. Everything lands on one beat now; the only remaining wait is the 400ms corpse
+  pause so the float is readable before the mesh goes.
+
+`done()` fires exactly once on every path (no neighbours, everything died, partial kill) — the same
+contract `_resolvePoison` and `_resolveRider` keep, and the freeze class `/timing-audit` hunts.
+
+⚠ **[prof] is REMOVED from main-hand** (user, 2026-07-18). Grants-proficiency is an **armor** affix;
+a weapon doesn't teach you to wear plate. Off-hand keeps it for shields. This drops main-hand from
+four listed stats to three.
+
+**Not built, blocked on a system rather than on numbers:** *Grants spell* (the doc's last 🔴 —
+injects a castable into the wielder's spell list, i.e. hotbar/spell-panel plumbing). The count row
+therefore saturates at 2, and will stay there unless Grants spell is built.
+
+---
+
+### Off-hand — Spell splash · AoE spell radius
+
+The caster's mirror of main-hand, and the LAST slot built (2026-07-18).
+
+| Stat | grey | green | blue | purple | orange | red |
+|---|---|---|---|---|---|---|
+| **Spell splash** | — | `[25]` | `[40]` | `[66, 25]` | `[85, 40, 25]` | `[100, 85, 40, 25]` |
+| **AoE spell radius** | — | +5 ft | +5 ft | +10 ft | +15 ft | +20 ft |
+| **↳ how many of the above roll** | 0–1 | 1 | 1–2 | 1–2 | 2 | 2 |
+
+**Spell splash is Cleave with a different trigger** — *"use the same formula as cleave"* (user). Both
+now read from ONE shared `SPLASH_FALLOFF` const in affixes.js rather than a pasted copy, so they
+cannot drift; if they ever *should* differ, that's the moment to split them, not before. Same
+resolver, same one-roll-per-foe volley, same deal-to-the-hits ladder, same 5 ft.
+
+⚠ **SINGLE-TARGET SPELLS ONLY — never AoE spells** (user, 2026-07-18). An AoE already hits the whole
+cluster, so splashing it would double-dip the same geometry — and the caster's AoE upgrade path is
+the *other* stat in this very slot. The two are complementary by design: one widens the spells that
+already spread, the other spreads the ones that don't.
+
+**Which spells qualify, and how each splash resolves.** The splash mirrors its PARENT spell's
+resolution — this is exactly why `toHit` is a callback rather than baked into the resolver:
+
+| spell | primary | splash resolves as |
+|---|---|---|
+| **Fire Bolt** | attack roll | attack roll per foe (via `_executeAttack`, same path as cleave) |
+| **Magic Missile** | auto-hit | **auto-hit** (`toHit: null`) — full ladder always lands |
+| **Sacred Flame** | DEX save, negates | DEX save per foe; a failed save = "hit" |
+| Burning Hands | AoE | ✗ excluded — AoE |
+
+⚠ **Magic Missile is the strongest partner** for this affix: it never misses, so its splash never
+misses either and the whole ladder always pays out. That's the natural cost of pairing a
+never-miss spell with a splash affix, and it's the case the resolver's null-`toHit` branch exists
+for — but it's the first place to look if spell splash plays too strong.
+
+**AoE spell radius is FIXED per tier, not rolled** — the third non-rolled shape in the file, after
+cleave's falloff ladder. `fixed` sits alongside `dice` and `falloff` in `_tierEntry`.
+
+⚠ **The value is a DIAMETER bonus, so consumers add HALF of it to a radius** — the user's word,
+kept literally. `aoeRadiusFtOf()` is the single conversion point, so the distinction can't be got
+wrong in two places. **Consequence worth checking in play:** green's +5 ft diameter is **+2.5 ft of
+radius**, which does not land on the 5 ft grid — it may or may not catch another tile depending on
+geometry. If AoE growth should move in whole tiles, this row wants to mean *radius*, and that's a
+one-line change in `aoeRadiusFtOf`.
+
+⚠ **Green and blue are BOTH +5 ft** (user's ladder). Blue separates from green through the COUNT
+axis — it can pair AoE size with spell splash — not through size. That's why blue's `[1, 2]` is
+load-bearing here in a way it isn't on other slots.
+
+**Only ONE hero AoE spell exists to widen: Burning Hands.** Despite its "15 ft cone" description it
+is implemented as a *radius around the caster* (`spell.rangeFt`), so the affix widens exactly the
+circle the targeting already uses. Morvath's Grave Curse is the only other AoE and is an ENEMY
+attack — enemies carry no `equipment`, so `affixTotal` returns 0 and it's unaffected for free,
+with no hero-only test needed.
+
+⚠ **A martial shield can roll caster affixes.** Off-hand holds both shields and caster foci, and
+nothing gates the roll by base — so "Vast Buckler of the Maelstrom" is a legal drop that does
+nothing for Gobo. Same dead-affix shape as cleave-on-a-bow, and the same accepted cost;
+`lootCoverage` abstains on off-hand anyway (no `material`). Gating splash/AoE to focus-type bases
+is the fix if it grates.
 
 ---
 

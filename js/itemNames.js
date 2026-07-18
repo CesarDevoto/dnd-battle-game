@@ -93,6 +93,10 @@ const AFFIX_WORDS = {
   attack_speed:         { prefix: 'Rapid',    suffix: 'Fury' },
   cast_speed:           { prefix: 'Quickened',suffix: 'Alacrity' },
   life_steal_pct:       { prefix: 'Vampiric', suffix: 'Leeching' },
+  weapon_damage_pct:    { prefix: 'Honed',    suffix: 'Ruin' },
+  cleave:               { prefix: 'Sundering',suffix: 'the Whirlwind' },
+  spell_splash:         { prefix: 'Chaining', suffix: 'Cascades' },
+  aoe_radius:           { prefix: 'Vast',     suffix: 'the Maelstrom' },
 };
 
 // A drop keeps its authored name when it's a specific/scripted item rather than generic loot:

@@ -20,6 +20,23 @@ import { UNIT_TYPES, GRID_SQUARE_FEET } from './constants.js';
 const RIDER_DICE = { green: '1d2', blue: '1d3+1', purple: '1d4+2', orange: '1d6+3', red: '1d6+6' };
 const RIDER_DC   = { green: 12,    blue: 13,      purple: 14,       orange: 15,      red: 16 };
 
+// ── Shared splash falloff ─────────────────────────────────────────────────────
+// ONE ladder serves both splash affixes: main-hand Cleave (melee weapon hits) and off-hand Spell
+// splash (single-target spells) — "use the same formula as cleave" (user, 2026-07-18). Shared as a
+// const rather than pasted twice so the two can't drift apart; if they ever SHOULD differ, that's
+// the moment to split them, not before.
+//
+// Entry i is the % of the primary hit dealt to the i-th foe that CONNECTED — the ladder is dealt
+// out to whoever the volley actually hit, best share first, so a miss shortens it rather than
+// blanking a slot. Ladder length doubles as the number of rolls sent out.
+const SPLASH_FALLOFF = {
+  green:  [25],
+  blue:   [40],
+  purple: [66, 25],
+  orange: [85, 40, 25],
+  red:    [100, 85, 40, 25],
+};
+
 // ── Slot tables ───────────────────────────────────────────────────────────────
 // One entry per stat the slot OWNS (the allocation is locked in the design doc: each stat
 // appears on exactly one slot type). `dice` is keyed by rarity, and a tier with NO entry
@@ -309,9 +326,100 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d1', blue: '1d2', purple: '1d2+2', orange: '1d4+3', red: '1d4+5' },
     },
   },
-  // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
-  // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
-  // one slot at a time. An item in a slot with no table here simply rolls no affixes.
+  'main-hand': {
+    // Main-hand = weapon output (doc allocation). Two of the slot's four listed stats are built
+    // here; the other two are blocked on systems, not on numbers:
+    //   • [prof] (Grants proficiency) — proficiency GATING now exists (canEquip, 2026-07-17), but
+    //     an affix that BYPASSES it is an unlock system of its own, not a table entry.
+    //   • Grants spell (caster wands/staves) — the doc's only remaining 🔴: it injects a castable
+    //     into the wielder's spell list, which is hotbar/spell-panel plumbing, not combat math.
+    // So the count row saturates at 2 (see AFFIX_COUNT['main-hand']).
+    //
+    // ⚠ Main-hand is a SINGLE slot, not a pair — unlike wrist and ring, nothing here doubles.
+    // That's why both stats may land on one item without the clamp problem that pins wrist to 1.
+    weapon_damage_pct: {
+      label: 'Weapon damage',
+      fmt:   v => `+${v}% weapon damage`,
+      // User's ladder (2026-07-18) — the same curve head's mitigation and cloak's saves climb.
+      // "Melee or ranged attacks", i.e. every WEAPON swing and nothing else: combat.js splits on
+      // atk.spellKey, so this is exactly the branch head's spell_damage_pct does NOT touch. The
+      // two are complementary by construction and can never both scale one hit.
+      //
+      // ⚠ Sneak Attack is deliberately OUTSIDE it, same as spell damage: the sneak dice are the
+      // rogue's class feature, not the weapon's, so Milo's burst doesn't get multiplied by a
+      // weapon roll on top of its own level scaling.
+      dice:  { green: '1d2', blue: '1d4+1', purple: '1d6+2', orange: '2d6+4', red: '3d6+6' },
+    },
+    // Cleave — the doc's melee splash, and the FIRST non-scalar stat affix: it carries a whole
+    // FALLOFF LADDER instead of one `value`, so affixTotal can't read it. It's `splash: true`, and
+    // combat looks it up by shape (_splashAffixOf) the way _onHitRiderOf finds a rider. Off-hand's
+    // Spell splash will reuse the same resolver with its own ladder.
+    //
+    // ⚠ NOTHING HERE IS ROLLED (user's spec, 2026-07-18). Every other affix in this file rolls dice
+    // for its magnitude; cleave does not — a green cleave is 25% on every green cleaving weapon.
+    // That's why it uses `falloff` rather than `dice`, and why the eligibility test below has to
+    // read either key. Tier variety comes entirely from the SHAPE of the ladder.
+    //
+    // The ladder is per-TARGET, nearest first: entry i is the % of the primary hit that the i-th
+    // nearest foe takes. Each tier both raises the front number and grows the tail, so a tier up is
+    // felt twice — the first neighbour hurts more AND another neighbour joins:
+    //
+    //   green  [25]                 blue   [40]
+    //   purple [66, 25]             orange [85, 40, 25]
+    //   red    [100, 85, 40, 25]    ← red's first neighbour takes the FULL hit
+    //
+    // maxTargets is just the ladder's LENGTH (1/1/2/3/4) — never stored twice, so the two can't
+    // drift apart. Radius is a flat 5 ft ("adjacent") at every tier: this affix scales by how many
+    // it catches and how hard, never by reaching further.
+    cleave: {
+      label: 'Cleave',
+      noun:  'cleave',              // combat-log wording: "Goblin 3 suffers 7 cleave damage"
+      splash: true,
+      appliesTo: 'melee',           // weapon melee hits only — see _splashAffixOf
+      radiusFt: GRID_SQUARE_FEET,   // 5 ft — adjacent, at every tier
+      falloff: SPLASH_FALLOFF,
+    },
+  },
+  'off-hand': {
+    // Off-hand = the caster's counterpart to main-hand (doc allocation), and the LAST slot built.
+    // Two stats; the other two the doc once listed are gone:
+    //   • Two-handed wielding — removed earlier, becoming a future Gobo ability instead.
+    //   • [prof] — the unlock system still doesn't exist. (Removed from main-hand entirely on
+    //     2026-07-18; off-hand keeps the doc entry for shields but nothing is built.)
+    //
+    // Spell splash is Cleave's mirror: SAME falloff ladder (user: "use the same formula as cleave"),
+    // same shared resolver, same one-roll-per-foe volley. Only the trigger differs — `appliesTo`
+    // is what keeps a cleaving axe and a splashing focus from firing on each other's hits.
+    //
+    // ⚠ SINGLE-TARGET SPELLS ONLY (user, 2026-07-18) — never AoE spells. An AoE already hits the
+    // whole cluster, so splashing it would be double-dipping the same geometry; and the caster's
+    // AoE upgrade path is the OTHER stat in this very slot. The two are complementary by design:
+    // one widens the spells that already spread, the other spreads the ones that don't.
+    spell_splash: {
+      label: 'Spell splash',
+      noun:  'splash',              // combat-log wording: "Goblin 3 suffers 7 splash damage"
+      splash: true,
+      appliesTo: 'spell',
+      radiusFt: GRID_SQUARE_FEET,   // 5 ft from the primary target, same as cleave
+      falloff: SPLASH_FALLOFF,
+    },
+    // AoE spell radius — "merely expands the diameter of AoE spells" (user, 2026-07-18). FIXED per
+    // tier, not rolled, so it needs neither dice nor a ladder: `fixed` is the third non-rolled
+    // shape in this file after cleave's falloff.
+    //
+    // ⚠ The value is a DIAMETER bonus in FEET, so consumers add HALF of it to a radius. That's the
+    // user's word and it's kept literally; see aoeRadiusFtOf in combat.js for the one conversion.
+    //
+    // ⚠ Green and blue are BOTH 5 ft — deliberate per the user's ladder. Blue separates from green
+    // through the count axis (it can pair this with spell splash) rather than through size.
+    aoe_radius: {
+      label: 'AoE size',
+      fmt:   v => `+${v} ft AoE diameter`,
+      fixed: { green: 5, blue: 5, purple: 10, orange: 15, red: 20 },
+    },
+  },
+  // Every slot is now built. If a NEW slot is ever added, note that an item in a slot with no
+  // table here simply rolls no affixes — unbuilt is inert, not broken.
 };
 
 // ── Affix count ───────────────────────────────────────────────────────────────
@@ -361,7 +469,29 @@ export const AFFIX_COUNT = {
   ring:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
   // Ammo is a THIN slot — projectile_range is the only stat, so count is always 1; tiers by size.
   ammo:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
+  // Off-hand owns TWO stats (spell splash / AoE size), same shape as main-hand. Blue's [1,2] is
+  // load-bearing here in a way it isn't elsewhere: aoe_radius is 5 ft at BOTH green and blue, so
+  // pairing is the only thing that separates a blue focus from a green one.
+  'off-hand':  { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [1, 2], orange: [2, 2], red: [2, 2] },
+  // Main-hand owns TWO built stats (weapon damage / cleave), so the count saturates at 2. It keeps
+  // [1,2] through purple rather than forcing 2 there — cleave changes how a swing BEHAVES, not just
+  // its number, so a purple weapon that's pure damage% stays a meaningfully different drop from one
+  // that cleaves. Orange/red guarantee both, matching every other fat slot.
+  'main-hand': { grey: [0, 1], green: [1, 1], blue: [1, 2], purple: [1, 2], orange: [2, 2], red: [2, 2] },
 };
+
+// Can this stat appear at this rarity at all? A tier with no entry means "gated out here" — the
+// doc's ⛔ expressed as absence rather than as a separate rule.
+//
+// It reads THREE possible keys because not every affix rolls: `dice` (most), `falloff` (the splash
+// ladders) and `fixed` (off-hand's AoE size). All three are "the per-tier table"; only one is dice.
+//
+// `!= null` rather than truthiness so a legitimate 0 in a `fixed` table would still count as "this
+// tier is allowed" instead of silently gating the affix out.
+function _tierEntry(a, rarity) {
+  const t = (a?.dice ?? a?.falloff ?? a?.fixed)?.[rarity];
+  return t != null ? t : null;
+}
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
 // stat twice (which would read as "+2% mitigation, +3% mitigation" on one hat).
@@ -374,10 +504,14 @@ function _shuffled(arr) {
   return a;
 }
 
-// Build ONE affix instance for a stat at a rarity. Two shapes come out of here:
+// Build ONE affix instance for a stat at a rarity. Three shapes come out of here:
 //   • Numeric affix → pre-rolls one permanent `value` (the stat), displayed via a.fmt.
 //   • Damage rider  → stamps the tier's dice FORMULA + save + DC + type, and combat rerolls
 //     the dice every hit. It carries no `value`; its numbers happen at swing time, not here.
+//   • Splash affix  → pre-rolls `value` as a PERCENTAGE like a numeric affix, but also carries
+//     the tier's fixed maxTargets/radiusFt. affixTotal would happily sum the pct across slots
+//     and produce nonsense (two cleaves is not one bigger cleave), so consumers look it up by
+//     shape instead — see combat.js's _cleaveOf, modelled on _onHitRiderOf.
 function _rollOne(key, a, rarity) {
   if (a.rider) {
     const formula = a.dice[rarity];
@@ -393,6 +527,26 @@ function _rollOne(key, a, rarity) {
       display: `On hit: ${range} ${a.noun} damage · ${a.saveStat.toUpperCase()} save DC ${saveDC} for half`,
     };
   }
+  // A FIXED affix is a plain scalar that just isn't rolled — same {key,label,value,display} shape a
+  // dice affix produces, so affixTotal and every consumer read it with no special case.
+  if (a.fixed) {
+    const value = a.fixed[rarity] ?? 0;
+    return { key, label: a.label, value, display: a.fmt(value) };
+  }
+
+  if (a.splash) {
+    // No dice: the falloff ladder IS the magnitude, fixed per tier. `pcts[i]` is what the i-th
+    // NEAREST foe takes, so the array's length doubles as maxTargets and the two can never drift.
+    const pcts     = a.falloff[rarity] ?? [];
+    const radiusFt = a.radiusFt ?? GRID_SQUARE_FEET;
+    const foe      = pcts.length === 1 ? 'foe' : 'foes';
+    return {
+      key, label: a.label, noun: a.noun ?? 'splash', splash: true,
+      pcts, radiusFt,
+      display: `On hit: ${pcts.join('% / ')}% to the ${pcts.length} nearest ${foe} within ${radiusFt} ft`,
+    };
+  }
+
   const f = parseDiceFormula(a.dice[rarity]);
   // `mult` scales the roll AFTER the dice — it exists because parseDiceFormula only speaks
   // NdS±M, which cannot express "even numbers only" (2d2 is 2,3,4). STR/DEX needs that:
@@ -413,12 +567,12 @@ export function rollAffixes(base, rarity) {
   // no rider has dice — a grey Emberheart Pendant is inert flavor, consistent with grey elsewhere).
   if (base.signatureAffix) {
     const a = table[base.signatureAffix];
-    return a?.dice?.[rarity] ? [_rollOne(base.signatureAffix, a, rarity)] : [];
+    return _tierEntry(a, rarity) ? [_rollOne(base.signatureAffix, a, rarity)] : [];
   }
 
   // Random roll. Eligible = has dice AT THIS TIER and is NOT signatureOnly (riders exist only on
   // their named item, never on a generic base). A stat gated above this rarity simply isn't here.
-  const eligible = Object.entries(table).filter(([, a]) => a.dice?.[rarity] && !a.signatureOnly);
+  const eligible = Object.entries(table).filter(([, a]) => _tierEntry(a, rarity) && !a.signatureOnly);
   if (!eligible.length) return [];
 
   const [lo, hi] = AFFIX_COUNT[base.slot]?.[rarity] ?? [0, 0];
@@ -440,7 +594,9 @@ export function affixTotal(hero, key) {
   let total = 0;
   for (const slotKey of Object.keys(eq)) {
     for (const a of eq[slotKey]?.affixes ?? []) {
-      if (a.key === key) total += a.value;
+      // `?? 0` guards the non-scalar shapes: riders and splash affixes carry no `value`, so a
+      // stray affixTotal on one of their keys would otherwise poison the sum to NaN.
+      if (a.key === key) total += a.value ?? 0;
     }
   }
   return total;
