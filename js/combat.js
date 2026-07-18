@@ -430,7 +430,7 @@ function showRangeRings(u) {
 
   if (rangdA) {
     rangedRangeRing.geometry.dispose();
-    rangedRangeRing.geometry = makeConformingRingGeo(ux, uz, atkRangeWU(rangdA.range));
+    rangedRangeRing.geometry = makeConformingRingGeo(ux, uz, projRangeWU(rangdA.range, u));
     rangedRangeRing.position.set(ux, 0, uz);
     rangedRangeRing.visible = true;
   } else {
@@ -849,6 +849,14 @@ function _logAtkQtyMsg(unit, atk) {
 function atkRangeWU(rangeFt) {
   return (rangeFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE + 1.0;
 }
+// Range at which a HERO's RANGED weapon / attack SPELL reaches, INCLUDING the ammo `projectile_range`
+// bonus (stored in squares → feet). Use this instead of atkRangeWU at hero ranged/spell range checks;
+// melee stays on atkRangeWU / atkTriggerWU so the bonus never extends melee reach. `unit` null → no
+// bonus (safe for enemy paths that call it defensively).
+function projRangeWU(rangeFt, unit) {
+  const bonus = unit ? affixTotal(unit, 'projectile_range') * GRID_SQUARE_FEET : 0;
+  return atkRangeWU(rangeFt + bonus);
+}
 // Distance at which an attack can trigger. Melee (≤ 1 square / 5 ft) uses the shared
 // ADJACENT_WU adjacency radius, so melee reach (and its range ring) match the
 // engagement lock and Sneak Attack adjacency EXACTLY — bumping ADJACENT_WU moves all
@@ -1097,7 +1105,7 @@ function showAttackTargets(u) {
     let chosenAtk = null, color = 0xCC6644;
     if (meleeA && dist <= atkTriggerWU(meleeA)) {
       chosenAtk = meleeA; color = 0xCC6644;  // orange — melee
-    } else if (rangdA && atkHasQty(u, rangdA) && dist <= atkRangeWU(rangdA.range) &&
+    } else if (rangdA && atkHasQty(u, rangdA) && dist <= projRangeWU(rangdA.range, u) &&
                unitsHaveLOS(u, enemy)) {
       chosenAtk = rangdA; color = 0x22ccaa;  // teal — ranged
     }
@@ -1233,7 +1241,7 @@ function castHeal(caster, target, spellKey) {
 function showSacredFlameTargets(caster) {
   hideAttackTargets();
   if (turnAttacked) return;
-  const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+  const rangeWU = projRangeWU(SPELLS.sacred_flame.rangeFt, caster);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
   let ri = 0;
   units.filter(e => e.team !== caster.team && e.hp > 0).forEach(enemy => {
@@ -1329,7 +1337,7 @@ function handleSneakAttackBtnClick() {
   let atk = null;
   if (meleeA && dist <= atkTriggerWU(meleeA)) {
     atk = meleeA;
-  } else if (rangedA && dist <= atkRangeWU(rangedA.range) &&
+  } else if (rangedA && dist <= projRangeWU(rangedA.range, u) &&
              unitsHaveLOS(u, selectedTarget)) {
     atk = rangedA;
   }
@@ -1715,7 +1723,7 @@ function _resolvesRanged(atk) {
 function showMagicMissileTargets(caster) {
   hideAttackTargets();
   if (turnAttacked) return;
-  const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+  const rangeWU = projRangeWU(ELF_SPELLS.magic_missile.rangeFt, caster);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
   let ri = 0;
   units.filter(e => e.team !== caster.team && e.hp > 0).forEach(enemy => {
@@ -2338,7 +2346,7 @@ function unitCombatLevel(u) {
 //   Level term: hero power tier (1 tier per 5 levels) vs enemy tier (profBonus); ±3% per tier gap.
 //   Roll 1d100 high to hit: need ≥ (100 − Hit%); 96-100 → automatic crit.
 //   Advantage: keep higher die. Disadvantage: keep lower die.
-function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal', hitPctBonus = 0) {
+function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal', hitPctBonus = 0, critPct = 0) {
   const rawPct    = ((atkBonus + 20 - defAC) / 20) * 100 + (((atkLvl / 5) + 1) - defLvl) * 3 + hitPctBonus;
   const hitChance = Math.round(Math.max(5, Math.min(95, rawPct)));
   const threshold = 100 - hitChance;
@@ -2355,7 +2363,10 @@ function rollToHit(atkBonus, defAC, atkLvl, defLvl, mode = 'normal', hitPctBonus
     kept = r1;
   }
 
-  const isCrit = kept >= 96;
+  // Base crit is a roll of 96+ (5%). Ring crit_chance_pct lowers that threshold 1:1 (each point =
+  // +1% crit), floored at 51 so crit can never exceed 50% no matter how many rings stack.
+  const critThresh = Math.max(51, 96 - Math.max(0, critPct));
+  const isCrit = kept >= critThresh;
   return { dice: r2 !== null ? [r1, r2] : [r1], kept, mode, hitChance, threshold, isHit: kept >= threshold || isCrit, isCrit };
 }
 
@@ -2792,7 +2803,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   if (_resolvesRanged(atk) && atk.longRange) {
     const rdx = target.grp.position.x - attacker.grp.position.x;
     const rdz = target.grp.position.z - attacker.grp.position.z;
-    if (Math.sqrt(rdx * rdx + rdz * rdz) > atkRangeWU(atk.range)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
+    if (Math.sqrt(rdx * rdx + rdz * rdz) > projRangeWU(atk.range, attacker)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
   }
   if (target.dodging) { hasDisadvantage = true; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
   // Advantage and disadvantage from different sources cancel out to a normal roll (D&D RAW).
@@ -2818,7 +2829,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // so armour does nothing against them — deliberately unlike mitigation_pct, which lives in
   // damageMitigationOf and so covers every damage path there is.
   const hitPctNet = precisionBonus - affixTotal(target, 'ac_pct');
-  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, hitPctNet);
+  const atkResult = rollToHit(atkMod + blessBonus, targetAC, unitCombatLevel(attacker), unitCombatLevel(target), atkMode, hitPctNet, affixTotal(attacker, 'crit_chance_pct'));
   const aLabel    = unitLabel(attacker), tLabel = unitLabel(target);
 
   // Stealth ends here — after the roll (so the hidden bonus/advantage still applied):
@@ -2904,7 +2915,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     ? Math.max(1, applySpellDamage(attacker, dmgResult.total))
     : Math.max(1, dmgResult.total);
   const sneakDmg = sneakResult ? Math.max(0, sneakResult.total) : 0;
-  const totalRaw = dmg + sneakDmg;
+  // Crit damage (ring): flat bonus added on a crit, on top of the doubled dice. It's a value affix
+  // (rolled once at drop, e.g. 1d4+1), so affixTotal sums both rings; added pre-mitigation like the
+  // rest of the hit. Applies to weapon and attack-cantrip (Fire Bolt) crits alike.
+  const critDmg  = isCrit ? affixTotal(attacker, 'crit_damage') : 0;
+  const totalRaw = dmg + sneakDmg + critDmg;
   const resisted = damageMitigationOf(target) > 0;
   const finalDmg = applyMitigation(target, totalRaw);
 
@@ -4052,7 +4067,7 @@ function _heroRangedRangeWU(hero) {
       if (sp.rangeFt > maxFt) maxFt = sp.rangeFt;
     }
   }
-  return maxFt > 0 ? atkRangeWU(maxFt) : null;
+  return maxFt > 0 ? projRangeWU(maxFt, hero) : null;
 }
 
 // Helper: returns true if enemy is within ranged/spell range AND has LOS to hero
@@ -4400,7 +4415,7 @@ const _ABILITY_HANDLERS = {
       const _meleeA  = _atks.find(a => a.type === 'melee');
       const _rangedA = _atks.find(a => a.type === 'ranged');
       const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
-                      (_rangedA && dst <= atkRangeWU(_rangedA.range) &&
+                      (_rangedA && dst <= projRangeWU(_rangedA.range, curU) &&
                        unitsHaveLOS(curU, selectedTarget));
       if (!inRange) return false;
       return _allyAdjacentToTarget(curU, selectedTarget) || _isHiddenForSneak(curU);
@@ -4480,7 +4495,7 @@ const _ABILITY_HANDLERS = {
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'dwarf' || turnAttacked) return false;
       if (!selectedTarget || selectedTarget.hp <= 0) return false;
-      const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+      const rangeWU = projRangeWU(SPELLS.sacred_flame.rangeFt, curU);
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
@@ -4515,7 +4530,7 @@ const _ABILITY_HANDLERS = {
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist <= atkRangeWU(atk.range) &&
+      return dist <= projRangeWU(atk.range, curU) &&
              unitsHaveLOS(curU, selectedTarget);
     },
   },
@@ -4547,7 +4562,7 @@ const _ABILITY_HANDLERS = {
       if (!curU || curU.type !== 'elf' || turnAttacked) return false;
       if (curU.mmFreeUsed && !hasSpellSlot(curU, spellLevelOf('magic_missile'))) return false;
       if (!selectedTarget || selectedTarget.hp <= 0) return false;
-      const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+      const rangeWU = projRangeWU(ELF_SPELLS.magic_missile.rangeFt, curU);
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       return Math.sqrt(dx * dx + dz * dz) <= rangeWU &&
@@ -4812,7 +4827,7 @@ function _rebuildHotbar(u) {
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist <= atkRangeWU(firstRanged.range) &&
+      return dist <= projRangeWU(firstRanged.range, curU) &&
              unitsHaveLOS(curU, selectedTarget) &&
              atkHasQty(curU, firstRanged);
     }, 'action');
@@ -5663,7 +5678,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.type !== 'dwarf')          { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'sacred_flame')) { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
-        const rangeWU = atkRangeWU(SPELLS.sacred_flame.rangeFt);
+        const rangeWU = projRangeWU(SPELLS.sacred_flame.rangeFt, u);
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
@@ -5689,7 +5704,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (!isAbilityUnlocked(u.type, u.level, 'magic_missile')) { onSkip(); return; }
         if (u.mmFreeUsed && !hasSpellSlot(u, spellLevelOf('magic_missile'))) { onSkip(); return; }
         if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
-        const rangeWU = atkRangeWU(ELF_SPELLS.magic_missile.rangeFt);
+        const rangeWU = projRangeWU(ELF_SPELLS.magic_missile.rangeFt, u);
         const edx = enemyTarget.grp.position.x - u.grp.position.x;
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         if (Math.sqrt(edx * edx + edz * edz) > rangeWU) { onSkip(); return; }
@@ -5812,7 +5827,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           a.type === 'ranged' &&
           atkHasQty(u, a) &&
           unitsHaveLOS(u, enemyTarget) &&
-          eDist <= atkRangeWU(a.longRange ?? a.range)
+          eDist <= projRangeWU(a.longRange ?? a.range, u)
         );
         const atk = meleeAtk ?? rangdAtk;
         if (!atk) { onSkip(); return; }
@@ -5828,7 +5843,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const edz = enemyTarget.grp.position.z - u.grp.position.z;
         const eDist = Math.sqrt(edx * edx + edz * edz);
         if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
-        if (eDist > atkRangeWU(atk.range)) { onSkip(); return; }
+        if (eDist > projRangeWU(atk.range, u)) { onSkip(); return; }
         _executeAttack(atk, onDone); return;
       }
 
@@ -5845,7 +5860,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       } else {
         if (!atkHasQty(u, atk)) { onSkip(); return; }
         if (!unitsHaveLOS(u, enemyTarget)) { onSkip(); return; }
-        if (eDist > atkRangeWU(atk.longRange ?? atk.range)) { onSkip(); return; }
+        if (eDist > projRangeWU(atk.longRange ?? atk.range, u)) { onSkip(); return; }
       }
       _executeAttack(atk, onDone);
     }
@@ -5908,7 +5923,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (preferRange === 'ranged' || preferRange === 'kite') {
         const _atks    = UNIT_TYPES[u.type]?.attacks ?? [];
         const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
-        const _rangeWU = _rangedA ? atkRangeWU(_rangedA.range) : 0;
+        const _rangeWU = _rangedA ? projRangeWU(_rangedA.range, u) : 0;
         const _tdx = movTarget.grp.position.x - u.grp.position.x;
         const _tdz = movTarget.grp.position.z - u.grp.position.z;
         const _tDist = Math.sqrt(_tdx * _tdx + _tdz * _tdz);
