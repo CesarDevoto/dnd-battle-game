@@ -85,6 +85,9 @@ const AFFIX_WORDS = {
   max_hp:               { prefix: 'Vital',    suffix: 'Vitality' },
   move_speed:           { prefix: 'Swift',    suffix: 'Swiftness' },
   initiative_bonus:     { prefix: 'Alert',    suffix: 'the Vanguard' },
+  attack_speed:         { prefix: 'Rapid',    suffix: 'Fury' },
+  cast_speed:           { prefix: 'Quickened',suffix: 'Alacrity' },
+  life_steal_pct:       { prefix: 'Vampiric', suffix: 'Leeching' },
 };
 
 // A drop keeps its authored name when it's a specific/scripted item rather than generic loot:
