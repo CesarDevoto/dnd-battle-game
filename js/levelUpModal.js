@@ -102,7 +102,7 @@ const LEVEL_UNLOCKS = {
       // the description no longer claims the OOC scouting half as this ability's own.
       { name: 'Combat Hide',
         imgSrc: 'assets/spells and skills/hide.jpg',
-        desc: 'Bonus action in combat · Stealth check · 2-turn cooldown. Permits subsequent sneak attack on any target if successful.' },
+        desc: 'Bonus action in combat · Stealth check · 2-turn cooldown. Only usable when no enemy has line of sight to Milo (unless he is inside his own Smoke & Mirrors). Permits subsequent sneak attack on any target if successful.' },
     ],
     3: [
       { name: 'Smoke & Mirrors',
