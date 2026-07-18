@@ -280,6 +280,35 @@ export const SLOT_AFFIXES = {
       dice:  { green: '1d1', blue: '1d1', purple: '1d2', orange: '1d2+1', red: '1d3+1' },
     },
   },
+  ring: {
+    // Ring is a PAIR (ring-l + ring-r) like wrist — every number can land TWICE, so price the pair.
+    // Owns crit chance % + crit damage. (Cooldown reduction was CUT: only two tiny class-specific
+    // cooldowns exist — Gobo Def Stance, Milo Hide — dead for casters, not worth a slot stat.)
+    // Both are wired in combat.js's _executeAttack / rollToHit; nothing else to consume.
+    crit_chance_pct: {
+      label: 'Crit chance',
+      fmt:   v => `+${v}% crit chance`,
+      // Lowers the d100 crit threshold 1:1 (base 96/5%); rollToHit floors it so crit never tops 50%.
+      dice:  { green: '1d2', blue: '1d2+1', purple: '1d2+2', orange: '1d4+4', red: '1d6+6' },
+    },
+    crit_damage: {
+      label: 'Crit damage',
+      fmt:   v => `+${v} crit damage`,
+      // Flat bonus added on a crit, on top of the doubled dice. Value affix (rolled once; rings sum).
+      dice:  { green: '1d4', blue: '1d4+2', purple: '1d8+3', orange: '2d6+4', red: '2d8+6' },
+    },
+  },
+  ammo: {
+    // Ammo = Projectile range (thin slot — count always 1, tiers separate by SIZE). Extends a hero's
+    // RANGED-weapon + attack-SPELL reach only — NOT melee (user's call, melee reach is too tangled).
+    // Value in SQUARES like move_speed; combat.js `projRangeWU` multiplies by GRID_SQUARE_FEET and
+    // adds it before the range check. Wired only at hero ranged/spell sites, never enemy AI.
+    projectile_range: {
+      label: 'Projectile range',
+      fmt:   v => `+${v * GRID_SQUARE_FEET} ft ranged/spell range`,
+      dice:  { green: '1d1', blue: '1d2', purple: '1d2+2', orange: '1d4+3', red: '1d4+5' },
+    },
+  },
   // The remaining slots are UNBUILT ON PURPOSE. Which stat each owns is already locked in
   // the doc's allocation table, but dice-per-tier are real design decisions and the rule is
   // one slot at a time. An item in a slot with no table here simply rolls no affixes.
@@ -327,6 +356,11 @@ export const AFFIX_COUNT = {
   // Belt owns CON (purple+, even-only) + Resource regen (all tiers). green/blue roll ONLY regen (CON
   // is purple+); purple+ can pair both. Mirrors the hands shape where a gated stat joins from purple.
   belt:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 2], orange: [2, 2], red: [2, 2] },
+  // Ring is a PAIR — count stays 1 (like wrist) so each ring rolls ONE of crit chance / crit damage;
+  // wearing two is the choice (both chance, both damage, or one of each). Tiers separate by size.
+  ring:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
+  // Ammo is a THIN slot — projectile_range is the only stat, so count is always 1; tiers by size.
+  ammo:  { grey: [0, 1], green: [1, 1], blue: [1, 1], purple: [1, 1], orange: [1, 1], red: [1, 1] },
 };
 
 // Fisher-Yates on a copy — picks are WITHOUT replacement, so one item can't roll the same
