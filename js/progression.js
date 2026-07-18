@@ -139,7 +139,15 @@ export function awardXP(amount, addLog) {
         const hpGain  = Math.floor(_frac);
         hero.hpFrac   = _frac - hpGain;
         hero.maxHp   += hpGain;
-        hero.hp      += hpGain;
+        // ⚠ NEVER raise a DOWNED hero's current hp. Live bug, 2026-07-18: Gobo died mid-fight,
+        // the party levelled on the kill, and this line moved him from 0 HP to 2 — still a
+        // corpse, but no longer matching the short rest's `hp <= 0` revive test, so REST
+        // silently skipped him and he became permanently un-revivable.
+        //
+        // A hero at 0 is dead and must STAY at 0 until something actually revives them (short
+        // rest, or Dagna's River Styx run). Same rule syncGearHp already documents for gear HP.
+        // maxHp still rises, so the level-up is not lost — it lands the moment they're raised.
+        if (hero.hp > 0) hero.hp += hpGain;
         showLevelUpFloat(hero);
         addLog(`⬆ ${heroDef.name} reaches Level ${newLevel}! +${hpGain} HP`, 'levelup');
         window.dispatchEvent(new CustomEvent('hero:levelup', { detail: { hero, newLevel } }));

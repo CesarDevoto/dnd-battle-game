@@ -119,6 +119,11 @@ const CATEGORIES = [
             { value: 'magic_missile', label: 'Magic Missile' },
             { value: 'fire_bolt',     label: 'Fire Bolt'     },
             { value: 'quarterstaff',  label: 'Quarterstaff'  },
+            // Thrown dart from the ammo slot — only exists while one is equipped, and the
+            // generic named-attack executor resolves it through attacksOf(). Defaulted to
+            // LAST (user, 2026-07-18): a 1d4 dart should never be chosen over a cantrip, so
+            // it's offered for completeness rather than as something Rasec actually does.
+            { value: 'dart',          label: 'Dart (thrown)' },
             { value: 'ready_action',  label: 'Ready Action'  },
           ],
           dwarf: [
@@ -154,7 +159,9 @@ const CATEGORIES = [
           ],
         },
         defaults: {
-          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff'],
+          // 'dart' sits LAST on purpose — below even the quarterstaff. It only does anything
+          // when darts are equipped, and a 1d4 throw must never pre-empt a cantrip.
+          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff', 'dart'],
           dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
           // dodge_hurt sits above the attacks on purpose: only the FIRST action in this list
           // that succeeds fires, so below it he'd never reach the dodge — Greataxe would
@@ -260,7 +267,7 @@ const CATEGORIES = [
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Bump this whenever defaults change — clears any saved tendencies on next load.
-const TENDENCIES_VERSION = 16;   // 16: Gobo's dodge_hurt (Dodge <33% HP) in the enemy-in-range list, above his attacks
+const TENDENCIES_VERSION = 17;   // 17: Rasec's thrown Dart added LAST in the enemy-in-range list
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

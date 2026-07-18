@@ -97,9 +97,12 @@ const LEVEL_UNLOCKS = {
   },
   halfling: {
     2: [
-      { name: 'Cunning Action: Hide',
+      // Renamed from "Cunning Action: Hide" (user, 2026-07-18): out-of-combat stealth is no
+      // longer Milo's alone — the whole party sneaks via the MOVE-widget Stealth button — so
+      // the description no longer claims the OOC scouting half as this ability's own.
+      { name: 'Combat Hide',
         imgSrc: 'assets/spells and skills/hide.jpg',
-        desc: 'Bonus action in combat · Stealth check · 2-turn cooldown. Out of combat: hide freely to scout — cuts the detection radius of enemies he can see by 50% so Milo can move solo without aggroing' },
+        desc: 'Bonus action in combat · Stealth check · 2-turn cooldown. Permits subsequent sneak attack on any target if successful.' },
     ],
     3: [
       { name: 'Smoke & Mirrors',

@@ -467,15 +467,40 @@ function buildHoverRingGeo(cx, cz) {
   return geo;
 }
 
+// How far a CASTER can actually threaten right now, in feet: the longest-ranged offensive
+// spell they have unlocked AND can currently pay for (user's rule, 2026-07-18 — Rasec and
+// Leugren both).
+//
+// ⚠ "If no prepared spell, use their furthest cantrip" needs NO separate branch: hasSpellSlot
+// returns true for level 0, so cantrips are always in the pool. Once the leveled spells are
+// spent they're the only candidates left, and the max naturally falls back to them.
+//
+// Heals are excluded — they define reach to an ALLY, not a threat range, and a 60 ft Cure
+// Wounds would inflate the ring around an enemy the cleric can't actually hurt from there.
+function _casterReachFt(hero) {
+  const pool = hero?.type === 'dwarf' ? SPELLS : hero?.type === 'elf' ? ELF_SPELLS : null;
+  if (!pool) return 0;
+  let maxFt = 0;
+  for (const sp of Object.values(pool)) {
+    if (sp.rangeFt == null || sp.healDice !== undefined) continue;
+    if (!isAbilityUnlocked(hero.type, hero.level, sp.key)) continue;
+    if (!hasSpellSlot(hero, spellLevelOf(sp.key))) continue;   // level 0 always passes
+    if (sp.rangeFt > maxFt) maxFt = sp.rangeFt;
+  }
+  return maxFt;
+}
+
 function showRangeRings(u) {
   _conformLayer = u.caveLayer ?? 'surface';
   const def    = UNIT_TYPES[u.type] ?? {};
-  const atks   = def.attacks ?? [];
+  const atks   = attacksOf(u);
   const meleeA = atks.find(a => a.type === 'melee');
-  // Rasec has no ranged WEAPON in attacks[] — Fire Bolt (90 ft) is what he throws at range,
-  // and it's a spell, so it never appears in a `type === 'ranged'` search. Fall back to it
-  // explicitly or the elf draws no ranged ring at all.
-  const rangdA = atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
+  // The ranged ring shows how far this unit can THREATEN, whichever way reaches further:
+  // a ranged weapon (including a thrown dart from the ammo slot) or, for Rasec/Leugren, their
+  // furthest available spell. Taking the max is the point — a 20 ft dart must not shrink
+  // Rasec's 90 ft Fire Bolt ring just because he happens to have darts equipped.
+  const rangdA   = atks.find(a => a.type === 'ranged');
+  const reachFt  = Math.max(rangdA ? rangdA.range : 0, _casterReachFt(u));
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   if (meleeA) {
@@ -487,9 +512,9 @@ function showRangeRings(u) {
     meleeRangeRing.visible = false;
   }
 
-  if (rangdA) {
+  if (reachFt > 0) {
     rangedRangeRing.geometry.dispose();
-    rangedRangeRing.geometry = makeConformingRingGeo(ux, uz, projRangeWU(rangdA.range, u));
+    rangedRangeRing.geometry = makeConformingRingGeo(ux, uz, projRangeWU(reachFt, u));
     rangedRangeRing.position.set(ux, 0, uz);
     rangedRangeRing.visible = true;
   } else {
@@ -876,7 +901,7 @@ function atkHasQty(unit, atk) {
 function _refreshAttackQty() {
   for (const u of units) {
     if (!u.atkQty) continue;
-    const atks = UNIT_TYPES[u.type]?.attacks;
+    const atks = attacksOf(u);
     if (!atks) continue;
     for (const atk of atks) {
       if (atk.qty !== undefined) u.atkQty[atk.name] = atk.qty;
@@ -1160,7 +1185,7 @@ function showAttackTargets(u) {
   if (turnAttacked) return;
 
   const def  = UNIT_TYPES[u.type] ?? {};
-  const atks = def.attacks ?? [];
+  const atks = attacksOf(u);
   const meleeA = atks.find(a => a.type === 'melee');
   const rangdA = atks.find(a => a.type === 'ranged');
   if (!meleeA && !rangdA) return;
@@ -1416,7 +1441,7 @@ function handleSneakAttackBtnClick() {
   const tx = selectedTarget.grp.position.x, tz = selectedTarget.grp.position.z;
   const dx = tx - ux, dz = tz - uz;
   const dist = Math.sqrt(dx * dx + dz * dz);
-  const atks  = UNIT_TYPES[u.type]?.attacks ?? [];
+  const atks  = attacksOf(u);
   const meleeA  = atks.find(a => a.type === 'melee');
   const rangedA = atks.find(a => a.type === 'ranged');
 
@@ -1693,7 +1718,7 @@ function _checkHidePerception(hero) {
   }
 }
 
-// ── Healing potion (bonus action, Digit6) ───────────────────────────────────
+// ── Healing potion (bonus action, Digit8) ───────────────────────────────────
 // Bag-1 slot 0 is reserved for healing potions (see lootPanel.js) — any item
 // with a `heal` dice-formula string sitting there is usable here.
 
@@ -1706,7 +1731,7 @@ function _heroPotion(u) {
 // their own turn; OUT of combat there's no turn economy to spend, so drinking is
 // free and bounded only by how many potions they're carrying. Exported so the
 // inventory right-click menu can grey its Use option for the same reasons the
-// Digit6 hotbar slot greys out.
+// Digit8 hotbar slot greys out.
 export function canUseHealingPotion(u) {
   if (!u || u.hp <= 0 || isAnimating) return false;
   if (!_heroPotion(u)) return false;
@@ -1714,7 +1739,7 @@ export function canUseHealingPotion(u) {
   return turnOrder[turnIndex] === u && !turnBonusActioned;
 }
 
-// Drink, from either entry point: the Digit6 hotbar slot (always in combat) or the
+// Drink, from either entry point: the Digit8 hotbar slot (always in combat) or the
 // inventory right-click menu (either side of a fight). The in-combat-only bits are
 // gated on `inCombat` below — there's no bonus action to spend out of combat, and
 // _rebuildHotbar out there wrongly lights up End Turn/attacks before a fight starts.
@@ -1798,6 +1823,57 @@ const FIRE_BOLT_ATK = Object.freeze({
   sides:    ELF_SPELLS.fire_bolt.sides,
   statMod:  ELF_SPELLS.fire_bolt.statMod,
 });
+
+// ── Gear-granted attacks ──────────────────────────────────────────────────────
+// A unit's attack list INCLUDING anything its equipment grants. This is the first crack in
+// "attacks come from the static statblock, equipment is ignored" (see the weapon-equipment
+// binding note): a thrown weapon in the ammo slot now produces a real ranged attack.
+//
+// Everything must come through here, or gear silently won't apply — the raw
+// `UNIT_TYPES[u.type].attacks` read appears at ~14 sites in this file alone, and each one is
+// a place an equipped dart would be invisible (no ring, no hotbar slot, no AI awareness).
+//
+// Takes the UNIT, not a def: a def has no equipment, so it cannot know about gear. Enemies
+// carry no `equipment`, so this returns their statblock untouched and costs them one guard.
+function attacksOf(unit) {
+  const base = UNIT_TYPES[unit?.type]?.attacks ?? [];
+  const thrown = _thrownAmmoAtkOf(unit);
+  return thrown ? [...base, thrown] : base;
+}
+
+// A ranged attack built from a THROWN weapon sitting in the ammo slot (darts today).
+//
+// Built from the item so its 5e stats stay the single source of truth — the same reason
+// FIRE_BOLT_ATK reads ELF_SPELLS. No proficiency test is needed: canEquip() already gated
+// the equip, so an equipped dart means the hero may use it.
+//
+// ⚠ type:'ranged' is deliberate — this IS a ranged weapon, so it SHOULD win the
+// `find(a => a.type === 'ranged')` searches. For Rasec that means an equipped dart takes the
+// ranged slot and demotes Fire Bolt to a spell-only button (user's call, 2026-07-18). Fire
+// Bolt remains a SPELL throughout: it never enters attacks[], keeps type 'spell_attack', and
+// still only ever appears via the explicit `?? FIRE_BOLT_ATK` fallbacks, which now fire only
+// when no thrown weapon is equipped.
+//
+// No ammo consumption (user's call): infinite throws, exactly like arrows today.
+function _thrownAmmoAtkOf(unit) {
+  const ammo = unit?.equipment?.ammo;
+  if (!ammo?.thrown || !ammo.dmg) return null;
+  const f = parseDiceFormula(ammo.dmg);
+  if (!f) return null;
+  return {
+    name:      ammo.weaponType ?? ammo.name,
+    type:      'ranged',
+    range:     ammo.range ?? 20,
+    longRange: ammo.longRange ?? null,
+    dice:      f.count,
+    sides:     f.sides,
+    // Finesse: use the better of STR/DEX, which for a dart-throwing caster is always DEX.
+    statMod:   ammo.finesse
+      ? (abilityModOf(unit, 'dex') >= abilityModOf(unit, 'str') ? 'dex' : 'str')
+      : 'dex',
+    dmgType:   ammo.dmgType ?? 'piercing',
+  };
+}
 
 // Does this attack resolve like a ranged one — fly at the target, fire a projectile, check
 // long range? True for weapons AND attack-roll spells. This is the test performAttack wants;
@@ -3493,7 +3569,7 @@ function showTargetMarker(enemy) {
     const dz   = enemy.grp.position.z - u.grp.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
     const los  = unitsHaveLOS(u, enemy);
-    const eligible = (def.attacks ?? [])
+    const eligible = attacksOf(u)
       .filter(a => dist <= atkTriggerWU(a) && (a.type === 'melee' || (los && atkHasQty(u, a))))
       .sort((a, b) => a.range - b.range);
 
@@ -4337,6 +4413,66 @@ export function updateReadyIcons() {
   }
 }
 
+// Arm a readied action for `hero` on `trigger`. Extracted from the modal's click handler so a
+// dragged hotbar shortcut arms it through EXACTLY the same path — the two must not drift about
+// what "readied" means (turnAttacked, the bonus-action snapshot, the turn-list tag).
+//
+// `endTurn` is the one difference between the two callers, and it's the user's spec:
+//   • modal      → false. Arming spends the ACTION, not the turn; the player still clicks End Turn.
+//   • hotbar btn → true.  The shortcut's whole point is one click = "ready this and pass".
+function _armReadyAction(hero, trigger, { endTurn = false } = {}) {
+  if (!hero || !trigger) return false;
+  _readied.set(hero, trigger);
+  _readiedBonusActioned.set(hero, turnBonusActioned);
+  turnAttacked = true;
+  addLog(`${unitLabel(hero)} readies action: trigger "${_READY_LABELS[trigger]}"`, 'ready');
+  buildTurnList();
+  updateCombatStatus();
+  _rebuildHotbar(hero);
+  endTurnBtn.disabled = false;
+  if (endTurn) doEndTurn();
+  return true;
+}
+
+// ── First-open tutorial for the Ready Action window ──────────────────────────
+// Modelled on the short-rest first-death arrow (js/shortRest.js): a bobbing label + arrow
+// pointing at the thing you're being taught about.
+//
+// PER HERO, not once globally (user, 2026-07-18) — the shortcut is assigned per hero, so each
+// one has their own first time. Leugren learning it doesn't teach you Milo's bar.
+const LS_RA_TUT_KEY = 'dnd_ra_tutorial_seen';
+
+function _raTutSeen() {
+  try { return JSON.parse(localStorage.getItem(LS_RA_TUT_KEY) ?? '[]'); } catch { return []; }
+}
+function _markRaTutSeen(type) {
+  try {
+    const seen = _raTutSeen();
+    if (!seen.includes(type)) localStorage.setItem(LS_RA_TUT_KEY, JSON.stringify([...seen, type]));
+  } catch {}
+}
+
+// Torn down on every close so it can't outlive the modal it points at — the modal is a single
+// shared element, so a leftover tip would reappear over the NEXT hero's window.
+function _hideReadyTutorial() {
+  document.getElementById('ra-tutorial')?.remove();
+}
+
+function _maybeShowReadyTutorial(hero, modal) {
+  _hideReadyTutorial();
+  if (!hero || _raTutSeen().includes(hero.type)) return;
+  const el = document.createElement('div');
+  el.id = 'ra-tutorial';
+  el.innerHTML =
+    `<div class="ra-tut-label">Shift + Left-Click drag a trigger<br>onto your hotbar for one-click ready</div>` +
+    `<div class="ra-tut-arrow">▼</div>`;
+  modal.appendChild(el);
+  // Marked on OPEN rather than on use: the ask was "the first time the window is opened by
+  // each hero", and unlike the rest tutorial there's no single action that proves it landed —
+  // dragging is optional, and a hero who only ever uses the modal shouldn't be nagged forever.
+  _markRaTutSeen(hero.type);
+}
+
 function _openReadyModal(hero) {
   const modal = document.getElementById('ready-action-modal');
   if (!modal) return;
@@ -4350,22 +4486,19 @@ function _openReadyModal(hero) {
   });
   modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
     btn.onclick = () => {
-      const trigger = btn.dataset.trigger;
-      _readied.set(hero, trigger);
-      _readiedBonusActioned.set(hero, turnBonusActioned);
-      turnAttacked = true;
+      _hideReadyTutorial();
       modal.style.display = 'none';
-      addLog(`${unitLabel(hero)} readies action: trigger "${_READY_LABELS[trigger]}"`, 'ready');
-      buildTurnList();
-      updateCombatStatus();
-      _rebuildHotbar(hero);
-      // Arming a ready action ends the hero's main action but not their turn —
-      // they still have to click End Turn themselves to pass to the next unit.
-      endTurnBtn.disabled = false;
+      // Arming a ready action ends the hero's main action but not their turn — they still
+      // click End Turn themselves. (The dragged hotbar shortcut passes endTurn:true instead.)
+      _armReadyAction(hero, btn.dataset.trigger, { endTurn: false });
     };
   });
-  document.getElementById('dam-cancel-btn').onclick = () => { modal.style.display = 'none'; };
+  document.getElementById('dam-cancel-btn').onclick = () => {
+    _hideReadyTutorial();
+    modal.style.display = 'none';
+  };
   modal.style.display = 'flex';
+  _maybeShowReadyTutorial(hero, modal);
 }
 
 // Longest range (world units) at which this hero threatens an enemy right
@@ -4376,7 +4509,7 @@ function _openReadyModal(hero) {
 // they don't threaten an enemy. Returns null if the hero has no ranged
 // option at all (pure melee).
 function _heroRangedRangeWU(hero) {
-  const heroAtks  = UNIT_TYPES[hero.type]?.attacks ?? [];
+  const heroAtks  = attacksOf(hero);
   const rangedAtk = heroAtks.find(a => a.type === 'ranged');
   let maxFt = rangedAtk ? (rangedAtk.longRange ?? rangedAtk.range) : 0;
 
@@ -4406,7 +4539,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
   const matches = [];
   for (const [hero, trigger] of _readied) {
     if (!units.includes(hero) || hero.hp <= 0) { _readied.delete(hero); continue; }
-    const heroAtks = UNIT_TYPES[hero.type]?.attacks ?? [];
+    const heroAtks = attacksOf(hero);
 
     if (eventType === 'enemy_moved') {
       const enemy = eventCtx;
@@ -4732,7 +4865,7 @@ const _ABILITY_HANDLERS = {
       const ttx = selectedTarget.grp.position.x, ttz = selectedTarget.grp.position.z;
       const ddx = ttx - ux, ddz = ttz - uz;
       const dst = Math.sqrt(ddx * ddx + ddz * ddz);
-      const _atks   = UNIT_TYPES[curU.type]?.attacks ?? [];
+      const _atks   = attacksOf(curU);
       const _meleeA  = _atks.find(a => a.type === 'melee');
       const _rangedA = _atks.find(a => a.type === 'ranged');
       const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
@@ -4944,10 +5077,19 @@ const _ABILITY_HANDLERS = {
 // shake. assignHotbarSlot() rejects anything aimed at it, so the drag-drop can't reach it.
 const SAVE_SLOT = 'Digit1';
 // The spare slots added when the bar was widened. They carry no fixed role (unlike
-// Digit2..Digit6) and no permanent binding (unlike Backquote/Tab, which are assignable
+// Digit2..Digit5) and no permanent binding (unlike Backquote/Tab, which are assignable
 // but hold NEXT HERO / NEXT TARGET), so they start empty and are safe to unbind wholesale
 // on a hero switch — see the pc-hero:selected handler.
-const SPARE_SLOTS = ['Digit7', 'Digit8', 'KeyU'];
+//
+// ⚠ The two digits SWAPPED here (user, 2026-07-18: potion moved 6 → 8).
+//   • Digit8 was REMOVED — it now holds the healing potion. Leaving it would let a drag-drop
+//     park an ability on top of the potion, and the hero-switch unbind would wipe the
+//     potion's binding outright.
+//   • Digit6 was ADDED — freed by the move, and an unassignable empty slot would just be dead
+//     space. Safe because AUTO_FILL_SLOTS is QWERTY-only (Q→Y), so making a DIGIT assignable
+//     cannot change where existing heroes' abilities auto-land; it only opens it to drag-drop,
+//     exactly like Digit7 beside it.
+const SPARE_SLOTS = ['Digit6', 'Digit7', 'KeyU'];
 const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT',
                                    ...SPARE_SLOTS]);
 
@@ -5002,10 +5144,68 @@ export function autoAssignHotbarSlots(hero) {
 
 // Binds one player-assigned ability onto one hotbar slot for the currently
 // rebuilding hero — shared by the custom-slot loop in _rebuildHotbar.
+// ── Readied-trigger hotbar shortcuts ─────────────────────────────────────────
+// A trigger dragged out of the Ready Action window becomes the ability key
+// `ready:<trigger>` (e.g. `ready:ally_loses_hp`). One click on that slot arms THAT trigger and
+// ends the turn, skipping the modal entirely.
+//
+// Handlers are SYNTHESISED per trigger rather than written into _ABILITY_HANDLERS, because the
+// set is data — it's whatever _READY_LABELS holds, and adding a trigger there should not also
+// require adding a handler here. The prefix is what keeps them out of the auto-assigner too:
+// AUTO_FILL only ever names real ability keys, so these are drag-only by construction.
+const READY_PREFIX = 'ready:';
+export const isReadyAbilityKey = k => typeof k === 'string' && k.startsWith(READY_PREFIX);
+const _readyTriggerOf = k => (isReadyAbilityKey(k) ? k.slice(READY_PREFIX.length) : null);
+
+function _readyAbilityHandler(abilityKey) {
+  const trigger = _readyTriggerOf(abilityKey);
+  if (!trigger || !_READY_LABELS[trigger]) return null;
+  return {
+    actionType: 'action',
+    execute: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.team !== 'blue' || isAnimating || turnAttacked || _readyCtx) return;
+      if (_saveLocksTurn(curU)) return;
+      // A trigger that can never fire would strand the hero: they'd ready, wait, and never act.
+      // _triggerViable is the same guard the automated picker uses (owl_helped with a dead owl).
+      if (!_triggerViable(trigger)) {
+        addLog(`${unitLabel(curU)} can't ready "${_READY_LABELS[trigger]}" right now.`, 'alert');
+        return;
+      }
+      _armReadyAction(curU, trigger, { endTurn: true });
+    },
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      return !!curU && curU.team === 'blue' && !isAnimating && !turnAttacked && !_readyCtx &&
+             !_saveLocksTurn(curU) && _triggerViable(trigger);
+    },
+  };
+}
+
+// Every consumer of an ability key goes through here, so a `ready:` slot behaves like any
+// other assigned ability — bind, rebuild, persist, grey-out.
+function _abilityHandlerFor(abilityKey) {
+  return _ABILITY_HANDLERS[abilityKey] ?? _readyAbilityHandler(abilityKey);
+}
+
+// Label for a ready shortcut's button. ABILITY_META has no entry for a composite key, so the
+// trigger's own human label is used — abbreviated, since a hotbar cell is narrow.
+function _abilityIconHTML(abilityKey) {
+  const trigger = _readyTriggerOf(abilityKey);
+  if (!trigger) return hotbarIconHTML(abilityKey);
+  return `<span class="hb-ready-trigger">⚡ ${_READY_LABELS[trigger] ?? trigger}</span>`;
+}
+function _abilityTitle(abilityKey) {
+  const trigger = _readyTriggerOf(abilityKey);
+  return trigger
+    ? `Ready Action — ${_READY_LABELS[trigger] ?? trigger} (arms it and ends your turn)`
+    : ABILITY_META[abilityKey]?.name;
+}
+
 function _bindAbilitySlot(slotKey, abilityKey) {
-  const handler = _ABILITY_HANDLERS[abilityKey];
+  const handler = _abilityHandlerFor(abilityKey);
   if (!handler) return;
-  const btn = bindHotkey(slotKey, false, hotbarIconHTML(abilityKey), handler.execute, handler.isAvailable, handler.actionType, ABILITY_META[abilityKey]?.name);
+  const btn = bindHotkey(slotKey, false, _abilityIconHTML(abilityKey), handler.execute, handler.isAvailable, handler.actionType, _abilityTitle(abilityKey));
   const curU = turnOrder[turnIndex];
   if (btn && curU && handler.isActive?.(curU)) btn.classList.add('spell-active');
 }
@@ -5017,13 +5217,13 @@ function _bindAbilitySlot(slotKey, abilityKey) {
 // re-checks its own guards (isAnimating, turnAttacked, etc.), so this is safe
 // to call unconditionally.
 export function executeAbility(abilityKey) {
-  _ABILITY_HANDLERS[abilityKey]?.execute();
+  _abilityHandlerFor(abilityKey)?.execute();
 }
 
 // Shared by the hotbar (bindHotkey's actionType param) and the Skills &
 // Spells window, so both show the same A/BA/R tag for a given ability.
 export function getAbilityActionType(abilityKey) {
-  return _ABILITY_HANDLERS[abilityKey]?.actionType ?? null;
+  return _abilityHandlerFor(abilityKey)?.actionType ?? null;
 }
 
 // Whether an ability could be used right now (turn state, cooldowns, range,
@@ -5033,13 +5233,13 @@ export function isAbilityAvailableNow(abilityKey) {
   // Still tangled in webbing — struggling was the whole turn. Everything greys out.
   const _cu = turnOrder[turnIndex];
   if (_saveLocksTurn(_cu) && abilityKey !== 'action_save') return false;
-  return _ABILITY_HANDLERS[abilityKey]?.isAvailable?.() ?? true;
+  return _abilityHandlerFor(abilityKey)?.isAvailable?.() ?? true;
 }
 
 // Called from the Skills & Spells window's shift-click-drag-drop — assigns
 // (or overwrites) one ability onto one hotbar slot for a specific hero.
 export function assignHotbarSlot(hero, slotKey, abilityKey) {
-  if (!hero || !_ASSIGNABLE_SLOTS.has(slotKey) || !_ABILITY_HANDLERS[abilityKey]) return false;
+  if (!hero || !_ASSIGNABLE_SLOTS.has(slotKey) || !_abilityHandlerFor(abilityKey)) return false;
   if (!hero.hotbarSlots) hero.hotbarSlots = {};
   hero.hotbarSlots[slotKey] = abilityKey;
   if (combatPhase && turnOrder[turnIndex] === hero) {
@@ -5103,7 +5303,7 @@ function _rebuildHotbar(u) {
   // Restore the melee/ranged weapon glyphs on slots 2/3 (the owl hotbar hides them).
   setSlotIcon('Digit2', true);
   setSlotIcon('Digit3', true);
-  const _attacks    = UNIT_TYPES[u.type]?.attacks ?? [];
+  const _attacks    = attacksOf(u);
   const firstMelee  = _attacks.find(a => a.type === 'melee');
   const firstRanged = _attacks.find(a => a.type === 'ranged');
   if (firstMelee) {
@@ -5193,7 +5393,7 @@ function _rebuildHotbar(u) {
   }
   {
     const potion = _heroPotion(u);
-    bindHotkey('Digit6', false,
+    bindHotkey('Digit8', false,
       potion ? potion.name.toUpperCase() : 'HEAL POTION',
       () => _useHealingPotion(u),
       () => {
@@ -5357,7 +5557,7 @@ export function activateTurn(index) {
 
     // Build per-attack rows (red HUD only; blue uses hotkeys)
     const atksEl = document.getElementById(`${u.team}-hud-atks`);
-    const _attacks = UNIT_TYPES[u.type]?.attacks ?? [];
+    const _attacks = attacksOf(u);
     if (isRed && atksEl) {
       atksEl.innerHTML = '';
       _attacks.forEach(atk => {
@@ -5378,7 +5578,7 @@ export function activateTurn(index) {
     _rebuildHotbar(u);
     // Apply each slot's greyed/enabled state immediately — without this, a
     // freshly-bound slot whose rangeFn depends on nothing else the player is
-    // about to click (e.g. Digit6's potion check) stays visually "enabled"
+    // about to click (e.g. Digit8's potion check) stays visually "enabled"
     // until some unrelated action happens to call updateCombatStatus().
     updateHotkeyRanges();
 
@@ -6143,7 +6343,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         const edx   = enemyTarget.grp.position.x - u.grp.position.x;
         const edz   = enemyTarget.grp.position.z - u.grp.position.z;
         const eDist = Math.sqrt(edx * edx + edz * edz);
-        const atks  = UNIT_TYPES[u.type]?.attacks ?? [];
+        const atks  = attacksOf(u);
         const meleeAtk = atks.find(a => a.type === 'melee' && eDist <= atkTriggerWU(a));
         const rangdAtk = atks.find(a =>
           a.type === 'ranged' &&
@@ -6171,7 +6371,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
 
       // ── Named weapon attack ──────────────────────────────────────────
       if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
-      const atks = UNIT_TYPES[u.type]?.attacks ?? [];
+      const atks = attacksOf(u);
       const atk  = atks.find(a => a.name.toLowerCase().replace(/\s+/g, '_') === actionVal);
       if (!atk) { onSkip(); return; }
       const edx   = enemyTarget.grp.position.x - u.grp.position.x;
@@ -6243,7 +6443,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       // instead of ever getting close enough to attack.
       let _movFt;
       if (preferRange === 'ranged' || preferRange === 'kite') {
-        const _atks    = UNIT_TYPES[u.type]?.attacks ?? [];
+        const _atks    = attacksOf(u);
         const _rangedA = _atks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
         const _rangeWU = _rangedA ? projRangeWU(_rangedA.range, u) : 0;
         const _tdx = movTarget.grp.position.x - u.grp.position.x;
@@ -6469,7 +6669,7 @@ function runAITurn(u) {
       let seq = [opener];
       if (Array.isArray(names) && names.length) {
         const resolved = names
-          .map(n => (def.attacks ?? []).find(a => a.name === n))
+          .map(n => attacksOf(u).find(a => a.name === n))
           .filter(Boolean);
         // A MIXED multiattack (both a melee and a ranged attack, e.g. the hobgoblin captain's
         // "greatsword or longbow in any combination") flurries from ANY opener — otherwise a
@@ -6505,7 +6705,7 @@ function runAITurn(u) {
       // becomes two Greatsword swings against an adjacent target, and only uses the Longbow
       // leg when the re-picked foe is out of melee range. Resolved per-swing because the foe
       // (and the distance to it) can change between legs of the flurry.
-      const meleeSub = (def.attacks ?? []).find(a => a.type === 'melee');
+      const meleeSub = attacksOf(u).find(a => a.type === 'melee');
       const preferMelee = (atk, foe) => {
         if (!meleeSub || !atk || atk.type === 'melee') return atk;
         const dx = foe.grp.position.x - u.grp.position.x;
@@ -6608,7 +6808,7 @@ function runAITurn(u) {
       if (!combatPhase || !units.includes(u)) return;
       const slots = totalSpellSlots(u);   // enemy statblocks keep the flat pool; helper reads both
       const _def  = UNIT_TYPES[u.type] ?? {};
-      const atks  = _def.attacks ?? [];
+      const atks  = attacksOf(u);
       const meleeA   = atks.find(a => a.type === 'melee');
       const aoeSaveA = atks.find(a => a.type === 'aoe_save');
       const meleeTrigger = meleeA   ? atkTriggerWU(meleeA)       : 0;
@@ -6675,7 +6875,7 @@ function runAITurn(u) {
       const _dz0  = target.grp.position.z - u.grp.position.z;
       const _dist = Math.sqrt(_dx0 * _dx0 + _dz0 * _dz0);
       const _def0 = UNIT_TYPES[u.type] ?? {};
-      const _meleeA0 = (_def0.attacks ?? []).find(a => a.type === 'melee');
+      const _meleeA0 = attacksOf(u).find(a => a.type === 'melee');
       const inMeleeRange = _meleeA0 && _dist <= atkTriggerWU(_meleeA0);
 
       // Path 1: Already in melee → swing immediately, end turn
@@ -6717,7 +6917,7 @@ function runAITurn(u) {
 
       // Sprint: melee-only enemies that can't reach their target with normal movement
       // spend their action to dash (double movement), forfeiting their attack.
-      const _isMeleeOnly = !(_def0.attacks ?? []).some(a => a.type === 'ranged');
+      const _isMeleeOnly = !attacksOf(u).some(a => a.type === 'ranged');
       if (_isMeleeOnly && !turnAttacked) {
         const _ddx = target.grp.position.x - dest.x;
         const _ddz = target.grp.position.z - dest.z;
