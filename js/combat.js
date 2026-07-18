@@ -5460,6 +5460,11 @@ function _runAutomatedFamiliarTurn(u) {
 // preferTarget: force the attack onto this enemy instead of re-picking from the hero's
 // target priorities. Used by a readied 'ally_in_enemy_melee' so the shot lands on the
 // foe the ally is actually engaging (the Sneak Attack condition).
+// A Gloves EXTRA action (attack_speed/cast_speed) is an offensive/support bonus — never a "hold" or
+// "turtle". These fallbacks are dropped from the extra-action pass so a hero can't spend an extra
+// readying, dodging, or dashing (which is how Fire Bolt was auto-bouncing into a readied action).
+const EXTRA_ACTION_EXCLUDE = new Set(['ready_action', 'dodge', 'dodge_hurt', 'dash']);
+
 function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget = null } = {}) {
   endTurnBtn.disabled = true;
 
@@ -5509,9 +5514,27 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
 
     function endHeroAITurn() { onEnd ? onEnd() : setTimeout(doEndTurn, END_PAUSE); }
 
+    // Gloves action economy for AUTOMATED heroes. An attack/cast consumes an EXTRA of its type (via
+    // _spendHeroAction inside _executeAttack / the shared cast fns) instead of immediately locking
+    // turnAttacked — so a gloved hero should take another action before ending. After each action pass
+    // we re-run the priority list while BOTH hold: (a) the turn isn't locked yet, AND (b) the last pass
+    // actually SPENT an extra (the budget total fell). Guard (b) is the loop-breaker: when no further
+    // attack/cast is available (target dead / out of range), the budget stops falling and we end — a
+    // non-gloved hero has budget 0, spends nothing, and ends after exactly one action as before.
+    let _aiActionBudget = _extraAttacksLeft + _extraCastsLeft;
+    function afterAction() {
+      const left = _extraAttacksLeft + _extraCastsLeft;
+      if (!turnAttacked && left < _aiActionBudget) {
+        _aiActionBudget = left;
+        setTimeout(() => doActionPriority(afterAction, true), PRE_ATK_MS);
+        return;
+      }
+      endHeroAITurn();
+    }
+
     // ── Execute a validated attack against enemyTarget ──────────────────
     function _executeAttack(atk, cb) {
-      turnAttacked = true;
+      _spendHeroAction(atk?.spellKey ? 'spell' : 'weapon');
       showAttackTargets(u);
       setTimeout(() => {
         if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
@@ -5570,7 +5593,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       // ── Healing Word ─────────────────────────────────────────────────
       if (actionVal === 'healing_word') {
         if (!allyWounded) { onSkip(); return; }
-        turnAttacked = true;
+        _spendHeroAction('spell');
         // Roll from SPELLS, exactly as the manual cast does (castHealSpell). This used to
         // hardcode 1d4+3 while the spell — and Leugren's own sheet — said 1d8+WIS, so he
         // healed differently depending on who was driving him.
@@ -5607,7 +5630,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           .filter(a => a.team === 'blue' && a.hp > 0 && a.hp <= a.maxHp * 0.33)
           .reduce((best, a) => (!best || a.hp < best.hp) ? a : best, null);
         if (!critAlly) { onSkip(); return; }
-        turnAttacked = true;
+        _spendHeroAction('spell');
         spendSpellSlot(u, spellLevelOf('cure_wounds'));
         const cw       = SPELLS.cure_wounds;
         const healRoll = roll({ sides: cw.healSides, count: cw.healDice, modifier: cw.healMod });
@@ -5828,11 +5851,15 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
     }
 
     // ── Iterate action_priority_in_range; fall through to no-range list ─
-    function doActionPriority(cb) {
+    // extraOnly = this is a Gloves EXTRA-action pass: drop the hold/turtle fallbacks and, if no real
+    // attack/cast is viable, just END (cb) rather than dropping into the no-range fallback list — the
+    // extra goes unused instead of being spent readying/dodging.
+    function doActionPriority(cb, extraOnly = false) {
       let list = getTendency(heroType, 'action_priority_in_range');
       if (!Array.isArray(list)) list = [list];
+      if (extraOnly) list = list.filter(a => !EXTRA_ACTION_EXCLUDE.has(a));
       function tryIdx(i) {
-        if (i >= list.length) { doNoRangeAction(cb); return; }
+        if (i >= list.length) { extraOnly ? cb() : doNoRangeAction(cb); return; }
         _tryHeroAction(list[i], cb, () => tryIdx(i + 1));
       }
       tryIdx(0);
@@ -5906,7 +5933,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
     if (dest) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
       const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
-      if (!path.length) { doActionPriority(endHeroAITurn); return; }
+      if (!path.length) { doActionPriority(afterAction); return; }
       animatePath(u, path, () => {
         if (!combatPhase || !units.includes(u)) return;
         const mdx = u.grp.position.x - ox, mdz = u.grp.position.z - oz;
@@ -5923,10 +5950,10 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
           u.grp.rotation.y = Math.atan2(tdx, tdz);
         }
         updateCombatStatus();
-        setTimeout(() => doActionPriority(endHeroAITurn), PRE_ATK_MS);
+        setTimeout(() => doActionPriority(afterAction), PRE_ATK_MS);
       });
     } else {
-      doActionPriority(endHeroAITurn);
+      doActionPriority(afterAction);
     }
   }, THINK_MS);
 }
