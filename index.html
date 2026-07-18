@@ -578,11 +578,6 @@
       <div id="start-battle-btn-wrap">
         <button id="start-battle-btn" class="s-btn">▶ START PLAY MODE</button>
       </div>
-      <div id="combat-mode-bar" title="Any change commences at start of the next combat round.">
-        <span class="cm-label">COMBAT</span>
-        <button id="combat-mode-auto" class="cm-btn">AUTOMATED</button>
-        <button id="combat-mode-manual" class="cm-btn">MANUAL</button>
-      </div>
     </div>
 
     <!-- Floating unit action menu (no buttons — selection ring only) -->
@@ -1065,6 +1060,16 @@
 
       <!-- Hotbar — keyboard slots -->
       <div id="hotbar">
+      <!-- Combat mode picker — sits directly ABOVE the action tracker, in the same column to
+           the right of the hotbar. Lives inside #hotbar (not #bottom-action-bar) purely so it
+           can be positioned against the hotbar's right edge; it has nothing to do with the
+           hotbar's own contents. -->
+      <div id="combat-mode-bar" title="Any change commences at start of the next combat round.">
+        <span class="cm-label">COMBAT</span>
+        <button id="combat-mode-auto" class="cm-btn">AUTOMATED</button>
+        <button id="combat-mode-manual" class="cm-btn">MANUAL</button>
+      </div>
+
       <!-- Action / resource tracker row -->
       <div id="action-tracker">
         <div class="act-box" id="act-move-box">

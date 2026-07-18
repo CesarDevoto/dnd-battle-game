@@ -425,6 +425,11 @@ function buildXpPanelHTML(u) {
   // or "prepared spells" would be inventing a readout for a system that doesn't exist.
   let cols;
   let note = '';
+  // Optional header spanning this class's own columns ('' = none). Casters need one: their
+  // columns are bare ordinals (1st … 9th) that mean nothing without a label saying what
+  // they count. The martial classes name their own columns ("Rages", "Sneak Attack"), so
+  // a group header there would be noise.
+  let groupLabel = '';
   if (u.type === 'human') {
     cols = [
       ['Rages',   d => BARB_AT(d, 'rages')],
@@ -444,11 +449,22 @@ function buildXpPanelHTML(u) {
       `${i + 1}${['st','nd','rd','th','th','th','th','th','th'][i]}`,
       d => slotsForDndLevel(d)[i] ?? '—',
     ]);
+    groupLabel = 'Spells';   // spans all 9 ordinal columns — see groupRow below
   } else {
     cols = [];
   }
 
-  const head = `<tr><th>Level</th><th>Prof</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>`;
+  // "Spells" sits ABOVE the ordinal columns and spans them, rather than labelling one column:
+  // every one of 1st…9th is a spell-slot count, so tagging a single column would imply the
+  // others are something else. The two leading columns (Level, Prof) get an empty spanned cell
+  // so the group cell starts exactly where the class columns do.
+  const groupRow = (groupLabel && cols.length)
+    ? `<tr class="xp-group-row"><th colspan="2"></th>` +
+      `<th colspan="${cols.length}" class="xp-th-group">${groupLabel}</th></tr>`
+    : '';
+
+  const head = groupRow +
+    `<tr><th>Level</th><th>Prof</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>`;
   const rows = Array.from({ length: DND_MAX_LEVEL }, (_, i) => {
     const d = i + 1;
     const cls = [

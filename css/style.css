@@ -558,7 +558,15 @@ body {
   box-shadow: inset 0 1px 0 rgba(255,100,80,0.18), 0 0 22px rgba(220,30,20,0.40), 0 0 50px rgba(180,0,0,0.18);
 }
 /* ── Combat mode bar (thin window: COMBAT label + Automated / Manual) ────── */
+/* Parked directly above #action-tracker, in the same column right of the hotbar (user,
+   2026-07-18 — was centred at bottom:160px, which ate the space beneath the hero cards).
+   A FIXED offset rather than a flex stack on purpose: the tracker toggles display:none on
+   every enemy turn, so a stacked layout would drop this bar 103px and snap it back each
+   round. 103px tracker + 6px gap = 109px. */
 #combat-mode-bar {
+  position: absolute;
+  left: calc(100% + 6px);
+  bottom: 109px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -3199,6 +3207,19 @@ body {
   border-bottom: 1px solid rgba(212,175,55,0.30);
   font-weight: 600;
 }
+/* Group header spanning a class's own columns (casters: "Spells" over 1st…9th).
+   The empty leading cell must not draw the header underline, or it reads as a column
+   heading for Level/Prof rather than as a band over the spell columns only. */
+.xp-table tr.xp-group-row th { border-bottom: none; padding-bottom: 1px; }
+.xp-table th.xp-th-group {
+  font-family: var(--font-fantasy);
+  font-size: 0.52rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  border-bottom: 1px solid rgba(212,175,55,0.30);
+  padding-bottom: 2px;
+}
 .xp-table td {
   text-align: center;
   padding: 2px 5px;
@@ -4926,11 +4947,14 @@ td.bst-col-retired { color: #343228 !important; }
 }
 
 /* ── Action tracker bar ──────────────────────────────────────────────── */
+/* Move / Action / Bonus / Reaction. Sits in a column to the RIGHT of the hotbar, flush with
+   the bottom of the screen like the short-rest widget (user, 2026-07-18 — was bottom: 7px).
+   2 rows x 50px + 3px gap = 103px tall; #combat-mode-bar is parked just above that. */
 #action-tracker {
   display: none;   /* shown only during hero turns via JS */
   position: absolute;
   left: calc(100% + 6px);
-  bottom: 7px;
+  bottom: 0;
   grid-template-columns: 58px 58px;
   gap: 3px;
 }
@@ -6812,6 +6836,19 @@ td.bst-col-retired { color: #343228 !important; }
   font-size: 0.48rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
+}
+/* Rolled affixes on the loot card. Same blue as the tooltip's .it-affix so "this is the
+   roll" reads identically wherever an item is shown. Sits above the flavour description,
+   because the roll is what the assign decision is actually about. */
+.lp-item-affixes {
+  margin-bottom: 4px;
+  padding-left: 6px;
+  border-left: 2px solid rgba(143,208,255,0.30);
+}
+.lp-affix {
+  color: #8fd0ff;
+  font-size: 0.58rem;
+  line-height: 1.45;
 }
 .lp-item-desc {
   color: rgba(200,185,150,0.65);
