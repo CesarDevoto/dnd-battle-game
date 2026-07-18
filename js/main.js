@@ -8,7 +8,7 @@ import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
 import { equipItem, MATERIAL_PROF } from './equipment.js';
 import { getItem } from './items.js';
 import { rollAffixes } from './affixes.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker, trackSurpriseUI } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -535,6 +535,7 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   updateHUD();
   updateFamiliarHelpMarker();
   updateReadyIcons();
+  trackSurpriseUI();   // closed-eye marker over surprised units, same anchoring as the ⚡ icon
   updateMixers(dt);
   tickZone(dt);
   tickRespawn(dt);

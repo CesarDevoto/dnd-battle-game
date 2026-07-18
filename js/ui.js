@@ -402,8 +402,12 @@ function _initSpellAccordions() {
 // columns that hero's class actually gets. The hero's current row is highlighted.
 //
 // Rows are D&D levels rather than our 1–100 because the tables ARE D&D's — 100 rows
-// where every group of five is identical would be noise. The band column is what ties
-// them back: "our 10–14 = D&D 3".
+// where every group of five is identical would be noise.
+//
+// ⚠ The D&D level is still the row INDEX (`d`), it just isn't shown any more: the user
+// removed that column 2026-07-18, so the panel reads purely in our own levels. Each row
+// therefore displays a five-level band ("10–14") rather than a single number — don't
+// "fix" that to one row per game level without collapsing the identical groups first.
 function buildXpPanelHTML(u) {
   const curDnd = dndLevelFor(u.level ?? 1);
 
@@ -444,7 +448,7 @@ function buildXpPanelHTML(u) {
     cols = [];
   }
 
-  const head = `<tr><th>Our Lv</th><th>D&amp;D</th><th>Prof</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>`;
+  const head = `<tr><th>Level</th><th>Prof</th>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr>`;
   const rows = Array.from({ length: DND_MAX_LEVEL }, (_, i) => {
     const d = i + 1;
     const cls = [
@@ -454,13 +458,13 @@ function buildXpPanelHTML(u) {
       5 * (d - 1) > MAX_HERO_LEVEL ? 'xp-row-locked' : '',
     ].filter(Boolean).join(' ');
     return `<tr${cls ? ` class="${cls}"` : ''}>` +
-      `<td>${band(d)}</td><td>${d}</td><td>+${PROF_AT(d)}</td>` +
+      `<td>${band(d)}</td><td>+${PROF_AT(d)}</td>` +
       cols.map(c => `<td>${c[1](d)}</td>`).join('') +
       `</tr>`;
   }).join('');
 
-  // No explainer line about our levels mapping to D&D levels — the "Our Lv" and "D&D"
-  // columns say it, and the current band is highlighted.
+  // No explainer line about the underlying tier mapping — the player only needs to read
+  // "at levels 10–14 I have +2 proficiency", and the current band is highlighted for them.
   return `<div class="xp-panel-title">${UNIT_TYPES[u.type]?.name ?? u.type} — Level Table</div>` +
     `<div class="xp-table-scroll"><table class="xp-table">${head}${rows}</table></div>` +
     (note ? `<div class="xp-panel-note">${note}</div>` : '') +
