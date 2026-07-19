@@ -22,7 +22,7 @@ export const ZONE = {
     { type: 'twig_blight', x: 68, z: 61, roams: true, patrol: [{x:68,z:32}, {x:68,z:61}] },
     { type: 'twig_blight', x: 5, z: -50.5 },
     { type: 'twig_blight', x: 5.5, z: -55 },
-    { type: 'twig_blight', x: 1, z: -50, roams: true },
+    { type: 'twig_blight', x: 1, z: -50 },
     { type: 'skeleton', x: 8, z: 22, roams: true, patrol: [{x:8,z:-12}, {x:8,z:22}] },
     { type: 'skeleton', x: 5, z: 17, roams: true, patrol: [{x:5,z:-12}, {x:5,z:17}] },
     { type: 'skeleton', x: 12, z: 18, roams: true, patrol: [{x:12,z:-12}, {x:12,z:18}] },

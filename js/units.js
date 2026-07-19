@@ -860,27 +860,27 @@ export function serializeZoneEnemies() {
     });
 }
 
-// Canonical band key for roam-group matching. The id is free text the user types once per
+// Canonical roam group key for roam-group matching. The id is free text the user types once per
 // member, so it WILL vary in case and spacing — "BLEAK WOLVES 1" and "bLEAK wOLVES 1" are
-// the same band (Caps Lock plus a habitual Shift on the first letter inverts to lowercase,
+// the same roam group (Caps Lock plus a habitual Shift on the first letter inverts to lowercase,
 // which is exactly how that pair got written). Comparing raw strings split them into two
-// one-member bands that each reported itself as a leader. Compare with this everywhere;
+// one-member roam groups that each reported itself as a leader. Compare with this everywhere;
 // the authored text is still what gets stored and shown.
-export function bandKey(u) {
+export function roamGroupKey(u) {
   const id = typeof u === 'string' ? u : u?.roamGroup;
   return id ? id.trim().replace(/\s+/g, ' ').toLowerCase() : null;
 }
 
 // Effective roam route for a unit: its own authored waypoints, else a route inherited by
-// roam-group promotion when the band's leader died (see _roamGroups in precombat.js).
+// roam-group promotion when the roam group's leader died (see _roamGroups in precombat.js).
 // Lives here because both combat.js and precombat.js need it and units.js is below both —
 // putting it in either would make them import each other.
 //
-// ⚠ `_bandPath` is runtime-only ON PURPOSE. The NPC editors serialize `patrolPath` straight
+// ⚠ `_roamGroupPath` is runtime-only ON PURPOSE. The NPC editors serialize `patrolPath` straight
 // into the zone file, so a promoted unit must never have the route written there.
 export function roamPathOf(u) {
   if (u.patrolPath?.length >= 2) return u.patrolPath;
-  if (u._bandPath?.length  >= 2) return u._bandPath;
+  if (u._roamGroupPath?.length  >= 2) return u._roamGroupPath;
   return null;
 }
 

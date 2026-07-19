@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check:bands": "node tools/check-bands.mjs"
+    "check:groups": "node tools/check-roam-groups.mjs"
   },
   "devDependencies": {
     "vite": "^8.0.12"
