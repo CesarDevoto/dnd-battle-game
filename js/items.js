@@ -1604,7 +1604,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs1.png',
-    ac:     1,
     material: 'leather',
   },
   leatherlegs2: {
@@ -1613,7 +1612,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs2.png',
-    ac:     1,
     material: 'leather',
   },
   leatherlegs3: {
@@ -1622,7 +1620,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs3.png',
-    ac:     1,
     material: 'leather',
   },
   leatherlegs4: {
@@ -1631,7 +1628,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs4.png',
-    ac:     1,
     material: 'leather',
   },
   leatherlegs5: {
@@ -1640,7 +1636,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs5.png',
-    ac:     1,
     material: 'leather',
   },
   leatherlegs6: {
@@ -1649,7 +1644,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherlegs6.png',
-    ac:     1,
     material: 'leather',
   },
   mixedlegs1: {
@@ -1658,7 +1652,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedlegs1.png',
-    ac:     2,
     material: 'hide',
   },
   mixedlegs2: {
@@ -1667,7 +1660,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedlegs2.png',
-    ac:     2,
     material: 'hide',
   },
   mixedlegs3: {
@@ -1676,7 +1668,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedlegs3.png',
-    ac:     2,
     material: 'hide',
   },
   platelegs1: {
@@ -1685,7 +1676,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/platelegs1.png',
-    ac:     3,
     material: 'plate',
   },
   platelegs2: {
@@ -1694,7 +1684,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/platelegs2.png',
-    ac:     3,
     material: 'plate',
   },
   platelegs3: {
@@ -1703,7 +1692,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/platelegs3.png',
-    ac:     3,
     material: 'plate',
   },
   platelegs4: {
@@ -1712,7 +1700,6 @@ export const ITEMS = {
     slot:   'legs',
     rarity: 'grey',
     icon:   'assets/items/armor/platelegs4.png',
-    ac:     3,
     material: 'plate',
   },
 
@@ -2874,7 +2861,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots1.png',
-    ac:     1,
     material: 'leather',
   },
   leatherboots2: {
@@ -2891,7 +2877,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots3.png',
-    ac:     1,
     material: 'leather',
   },
   leatherboots4: {
@@ -2900,7 +2885,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots4.png',
-    ac:     1,
     material: 'leather',
   },
   leatherboots5: {
@@ -2909,7 +2893,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots5.png',
-    ac:     1,
     material: 'leather',
   },
   leatherboots6: {
@@ -2918,7 +2901,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots6.png',
-    ac:     1,
     material: 'leather',
   },
   leatherboots7: {
@@ -2927,7 +2909,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/leatherboots7.png',
-    ac:     1,
     material: 'leather',
   },
   sandals1: {
@@ -3008,7 +2989,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedboots1.png',
-    ac:     2,
     material: 'hide',
   },
   mixedboots2: {
@@ -3017,7 +2997,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedboots2.png',
-    ac:     2,
     material: 'hide',
   },
   mixedboots3: {
@@ -3026,7 +3005,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/mixedboots3.png',
-    ac:     2,
     material: 'hide',
   },
   plateboots1: {
@@ -3035,7 +3013,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots1.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots2: {
@@ -3044,7 +3021,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots2.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots3: {
@@ -3053,7 +3029,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots3.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots4: {
@@ -3070,7 +3045,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots5.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots6: {
@@ -3079,7 +3053,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots6.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots7: {
@@ -3088,7 +3061,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots7.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots8: {
@@ -3097,7 +3069,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots8.png',
-    ac:     3,
     material: 'plate',
   },
   plateboots9: {
@@ -3106,7 +3077,6 @@ export const ITEMS = {
     slot:   'feet',
     rarity: 'grey',
     icon:   'assets/items/armor/plateboots9.png',
-    ac:     3,
     material: 'plate',
   },
 
