@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground } from './scene.js';
-import { units, buildUnit, ensureModels, getClipNamesForType, applyUnitAnimOverride } from './units.js';
+import { units, buildUnit, ensureModels, getClipNamesForType, applyUnitAnimOverride, serializeZoneEnemies } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { getGroundHeight, raySurfacePoint, caveLayersActive } from './terrain.js';
 import { activeEnv } from './environments.js';
@@ -293,42 +293,7 @@ function _hideAnimPanel() {
 async function _saveToZone() {
   if (!_activeZoneId) { _setSave('No zone loaded', 'error'); return; }
 
-  const enemies = units
-    .filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc')
-    .map(u => {
-      const canonicalTeam = UNIT_TYPES[u.type]?.team ?? u.team;
-      // SPAWN position, not the live one — see the note in units.js buildUnit. A unit
-      // that walks at runtime (follower, guide, patrol, roamer) must not overwrite its
-      // own spawn point in the zone file just because it was mid-stride when you saved.
-      const sx = u.spawn?.x ?? u.grp.position.x;
-      const sz = u.spawn?.z ?? u.grp.position.z;
-      const e = { type: u.type, x: +sx.toFixed(2), z: +sz.toFixed(2) };
-      if (canonicalTeam !== 'red') e.team = canonicalTeam;
-      if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
-      // Always write facing, including 0. Omitting it doesn't mean "unrotated" — zoneLoader
-      // treats a missing rotY as "pick a facing for me", so dropping a deliberate 0 re-aims
-      // the unit at the party's arrival area on the next load.
-      e.rotY = +u.grp.rotation.y.toFixed(4);
-      const s = +u.grp.scale.x.toFixed(3);
-      if (Math.abs(s - 1) > 0.001)                  e.scale = s;
-      // Preserve AI properties so NPC editor save never strips roaming/patrol data
-      if (u.detectRange != null)                     e.detectRange  = u.detectRange;
-      if (u.socialAggroRange != null)                e.socialAggroRange = u.socialAggroRange;
-      if (u.roams)                                   e.roams        = true;
-      if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
-      if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
-      if (u.roamGroup)                               e.roamGroup    = u.roamGroup;
-      if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
-      if (u.stealthed)                               e.stealthed    = true;
-      if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
-      if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
-      // Pin the cave surface — again from the SPAWN, not the live caveLayer, which
-      // main.js re-resolves every frame as a unit walks in and out of tunnels. Only
-      // 'surface', and only in a cave zone: everywhere else 'surface' is simply what
-      // initialCaveLayer() returns by default, so writing it would be noise.
-      if (caveLayersActive() && u.spawn?.layer === 'surface') e.caveLayer = 'surface';
-      return e;
-    });
+  const enemies = serializeZoneEnemies();
 
   _setSave('Saving…', '');
   try {

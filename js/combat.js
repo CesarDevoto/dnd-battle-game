@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf, bandKey } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
@@ -5748,9 +5748,9 @@ function _dynamicAggroRangeWU(u, def) {
 // late-joiner path below rather than _alertRoamBand so each gets a real initiative roll
 // and turn-order slot instead of a bare aggro flag mid-combat.
 function _bandAlreadyFighting(u) {
-  if (!u.roamGroup) return false;
+  if (!bandKey(u)) return false;
   return units.some(o => o !== u && o.team === 'red' && o.hp > 0 &&
-                         o.aggro && o.roamGroup === u.roamGroup);
+                         o.aggro && bandKey(o) === bandKey(u));
 }
 
 function _checkProximityAggro(hero) {
@@ -5890,10 +5890,10 @@ endTurnBtn.addEventListener('click', () => {
 // mirroring the precombat cascade in _triggerAggro. Without this a band spotted during
 // combat would trickle in one enemy at a time as each wandered into detect range.
 function _alertRoamBand(u) {
-  if (!u.roamGroup) return;
+  if (!bandKey(u)) return;
   for (const o of units) {
     if (o === u || o.team !== 'red' || o.hp <= 0) continue;
-    if (o.roamGroup !== u.roamGroup || o.aggro) continue;
+    if (bandKey(o) !== bandKey(u) || o.aggro) continue;
     o.aggro = true;
     o.grp.visible = true;
     if (o.stealthed) setUnitStealth(o, false);
@@ -5945,11 +5945,11 @@ function _nudgeRoamers() {
 const BAND_TRAIL_WU = 2.2;   // WU a follower keeps behind its leader
 
 function _roamBandLeader(u) {
-  if (!u.roamGroup) return null;
+  if (!bandKey(u)) return null;
   // roamPathOf, not patrolPath: after the real leader dies, precombat promotes a survivor
   // onto the cached route via _bandPath, and the rest of the band must trail THAT unit.
   const lead = units.find(o => o.team === 'red' && o.hp > 0 &&
-                               o.roamGroup === u.roamGroup && roamPathOf(o)) ?? null;
+                               bandKey(o) === bandKey(u) && roamPathOf(o)) ?? null;
   return lead === u ? null : lead;
 }
 

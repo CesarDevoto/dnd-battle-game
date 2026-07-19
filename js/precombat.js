@@ -1,4 +1,4 @@
-import { units, setUnitWalking, roamPathOf } from './units.js';
+import { units, setUnitWalking, roamPathOf, bandKey } from './units.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel, unitsHaveLOS, heroStealthPct } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
@@ -300,9 +300,11 @@ window.addEventListener('zone:loaded', () => _bandPaths.clear());
 function _roamGroups() {
   const members = new Map();
   for (const u of units) {
-    if (u.team !== 'red' || u.hp <= 0 || !u.roamGroup) continue;
-    if (!members.has(u.roamGroup)) members.set(u.roamGroup, []);
-    members.get(u.roamGroup).push(u);
+    if (u.team !== 'red' || u.hp <= 0) continue;
+    const key = bandKey(u);
+    if (!key) continue;
+    if (!members.has(key)) members.set(key, []);
+    members.get(key).push(u);
   }
   const groups = new Map();
   for (const [id, mem] of members) {
@@ -517,7 +519,7 @@ function _triggerAggro(spotter) {
         // brings in the whole band regardless of how strung out the formation is.
         // Riding the same BFS gets the fixed point for free — a band member pulled in
         // here then alerts anyone in ITS social range on the next pass.
-        if (a.roamGroup && b.roamGroup === a.roamGroup) {
+        if (bandKey(a) && bandKey(b) === bandKey(a)) {
           b.aggro = true;
           alerted.add(b);
           changed = true;

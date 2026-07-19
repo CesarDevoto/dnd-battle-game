@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground } from './scene.js';
-import { units } from './units.js';
+import { units, bandKey, serializeZoneEnemies } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { activeEnv } from './environments.js';
@@ -177,7 +177,8 @@ function _refreshBandStatus() {
   const id = document.getElementById('npc-ai-group')?.value.trim() ?? '';
   if (!_unit || !id) { el.textContent = ''; return; }
 
-  const members = units.filter(u => u.team === 'red' && u.hp > 0 && u.roamGroup === id);
+  const key     = bandKey(id);
+  const members = units.filter(u => u.team === 'red' && u.hp > 0 && bandKey(u) === key);
   const holders = members.filter(m => m.patrolPath?.length >= 2);
   const leader  = holders[0] ?? null;
   const wps     = leader?.patrolPath?.length ?? 0;
@@ -304,36 +305,10 @@ async function _save() {
 
   _applyToUnit();
 
-  const enemies = units
-    .filter(u => u.team === 'red')
-    .map(u => {
-      const e = {
-        type: u.type,
-        x:    +u.grp.position.x.toFixed(2),
-        z:    +u.grp.position.z.toFixed(2),
-      };
-      if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
-      // This save rewrites EVERY enemy in the zone, so any field it doesn't send is erased
-      // from all of them — rotY was absent entirely, which stripped facing zone-wide every
-      // time the AI panel saved. Keep this list in step with npcEditor's.
-      e.rotY = +u.grp.rotation.y.toFixed(4);
-      const s = +u.grp.scale.x.toFixed(3);
-      if (Math.abs(s - 1) > 0.001)                  e.scale = s;
-
-      // AI settings (omit defaults)
-      if (u.detectRange != null)                     e.detectRange       = u.detectRange;
-      if (u.socialAggroRange != null)                e.socialAggroRange  = u.socialAggroRange;
-      if (u.roams)                                   e.roams        = true;
-      if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
-      if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
-      if (u.roamGroup)                               e.roamGroup    = u.roamGroup;
-      if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
-      if (u.stealthed)                               e.stealthed    = true;
-      if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
-      if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
-
-      return e;
-    });
+  // Shared with the NPC editor. This panel used to keep its own copy that filtered to
+  // team === 'red' — and since the save replaces the whole array, that DELETED every
+  // team:'npc' unit in the zone. It also wrote live positions and dropped caveLayer.
+  const enemies = serializeZoneEnemies();
 
   _setStatus('Saving…', '');
   try {
