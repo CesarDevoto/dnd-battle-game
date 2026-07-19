@@ -37,7 +37,13 @@ export function itemBaseStats(item) {
   //
   // The DEX suffix is read from the same ARMOR_DEX_CAP the AC math uses, so this cannot
   // claim a cap that computeAC doesn't apply.
-  if (item.ac && ARMOR_DEX_CAP[item.material] !== undefined) {
+  // ⚠ Gated on slot === 'chest', not just on having a material. AC comes from BODY ARMOUR and
+  // SHIELDS only — computeAC reads chest and off-hand and nothing else. Legs and feet carry a
+  // material for proficiency, and keying off material alone made 30 pairs of leggings and boots
+  // advertise "AC 1 + Dex modifier": the set-your-AC wording, on a slot that grants no AC at
+  // all. Those dead `ac` values are gone from items.js now; this is the guard that stops the
+  // wording coming back if one is ever re-added.
+  if (item.ac && item.slot === 'chest' && ARMOR_DEX_CAP[item.material] !== undefined) {
     const cap = ARMOR_DEX_CAP[item.material];
     const dex = cap === 0 ? '' : cap === Infinity ? ' + Dex modifier' : ` + Dex modifier (max ${cap})`;
     base.push(`AC ${item.ac}${dex}`);
