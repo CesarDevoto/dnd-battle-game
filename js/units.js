@@ -832,8 +832,15 @@ export function serializeZoneEnemies() {
       // treats a missing rotY as "pick a facing for me", so dropping a deliberate 0 re-aims
       // the unit at the party's arrival area on the next load.
       e.rotY = +u.grp.rotation.y.toFixed(4);
-      const s = +u.grp.scale.x.toFixed(3);
-      if (Math.abs(s - 1) > 0.001)                  e.scale = s;
+      // Scale-animated types (the pulsing swarm) rewrite grp.scale EVERY FRAME from a sine,
+      // so the live value is just whatever phase the pulse was in when you hit save — it
+      // random-walked across saves (1.059 → 0.966 → 1.032). It's dead data besides: the
+      // pulse sets scale absolutely, so an authored scale on these never did anything.
+      // Same trap as serializing a live position. Omit it entirely for them.
+      if (!SCALE_ANIMATE_TYPES.has(u.type)) {
+        const s = +u.grp.scale.x.toFixed(3);
+        if (Math.abs(s - 1) > 0.001)                e.scale = s;
+      }
       if (u.detectRange != null)                     e.detectRange  = u.detectRange;
       if (u.socialAggroRange != null)                e.socialAggroRange = u.socialAggroRange;
       if (u.roams)                                   e.roams        = true;
