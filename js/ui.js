@@ -5,7 +5,7 @@ import { UNIT_TYPES, HERO_RING_COLORS, rageUsesForLevel, rageMitigationForLevel,
          rageDamageForLevel, weaponMasteryForLevel, sneakAttackDiceForLevel,
          dndLevelFor, proficiencyBonusFor, DND_MAX_LEVEL } from './constants.js';
 import { turnOrder, turnIndex, combatPhase, assignHotbarSlot, executeAbility, selectedTarget, getAbilityActionType, isAbilityAvailableNow,
-         canUseHealingPotion, useHealingPotion, addLog } from './combat.js';
+         canUseHealingPotion, useHealingPotion, addLog, closeReadyModal } from './combat.js';
 import { getPCSelected } from './precombat.js';
 import { SPELLS, ELF_SPELLS, STARTING_SPELLS, isAbilityUnlocked,
          totalSpellSlots, totalSpellSlotsMax, maxSlotsForLevel, slotsForDndLevel } from './spells.js';
@@ -1636,6 +1636,10 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
       if (hbBtn && slotKey && dragHero && assignHotbarSlot(dragHero, slotKey, dragAbility)) {
         hbBtn.classList.add('hb-drop-flash');
         setTimeout(() => hbBtn.classList.remove('hb-drop-flash'), 400);
+        // A trigger dragged out of the Ready Action window means the player is done with that
+        // window — the whole point of the shortcut is never opening it again. Leaving it up
+        // covered the hotbar slot they just filled, so they couldn't see the drop land.
+        if (dragAbility?.startsWith('ready:')) closeReadyModal();
       }
       dragEl.remove();
       dragEl = null;
