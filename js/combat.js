@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf, bandKey } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf, roamGroupKey } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
@@ -5537,7 +5537,7 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
   // so it's on the bar even for a hero who isn't the active unit right now.
   autoAssignHotbarSlots(hero);
   // Grant additional spell slots when leveling up. syncSlotsToLevel adds only the
-  // per-level DELTA to what's remaining — crossing a D&D band mid-fight hands over the
+  // per-level DELTA to what's remaining — crossing a D&D roam group mid-fight hands over the
   // new slots without refilling the ones already spent, same as the old code did.
   syncSlotsToLevel(hero);
   if (!combatPhase) return;
@@ -5743,20 +5743,20 @@ function _dynamicAggroRangeWU(u, def) {
 
 // ── Proximity aggro (triggered after each hero move step) ─────────────────────
 
-// True if any OTHER live member of u's roam group has already joined the fight. A band
+// True if any OTHER live member of u's roam group has already joined the fight. A roam group
 // travels as one and fights as one, so the rest come in with it — routed through the
-// late-joiner path below rather than _alertRoamBand so each gets a real initiative roll
+// late-joiner path below rather than _alertRoamGroup so each gets a real initiative roll
 // and turn-order slot instead of a bare aggro flag mid-combat.
-function _bandAlreadyFighting(u) {
-  if (!bandKey(u)) return false;
+function _roamGroupAlreadyFighting(u) {
+  if (!roamGroupKey(u)) return false;
   return units.some(o => o !== u && o.team === 'red' && o.hp > 0 &&
-                         o.aggro && bandKey(o) === bandKey(u));
+                         o.aggro && roamGroupKey(o) === roamGroupKey(u));
 }
 
 function _checkProximityAggro(hero) {
   let anyNew  = false;
   let changed = true;
-  while (changed) {          // re-pass so a band-mate pulled in can pull in the next
+  while (changed) {          // re-pass so a roam group-mate pulled in can pull in the next
     changed = false;
     for (const u of units) {
       if (u.team !== 'red' || u.aggro || u.hp <= 0) continue;
@@ -5764,7 +5764,7 @@ function _checkProximityAggro(hero) {
       const range = _dynamicAggroRangeWU(u, def);
       const dx    = hero.grp.position.x - u.grp.position.x;
       const dz    = hero.grp.position.z - u.grp.position.z;
-      if (dx * dx + dz * dz > range * range && !_bandAlreadyFighting(u)) continue;
+      if (dx * dx + dz * dz > range * range && !_roamGroupAlreadyFighting(u)) continue;
 
       changed = true;
       u.aggro = true;
@@ -5886,19 +5886,19 @@ endTurnBtn.addEventListener('click', () => {
 
 // ── Non-aggro roam turn (used during combat for unaggro'd patrollers) ────────
 
-// One member of a roam group being alerted mid-combat pulls in the rest of the band,
-// mirroring the precombat cascade in _triggerAggro. Without this a band spotted during
+// One member of a roam group being alerted mid-combat pulls in the rest of the roam group,
+// mirroring the precombat cascade in _triggerAggro. Without this a roam group spotted during
 // combat would trickle in one enemy at a time as each wandered into detect range.
-function _alertRoamBand(u) {
-  if (!bandKey(u)) return;
+function _alertRoamGroup(u) {
+  if (!roamGroupKey(u)) return;
   for (const o of units) {
     if (o === u || o.team !== 'red' || o.hp <= 0) continue;
-    if (bandKey(o) !== bandKey(u) || o.aggro) continue;
+    if (roamGroupKey(o) !== roamGroupKey(u) || o.aggro) continue;
     o.aggro = true;
     o.grp.visible = true;
     if (o.stealthed) setUnitStealth(o, false);
     _dungeonAwareEnemies.add(o);
-    addLog(`⚠ ${unitLabel(o)} charges in with its band!`, 'alert');
+    addLog(`⚠ ${unitLabel(o)} charges in with its group!`, 'alert');
   }
 }
 
@@ -5917,7 +5917,7 @@ function _roamAggroCheck(u) {
     u.aggro = true;
     u.grp.visible = true;
     addLog(`⚠ ${unitLabel(u)} spots the heroes during patrol!`, 'alert');
-    _alertRoamBand(u);
+    _alertRoamGroup(u);
     buildTurnList();
   }
 }
@@ -5937,30 +5937,30 @@ function _nudgeRoamers() {
   }
 }
 
-// Band leader for a roam-group member: the first unit of its group carrying a patrol
-// path — the SAME rule precombat's _roamGroups uses, so a band doesn't change leader
+// Roam group leader for a roam-group member: the first unit of its group carrying a patrol
+// path — the SAME rule precombat's _roamGroups uses, so a roam group doesn't change leader
 // when combat starts. Returns null for the leader itself and for ungrouped units.
 // Without this, followers would either stand still through a combat they aren't part
 // of, or (if they kept authored waypoints of their own) scatter down separate routes.
-const BAND_TRAIL_WU = 2.2;   // WU a follower keeps behind its leader
+const GROUP_TRAIL_WU = 2.2;   // WU a follower keeps behind its leader
 
-function _roamBandLeader(u) {
-  if (!bandKey(u)) return null;
+function _roamGroupLeader(u) {
+  if (!roamGroupKey(u)) return null;
   // roamPathOf, not patrolPath: after the real leader dies, precombat promotes a survivor
-  // onto the cached route via _bandPath, and the rest of the band must trail THAT unit.
+  // onto the cached route via _roamGroupPath, and the rest of the roam group must trail THAT unit.
   const lead = units.find(o => o.team === 'red' && o.hp > 0 &&
-                               bandKey(o) === bandKey(u) && roamPathOf(o)) ?? null;
+                               roamGroupKey(o) === roamGroupKey(u) && roamPathOf(o)) ?? null;
   return lead === u ? null : lead;
 }
 
 function _animateRoamNudge(u) {
   let idx = null, tx, tz;
-  // Band followers trail their leader even if they still carry authored waypoints of
-  // their own — the group id wins, so the band stays together instead of splitting.
-  const bandLead = _roamBandLeader(u);
+  // Roam group followers trail their leader even if they still carry authored waypoints of
+  // their own — the group id wins, so the roam group stays together instead of splitting.
+  const groupLead = _roamGroupLeader(u);
   const path     = roamPathOf(u);
 
-  if (!bandLead && path) {
+  if (!groupLead && path) {
     idx = u._patrolIdx ?? 0;
     for (let guard = 0; guard < path.length; guard++) {
       const wp  = path[idx];
@@ -5973,22 +5973,22 @@ function _animateRoamNudge(u) {
     tx = path[idx].x;
     tz = path[idx].z;
   } else {
-    const lead = bandLead;
+    const lead = groupLead;
     if (!lead) {
       _roamAggroCheck(u);
       return;
     }
-    // Trail the leader rather than pile onto it: aim at a point BAND_TRAIL_WU short of
+    // Trail the leader rather than pile onto it: aim at a point GROUP_TRAIL_WU short of
     // it, so a follower that reaches its target isn't standing in the leader's square.
     const bdx = lead.grp.position.x - u.grp.position.x;
     const bdz = lead.grp.position.z - u.grp.position.z;
     const bd  = Math.sqrt(bdx * bdx + bdz * bdz);
-    if (bd <= BAND_TRAIL_WU) {
+    if (bd <= GROUP_TRAIL_WU) {
       _roamAggroCheck(u);
       return;
     }
-    tx = lead.grp.position.x - (bdx / bd) * BAND_TRAIL_WU;
-    tz = lead.grp.position.z - (bdz / bd) * BAND_TRAIL_WU;
+    tx = lead.grp.position.x - (bdx / bd) * GROUP_TRAIL_WU;
+    tz = lead.grp.position.z - (bdz / bd) * GROUP_TRAIL_WU;
   }
 
   const cx   = u.grp.position.x;
@@ -6745,7 +6745,7 @@ function runAITurn(u) {
       u.grp.visible = true;
       if (u.stealthed) setUnitStealth(u, false);
       addLog(`⚠ ${unitLabel(u)} is alerted by the heroes!`, 'alert');
-      _alertRoamBand(u);
+      _alertRoamGroup(u);
       buildTurnList();
       // Fall through — enemy acts this turn
     } else {
