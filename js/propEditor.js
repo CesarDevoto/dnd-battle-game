@@ -859,6 +859,12 @@ export function initPropEditor() {
   // Keyboard: nudge, rotate, delete, undo
   window.addEventListener('keydown', e => {
     if (!_open) return;
+    // Bare single-key shortcuts on the window — Backspace deletes the selected prop, r
+    // rotates, -/= rescale. Skip them while a field has focus, or typing into the
+    // waystoneId / mapTab inputs edits the prop instead of the text. See the matching
+    // guard in npcEditor.js, where this deleted a unit outright.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateSelected(-1, 0); } else { if (!e.repeat) _snapshot(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0); }  break;

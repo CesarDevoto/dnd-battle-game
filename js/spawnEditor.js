@@ -502,6 +502,10 @@ export function initSpawnEditor() {
 
   window.addEventListener('keydown', e => {
     if (!_open) return;
+    // Backspace here deletes the selected spawn — don't let it fire while typing in a
+    // field. Same guard as npcEditor.js / propEditor.js.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.key === 'Escape') {
       if (_addingWP) { _exitAddWPMode(); return; }
       _select(-1);

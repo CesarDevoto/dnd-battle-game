@@ -313,6 +313,10 @@ async function _save() {
         z:    +u.grp.position.z.toFixed(2),
       };
       if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
+      // This save rewrites EVERY enemy in the zone, so any field it doesn't send is erased
+      // from all of them — rotY was absent entirely, which stripped facing zone-wide every
+      // time the AI panel saved. Keep this list in step with npcEditor's.
+      e.rotY = +u.grp.rotation.y.toFixed(4);
       const s = +u.grp.scale.x.toFixed(3);
       if (Math.abs(s - 1) > 0.001)                  e.scale = s;
 

@@ -179,6 +179,12 @@ function saveZoneEnemiesPlugin() {
               let s = `    { type: '${e.type}', x: ${e.x}, z: ${e.z}`;
               if (e.yOff  != null && e.yOff  !== 0)  s += `, yOff: ${e.yOff}`;
               if (e.scale != null && e.scale !== 1)   s += `, scale: ${e.scale}`;
+              // ⚠ rotY was MISSING here until 2026-07-18, so every enemy save silently
+              // stripped facing from the whole zone — npcEditor computed e.rotY and this
+              // writer binned it. An enemy with no rotY falls back to zoneLoader's
+              // auto-facing heuristic, which is how Floosh's kin ended up re-aimed.
+              // Note 0 is written explicitly: it means "face north", not "unset".
+              if (e.rotY != null)                     s += `, rotY: ${e.rotY}`;
               if (e.detectRange != null)              s += `, detectRange: ${e.detectRange}`;
               if (e.socialAggroRange != null)         s += `, socialAggroRange: ${e.socialAggroRange}`;
               if (e.roams)                            s += `, roams: true`;

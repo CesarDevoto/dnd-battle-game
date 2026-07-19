@@ -305,8 +305,10 @@ async function _saveToZone() {
       const e = { type: u.type, x: +sx.toFixed(2), z: +sz.toFixed(2) };
       if (canonicalTeam !== 'red') e.team = canonicalTeam;
       if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
-      const r = +u.grp.rotation.y.toFixed(4);
-      if (Math.abs(r) > 0.0001)                     e.rotY  = r;
+      // Always write facing, including 0. Omitting it doesn't mean "unrotated" — zoneLoader
+      // treats a missing rotY as "pick a facing for me", so dropping a deliberate 0 re-aims
+      // the unit at the party's arrival area on the next load.
+      e.rotY = +u.grp.rotation.y.toFixed(4);
       const s = +u.grp.scale.x.toFixed(3);
       if (Math.abs(s - 1) > 0.001)                  e.scale = s;
       // Preserve AI properties so NPC editor save never strips roaming/patrol data
@@ -563,6 +565,13 @@ export function initNpcEditor() {
   const DUP_STEP = 2.0;
   window.addEventListener('keydown', e => {
     if (!_open) return;
+    // ⚠ These are BARE single-key shortcuts on the window, so they fire while you type in
+    // any editor field: Backspace DELETES the selected unit, r rotates it, -/= rescale it,
+    // []_adjust Y, arrows nudge and shift+arrow duplicates. Harmless while every control was
+    // a checkbox or number spinner; the AI panel's free-text Roam group field made it
+    // destructive (typing an id silently deleted a warg). Ignore keys aimed at a field.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.ctrlKey && e.key === 'z') { e.preventDefault(); _undo(); return; }
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { _duplicateNpc(-DUP_STEP, 0);     } else { if (!e.repeat) _snapshot(); _nudge(-(e.ctrlKey ? MICRO_NUDGE : NUDGE), 0);     } break;

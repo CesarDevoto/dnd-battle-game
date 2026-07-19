@@ -10,21 +10,6 @@ export const ZONE = {
     { x:  1, z: 85, type: 'halfling' },
   ],
   enemies: [
-    { type: 'grassling', x: 6.71, z: 71.66, rotY: 0, animOverrides: {idle:0,walk:2} },
-    // Floosh's kin — a small huddle behind him, all facing the same way he
-    // does (rotY matches _FLOOSH_WELCOME_ROT_Y in bleakmireWoodsEvent.js).
-    // Positions/facing are a first pass — nudge in dev mode if they clip
-    // into each other or look off.
-    { type: 'grassling', x: 0.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 2.71,  z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 4.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 8.71,  z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 10.71, z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 12.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 1.71,  z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 4.71,  z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 8.71,  z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
-    { type: 'grassling', x: 11.71, z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
     { type: 'kobold', x: -70, z: 47, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:47}] },
     { type: 'kobold', x: -73, z: 43, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:43}] },
     { type: 'kobold', x: -67, z: 44, roams: true, patrol: [{x:-70,z:15}, {x:-70,z:44}] },
@@ -34,9 +19,7 @@ export const ZONE = {
     { type: 'twig_blight', x: -30, z: 5, roams: true, patrol: [{x:-30,z:-28}, {x:-30,z:5}] },
     { type: 'twig_blight', x: -33, z: 0, roams: true, patrol: [{x:-30,z:-28}, {x:-30,z:0}] },
     { type: 'twig_blight', x: -27, z: -1, roams: true, patrol: [{x:-30,z:-28}, {x:-30,z:-1}] },
-    { type: 'twig_blight', x: 60, z: -9, roams: true, patrol: [{x:60,z:-42}, {x:60,z:-9}] },
-    { type: 'twig_blight', x: 57, z: -14, roams: true, patrol: [{x:60,z:-42}, {x:60,z:-14}] },
-    { type: 'twig_blight', x: 63, z: -13, roams: true, patrol: [{x:60,z:-42}, {x:60,z:-13}] },
+    { type: 'twig_blight', x: 57, z: -14, roams: true, roamGroup: 'BLEAK TWIGS 1', patrol: [{x:60,z:-42}, {x:60,z:-14}] },
     { type: 'constrictor_snake', x: -65, z: -29, roams: true, patrol: [{x:-65,z:-62}, {x:-65,z:-29}] },
     { type: 'constrictor_snake', x: -68, z: -35, roams: true, patrol: [{x:-65,z:-62}, {x:-65,z:-35}] },
     { type: 'constrictor_snake', x: -62, z: -33, roams: true, patrol: [{x:-65,z:-62}, {x:-65,z:-33}] },
@@ -46,11 +29,30 @@ export const ZONE = {
     { type: 'warg', x: -50, z: 25, scale: 1.1, roams: true, patrol: [{x:-50,z:-8}, {x:-50,z:25}], animOverrides: {idle:3,walk:4,run:4,attack:0,death:1} },
     { type: 'wolf', x: -54, z: 20, roams: true, patrol: [{x:-50,z:-8}, {x:-50,z:20}], animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
     { type: 'wolf', x: -47, z: 21, roams: true, patrol: [{x:-50,z:-8}, {x:-50,z:21}], animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
-    { type: 'warg', x: 70, z: -59, scale: 1.1, roams: true, patrol: [{x:70,z:-32}, {x:70,z:-59}], animOverrides: {idle:3,walk:4,run:4,attack:0,death:1} },
     { type: 'wolf', x: 67, z: -64, socialAggroRange: 15, roams: true, patrol: [{x:70,z:-32}, {x:70,z:-64}], animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
     { type: 'wolf', x: 73, z: -65, socialAggroRange: 15, roams: true, patrol: [{x:70,z:-32}, {x:70,z:-65}], animOverrides: {idle:2,walk:3,run:3,attack:0,death:1} },
     { type: 'swarm_of_insects', x: -8, z: -80, yOff: 2, scale: 0.955, roams: true, patrol: [{x:22,z:-80}, {x:-8,z:-80}] },
     { type: 'swarm_of_insects', x: 40, z: 12, yOff: 2, scale: 0.944, roams: true, patrol: [{x:10,z:12}, {x:40,z:12}] },
+    // Floosh's kin — a small huddle behind him, all facing the same way he
+    // does (rotY matches _FLOOSH_WELCOME_ROT_Y in bleakmireWoodsEvent.js).
+    // ⚠ rotY: 0 is DELIBERATE — without it zoneLoader auto-aims them at the
+    // party's arrival area and the huddle breaks up.
+    { type: 'grassling', x: 6.71, z: 71.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 0.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 2.71, z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 4.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 8.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 10.71, z: 69.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 12.71, z: 70.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 1.71, z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 4.71, z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 8.71, z: 67.66, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'grassling', x: 11.71, z: 68.16, rotY: 0, animOverrides: {idle:0,walk:2} },
+    { type: 'twig_blight', x: 61.5, z: -14, roams: true, roamGroup: 'BLEAK TWIGS 1' },
+    { type: 'twig_blight', x: 59.5, z: -10.5, roams: true, roamGroup: 'BLEAK TWIGS 1' },
+    // Restored after an editor save stripped this warg to a bare entry: scale,
+    // roams, patrol and animOverrides all came back from f8dd722.
+    { type: 'warg', x: 71.17, z: -59.93, scale: 1.1, roams: true, patrol: [{x:70,z:-32}, {x:70,z:-59}], animOverrides: {idle:3,walk:4,run:4,attack:0,death:1} },
   ],
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'road_to_phandelver', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
