@@ -4,7 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
-import { getTerrainHeight, getGroundHeight, initialCaveLayer } from './terrain.js';
+import { getTerrainHeight, getGroundHeight, initialCaveLayer, caveLayersActive } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
 import { equipItem } from './equipment.js';
 import { getItem } from './items.js';
@@ -801,6 +801,80 @@ function _applyLocoPitch(unit, walking) {
   if (!unit.model) return;
   const deg = walking ? (UNIT_TYPES[unit.type]?.locoPitchDeg ?? 0) : 0;
   unit.model.rotation.x = deg * (Math.PI / 180);
+}
+
+// THE serializer for a zone's `enemies` array. Both the NPC editor and the AI panel post
+// the result, and each save REPLACES THE WHOLE ARRAY — so anything this function fails to
+// include is deleted from the zone file for every unit at once.
+//
+// It lives here, not in either editor, because they must not diverge: npcAIEditor used to
+// keep its own copy that filtered to `team === 'red'`, which silently deleted every
+// team:'npc' unit in the zone on save (Floosh's kin in Bleakmire, and almost certainly the
+// five Phandalin NPCs lost in f9b3b57). That copy also wrote LIVE positions instead of
+// spawn points and omitted caveLayer entirely. One function, one behaviour.
+//
+// ⚠ Adding a persisted enemy field means touching THREE places: here, the zone writer in
+// vite.config.js, and the loader in zoneLoader.js. Miss the writer and it vanishes on save.
+export function serializeZoneEnemies() {
+  return units
+    .filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc')
+    .map(u => {
+      const canonicalTeam = UNIT_TYPES[u.type]?.team ?? u.team;
+      // SPAWN position, not the live one — see the note in buildUnit. A unit that walks at
+      // runtime (follower, guide, patrol, roamer) must not overwrite its own spawn point in
+      // the zone file just because it was mid-stride when you saved.
+      const sx = u.spawn?.x ?? u.grp.position.x;
+      const sz = u.spawn?.z ?? u.grp.position.z;
+      const e = { type: u.type, x: +sx.toFixed(2), z: +sz.toFixed(2) };
+      if (canonicalTeam !== 'red') e.team = canonicalTeam;
+      if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
+      // Always write facing, including 0. Omitting it doesn't mean "unrotated" — zoneLoader
+      // treats a missing rotY as "pick a facing for me", so dropping a deliberate 0 re-aims
+      // the unit at the party's arrival area on the next load.
+      e.rotY = +u.grp.rotation.y.toFixed(4);
+      const s = +u.grp.scale.x.toFixed(3);
+      if (Math.abs(s - 1) > 0.001)                  e.scale = s;
+      if (u.detectRange != null)                     e.detectRange  = u.detectRange;
+      if (u.socialAggroRange != null)                e.socialAggroRange = u.socialAggroRange;
+      if (u.roams)                                   e.roams        = true;
+      if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
+      if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
+      if (u.roamGroup)                               e.roamGroup    = u.roamGroup;
+      if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
+      if (u.stealthed)                               e.stealthed    = true;
+      if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
+      if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
+      // Pin the cave surface — again from the SPAWN, not the live caveLayer, which main.js
+      // re-resolves every frame as a unit walks in and out of tunnels. Only 'surface', and
+      // only in a cave zone: everywhere else 'surface' is simply what initialCaveLayer()
+      // returns by default, so writing it would be noise.
+      if (caveLayersActive() && u.spawn?.layer === 'surface') e.caveLayer = 'surface';
+      return e;
+    });
+}
+
+// Canonical band key for roam-group matching. The id is free text the user types once per
+// member, so it WILL vary in case and spacing — "BLEAK WOLVES 1" and "bLEAK wOLVES 1" are
+// the same band (Caps Lock plus a habitual Shift on the first letter inverts to lowercase,
+// which is exactly how that pair got written). Comparing raw strings split them into two
+// one-member bands that each reported itself as a leader. Compare with this everywhere;
+// the authored text is still what gets stored and shown.
+export function bandKey(u) {
+  const id = typeof u === 'string' ? u : u?.roamGroup;
+  return id ? id.trim().replace(/\s+/g, ' ').toLowerCase() : null;
+}
+
+// Effective roam route for a unit: its own authored waypoints, else a route inherited by
+// roam-group promotion when the band's leader died (see _roamGroups in precombat.js).
+// Lives here because both combat.js and precombat.js need it and units.js is below both —
+// putting it in either would make them import each other.
+//
+// ⚠ `_bandPath` is runtime-only ON PURPOSE. The NPC editors serialize `patrolPath` straight
+// into the zone file, so a promoted unit must never have the route written there.
+export function roamPathOf(u) {
+  if (u.patrolPath?.length >= 2) return u.patrolPath;
+  if (u._bandPath?.length  >= 2) return u._bandPath;
+  return null;
 }
 
 export function setUnitWalking(unit, walking, run = false) {

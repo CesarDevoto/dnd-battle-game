@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground } from './scene.js';
-import { units } from './units.js';
+import { units, bandKey, serializeZoneEnemies } from './units.js';
 import { UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { activeEnv } from './environments.js';
@@ -68,6 +68,16 @@ function _injectPanel() {
         <input id="npc-ai-wander-r" type="number" class="npc-ai-num" min="1" max="100" value="10">
         <span class="npc-ai-unit">wu</span>
       </div>
+    </div>
+
+    <div class="npc-ai-row">
+      <label class="npc-ai-label" style="color:#88ddaa">Roam group</label>
+      <input id="npc-ai-group" type="text" class="npc-ai-num" style="width:110px" placeholder="(none)">
+    </div>
+    <div id="npc-ai-band-status" class="npc-ai-hint" style="margin:2px 0 4px 4px"></div>
+    <div class="npc-ai-hint" style="margin:2px 0 6px 4px">
+      Same id on several enemies = one band. Give the WAYPOINTS to one member only —
+      it leads, the rest hold formation. Any member spotting the party aggros all of them.
     </div>
   </div>
 
@@ -158,6 +168,46 @@ function _applyRoamVis() {
   if (roams) _applyModeVis();
 }
 
+// Report where the selected unit sits in its band. The leader test MUST stay identical to
+// the runtime one (js/precombat.js _roamGroups): first member in units[] order holding >=2
+// waypoints. Anything else here would describe a band the game doesn't actually play.
+function _refreshBandStatus() {
+  const el = document.getElementById('npc-ai-band-status');
+  if (!el) return;
+  const id = document.getElementById('npc-ai-group')?.value.trim() ?? '';
+  if (!_unit || !id) { el.textContent = ''; return; }
+
+  const key     = bandKey(id);
+  const members = units.filter(u => u.team === 'red' && u.hp > 0 && bandKey(u) === key);
+  const holders = members.filter(m => m.patrolPath?.length >= 2);
+  const leader  = holders[0] ?? null;
+  const wps     = leader?.patrolPath?.length ?? 0;
+  const others  = Math.max(0, members.length - 1);
+
+  // Exactly one member should own the route. Extra holders don't break travel (the band
+  // still walks the first one's beat) but they make the leader depend on units[] order,
+  // which a respawn can reshuffle — so say so rather than let it look intentional.
+  if (holders.length > 1) {
+    el.textContent = `⚠ ${holders.length} members have waypoints — only the first leads. ` +
+      `Clear the others' waypoints so the leader can't change on respawn.`;
+    el.style.color = '#ffaa66';
+    return;
+  }
+
+  if (!leader) {
+    el.textContent = `⚠ ${members.length} in band, none has waypoints — they'll idle together.`;
+    el.style.color = '#ffaa66';
+  } else if (leader === _unit) {
+    el.textContent = `★ LEADER of this band — ${wps} waypoints, ${others} follower${others === 1 ? '' : 's'}.`;
+    el.style.color = '#88ddaa';
+  } else {
+    const name = UNIT_TYPES[leader.type]?.name ?? leader.type;
+    el.textContent = `Follower. Leader is the ${name} at ` +
+      `(${leader.grp.position.x.toFixed(0)}, ${leader.grp.position.z.toFixed(0)}) — ${wps} waypoints.`;
+    el.style.color = '#9ab';
+  }
+}
+
 function _applyModeVis() {
   const mode = document.querySelector('input[name="npc-ai-mode"]:checked')?.value ?? 'patrol';
   const pb = document.getElementById('npc-ai-patrol-block');
@@ -174,6 +224,10 @@ function _populate() {
     document.getElementById('npc-ai-wp-list').innerHTML = '';
     document.getElementById('npc-ai-detect').value = '';
     document.getElementById('npc-ai-roams').checked = false;
+    // Clear the group too — a free-text field left populated would otherwise be applied
+    // to whichever enemy is selected next, quietly conscripting it into the last band.
+    document.getElementById('npc-ai-group').value = '';
+    _refreshBandStatus();
     _applyRoamVis();
     _clearWPMarkers();
     return;
@@ -199,6 +253,8 @@ function _populate() {
 
   document.getElementById('npc-ai-wander-r').value = _unit.wanderRadius ?? 10;
 
+  document.getElementById('npc-ai-group').value = _unit.roamGroup ?? '';
+
   document.getElementById('npc-ai-stealthed').checked = _unit.stealthed ?? false;
 
   const pref = _unit.attackPref ?? 'default';
@@ -206,6 +262,7 @@ function _populate() {
   if (prefInput) prefInput.checked = true;
 
   _applyRoamVis();
+  _refreshBandStatus();
   _refreshWPList();
   _rebuildWPMarkers();
 }
@@ -229,6 +286,12 @@ function _applyToUnit() {
   const wr = parseFloat(document.getElementById('npc-ai-wander-r').value);
   _unit.wanderRadius = Number.isFinite(wr) ? wr : 10;
 
+  // Band membership. Setting a group implies roaming — followers are moved by the
+  // group tick, which only looks at red units flagged `roams`.
+  const grp = document.getElementById('npc-ai-group').value.trim();
+  _unit.roamGroup = grp || null;
+  if (grp) _unit.roams = true;
+
   // patrolPath already lives on _unit (managed by waypoint add/delete)
 
   _unit.stealthed  = document.getElementById('npc-ai-stealthed').checked;
@@ -242,31 +305,10 @@ async function _save() {
 
   _applyToUnit();
 
-  const enemies = units
-    .filter(u => u.team === 'red')
-    .map(u => {
-      const e = {
-        type: u.type,
-        x:    +u.grp.position.x.toFixed(2),
-        z:    +u.grp.position.z.toFixed(2),
-      };
-      if (u.hoverY && Math.abs(u.hoverY) > 0.001)  e.yOff  = +u.hoverY.toFixed(3);
-      const s = +u.grp.scale.x.toFixed(3);
-      if (Math.abs(s - 1) > 0.001)                  e.scale = s;
-
-      // AI settings (omit defaults)
-      if (u.detectRange != null)                     e.detectRange       = u.detectRange;
-      if (u.socialAggroRange != null)                e.socialAggroRange  = u.socialAggroRange;
-      if (u.roams)                                   e.roams        = true;
-      if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
-      if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
-      if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
-      if (u.stealthed)                               e.stealthed    = true;
-      if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
-      if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
-
-      return e;
-    });
+  // Shared with the NPC editor. This panel used to keep its own copy that filtered to
+  // team === 'red' — and since the save replaces the whole array, that DELETED every
+  // team:'npc' unit in the zone. It also wrote live positions and dropped caveLayer.
+  const enemies = serializeZoneEnemies();
 
   _setStatus('Saving…', '');
   try {
@@ -323,6 +365,10 @@ renderer.domElement.addEventListener('click', e => {
   const picked = obj ? units.find(u => u.grp === obj) : null;
   if (!picked) return;
   e.stopImmediatePropagation();
+  // Commit the outgoing unit's panel state BEFORE switching. Building a roam band means
+  // typing the same group id across several enemies, and without this every value typed
+  // since the last Save was silently thrown away the moment you clicked the next one.
+  _applyToUnit();
   _unit = picked;
   _populate();
 }, false);
@@ -387,6 +433,13 @@ export function initNpcAIEditor() {
 
   // Roams toggle
   document.getElementById('npc-ai-roams')?.addEventListener('change', _applyRoamVis);
+
+  // Live band readout. Writing the id to the unit as you type is what makes the member
+  // count include the unit you're editing; it still only reaches the zone file on Save.
+  document.getElementById('npc-ai-group')?.addEventListener('input', () => {
+    if (_unit) _unit.roamGroup = document.getElementById('npc-ai-group').value.trim() || null;
+    _refreshBandStatus();
+  });
 
   // Roam mode radio
   document.querySelectorAll('input[name="npc-ai-mode"]').forEach(r =>

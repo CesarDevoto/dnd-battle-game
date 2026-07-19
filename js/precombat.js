@@ -1,4 +1,4 @@
-import { units, setUnitWalking } from './units.js';
+import { units, setUnitWalking, roamPathOf, bandKey } from './units.js';
 import { UNIT_TYPES, GROUND_SIZE } from './constants.js';
 import { rollInitiative, showCenterAlert, addLog, unitLabel, unitsHaveLOS, heroStealthPct } from './combat.js';
 import { playUnitAggroSound } from './audio.js';
@@ -37,6 +37,20 @@ const LEASH_DIST = 14;    // WU (~35 ft) — beyond this a follower is lost, wal
 const LEASH_TIME = 1.5;   // s of making no progress before we yank
 const LEASH_EPS  = 0.15;  // WU — closing less than this doesn't count as progress
 const SNAP_SLOTS = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1.5], [0, 1.5], [-1.5, 0], [1.5, 0]];
+
+// ── Roam groups ───────────────────────────────────────────────────────────────
+// Enemies sharing a `roamGroup` id travel as one band: the member holding the patrol
+// path leads, the rest hold formation slots behind it (leader-local frame) and are
+// recovered by the same funnel/leash machinery the hero group-move uses. Grouping is
+// a TRAVEL behaviour only — one member spotting the party aggros the whole band (see
+// _triggerAggro) and the formation dissolves into normal individual combat turns.
+const GROUP_SLOT_SPACING = 1.6;   // WU between formation slots
+const GROUP_CATCHUP_MULT = 1.45;  // a follower off its slot walks faster to re-form
+const GROUP_CATCHUP_SQ   = 4;     // WU² from slot before the catch-up speed kicks in
+const GROUP_WAIT_DIST    = 3.5;   // WU off-slot that counts as a laggard the leader waits for
+const GROUP_WAIT_MAX     = 4;     // s — cap the wait so one stuck member can't freeze the band
+// Offsets in the leader's frame: [right, forward]. Negative forward = behind the leader.
+const GROUP_SLOTS = [[-1, -1], [1, -1], [0, -2], [-2, -2], [2, -2], [-1, -3], [1, -3], [0, -4]];
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -86,6 +100,7 @@ export function exitPrecombat() {
     u._pcLostT    = 0;
     u._pcLastD    = Infinity;
     u._patrolWait = 0;
+    u._groupWaitT = 0;
     setUnitWalking(u, false);
   });
 }
@@ -242,45 +257,164 @@ function _leash(hero, leader, dt) {
   hero._pcLostT   = 0;
   hero._pcLastD   = Infinity;
   setUnitWalking(hero, false);
-  addLog(`${unitLabel(hero)} was left behind and rejoins the party.`, 'move');
+  // Roam-group followers use this same leash, but a wandering enemy re-forming with its
+  // band is not party news — and logging it would tell the player where an unspotted
+  // patrol is. Only the hero group-move announces the snap.
+  if (hero.team === 'blue') addLog(`${unitLabel(hero)} was left behind and rejoins the party.`, 'move');
   return true;
 }
 
 // ── Enemy patrol ──────────────────────────────────────────────────────────────
 
 function _tickPatrol(dt) {
+  const groups  = _roamGroups();
+  const grouped = new Set();
+  for (const g of groups.values()) {
+    grouped.add(g.leader);
+    for (const f of g.followers) grouped.add(f);
+  }
+
   for (const enemy of units) {
     if (enemy.team !== 'red' || enemy.hp <= 0) continue;
-    const path = enemy.patrolPath;
-    if (!path || path.length < 2) continue;
+    if (grouped.has(enemy)) continue;         // driven by _tickGroupPatrol below
+    _tickSoloPatrol(enemy, dt);
+  }
+  for (const g of groups.values()) _tickGroupPatrol(g, dt);
+}
 
-    // Brief pause at each waypoint
-    if ((enemy._patrolWait ?? 0) > 0) {
-      enemy._patrolWait -= dt;
-      setUnitWalking(enemy, false);
-      continue;
-    }
+// Last known route for each band id. Followers are authored WITHOUT waypoints, so killing
+// the leader would otherwise leave the survivors standing in formation until its respawn
+// timer fired. Caching the route lets a survivor be promoted and keep walking the beat.
+//
+// The promoted unit carries it on `_bandPath`, never on `patrolPath`: the NPC editors
+// serialize patrolPath straight out to the zone file, so writing it there would bake the
+// dead leader's route permanently onto whichever goblin happened to be standing when it
+// died — the same class of bug as the NPC save that wrote live positions.
+const _bandPaths = new Map();
+window.addEventListener('zone:loaded', () => _bandPaths.clear());
 
-    if (enemy._patrolIdx == null) enemy._patrolIdx = 0;
-    const wp = path[enemy._patrolIdx];
-
-    const result = _stepToward(enemy, wp.x, wp.z, PATROL_SPEED, dt);
-    if (result === 'arrived') {
-      enemy.grp.position.x = wp.x;
-      enemy.grp.position.z = wp.z;
-      enemy.anchor.x       = wp.x;
-      enemy.anchor.z       = wp.z;
-      enemy._patrolIdx     = (enemy._patrolIdx + 1) % path.length;
-      enemy._patrolWait    = 12;    // pause at each waypoint
-      setUnitWalking(enemy, false);
-    } else if (result === 'blocked') {
-      // Barrier between current position and waypoint — skip to next waypoint
-      // without snapping position (which would teleport the unit through the wall).
-      enemy._patrolIdx = (enemy._patrolIdx + 1) % path.length;
-      setUnitWalking(enemy, false);
+// roamGroup id → { leader, followers[] }. Rebuilt every frame (one pass over units) so a
+// member dying, respawning or being edited mid-session re-forms the band for free. The
+// leader is whichever member carries real waypoints — the original always reclaims the
+// job when it respawns, since an authored patrolPath outranks an inherited _bandPath.
+function _roamGroups() {
+  const members = new Map();
+  for (const u of units) {
+    if (u.team !== 'red' || u.hp <= 0) continue;
+    const key = bandKey(u);
+    if (!key) continue;
+    if (!members.has(key)) members.set(key, []);
+    members.get(key).push(u);
+  }
+  const groups = new Map();
+  for (const [id, mem] of members) {
+    let leader = mem.find(m => m.patrolPath?.length >= 2);
+    if (leader) {
+      _bandPaths.set(id, leader.patrolPath);        // fresh copy of the real route
     } else {
-      setUnitWalking(enemy, true);
+      // Leader is down. Promote a survivor onto the cached route, or fall back to the
+      // first member so the band still holds formation if no route was ever seen.
+      leader = mem.find(m => m._bandPath?.length >= 2) ?? mem[0];
+      const cached = _bandPaths.get(id);
+      if (leader && cached && !(leader._bandPath?.length >= 2)) {
+        leader._bandPath  = cached;
+        leader._patrolIdx = 0;
+        leader._patrolWait = 0;
+      }
     }
+    groups.set(id, { leader, followers: mem.filter(m => m !== leader) });
+  }
+  return groups;
+}
+
+// World position of formation slot `i`, in the leader's facing frame.
+function _formationSlot(leader, i) {
+  const [ox, oz] = GROUP_SLOTS[i % GROUP_SLOTS.length];
+  const a  = leader.grp.rotation.y;
+  const fx = Math.sin(a),  fz = Math.cos(a);    // forward
+  const rx = Math.cos(a),  rz = -Math.sin(a);   // right
+  const s  = GROUP_SLOT_SPACING;
+  return {
+    x: leader.grp.position.x + (rx * ox + fx * oz) * s,
+    z: leader.grp.position.z + (rz * ox + fz * oz) * s,
+  };
+}
+
+function _tickGroupPatrol({ leader, followers }, dt) {
+  const slots = followers.map((f, i) => _formationSlot(leader, i));
+
+  // The leader holds at its current spot while anyone is badly off-slot, so the band
+  // arrives together instead of stringing out down a corridor. GROUP_WAIT_MAX caps the
+  // hold: a member wedged on scenery that the leash won't yank (close enough to the
+  // leader, no barrier between them) must not freeze the whole group forever.
+  const behind = followers.some((f, i) => {
+    const dx = slots[i].x - f.grp.position.x, dz = slots[i].z - f.grp.position.z;
+    return dx * dx + dz * dz > GROUP_WAIT_DIST * GROUP_WAIT_DIST;
+  });
+  if (behind && (leader._groupWaitT ?? 0) < GROUP_WAIT_MAX) {
+    leader._groupWaitT = (leader._groupWaitT ?? 0) + dt;
+    setUnitWalking(leader, false);
+  } else {
+    if (!behind) leader._groupWaitT = 0;
+    _tickSoloPatrol(leader, dt);
+  }
+
+  followers.forEach((f, i) => {
+    if (_leash(f, leader, dt)) return;       // stranded — snapped back beside the leader
+
+    // Same beacon rule as the hero group-move: aim at the slot, but steer at the leader
+    // when blocked or lagging so the band funnels through the same gap, then re-spreads.
+    const slot = slots[i];
+    const sdx  = slot.x - f.grp.position.x, sdz = slot.z - f.grp.position.z;
+    const sdSq = sdx * sdx + sdz * sdz;
+    if (sdSq < 0.25) {                        // in formation — stand easy
+      f._pcBlocked = false;
+      setUnitWalking(f, false);
+      return;
+    }
+    const ldx = leader.grp.position.x - f.grp.position.x;
+    const ldz = leader.grp.position.z - f.grp.position.z;
+    const funnel = f._pcBlocked || (ldx * ldx + ldz * ldz) > FUNNEL_LAG_SQ;
+    const bx = funnel ? leader.grp.position.x : slot.x;
+    const bz = funnel ? leader.grp.position.z : slot.z;
+
+    const speed  = PATROL_SPEED * (sdSq > GROUP_CATCHUP_SQ ? GROUP_CATCHUP_MULT : 1);
+    const result = _stepToward(f, bx, bz, speed, dt, true);
+    f._pcBlocked = result === 'blocked';
+    setUnitWalking(f, result === false);
+  });
+}
+
+function _tickSoloPatrol(enemy, dt) {
+  const path = roamPathOf(enemy);
+  if (!path) return;
+
+  // Brief pause at each waypoint
+  if ((enemy._patrolWait ?? 0) > 0) {
+    enemy._patrolWait -= dt;
+    setUnitWalking(enemy, false);
+    return;
+  }
+
+  if (enemy._patrolIdx == null) enemy._patrolIdx = 0;
+  const wp = path[enemy._patrolIdx];
+
+  const result = _stepToward(enemy, wp.x, wp.z, PATROL_SPEED, dt);
+  if (result === 'arrived') {
+    enemy.grp.position.x = wp.x;
+    enemy.grp.position.z = wp.z;
+    enemy.anchor.x       = wp.x;
+    enemy.anchor.z       = wp.z;
+    enemy._patrolIdx     = (enemy._patrolIdx + 1) % path.length;
+    enemy._patrolWait    = 12;    // pause at each waypoint
+    setUnitWalking(enemy, false);
+  } else if (result === 'blocked') {
+    // Barrier between current position and waypoint — skip to next waypoint
+    // without snapping position (which would teleport the unit through the wall).
+    enemy._patrolIdx = (enemy._patrolIdx + 1) % path.length;
+    setUnitWalking(enemy, false);
+  } else {
+    setUnitWalking(enemy, true);
   }
 }
 
@@ -381,6 +515,17 @@ function _triggerAggro(spotter) {
       const sr = a.socialAggroRange ?? SOCIAL_AGGRO_DEFAULT;
       for (const b of enemies) {
         if (alerted.has(b)) continue;
+        // A roam group travels as one, so it fights as one: any member being alerted
+        // brings in the whole band regardless of how strung out the formation is.
+        // Riding the same BFS gets the fixed point for free — a band member pulled in
+        // here then alerts anyone in ITS social range on the next pass.
+        if (bandKey(a) && bandKey(b) === bandKey(a)) {
+          b.aggro = true;
+          alerted.add(b);
+          changed = true;
+          addLog(`⚠ ${unitLabel(b)} charges in with its band!`, 'alert');
+          continue;
+        }
         const dx = b.grp.position.x - a.grp.position.x;
         const dz = b.grp.position.z - a.grp.position.z;
         if (dx * dx + dz * dz <= sr * sr) {
