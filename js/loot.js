@@ -384,17 +384,44 @@ export function spawnLootLabels(position, loot) {
   items.forEach(it => toLabel.push({ text: it.name, type: it.rarity }));
 
   toLabel.forEach((entry, i) => {
-    const spr   = _makeSprite(entry.text, _LABEL_COLOR[entry.type] ?? '#d0d0d0');
-    const baseY = position.y + 1.1 + i * 0.56;
-    spr.position.set(
-      position.x + (Math.random() - 0.5) * 0.3,
-      baseY,
-      position.z + (Math.random() - 0.5) * 0.3,
-    );
+    const spr = _makeSprite(entry.text, _LABEL_COLOR[entry.type] ?? '#d0d0d0');
+    const x   = position.x + (Math.random() - 0.5) * 0.3;
+    const z   = position.z + (Math.random() - 0.5) * 0.3;
+    // i * ROW_H is only the STARTING guess — _freeLabelY then walks up past anything
+    // already standing there, including labels from other corpses.
+    const baseY = _freeLabelY(x, z, position.y + 1.1 + i * ROW_H, spr.scale.x);
+    spr.position.set(x, baseY, z);
     spr.userData.baseY = baseY;
     scene.add(spr);
     _labels.push(spr);
   });
+}
+
+// Vertical spacing between stacked labels, and the gap below which two labels count as
+// sharing a row rather than being cleanly above one another.
+const ROW_H    = 0.56;
+const ROW_BAND = 0.5;
+const MAX_BUMP = 40;     // give up climbing rather than launching a label into the sky
+
+// Lowest free height at (x, z) at or above `wantY`. Each drop used to stack only against its
+// OWN entries, so two enemies dying near each other — routine now that roam groups travel as
+// a pack, and every kill drops coins — printed their labels straight through one another.
+// Sprites are camera-facing billboards, so exact overlap depends on the camera; treating each
+// as a horizontal disc of its own width is close enough and doesn't need a camera to test.
+function _freeLabelY(x, z, wantY, width) {
+  let y = wantY;
+  for (let n = 0; n < MAX_BUMP; n++) {
+    const clash = _labels.some(s => {
+      if (Math.abs(s.position.y - y) >= ROW_BAND) return false;
+      const dx = s.position.x - x, dz = s.position.z - z;
+      // Sum of half-widths, trimmed a little: labels may kiss at the edges, not cover text.
+      const reach = (s.scale.x + width) * 0.5 * 0.85;
+      return dx * dx + dz * dz < reach * reach;
+    });
+    if (!clash) return y;
+    y += ROW_H;
+  }
+  return y;
 }
 
 export function clearLootLabels() {
