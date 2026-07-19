@@ -293,6 +293,19 @@ function _tickPatrol(dt) {
 const _roamGroupPaths = new Map();
 window.addEventListener('zone:loaded', () => _roamGroupPaths.clear());
 
+// Authored route for a group id, read straight from zone data. The live cache above only
+// knows routes it has SEEN this visit and is cleared on zone:loaded — but the usual way to
+// meet a leaderless group is a RESPAWN ACROSS A ZONE RELOAD: the followers are back on their
+// timer while the leader is still down, so no unit in the scene carries the route and the
+// cache is empty. Without this the survivors would idle until the leader's timer fired,
+// which is the common case, not the rare one. Zone data always has the answer.
+function _authoredGroupPath(key) {
+  for (const e of getActiveZone()?.enemies ?? []) {
+    if (e.patrol?.length >= 2 && roamGroupKey(e.roamGroup) === key) return e.patrol;
+  }
+  return null;
+}
+
 // roamGroup id → { leader, followers[] }. Rebuilt every frame (one pass over units) so a
 // member dying, respawning or being edited mid-session re-forms the roam group for free. The
 // leader is whichever member carries real waypoints — the original always reclaims the
@@ -312,10 +325,15 @@ function _roamGroups() {
     if (leader) {
       _roamGroupPaths.set(id, leader.patrolPath);        // fresh copy of the real route
     } else {
-      // Leader is down. Promote a survivor onto the cached route, or fall back to the
-      // first member so the roam group still holds formation if no route was ever seen.
+      // Leader is down. Promote a survivor onto the route — from this visit's cache if we
+      // watched the leader walk it, otherwise straight from zone data (the respawn case).
+      // The zone-data answer is cached so this scan happens once, not every frame.
       leader = mem.find(m => m._roamGroupPath?.length >= 2) ?? mem[0];
-      const cached = _roamGroupPaths.get(id);
+      let cached = _roamGroupPaths.get(id);
+      if (!cached) {
+        cached = _authoredGroupPath(id);
+        if (cached) _roamGroupPaths.set(id, cached);
+      }
       if (leader && cached && !(leader._roamGroupPath?.length >= 2)) {
         leader._roamGroupPath  = cached;
         leader._patrolIdx = 0;
