@@ -6238,14 +6238,27 @@ td.bst-col-retired { color: #343228 !important; }
   #save-tutorial { animation: none; }
 }
 
+/* Sits inside .hb-label, which clips with overflow:hidden + text-overflow:ellipsis. This used
+   to be 0.52rem — LARGER than the label's own 0.42rem — so both words overflowed the ~50px
+   cell and the player saw "Rea… Trig…". Sized under the label's own font with no letter
+   spacing so "TRIGGER" (the longer word) fits the cell whole. */
 .hb-ready-trigger {
+  display: block;
+  width: 100%;
   color: #ffe066;
   text-shadow: 0 0 8px rgba(255,220,50,0.60);
-  font-size: 0.52rem;
+  font-size: 0.38rem;
   line-height: 1.15;
-  letter-spacing: 0.6px;
+  letter-spacing: 0;
   white-space: normal;
+  overflow-wrap: anywhere;   /* wrap rather than clip if a cell is ever narrower still */
   text-align: center;
+}
+
+/* Turn OFF the label's ellipsis for this one case: the trigger label is deliberately two
+   short words on two lines, and an ellipsis on a wrapped line is what made it unreadable. */
+.hb-label:has(.hb-ready-trigger) {
+  text-overflow: clip;
 }
 
 /* ── Turn-list ready indicator ─────────────────────────────────────────── */

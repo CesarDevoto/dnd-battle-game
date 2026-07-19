@@ -4514,6 +4514,15 @@ function _maybeShowReadyTutorial(hero, modal) {
   _markRaTutSeen(hero.type);
 }
 
+// Shared close. Every path uses it — picking a trigger, Cancel, and the hotbar drop over in
+// ui.js — so none of them can hide the modal while leaving the tutorial nag floating over
+// where it used to be.
+export function closeReadyModal() {
+  _hideReadyTutorial();
+  const modal = document.getElementById('ready-action-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 function _openReadyModal(hero) {
   const modal = document.getElementById('ready-action-modal');
   if (!modal) return;
@@ -4527,17 +4536,13 @@ function _openReadyModal(hero) {
   });
   modal.querySelectorAll('.dam-trigger-btn').forEach(btn => {
     btn.onclick = () => {
-      _hideReadyTutorial();
-      modal.style.display = 'none';
+      closeReadyModal();
       // Arming a ready action ends the hero's main action but not their turn — they still
       // click End Turn themselves. (The dragged hotbar shortcut passes endTurn:true instead.)
       _armReadyAction(hero, btn.dataset.trigger, { endTurn: false });
     };
   });
-  document.getElementById('dam-cancel-btn').onclick = () => {
-    _hideReadyTutorial();
-    modal.style.display = 'none';
-  };
+  document.getElementById('dam-cancel-btn').onclick = closeReadyModal;
   modal.style.display = 'flex';
   _maybeShowReadyTutorial(hero, modal);
 }
