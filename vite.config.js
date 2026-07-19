@@ -177,6 +177,11 @@ function saveZoneEnemiesPlugin() {
 
             const itemLines = enemies.map(e => {
               let s = `    { type: '${e.type}', x: ${e.x}, z: ${e.z}`;
+              // serializeZoneEnemies sends team for any non-red unit; without this case it
+              // was dropped, so a unit whose team differs from its TYPE default silently
+              // reverted on save. Harmless for grasslings (type default is already 'npc'),
+              // but not for anything overridden per-entry.
+              if (e.team && e.team !== 'red')         s += `, team: '${e.team}'`;
               if (e.yOff  != null && e.yOff  !== 0)  s += `, yOff: ${e.yOff}`;
               if (e.scale != null && e.scale !== 1)   s += `, scale: ${e.scale}`;
               // ⚠ rotY was MISSING here until 2026-07-18, so every enemy save silently
