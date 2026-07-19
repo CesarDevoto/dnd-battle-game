@@ -803,6 +803,19 @@ function _applyLocoPitch(unit, walking) {
   unit.model.rotation.x = deg * (Math.PI / 180);
 }
 
+// Effective roam route for a unit: its own authored waypoints, else a route inherited by
+// roam-group promotion when the band's leader died (see _roamGroups in precombat.js).
+// Lives here because both combat.js and precombat.js need it and units.js is below both —
+// putting it in either would make them import each other.
+//
+// ⚠ `_bandPath` is runtime-only ON PURPOSE. The NPC editors serialize `patrolPath` straight
+// into the zone file, so a promoted unit must never have the route written there.
+export function roamPathOf(u) {
+  if (u.patrolPath?.length >= 2) return u.patrolPath;
+  if (u._bandPath?.length  >= 2) return u._bandPath;
+  return null;
+}
+
 export function setUnitWalking(unit, walking, run = false) {
   if (unit._scaleMode !== null) {
     if (unit._scaleMode === 'attack' || unit._scaleMode === 'death' || unit._scaleMode === 'dead') return;

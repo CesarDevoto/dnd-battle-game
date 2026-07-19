@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
@@ -5743,53 +5743,68 @@ function _dynamicAggroRangeWU(u, def) {
 
 // ── Proximity aggro (triggered after each hero move step) ─────────────────────
 
+// True if any OTHER live member of u's roam group has already joined the fight. A band
+// travels as one and fights as one, so the rest come in with it — routed through the
+// late-joiner path below rather than _alertRoamBand so each gets a real initiative roll
+// and turn-order slot instead of a bare aggro flag mid-combat.
+function _bandAlreadyFighting(u) {
+  if (!u.roamGroup) return false;
+  return units.some(o => o !== u && o.team === 'red' && o.hp > 0 &&
+                         o.aggro && o.roamGroup === u.roamGroup);
+}
+
 function _checkProximityAggro(hero) {
-  let anyNew = false;
-  for (const u of units) {
-    if (u.team !== 'red' || u.aggro || u.hp <= 0) continue;
-    const def   = UNIT_TYPES[u.type] ?? {};
-    const range = _dynamicAggroRangeWU(u, def);
-    const dx    = hero.grp.position.x - u.grp.position.x;
-    const dz    = hero.grp.position.z - u.grp.position.z;
-    if (dx * dx + dz * dz > range * range) continue;
+  let anyNew  = false;
+  let changed = true;
+  while (changed) {          // re-pass so a band-mate pulled in can pull in the next
+    changed = false;
+    for (const u of units) {
+      if (u.team !== 'red' || u.aggro || u.hp <= 0) continue;
+      const def   = UNIT_TYPES[u.type] ?? {};
+      const range = _dynamicAggroRangeWU(u, def);
+      const dx    = hero.grp.position.x - u.grp.position.x;
+      const dz    = hero.grp.position.z - u.grp.position.z;
+      if (dx * dx + dz * dz > range * range && !_bandAlreadyFighting(u)) continue;
 
-    u.aggro = true;
-    _dungeonAwareEnemies.add(u);
-    u.grp.visible = true;
+      changed = true;
+      u.aggro = true;
+      _dungeonAwareEnemies.add(u);
+      u.grp.visible = true;
 
-    // Re-roll initiative and re-slot after the current hero's position
-    const dexMod    = abilityModOf(u, 'dex');   // gear-aware, same as rollInitiative
-    const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod + affixTotal(u, 'initiative_bonus');
-    u.initiative    = roll({ sides: 20, modifier: initBonus }).total;
+      // Re-roll initiative and re-slot after the current hero's position
+      const dexMod    = abilityModOf(u, 'dex');   // gear-aware, same as rollInitiative
+      const initBonus = (def.initiative ?? COMBAT.defaultInitiative) + dexMod + affixTotal(u, 'initiative_bonus');
+      u.initiative    = roll({ sides: 20, modifier: initBonus }).total;
 
-    const oldIdx = turnOrder.indexOf(u);
-    if (oldIdx >= 0) {
-      turnOrder.splice(oldIdx, 1);
-      if (oldIdx < turnIndex) turnIndex--;
-    }
-    // Insert after current turn, sorted by initiative among remaining slots
-    let insertAt = turnIndex + 1;
-    for (let i = turnIndex + 1; i < turnOrder.length; i++) {
-      if (u.initiative > turnOrder[i].initiative) { insertAt = i; break; }
-      insertAt = i + 1;
-    }
-    turnOrder.splice(insertAt, 0, u);
-
-    // Late-joiner in a WON surprise round 1: it still has to notice the party. Roll ITS Perception
-    // vs the party's stealth; a fail means it wandered in caught off guard → surprised too (skips its
-    // upcoming turn, same as the initial group). Only in round 1, only while a surprise is armed.
-    if (round === 1 && _surpriseStealth != null) {
-      const r = _rollSpot(_spotChanceFromTotals(_percTotal(u), _surpriseStealth));
-      if (!r.spotted) {
-        u.surprised = true;
-        addLog(`⚠ ${unitLabel(u)} wanders into the fight but is surprised (Perception ${r.chance}%, rolled ${r.roll})!`, 'alert');
-      } else {
-        addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (spots you — Perception ${r.chance}%, rolled ${r.roll})`, 'alert');
+      const oldIdx = turnOrder.indexOf(u);
+      if (oldIdx >= 0) {
+        turnOrder.splice(oldIdx, 1);
+        if (oldIdx < turnIndex) turnIndex--;
       }
-    } else {
-      addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'alert');
+      // Insert after current turn, sorted by initiative among remaining slots
+      let insertAt = turnIndex + 1;
+      for (let i = turnIndex + 1; i < turnOrder.length; i++) {
+        if (u.initiative > turnOrder[i].initiative) { insertAt = i; break; }
+        insertAt = i + 1;
+      }
+      turnOrder.splice(insertAt, 0, u);
+
+      // Late-joiner in a WON surprise round 1: it still has to notice the party. Roll ITS Perception
+      // vs the party's stealth; a fail means it wandered in caught off guard → surprised too (skips its
+      // upcoming turn, same as the initial group). Only in round 1, only while a surprise is armed.
+      if (round === 1 && _surpriseStealth != null) {
+        const r = _rollSpot(_spotChanceFromTotals(_percTotal(u), _surpriseStealth));
+        if (!r.spotted) {
+          u.surprised = true;
+          addLog(`⚠ ${unitLabel(u)} wanders into the fight but is surprised (Perception ${r.chance}%, rolled ${r.roll})!`, 'alert');
+        } else {
+          addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (spots you — Perception ${r.chance}%, rolled ${r.roll})`, 'alert');
+        }
+      } else {
+        addLog(`⚠ ${unitLabel(u)} is alerted by the heroes! (Initiative ${u.initiative})`, 'alert');
+      }
+      anyNew = true;
     }
-    anyNew = true;
   }
   if (anyNew) buildTurnList();
 }
@@ -5871,6 +5886,22 @@ endTurnBtn.addEventListener('click', () => {
 
 // ── Non-aggro roam turn (used during combat for unaggro'd patrollers) ────────
 
+// One member of a roam group being alerted mid-combat pulls in the rest of the band,
+// mirroring the precombat cascade in _triggerAggro. Without this a band spotted during
+// combat would trickle in one enemy at a time as each wandered into detect range.
+function _alertRoamBand(u) {
+  if (!u.roamGroup) return;
+  for (const o of units) {
+    if (o === u || o.team !== 'red' || o.hp <= 0) continue;
+    if (o.roamGroup !== u.roamGroup || o.aggro) continue;
+    o.aggro = true;
+    o.grp.visible = true;
+    if (o.stealthed) setUnitStealth(o, false);
+    _dungeonAwareEnemies.add(o);
+    addLog(`⚠ ${unitLabel(o)} charges in with its band!`, 'alert');
+  }
+}
+
 function _roamAggroCheck(u) {
   if (u.aggro) return;
   const def    = UNIT_TYPES[u.type] ?? {};
@@ -5886,6 +5917,7 @@ function _roamAggroCheck(u) {
     u.aggro = true;
     u.grp.visible = true;
     addLog(`⚠ ${unitLabel(u)} spots the heroes during patrol!`, 'alert');
+    _alertRoamBand(u);
     buildTurnList();
   }
 }
@@ -5905,42 +5937,83 @@ function _nudgeRoamers() {
   }
 }
 
+// Band leader for a roam-group member: the first unit of its group carrying a patrol
+// path — the SAME rule precombat's _roamGroups uses, so a band doesn't change leader
+// when combat starts. Returns null for the leader itself and for ungrouped units.
+// Without this, followers would either stand still through a combat they aren't part
+// of, or (if they kept authored waypoints of their own) scatter down separate routes.
+const BAND_TRAIL_WU = 2.2;   // WU a follower keeps behind its leader
+
+function _roamBandLeader(u) {
+  if (!u.roamGroup) return null;
+  // roamPathOf, not patrolPath: after the real leader dies, precombat promotes a survivor
+  // onto the cached route via _bandPath, and the rest of the band must trail THAT unit.
+  const lead = units.find(o => o.team === 'red' && o.hp > 0 &&
+                               o.roamGroup === u.roamGroup && roamPathOf(o)) ?? null;
+  return lead === u ? null : lead;
+}
+
 function _animateRoamNudge(u) {
-  if (!u.patrolPath?.length) {
-    _roamAggroCheck(u);
-    return;
+  let idx = null, tx, tz;
+  // Band followers trail their leader even if they still carry authored waypoints of
+  // their own — the group id wins, so the band stays together instead of splitting.
+  const bandLead = _roamBandLeader(u);
+  const path     = roamPathOf(u);
+
+  if (!bandLead && path) {
+    idx = u._patrolIdx ?? 0;
+    for (let guard = 0; guard < path.length; guard++) {
+      const wp  = path[idx];
+      const ddx = wp.x - u.grp.position.x;
+      const ddz = wp.z - u.grp.position.z;
+      if (ddx * ddx + ddz * ddz > 0.04) break;
+      idx = (idx + 1) % path.length;
+    }
+    u._patrolIdx = idx;
+    tx = path[idx].x;
+    tz = path[idx].z;
+  } else {
+    const lead = bandLead;
+    if (!lead) {
+      _roamAggroCheck(u);
+      return;
+    }
+    // Trail the leader rather than pile onto it: aim at a point BAND_TRAIL_WU short of
+    // it, so a follower that reaches its target isn't standing in the leader's square.
+    const bdx = lead.grp.position.x - u.grp.position.x;
+    const bdz = lead.grp.position.z - u.grp.position.z;
+    const bd  = Math.sqrt(bdx * bdx + bdz * bdz);
+    if (bd <= BAND_TRAIL_WU) {
+      _roamAggroCheck(u);
+      return;
+    }
+    tx = lead.grp.position.x - (bdx / bd) * BAND_TRAIL_WU;
+    tz = lead.grp.position.z - (bdz / bd) * BAND_TRAIL_WU;
   }
 
-  let idx = u._patrolIdx ?? 0;
-  for (let guard = 0; guard < u.patrolPath.length; guard++) {
-    const wp  = u.patrolPath[idx];
-    const ddx = wp.x - u.grp.position.x;
-    const ddz = wp.z - u.grp.position.z;
-    if (ddx * ddx + ddz * ddz > 0.04) break;
-    idx = (idx + 1) % u.patrolPath.length;
-  }
-  u._patrolIdx = idx;
-
-  const wp   = u.patrolPath[idx];
   const cx   = u.grp.position.x;
   const cz   = u.grp.position.z;
-  const dx   = wp.x - cx;
-  const dz   = wp.z - cz;
+  const dx   = tx - cx;
+  const dz   = tz - cz;
   const dist = Math.sqrt(dx * dx + dz * dz);
 
   if (dist < 0.01) {
-    u._patrolIdx = (idx + 1) % u.patrolPath.length;
+    if (idx != null) u._patrolIdx = (idx + 1) % path.length;
     return;
   }
 
-  const willReach = dist <= ROAM_NUDGE_WU;
-  const ratio     = willReach ? 1 : ROAM_NUDGE_WU / dist;
-  const destX     = cx + dx * ratio;
-  const destZ     = cz + dz * ratio;
+  // `reach` = this nudge lands on the target; `advance` = that target was a waypoint and
+  // the patrol index should move on. They are NOT the same test — a follower trailing its
+  // leader reaches its target every nudge and has no index to advance.
+  const reach   = dist <= ROAM_NUDGE_WU;
+  const advance = reach && idx != null;
+  const ratio   = reach ? 1 : ROAM_NUDGE_WU / dist;
+  const destX   = cx + dx * ratio;
+  const destZ   = cz + dz * ratio;
 
   // Skip nudge if the path crosses a barrier or the destination is occupied.
   if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer) || isOccupied(destX, destZ, u)) {
-    if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
+    if (advance) u._patrolIdx = (idx + 1) % path.length;
     _roamAggroCheck(u);
     return;
   }
@@ -5975,7 +6048,7 @@ function _animateRoamNudge(u) {
       u.grp.position.set(destX, endY, destZ);
       u.anchor.x = destX; u.anchor.z = destZ;
       u.anchor.y = endY + (u.anchorY ?? 0);
-      if (willReach) u._patrolIdx = (idx + 1) % u.patrolPath.length;
+      if (advance) u._patrolIdx = (idx + 1) % path.length;
       u._roamNudging = false;
       setUnitWalking(u, false);
       if (!u.aggro) _roamAggroCheck(u);
@@ -6672,6 +6745,7 @@ function runAITurn(u) {
       u.grp.visible = true;
       if (u.stealthed) setUnitStealth(u, false);
       addLog(`⚠ ${unitLabel(u)} is alerted by the heroes!`, 'alert');
+      _alertRoamBand(u);
       buildTurnList();
       // Fall through — enemy acts this turn
     } else {

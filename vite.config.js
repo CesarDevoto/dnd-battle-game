@@ -184,6 +184,14 @@ function saveZoneEnemiesPlugin() {
               if (e.roams)                            s += `, roams: true`;
               if (e.roamMode)                         s += `, roamMode: '${e.roamMode}'`;
               if (e.wanderRadius != null)             s += `, wanderRadius: ${e.wanderRadius}`;
+              // roamGroup is the only FREE-TEXT enemy field (every other quoted one is an
+              // enum), so it is the only one that can carry an apostrophe or backslash and
+              // break the generated file. An unescaped "goblin's band" would emit invalid JS
+              // and take the whole zone down at import, so escape rather than trust the input.
+              if (e.roamGroup) {
+                const g = String(e.roamGroup).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                s += `, roamGroup: '${g}'`;
+              }
               if (e.patrol?.length) {
                 const pts = e.patrol.map(p => `{x:${p.x},z:${p.z}}`).join(', ');
                 s += `, patrol: [${pts}]`;

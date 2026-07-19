@@ -173,7 +173,12 @@ function _duplicateNpc(dx, dz) {
   if (src.roams)                    nu.roams            = src.roams;
   if (src.roamMode)                 nu.roamMode         = src.roamMode;
   if (src.wanderRadius     != null) nu.wanderRadius     = src.wanderRadius;
-  if (src.patrolPath?.length)       nu.patrolPath       = src.patrolPath.map(p => ({ x: p.x, z: p.z }));
+  if (src.roamGroup)                nu.roamGroup        = src.roamGroup;
+  // A duplicate that inherits a roamGroup is a FOLLOWER, so it deliberately does NOT get a
+  // copy of the route. Two path-holders in one band would make the leader depend on units[]
+  // order — which a respawn reshuffles, silently re-anchoring the formation. Ungrouped
+  // roamers still clone their waypoints exactly as before.
+  if (!nu.roamGroup && src.patrolPath?.length) nu.patrolPath = src.patrolPath.map(p => ({ x: p.x, z: p.z }));
   if (src.stealthed)                nu.stealthed        = src.stealthed;
   if (src.attackPref)               nu.attackPref       = src.attackPref;
   _selectedUnit = nu;
@@ -306,9 +311,11 @@ async function _saveToZone() {
       if (Math.abs(s - 1) > 0.001)                  e.scale = s;
       // Preserve AI properties so NPC editor save never strips roaming/patrol data
       if (u.detectRange != null)                     e.detectRange  = u.detectRange;
+      if (u.socialAggroRange != null)                e.socialAggroRange = u.socialAggroRange;
       if (u.roams)                                   e.roams        = true;
       if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
       if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
+      if (u.roamGroup)                               e.roamGroup    = u.roamGroup;
       if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
       if (u.stealthed)                               e.stealthed    = true;
       if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
@@ -492,7 +499,9 @@ export function initNpcEditor() {
         if (src.roams)                    nu.roams            = src.roams;
         if (src.roamMode)                 nu.roamMode         = src.roamMode;
         if (src.wanderRadius     != null) nu.wanderRadius     = src.wanderRadius;
-        if (src.patrolPath?.length)       nu.patrolPath       = src.patrolPath.map(p => ({ x: p.x, z: p.z }));
+        if (src.roamGroup)                nu.roamGroup        = src.roamGroup;
+        // Grouped duplicate = follower, no route copy — see the note in _duplicateNpc.
+        if (!nu.roamGroup && src.patrolPath?.length) nu.patrolPath = src.patrolPath.map(p => ({ x: p.x, z: p.z }));
         if (src.stealthed)                nu.stealthed        = src.stealthed;
         if (src.attackPref)               nu.attackPref       = src.attackPref;
         _selectedUnit = nu;
