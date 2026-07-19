@@ -31,33 +31,39 @@ function _bracket(cr) {
 function _rollCoins(b) {
   const r = _pct();
   switch (b) {
-    case 0: // Pocket Change (CR 0–½)
+    // ⚠ Brackets 0 and 1 DEVIATE from the book (user, 2026-07-19): gold is removed entirely
+    // from bracket 0 and pushed to the rare high rolls in bracket 1. The published tables hand
+    // out gp from CR ⅛ upward because they assume individual treasure is the thin layer under
+    // hoards — and this game has no hoards, so every coin a player sees comes from a corpse.
+    // Book rates made trash mobs a gold faucet. Payout ladders are preserved (a 96+ roll is
+    // still the best result), just denominated in silver.
+    case 0: // Pocket Change (CR 0–½) — copper and silver only, NO gold
       if (r < 30) return { cp: _roll(3,6),                       sp: 0,            gp: 0,                     pp: 0 };
       if (r < 60) return { cp: 0,                                sp: _roll(1,6),   gp: 0,                     pp: 0 };
       if (r < 85) return { cp: _roll(1,6),                       sp: _roll(2,6),   gp: 0,                     pp: 0 };
-      if (r < 95) return { cp: 0,                                sp: _roll(1,4),   gp: _roll(1,4),            pp: 0 };
-      return             { cp: 0,                                sp: 0,            gp: _roll(1,6),            pp: 0 };
+      if (r < 95) return { cp: 0,                                sp: _roll(3,6),   gp: 0,                     pp: 0 };
+      return             { cp: 0,                                sp: _roll(4,6),   gp: 0,                     pp: 0 };
 
-    case 1: // Low (CR 1–2)
-      if (r < 30) return { cp: _roll(2,6),                       sp: _roll(2,6),   gp: 0,                     pp: 0 };
-      if (r < 60) return { cp: 0,                                sp: _roll(1,6),   gp: _roll(2,4),            pp: 0 };
-      if (r < 85) return { cp: 0,                                sp: 0,            gp: _roll(3,6),            pp: 0 };
-      if (r < 95) return { cp: 0,                                sp: 0,            gp: _roll(1,4)*10 + _roll(1,6), pp: 0 };
-      return             { cp: 0,                                sp: 0,            gp: _roll(2,4)*10,         pp: 0 };
+    case 1: // Low (CR 1–2) — gold only on a 96+ roll
+      if (r < 30) return { cp: _roll(2,6),                       sp: _roll(1,6),   gp: 0,                     pp: 0 };
+      if (r < 60) return { cp: 0,                                sp: _roll(2,6),   gp: 0,                     pp: 0 };
+      if (r < 85) return { cp: 0,                                sp: _roll(3,6),   gp: 0,                     pp: 0 };
+      if (r < 95) return { cp: 0,                                sp: _roll(4,6),   gp: 0,                     pp: 0 };
+      return             { cp: 0,                                sp: 0,            gp: _roll(1,4),            pp: 0 };
 
-    case 2: // Medium-Low (CR 3–8)
-      if (r < 20) return { cp: 0, sp: 0,            gp: _roll(3,6)*10,                         pp: 0 };
-      if (r < 50) return { cp: 0, sp: _roll(1,6)*10, gp: _roll(2,4)*10,                        pp: 0 };
-      if (r < 80) return { cp: 0, sp: 0,            gp: _roll(1,4)*100,                        pp: 0 };
-      if (r < 95) return { cp: 0, sp: 0,            gp: _roll(1,6)*100 + _roll(1,4)*10,        pp: 0 };
-      return             { cp: 0, sp: 0,            gp: _roll(2,4)*100,                        pp: _roll(1,4) };
+    case 2: // Medium-Low (CR 3–8) — silver at the bottom, tens of gp at the top
+      if (r < 20) return { cp: 0, sp: _roll(2,6),   gp: 0,                                     pp: 0 };
+      if (r < 50) return { cp: 0, sp: 0,            gp: _roll(1,6),                            pp: 0 };
+      if (r < 80) return { cp: 0, sp: 0,            gp: _roll(2,6),                            pp: 0 };
+      if (r < 95) return { cp: 0, sp: 0,            gp: _roll(1,4)*10,                         pp: 0 };
+      return             { cp: 0, sp: 0,            gp: _roll(2,4)*10,                         pp: 0 };
 
-    case 3: // Medium (CR 9–16)
-      if (r < 20) return { cp: 0, sp: 0, gp: _roll(2,6)*100,                                   pp: 0 };
-      if (r < 50) return { cp: 0, sp: 0, gp: _roll(2,4)*100,                                   pp: _roll(1,6) };
-      if (r < 80) return { cp: 0, sp: 0, gp: _roll(1,4)*1000,                                  pp: _roll(1,6)*10 };
-      if (r < 95) return { cp: 0, sp: 0, gp: _roll(2,6)*1000,                                  pp: _roll(2,6)*10 };
-      return             { cp: 0, sp: 0, gp: _roll(2,4)*1000,                                  pp: _roll(1,4)*100 };
+    case 3: // Medium (CR 9–16) — platinum only on a 96+ roll
+      if (r < 20) return { cp: 0, sp: 0, gp: _roll(1,6),                                       pp: 0 };
+      if (r < 50) return { cp: 0, sp: 0, gp: _roll(2,6),                                       pp: 0 };
+      if (r < 80) return { cp: 0, sp: 0, gp: _roll(1,4)*10,                                    pp: 0 };
+      if (r < 95) return { cp: 0, sp: 0, gp: _roll(2,6)*10,                                    pp: 0 };
+      return             { cp: 0, sp: 0, gp: _roll(3,6)*10,                                    pp: _roll(1,4) };
 
     default: // High (CR 17+)
       if (r < 15) return { cp: 0, sp: 0, gp: _roll(4,6)*100,                                   pp: _roll(1,4) };
