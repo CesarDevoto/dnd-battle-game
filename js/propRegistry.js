@@ -40,6 +40,10 @@ export const PROP_MODELS = {
   // ~1.5 WU wide × ~1.9 tall centered; at scale 1 that's ~5 ft — a throne-sized seat. Auto-grounded.
   ironchair:    { label: 'Iron Chair',  path: 'assets/environment/iron chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   skeleton1:    { label: 'Skeleton',    path: 'assets/environment/skeleton1.glb',       defaultScale: 1.0, defaultYOff: 0.18, blocksLOS: false, clashR: 0.4  },
+  // Native mesh is ~2 WU wide × ~1.8 tall, centered on the origin (bbox min y ≈ -1.04), so it
+  // hangs like a corner web. blocksLOS:false — you see through the strands; clashR small so it
+  // can tuck into a corner without shoving bodies away. Heavily meshopt'd (512² webp, ~7.7k verts).
+  spiderweb:    { label: 'Spider Web',  path: 'assets/environment/spiderweb.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.3  },
   dungeonwall:      { label: 'Rock Wall',       path: 'assets/environment/dungeonrockwall.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
   stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
