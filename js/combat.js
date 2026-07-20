@@ -1374,7 +1374,11 @@ function castHeal(caster, target, spellKey) {
   };
 
   if (spellKey === 'healing_word') {
-    playHealingWordEffect(caster, target, _onHealLand);
+    // ⚠ Leugren's cast voice goes HERE, at the healing_word call site — NOT inside
+    // playHealingWordEffect. Cure Wounds reuses that same effect for its visual, so a playSound
+    // in there would put a "Healing Word" line on top of a different spell.
+    playSound('healing_word_leugren');
+    playHealingWordEffect(caster, target, _onHealLand, { chimeAt: 'cast' });
   } else {
     setTimeout(_onHealLand, 800);
   }
@@ -6376,12 +6380,13 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         allyWounded.barShowUntil = Date.now() + 4000;
         hideUndoBtn();
         updateCombatStatus();
+        playSound('healing_word_leugren');   // cast voice — see the manual path for why it isn't in the effect
         playHealingWordEffect(u, allyWounded, () => {
           showFloatingDamage(allyWounded, `+${healed}`, '#44ff88');
           addLog(`${unitLabel(u)} uses Healing Word on ${unitLabel(allyWounded)}, restoring ${healed} HP (${dmgBreakdown(healRoll)})`, 'heal');
           buildTurnList();
           onDone();
-        });
+        }, { chimeAt: 'cast' });
         return;
       }
 

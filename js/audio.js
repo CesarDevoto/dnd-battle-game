@@ -102,8 +102,15 @@ const SOUNDS = {
   dwarf_attack:     { src: 'assets/audio/combat/dwarf attack.mp3',                 category: 'combat' },
   range_attack_bow: { src: 'assets/audio/combat/weapon sounds/range attack bow.mp3', category: 'combat' },
   fire_bolt:        { src: 'assets/audio/magic sounds/fire bolt.mp3',                category: 'combat' },
+  // Rasec's voice as he casts — fired TOGETHER with fire_bolt above, not after it.
+  fire_bolt_rasec:  { src: 'assets/audio/magic sounds/fire bolt rasec.mp3',          category: 'combat' },
   healing:          { src: 'assets/audio/magic sounds/healing word.mp3',             category: 'combat' },
+  // Leugren's voice as he CASTS. Distinct from `healing` above, which is the chime the bolt makes
+  // when it LANDS (playHealingWordEffect fires that on impact) — the two are meant to overlap.
+  healing_word_leugren: { src: 'assets/audio/magic sounds/healing word leugren.mp3', category: 'combat' },
   magic_missile:    { src: 'assets/audio/magic sounds/magic missile.mp3',            category: 'combat' },
+  // Rasec's voice as he casts — fired TOGETHER with magic_missile above, not after it.
+  magic_missile_rasec: { src: 'assets/audio/magic sounds/magic missile rasec.mp3',   category: 'combat' },
   sacred_flame:     { src: 'assets/audio/magic sounds/sacred flame.mp3',             category: 'combat' },
   fireball:         { src: 'assets/audio/magic sounds/fireball.mp3',                 category: 'combat' },
   smoke_bomb:       { src: 'assets/audio/magic sounds/smoke bomb.mp3',               category: 'combat' },

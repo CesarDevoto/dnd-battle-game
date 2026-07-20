@@ -20,7 +20,11 @@ const STAGGER_MS    = 420;   // launch delay between successive bolts
 const MAX_PARTS     = 320;   // shared ring-buffer for all trails + impact bursts
 
 export function playMagicMissileEffect(attacker, target, onImpact) {
+  // Two layers on the same frame: the spell's own sound, and Rasec's voice casting it. Same call
+  // site so they start together rather than one trailing the other. Safe to live inside the
+  // effect — Magic Missile is elf-only and nothing else reuses this effect.
   playSound('magic_missile');
+  playSound('magic_missile_rasec');
 
   const origin = new THREE.Vector3(
     attacker.grp.position.x,

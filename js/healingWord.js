@@ -14,7 +14,19 @@ export function initHealingWordLight() {
   scene.add(_healLight);
 }
 
-export function playHealingWordEffect(attacker, target, onImpact) {
+// `chimeAt` decides WHEN the 'healing' sound plays, because the two spells that share this effect
+// want it at different moments (user, 2026-07-19):
+//   • 'cast'   — Healing Word. Leugren's voice line fires at the call site the instant this is
+//                invoked, and the two are meant to sound as one cast. Leaving the chime on impact
+//                put them ~950ms apart (the bolt's travel time), reading as two separate events.
+//   • 'impact' — Cure Wounds (the DEFAULT, so it keeps the behaviour it has always had). It has no
+//                voice line to pair with, and its chime marking the moment the heal LANDS is the
+//                whole point of the sound.
+// Splitting on a parameter rather than moving the call outright: the two spells genuinely differ
+// here, and forcing one timing on both is what made this a trade-off in the first place.
+export function playHealingWordEffect(attacker, target, onImpact, { chimeAt = 'impact' } = {}) {
+  if (chimeAt === 'cast') playSound('healing');
+
   const start = new THREE.Vector3(
     attacker.grp.position.x,
     attacker.grp.position.y + 1.15,
@@ -160,7 +172,7 @@ export function playHealingWordEffect(attacker, target, onImpact) {
         projLight.intensity = 5.5;
         projLight.distance  = 18;
         spawnPlus();
-        playSound('healing');
+        if (chimeAt === 'impact') playSound('healing');
         doneAt = now + (PLUS_LIFE + 0.6) * 1000;
         if (onImpact) onImpact();
       }
