@@ -2006,6 +2006,17 @@ body {
   50%       { opacity: 1.0; transform: translate(-50%, -115%) scale(1.10); }
 }
 
+/* Turned by Turn Undead. Reuses .zzz-label's positioning/animation wholesale — it is the
+   same overhead-marker shape — and only recolours it gold so a turned unit doesn't read
+   as asleep. Both markers can be on screen at once in an undead fight. */
+.fear-label {
+  color: #ffe9a8;
+  font-style: normal;
+  text-shadow:
+    0 0 8px rgba(255,220,140,0.9),
+    0 0 20px rgba(220,170,60,0.5);
+}
+
 /* ── Surprised: closed-eye marker ────────────────────────────────────── */
 /* Overhead icon, pinned just above the floating health bar — same geometry and
    z-index as .unit-ready-icon (⚡) so the two read as one family of unit state
@@ -6190,6 +6201,46 @@ td.bst-col-retired { color: #343228 !important; }
   color: #44cc88;
   text-shadow: 0 0 7px rgba(40, 180, 100, 0.55);
   letter-spacing: 0.8px;
+}
+
+/* ── L5–L7 abilities (2026-07-20) ──────────────────────────────────────────
+   Text icons ONLY because no art exists yet in assets/spells and skills/. The
+   moment a .jpg is dropped in, swap the ABILITY_META entry from {label,cssClass}
+   to {imgSrc} and these rules stop being reached — nothing else needs touching. */
+.hb-sleep {
+  color: #cc88ff;
+  text-shadow: 0 0 7px rgba(190, 120, 255, 0.55);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
+}
+.hb-burning-hands {
+  color: #ff8844;
+  text-shadow: 0 0 7px rgba(255, 110, 40, 0.55);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
+}
+.hb-reckless {
+  color: #ff5544;
+  text-shadow: 0 0 7px rgba(255, 70, 50, 0.6);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
+}
+.hb-turn-undead {
+  color: #ffe9a8;
+  text-shadow: 0 0 8px rgba(255, 225, 150, 0.65);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
+}
+.hb-sanctuary {
+  color: #9fd8ff;
+  text-shadow: 0 0 7px rgba(140, 200, 255, 0.55);
+  white-space: normal;
+  line-height: 1.15;
+  letter-spacing: 0.6px;
 }
 
 /* ── Ready Action hotbar label ─────────────────────────────────────────── */

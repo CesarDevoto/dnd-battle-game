@@ -100,6 +100,132 @@ export function trackSleepUI() {
   }
 }
 
+// ── Frightened state (Turn Undead) ───────────────────────────────────────────
+// Maps frightened unit → { roundsLeft, turnedBy, fearEl }.
+//
+// Deliberately the SAME shape as sleepingUnits above: same round-rollover tick, same
+// wake-on-damage rule, same teardown sweep. Two condition idioms in one file would drift.
+// Difference from sleep: a frightened unit still TAKES its turn — it is Incapacitated (no
+// action) but it moves, fleeing from whoever turned it (see the enemy-turn branch).
+export const frightenedUnits = new Map();
+
+function applyFear(u, rounds, source) {
+  if (frightenedUnits.has(u)) return;
+  const fearEl = document.createElement('div');
+  fearEl.className = 'zzz-label fear-label';
+  fearEl.textContent = '😱';
+  document.getElementById('app').appendChild(fearEl);
+  frightenedUnits.set(u, { roundsLeft: rounds, turnedBy: source, fearEl });
+}
+
+export function clearFear(u, reason) {
+  const state = frightenedUnits.get(u);
+  if (!state) return;
+  state.fearEl?.remove();
+  frightenedUnits.delete(u);
+  if (reason === 'damage') {
+    showFloatingDamage(u, '💢 RALLIES', '#ffdd88');
+    addLog(`  ${unitLabel(u)} is struck and shakes off its fear!`, 'spell');
+  }
+}
+
+function tickFear() {
+  const done = [];
+  for (const [u, state] of frightenedUnits) {
+    state.roundsLeft--;
+    // Ends early if the turner is dead or gone — nothing left to flee from.
+    if (state.roundsLeft <= 0 || !state.turnedBy || state.turnedBy.hp <= 0) done.push(u);
+  }
+  done.forEach(u => {
+    addLog(`${unitLabel(u)} is no longer turned`, 'spell');
+    clearFear(u);
+  });
+}
+
+export function trackFearUI() {
+  for (const [u, state] of frightenedUnits) {
+    if (!state.fearEl) continue;
+    _sv.set(u.anchor.x, u.anchor.y + 1.0, u.anchor.z).project(camera);
+    if (_sv.z >= 1) { state.fearEl.style.display = 'none'; continue; }
+    const cw = renderer.domElement.clientWidth, ch = renderer.domElement.clientHeight;
+    state.fearEl.style.display = 'block';
+    state.fearEl.style.left    = ((_sv.x * 0.5 + 0.5) * cw) + 'px';
+    state.fearEl.style.top     = ((-_sv.y * 0.5 + 0.5) * ch) + 'px';
+  }
+}
+
+// "Any damage ends it" — the rule Sleep and Turn Undead BOTH advertise. Call this from every
+// path that reduces a unit's HP. It used to be two open-coded lines repeated at the three
+// _executeAttack-family sites only, which left the direct-damage spells (Magic Missile, Sacred
+// Flame, Burning Hands) writing `hp -=` straight past it: a slept or turned enemy hit by a
+// spell simply kept sleeping. One helper so a future damage path has one thing to remember.
+export function wakeOnDamage(target) {
+  if (!target) return;
+  if (sleepingUnits.has(target))   wakeUnit(target, 'damage');
+  if (frightenedUnits.has(target)) clearFear(target, 'damage');
+}
+
+// ── Sanctuary state ──────────────────────────────────────────────────────────
+// Maps warded unit → { roundsLeft }. Enforced in enemy target selection via
+// _sanctuaryBlocks(attacker, target), NOT on the damage roll.
+export const sanctuaryUnits = new Map();
+
+function applySanctuary(u, rounds) { sanctuaryUnits.set(u, { roundsLeft: rounds }); }
+
+export function clearSanctuary(u, reason) {
+  if (!sanctuaryUnits.has(u)) return;
+  sanctuaryUnits.delete(u);
+  if (reason === 'attacked') {
+    showFloatingDamage(u, 'SANCTUARY ENDS', '#88aacc');
+    addLog(`  ${unitLabel(u)} attacks — their Sanctuary ends.`, 'spell');
+  }
+}
+
+function tickSanctuary() {
+  const done = [];
+  for (const [u, state] of sanctuaryUnits) {
+    state.roundsLeft--;
+    if (state.roundsLeft <= 0) done.push(u);
+  }
+  done.forEach(u => {
+    addLog(`${unitLabel(u)}'s Sanctuary fades`, 'spell');
+    clearSanctuary(u);
+  });
+}
+
+// True when `attacker` may NOT attack `target` this turn because Sanctuary held. The save is
+// rolled once per attacker per attempt; a passed save lets that attacker through for the
+// attempt it was rolled for, exactly like the 5e wording.
+function _sanctuaryBlocks(attacker, target) {
+  if (!sanctuaryUnits.has(target)) return false;
+  const spell  = SPELLS.sanctuary;
+  const wisMod = abilityModOf(attacker, 'wis');
+  const saved  = rollSave(wisMod, spell.saveDC, 'normal',
+                          affixTotal(attacker, 'saving_throw_pct')).isSave;
+  if (saved) {
+    addLog(`  ${unitLabel(attacker)} pushes through ${unitLabel(target)}'s Sanctuary (WIS save)`, 'combat');
+    return false;
+  }
+  addLog(`  ${unitLabel(attacker)} cannot bring itself to attack ${unitLabel(target)} — Sanctuary holds.`, 'spell');
+  return true;
+}
+
+// aiPickTarget wrapper that honours Sanctuary. Kept HERE rather than inside combatAI.js
+// because that module is deliberately pure (no combat-module state) and the ward map plus
+// rollSave both live in this file.
+//
+// Order matters: pick normally FIRST, so an enemy that would have gone for someone else is
+// never told about the ward at all. Only when the roll lands on a warded ally do we make it
+// save; a failure re-picks from the unwarded pool, and if every living hero is warded the
+// enemy has no legal target and forfeits the attack — which is the spell working, not a bug.
+function _aiPickTargetSanctuaryAware(u) {
+  const first = aiPickTarget(u, units, unitsHaveLOS);
+  if (!first || !sanctuaryUnits.has(first)) return first;
+  if (!_sanctuaryBlocks(u, first)) return first;
+  const unwarded = units.filter(h => !sanctuaryUnits.has(h));
+  return aiPickTarget(u, unwarded, unitsHaveLOS);
+}
+
 // ── Surprise indicator ────────────────────────────────────────────────────────
 // A closed eye marks a unit that hasn't noticed the fight yet: it appears the moment
 // _determineSurprise sets `surprised` and vanishes when that unit's turn comes up and it loses it.
@@ -159,7 +285,10 @@ export function trackSurpriseUI() {
   }
 }
 
-function playSleepEffect(caster) {
+// Caster-centred particle burst. Written for Sleep (purple) but for a long while ONLY
+// Burning Hands called it, so a fire spell threw violet motes and Sleep had no VFX at all.
+// Colour is a parameter now and each caster passes its own; the default keeps Sleep's.
+function playSleepEffect(caster, color = 0xcc55ff) {
   const COUNT = 80;
   const geo   = new THREE.BufferGeometry();
   const pos   = new Float32Array(COUNT * 3);
@@ -181,7 +310,7 @@ function playSleepEffect(caster) {
 
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const mat = new THREE.PointsMaterial({
-    color: 0xcc55ff, size: 0.30, transparent: true, opacity: 0.92,
+    color, size: 0.30, transparent: true, opacity: 0.92,
     depthWrite: false, blending: THREE.AdditiveBlending,
   });
   const pts = new THREE.Points(geo, mat);
@@ -1432,6 +1561,7 @@ function castSacredFlame(caster, target, onDone) {
     showRoll(`${unitLabel(target)} · DEX Save (Sacred Flame)`, saveResult, { autoDismiss: false });
     if (dmg > 0) {
       target.hp = Math.max(0, target.hp - dmg);
+      wakeOnDamage(target);   // Sacred Flame
       target.barShowUntil = Date.now() + 5000;
       showFloatingDamage(target, `-${dmg}`, '#ffcc44');
       addLog(`${unitLabel(caster)} casts Sacred Flame → ${unitLabel(target)}: FAILS (${saveBreakdown(saveResult, 'dex')}) — ${dmg} radiant dmg`, 'spell');
@@ -1523,6 +1653,9 @@ function handleSpellBtnClick(spellKey) {
   if (isAnimating) return;
   const u = turnOrder[turnIndex];
   if (!u || u.team !== 'blue') return;
+  // Same defence-in-depth as handleElfSpellBtnClick: executeAbility() invokes a handler without
+  // re-checking isAvailable, so a stale button could otherwise cast a not-yet-unlocked spell.
+  if (!isAbilityUnlocked(u.type, u.level, spellKey)) return;
   if (!hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
   // Toggle off if already in this mode
@@ -1580,9 +1713,11 @@ function handleSpellBtnClick(spellKey) {
   hideAttackTargets();
   showHealTargets(u, spellKey);
 
-  // If a valid heal target is already selected, cast immediately
+  // If a valid ally is already selected, cast immediately. Same castHeal/castSanctuary split
+  // as the click resolver — this shortcut is a second entry point into the very same cast.
   if (selectedTarget && healTargets.has(selectedTarget)) {
-    castHeal(u, selectedTarget, spellKey);
+    if (spellKey === 'sanctuary') castSanctuary(u, selectedTarget);
+    else                          castHeal(u, selectedTarget, spellKey);
     return;
   }
 
@@ -1621,6 +1756,155 @@ function activateDefensiveStance() {
   addLog(`${unitLabel(u)} takes a Defensive Stance! +3 AC for 3 rounds`, 'move');
   showFloatingDamage(u, '🛡 +3 AC', '#aaddff');
   updateCombatStatus();
+}
+
+// ── Reckless Attack (Gobo, lvl 6) ────────────────────────────────────────────
+// 5e-shaped: costs no action at all, declared before swinging, and lasts until the start
+// of Gobo's NEXT turn — so the enemies who act between his turns are the ones who punish
+// him for it. `reckless` is read by the two to-hit sites (hero attacking, enemy attacking
+// a hero) beside the existing dodging check, and cleared at his turn start.
+function activateRecklessAttack() {
+  if (isAnimating) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'human') return;
+  if (u.reckless || turnAttacked) return;
+  if (!isAbilityUnlocked(u.type, u.level, 'reckless_attack')) return;
+
+  u.reckless = true;
+  addLog(`${unitLabel(u)} attacks RECKLESSLY — advantage on his melee attacks, but every attack against him has advantage until his next turn.`, 'move');
+  showFloatingDamage(u, '⚔ RECKLESS', '#ff5544');
+  updateCombatStatus();
+  _rebuildHotbar(u);
+}
+
+// ── Turn Undead (Leugren, lvl 5) ─────────────────────────────────────────────
+// Channel Divinity, not a spell: no slot, one charge per combat (u.turnUndeadUses).
+// Undead in range that fail a WIS save are Frightened + Incapacitated — modelled by the
+// `frightenedUnits` Map below, which is deliberately shaped like `sleepingUnits` (same
+// round-rollover tick, same wake-on-damage rule, same teardown) so there is one condition
+// idiom in this file rather than two.
+const _isUndead = u => !!UNIT_TYPES[u?.type]?.undead;
+
+function _undeadInTurnRange(caster) {
+  if (!caster?.grp) return [];
+  const rangeWU = atkRangeWU(SPELLS.turn_undead.rangeFt);
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  return units.filter(e => {
+    if (e.team === caster.team || e.hp <= 0 || !_isUndead(e)) return false;
+    if (frightenedUnits.has(e)) return false;
+    const dx = e.grp.position.x - ux, dz = e.grp.position.z - uz;
+    return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
+  });
+}
+
+function activateTurnUndead() {
+  if (isAnimating || turnAttacked) return;
+  const u = turnOrder[turnIndex];
+  if (!u || u.type !== 'dwarf') return;
+  if (!isAbilityUnlocked(u.type, u.level, 'turn_undead')) return;
+  if ((u.turnUndeadUses ?? 0) <= 0) return;
+
+  const spell   = SPELLS.turn_undead;
+  const targets = _undeadInTurnRange(u);
+  if (targets.length === 0) return;
+
+  u.turnUndeadUses--;
+  _spendHeroAction('spell');
+  heroMode = null;
+  playUnitAttackAnim(u, 'ranged');
+  playSleepEffect(u, 0xffe9a8);   // holy gold
+
+  addLog(`${unitLabel(u)} presents his holy symbol — Turn Undead (${spell.rangeFt} ft · WIS DC ${spell.saveDC})`, 'spell');
+
+  targets.forEach((target, i) => {
+    setTimeout(() => {
+      if (!units.includes(target) || target.hp <= 0) return;
+      const wisMod = abilityModOf(target, 'wis');
+      const saved  = rollSave(wisMod, spell.saveDC,
+                              target.dodging ? 'advantage' : 'normal',
+                              affixTotal(target, 'saving_throw_pct')).isSave;
+      target.aggro = true;
+      if (saved) {
+        showFloatingDamage(target, 'RESISTS', '#bbbbbb');
+        addLog(`  ${unitLabel(target)}: saves WIS — stands its ground`, 'spell');
+      } else {
+        applyFear(target, spell.duration ?? 10, u);
+        showFloatingDamage(target, '😱 TURNED', '#ffe9a8');
+        addLog(`  ${unitLabel(target)}: fails WIS — Frightened & Incapacitated, fleeing for 1 min`, 'spell');
+      }
+      buildTurnList();
+    }, i * 300 + 600);
+  });
+
+  updateCombatStatus();
+}
+
+// ── Sanctuary (Leugren, lvl 6) ───────────────────────────────────────────────
+// Bonus action, 1 slot, warded ally recorded in `sanctuaryUnits`. The ward is enforced at
+// enemy TARGET SELECTION (see _sanctuaryBlocks), not on the damage roll: an enemy that
+// fails its WIS save must choose someone else, which is what makes this protect a squishy
+// rather than just soften a hit. Ends early if the warded ally attacks (5e rule).
+function _sanctuaryTargetsFor(caster) {
+  if (!caster?.grp) return [];
+  const rangeWU = atkRangeWU(SPELLS.sanctuary.rangeFt);
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  return units.filter(a => {
+    if (a.team !== caster.team || a.hp <= 0) return false;
+    if (sanctuaryUnits.has(a)) return false;
+    const dx = a.grp.position.x - ux, dz = a.grp.position.z - uz;
+    return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
+  });
+}
+
+// Cast on an EXPLICIT ward. This is the real implementation; both the manual click-to-pick
+// path and the automated auto-pick funnel through it.
+//
+// ⚠ Deliberately NOT routed through castHeal like the other ally-targeted spells. castHeal
+// refuses a target already at full HP ("not spent, pick another") — correct for a heal, exactly
+// wrong for a ward, whose whole job is protecting an UNHURT squishy before they get hit.
+function castSanctuary(caster, ward) {
+  if (!caster || !ward) return;
+  if (isAnimating || turnBonusActioned) return;
+  if (caster.type !== 'dwarf') return;
+  if (!isAbilityUnlocked(caster.type, caster.level, 'sanctuary')) return;
+  if (!hasSpellSlot(caster, spellLevelOf('sanctuary'))) return;
+
+  const spell = SPELLS.sanctuary;
+  // Re-warding someone who already has it would burn a slot for nothing — say so and keep
+  // the picker open so the player can choose someone else, mirroring castHeal's full-HP case.
+  if (sanctuaryUnits.has(ward)) {
+    showFloatingDamage(ward, 'Already warded', '#8fd0ff');
+    addLog(`${unitLabel(ward)} is already under Sanctuary — not spent.`, 'spell');
+    showHealTargets(caster, 'sanctuary');
+    return;
+  }
+
+  faceTarget(caster, ward);
+  playUnitAttackAnim(caster, 'spell');
+  hideHealTargets();
+  hideSpellRangeRing();
+  heroMode = null;
+
+  spendSpellSlot(caster, spellLevelOf('sanctuary'));
+  turnBonusActioned = true;
+  applySanctuary(ward, spell.duration ?? 10);
+
+  addLog(`${unitLabel(caster)} casts Sanctuary on ${unitLabel(ward)} — attackers must pass WIS DC ${spell.saveDC} to target them.`, 'spell');
+  showFloatingDamage(ward, '✦ SANCTUARY', '#9fd8ff');
+  updateCombatStatus();
+}
+
+// AUTOMATED pick only: ward whoever needs it most (lowest HP fraction in range, Leugren
+// included). Manual play never reaches this — the player picks their own ward by clicking,
+// because "who is the squishy worth protecting" is a judgement the AI shouldn't make for them.
+function activateSanctuary() {
+  const u = turnOrder[turnIndex];
+  if (!u) return;
+  const candidates = _sanctuaryTargetsFor(u);
+  if (candidates.length === 0) return;
+  const ward = candidates.reduce((lo, a) =>
+    (a.hp / (a.maxHp || 1)) < (lo.hp / (lo.maxHp || 1)) ? a : lo, candidates[0]);
+  castSanctuary(u, ward);
 }
 
 // ── Mage Armor (Wizard lvl 2) ─────────────────────────────────────────────────
@@ -2005,6 +2289,7 @@ function castMagicMissile(caster, target, onDone) {
     target.aggro = true;
     buildTurnList();
     target.hp = Math.max(0, target.hp - totalDmg);
+    wakeOnDamage(target);   // Magic Missile
     target.barShowUntil = Date.now() + 5000;
     const dartStr = darts.map(r => r.total).join('+');
     showFloatingDamage(target, `-${totalDmg}`, '#aa66ff');
@@ -2035,6 +2320,7 @@ function castSleep(caster) {
   _spendHeroAction('spell');
   heroMode = null;
 
+  playSleepEffect(caster);
 
   const rangeWU = atkRangeWU(spell.rangeFt);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
@@ -2084,7 +2370,7 @@ function castBurningHands(caster) {
   _spendHeroAction('spell');
   heroMode = null;
 
-  playSleepEffect(caster);
+  playSleepEffect(caster, 0xff6622);   // fire orange, not Sleep's violet
 
   // Burning Hands is the game's ONLY hero AoE, so it's the only consumer of the off-hand aoe_radius
   // affix. Its area is a radius around the CASTER (spell.rangeFt), not a cone, despite the
@@ -2109,8 +2395,12 @@ function castBurningHands(caster) {
     targets.forEach((target, i) => {
       setTimeout(() => {
         const dexMod = abilityModOf(target, 'dex');
-        const saveResult = roll({ sides: 20, modifier: dexMod });
-        const saved = saveResult.total >= spell.saveDC;
+        // Was a raw d20 vs DC — the only save in the game off the shared d100 ladder, so it
+        // silently ignored dodge advantage and the saving_throw_pct affix and used a scale
+        // where the DC means something different. Routed through rollSave like every other.
+        const saved = rollSave(dexMod, spell.saveDC,
+                               target.dodging ? 'advantage' : 'normal',
+                               affixTotal(target, 'saving_throw_pct')).isSave;
         // Gear scales the full roll first, THEN the save halves it — so a saving target
         // still feels the caster's Spell damage, just halved like everything else.
         const _scaled = applySpellDamage(caster, dmgResult.total);
@@ -2118,6 +2408,7 @@ function castBurningHands(caster) {
         target.aggro = true;
         buildTurnList();
         target.hp = Math.max(0, target.hp - dmg);
+        wakeOnDamage(target);   // Burning Hands
         target.barShowUntil = Date.now() + 5000;
         showFloatingDamage(target, `-${dmg}${saved ? ' ½' : ''}`, '#ff6622');
         addLog(`  ${unitLabel(target)}: ${saved ? 'saves' : 'fails'} DEX → ${dmg} fire dmg`, 'spell');
@@ -2135,6 +2426,9 @@ function handleElfSpellBtnClick(spellKey) {
   const u = turnOrder[turnIndex];
   if (!u || u.type !== 'elf') return;
   if (turnAttacked) return;
+  // Defence in depth: executeAbility() runs a handler WITHOUT re-checking isAvailable, so a
+  // stale button left over from a pre-level-up render could otherwise cast a locked spell.
+  if (!isAbilityUnlocked(u.type, u.level, spellKey)) return;
   const hasFreeMM = spellKey === 'magic_missile' && !u.mmFreeUsed;
   if (!hasFreeMM && !hasSpellSlot(u, spellLevelOf(spellKey))) return;
 
@@ -2279,6 +2573,9 @@ function _teardownCombat() {
   hideSoulShardPrompt();
   for (const [, state] of sleepingUnits) state.zzzEl?.remove();
   sleepingUnits.clear();
+  for (const [, state] of frightenedUnits) state.fearEl?.remove();
+  frightenedUnits.clear();
+  sanctuaryUnits.clear();
   units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; u.actionSave = null; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
@@ -2337,6 +2634,8 @@ function removeDefeatedUnit(u, attacker = null) {
     sleepingUnits.get(u)?.zzzEl?.remove();
     sleepingUnits.delete(u);
   }
+  clearFear(u);
+  clearSanctuary(u);
   // Death ends lingering conditions. Milo was dying WHILE webbed and coming back from a short
   // rest still restrained, because the corpse kept its actionSave. Clearing it here also fades
   // the web decal (playWebEffect drops it once actionSave.key !== 'web') the moment they fall,
@@ -2959,6 +3258,7 @@ function _resolvePoison(target, poison, done) {
     showFloatingDamage(target, `☠ -${poisonDmg}`, '#66dd44');
 
     target.hp = Math.max(0, target.hp - poisonDmg);
+    wakeOnDamage(target);   // venom tick
     target.barShowUntil = Date.now() + 5000;
     buildTurnList();
     _checkConcentration(target, poisonDmg, willDie);
@@ -3027,6 +3327,7 @@ function _resolveRider(attacker, target, rider, alreadyDead, done) {
 
     if (!alreadyDead) {
       target.hp = Math.max(0, target.hp - riderDmg);
+      wakeOnDamage(target);   // on-hit amulet rider
       target.barShowUntil = Date.now() + 5000;
       buildTurnList();
       _checkConcentration(target, riderDmg, willDie);
@@ -3174,7 +3475,7 @@ function _resolveSplash(attacker, primary, originPos, splash, raw, toHit, done) 
   const dead = [];
   plan.forEach(({ foe, res, isHit, pct }) => {
     foe.aggro = true;                          // swung at them — they notice hit or miss
-    if (sleepingUnits.has(foe)) wakeUnit(foe, 'damage');
+    wakeOnDamage(foe);
 
     if (!isHit) {
       // `res.label` lets a caller describe its own failure — a save-based splash (Sacred Flame)
@@ -3261,6 +3562,11 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     if (Math.sqrt(rdx * rdx + rdz * rdz) > projRangeWU(atk.range, attacker)) { hasDisadvantage = true; atkDisadvReason = 'long range'; }
   }
   if (target.dodging) { hasDisadvantage = true; atkDisadvReason = atkDisadvReason ? atkDisadvReason + ', dodge' : 'dodge'; }
+  // Reckless Attack (Gobo, L6) — BOTH halves live here because this is the one to-hit path
+  // every attack in the game runs through, in either direction. Melee only on the upside
+  // (5e wording: "melee weapon attack rolls using Strength"), any attack on the downside.
+  if (attacker.reckless && !_resolvesRanged(atk)) hasAdvantage = true;
+  if (target.reckless) hasAdvantage = true;
   // Advantage and disadvantage from different sources cancel out to a normal roll (D&D RAW).
   const atkMode = hasAdvantage && hasDisadvantage ? 'normal' : hasAdvantage ? 'advantage' : hasDisadvantage ? 'disadvantage' : 'normal';
 
@@ -3291,6 +3597,9 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
   // making an attack breaks the ATTACKER's hide (hit or miss), and being attacked
   // reveals a hidden DEFENDER. Either way, Milo drops out of hide.
   if (attacker.stealthed) { setUnitStealth(attacker, false); addLog(`${aLabel} breaks stealth with the attack!`, 'move'); }
+  // Sanctuary is a ward on the PASSIVE: attacking gives it up (5e). Same "after the roll"
+  // placement as the stealth break above, so the attack that ends it still resolves.
+  if (sanctuaryUnits.has(attacker)) clearSanctuary(attacker, 'attacked');
   if (target.stealthed)   { setUnitStealth(target, false);   addLog(`${tLabel} is spotted and breaks stealth!`, 'move'); }
 
   const D            = 0;
@@ -3401,7 +3710,7 @@ function _executeAttack(attacker, target, atk, onSettled = null) {
     target.hp = Math.max(0, target.hp - finalDmg);
     target.barShowUntil = Date.now() + 5000;
     buildTurnList();
-    if (sleepingUnits.has(target)) wakeUnit(target, 'damage');
+    wakeOnDamage(target);
     _checkConcentration(target, finalDmg, willDie);
 
     // Life steal (gloves): the attacker heals for a % of the damage this hit dealt, via the shared
@@ -3600,7 +3909,7 @@ function _executeAoeSave(attacker, primaryTarget, atk, onSettled = null) {
         hero.hp = Math.max(0, hero.hp - finalDmg);
         hero.barShowUntil = Date.now() + 5000;
         buildTurnList();
-        if (sleepingUnits.has(hero)) wakeUnit(hero, 'damage');
+        wakeOnDamage(hero);
         _checkConcentration(hero, finalDmg, willDie);
 
         const blessTag = blessSaveBonus > 0 ? ` ✦+${blessSaveBonus}` : '';
@@ -3995,7 +4304,11 @@ renderer.domElement.addEventListener('click', e => {
         const spellKey  = heroMode.slice(6);
         const spellName = SPELLS[spellKey]?.name ?? spellKey;
         const meshHit   = rayHitUnit(healTargets);
-        const _doHeal = tgt => castHeal(u, tgt, spellKey);
+        // Sanctuary shares the ally-ring picker but is a WARD, not a heal — castHeal would
+        // reject a full-HP target, which is precisely who you most want to protect.
+        const _doHeal = tgt => spellKey === 'sanctuary'
+          ? castSanctuary(u, tgt)
+          : castHeal(u, tgt, spellKey);
         if (meshHit) { _doHeal(meshHit); return; }
         if (pt) for (const [target] of healTargets) {
           const dx = target.grp.position.x - pt.x, dz = target.grp.position.z - pt.z;
@@ -4337,7 +4650,12 @@ export function rollInitiative() {
       u.rageUses    = u.rageUsesMax;
     }
     // Level 2 ability state reset each battle
-    if (u.type === 'human')    { u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0; }
+    if (u.type === 'human')    {
+      u.defStanceActive = false; u.defStanceRounds = 0; u.defStanceCooldown = 0;
+      u.reckless = false;                        // Reckless Attack (L6) — declared per turn
+    }
+    // Turn Undead (L5) is Channel Divinity: ONE charge per combat, not a spell slot.
+    if (u.type === 'dwarf')    { u.turnUndeadUses = 1; }
     if (u.type === 'halfling') {
       u.hideCooldown = 0;
       // Smoke & Mirrors: charges refresh each combat; clear any cloud left from a previous fight
@@ -5211,6 +5529,76 @@ const _ABILITY_HANDLERS = {
       return true;  // out of combat: always castable until summoned
     },
   },
+
+  // ── L5–L7 abilities (2026-07-20) ────────────────────────────────────────────
+  // Rasec. Both are caster-centred AoEs, so unlike sacred_flame/magic_missile neither
+  // needs a selectedTarget — they only need a slot and an unspent action.
+  sleep: {
+    actionType: 'action',
+    execute: () => handleElfSpellBtnClick('sleep'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf' || turnAttacked || isAnimating) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'sleep')) return false;
+      return hasSpellSlot(curU, spellLevelOf('sleep'));
+    },
+  },
+  burning_hands: {
+    actionType: 'action',
+    execute: () => handleElfSpellBtnClick('burning_hands'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'elf' || turnAttacked || isAnimating) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'burning_hands')) return false;
+      return hasSpellSlot(curU, spellLevelOf('burning_hands'));
+    },
+  },
+
+  // Gobo. Reckless Attack costs NO action in 5e — it's a decision made as you swing — so
+  // actionType is 'free': it deliberately matches no entry in _sbActionTagHTML's map and
+  // renders no A/BA badge, and it never touches turnAttacked/turnBonusActioned. The cost is
+  // the drawback, not the economy: every attack against Gobo has advantage until his next turn.
+  reckless_attack: {
+    actionType: 'free',
+    execute: () => activateRecklessAttack(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'human' || isAnimating) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'reckless_attack')) return false;
+      // Declared BEFORE swinging — once the action is spent the choice is moot.
+      return !curU.reckless && !turnAttacked;
+    },
+    isActive: u => !!u.reckless,
+  },
+
+  // Leugren. Turn Undead spends no slot (level 0) — its cost is the per-combat charge.
+  turn_undead: {
+    actionType: 'action',
+    execute: () => activateTurnUndead(),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnAttacked || isAnimating) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'turn_undead')) return false;
+      if ((curU.turnUndeadUses ?? 0) <= 0) return false;
+      // Grey it out when nothing undead is in reach rather than letting the player
+      // burn the combat's only charge on an empty room.
+      return _undeadInTurnRange(curU).length > 0;
+    },
+  },
+  sanctuary: {
+    actionType: 'bonus',
+    // Manual play PICKS the ward: this enters 'spell_sanctuary' mode and lights the green ally
+    // rings, and the click resolver casts on whoever is clicked. Only the automated path
+    // auto-selects (activateSanctuary) — see castSanctuary.
+    execute: () => handleSpellBtnClick('sanctuary'),
+    isAvailable: () => {
+      const curU = turnOrder[turnIndex];
+      if (!curU || curU.type !== 'dwarf' || turnBonusActioned || isAnimating) return false;
+      if (!isAbilityUnlocked(curU.type, curU.level, 'sanctuary')) return false;
+      if (!hasSpellSlot(curU, spellLevelOf('sanctuary'))) return false;
+      return _sanctuaryTargetsFor(curU).length > 0;
+    },
+  },
 };
 
 // Slots the player may freely drag-and-drop abilities onto. Everything else
@@ -5732,6 +6120,12 @@ export function activateTurn(index) {
     // Cooldown decrements happen at turn start only, not on mid-turn hotbar refresh
     if (u.type === 'human' && (u.defStanceCooldown ?? 0) > 0) u.defStanceCooldown--;
     if (u.type === 'halfling' && (u.hideCooldown ?? 0) > 0) u.hideCooldown--;
+    // Reckless Attack lasts "until the start of your next turn" — so it expires HERE, at the
+    // top of Gobo's turn, after every enemy in the round has had its shot at the opening.
+    if (u.type === 'human' && u.reckless) {
+      u.reckless = false;
+      addLog(`${unitLabel(u)} drops his reckless guard.`, 'move');
+    }
 
     turnBonusActioned = false;
     _rebuildHotbar(u);
@@ -5923,6 +6317,8 @@ function doEndTurn() {
     window.dispatchEvent(new CustomEvent('round:start', { detail: { round } }));
     tickBless();
     tickSleep();
+    tickFear();
+    tickSanctuary();
     units.forEach(u => {
       if (u.defStanceActive) {
         u.defStanceRounds--;
@@ -6524,6 +6920,99 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         return;
       }
 
+      // ── Reckless Attack (Gobo L6 — FREE, hero still attacks after) ────
+      // Returns onSkip() like the bonus actions do, but for a different reason: it costs no
+      // action at all, so the list must continue to the greataxe that this is meant to buff.
+      if (actionVal === 'reckless_attack') {
+        if (u.type !== 'human' || u.reckless) { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'reckless_attack')) { onSkip(); return; }
+        // Only worth the exposure when he can actually swing in melee this turn — declaring it
+        // while stranded out of reach just hands every enemy advantage for free.
+        if (!enemyTarget || !units.includes(enemyTarget)) { onSkip(); return; }
+        const _rmelee = attacksOf(u).find(a => a.type === 'melee');
+        if (!_rmelee) { onSkip(); return; }
+        const rdx = enemyTarget.grp.position.x - u.grp.position.x;
+        const rdz = enemyTarget.grp.position.z - u.grp.position.z;
+        if (Math.sqrt(rdx * rdx + rdz * rdz) > atkTriggerWU(_rmelee)) { onSkip(); return; }
+        activateRecklessAttack();
+        onSkip(); // free action; continue to the attack it exists to buff
+        return;
+      }
+
+      // ── Turn Undead (Leugren L5 — main action, no slot, once per combat) ──
+      if (actionVal === 'turn_undead') {
+        if (u.type !== 'dwarf')          { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'turn_undead')) { onSkip(); return; }
+        if ((u.turnUndeadUses ?? 0) <= 0) { onSkip(); return; }
+        // Don't spend the combat's only charge on a single skeleton — the whole value of
+        // Channel Divinity here is catching a PACK. One target is better served by an attack.
+        const _tuCount = _undeadInTurnRange(u).length;
+        if (_tuCount < 2) { onSkip(); return; }
+        activateTurnUndead();
+        // ⚠ Budget derived from the ACTUAL stagger (i*300+600 in activateTurnUndead), NOT a flat
+        // constant, and deliberately NOT wrapped in spd(): the per-target setTimeouts are
+        // unscaled, so a spd()-shrunk budget would end the turn while saves were still landing
+        // and resolve deaths during someone else's turn. Scales with target count.
+        setTimeout(onDone, (_tuCount - 1) * 300 + 600 + 400);
+        return;
+      }
+
+      // ── Sanctuary (Leugren L6 — bonus action, uses a spell slot) ──────
+      if (actionVal === 'sanctuary') {
+        if (u.type !== 'dwarf' || turnBonusActioned) { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'sanctuary')) { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('sanctuary'))) { onSkip(); return; }
+        // Ward only someone actually under pressure (<50% HP) and not already warded —
+        // otherwise Leugren would burn a slot on a full-HP party every single turn.
+        const _needy = _sanctuaryTargetsFor(u).filter(a => a.hp <= a.maxHp * 0.5);
+        if (!_needy.length) { onSkip(); return; }
+        activateSanctuary();
+        onSkip(); // bonus action; continue to next action in list
+        return;
+      }
+
+      // ── Sleep (Rasec L5 — main action, uses a spell slot) ─────────────
+      if (actionVal === 'sleep') {
+        if (u.type !== 'elf')            { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'sleep')) { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('sleep'))) { onSkip(); return; }
+        // The 5d8 pool averages 22 HP, so it is worth a slot only against a CLUSTER of weak
+        // enemies. Count what is both in range and still awake, and require at least two.
+        const _sleepRangeWU = atkRangeWU(ELF_SPELLS.sleep.rangeFt);
+        const _sleepable = units.filter(e => {
+          if (e.team === u.team || e.hp <= 0 || sleepingUnits.has(e)) return false;
+          const dx = e.grp.position.x - u.grp.position.x, dz = e.grp.position.z - u.grp.position.z;
+          return Math.sqrt(dx * dx + dz * dz) <= _sleepRangeWU;
+        });
+        if (_sleepable.length < 2) { onSkip(); return; }
+        castSleep(u);
+        // Stagger is i*350+700 per SLEEPER (a subset of _sleepable, so this over-budgets
+        // slightly rather than under). Unscaled for the same reason as Turn Undead above.
+        setTimeout(onDone, (_sleepable.length - 1) * 350 + 700 + 400);
+        return;
+      }
+
+      // ── Burning Hands (Rasec L6 — main action, uses a spell slot) ─────
+      if (actionVal === 'burning_hands') {
+        if (u.type !== 'elf')            { onSkip(); return; }
+        if (!isAbilityUnlocked(u.type, u.level, 'burning_hands')) { onSkip(); return; }
+        if (!hasSpellSlot(u, spellLevelOf('burning_hands'))) { onSkip(); return; }
+        // Radius is centred on RASEC, so this pulls him into danger — only worth it for 2+.
+        // aoeRadiusFtOf so the off-hand affix widens the AI's check exactly as it widens the cast.
+        const _bhRangeWU = atkRangeWU(aoeRadiusFtOf(u, ELF_SPELLS.burning_hands.rangeFt));
+        const _caught = units.filter(e => {
+          if (e.team === u.team || e.hp <= 0) return false;
+          const dx = e.grp.position.x - u.grp.position.x, dz = e.grp.position.z - u.grp.position.z;
+          return Math.sqrt(dx * dx + dz * dz) <= _bhRangeWU;
+        });
+        if (_caught.length < 2) { onSkip(); return; }
+        castBurningHands(u);
+        // Stagger is i*700+1000. The old flat spd(1600) was short on EVERY cast — the gate
+        // guarantees 2+ targets, and target 2 alone resolves at 1700ms. Unscaled, count-derived.
+        setTimeout(onDone, (_caught.length - 1) * 700 + 1000 + 400);
+        return;
+      }
+
       // ── Hide (bonus action — hero can still attack after) ────────────
       if (actionVal === 'hide') {
         if (u.type !== 'halfling' || turnBonusActioned || u.stealthed || (u.hideCooldown ?? 0) > 0) { onSkip(); return; }
@@ -6658,9 +7147,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       function tryIdx(i) {
         if (i >= list.length) { cb(); return; }
         const action = list[i];
-        if (action === 'healing_word' || action === 'ready_action' || action === 'use_potion' ||
-            action === 'bless' || action === 'mage_armor' || action === 'magic_missile' ||
-            action === 'sacred_flame' || action === 'smoke_mirrors') {
+        if (_NO_RANGE_DELEGATES.has(action)) {
           _tryHeroAction(action, cb, () => tryIdx(i + 1));
           return;
         }
@@ -6762,6 +7249,19 @@ function _followAttackTarget(target) {
   if (target?.team === 'blue' && target.hp > 0) setFollowUnit(target);
 }
 
+// ⚠ Actions in the NO-ENEMY-IN-RANGE tendency list that must be delegated to _tryHeroAction.
+// An action in that list but MISSING here does not fall through to the next entry — it hits
+// the `cb()` at the bottom of tryIdx and ENDS THE TURN, silently killing every lower-priority
+// entry too. That is how cure_wounds sat dead in Leugren's no-range list. Any ability added to
+// action_priority_no_range in combatAutomation.js MUST be added here in the same commit.
+// (dodge/end_turn are handled inline below and are deliberately absent.)
+const _NO_RANGE_DELEGATES = new Set([
+  'healing_word', 'ready_action', 'use_potion', 'bless', 'mage_armor',
+  'magic_missile', 'sacred_flame', 'smoke_mirrors',
+  'cure_wounds',   // was missing — dead in the list since it was added
+  'sanctuary',     // 2026-07-20
+]);
+
 function runAITurn(u) {
   endTurnBtn.disabled = true;
 
@@ -6770,6 +7270,44 @@ function runAITurn(u) {
     const state = sleepingUnits.get(u);
     addLog(`${unitLabel(u)} is asleep (${state.roundsLeft} rounds left) — skips turn`, 'spell');
     setTimeout(() => { doEndTurn(); }, 350);
+    return;
+  }
+
+  // Turned by Turn Undead: Incapacitated, so no action — but unlike sleep it still MOVES,
+  // spending its whole speed getting as far from the cleric as it can. Movement mirrors the
+  // stealth-creep below with the direction negated, including the barrier/occupancy fallbacks
+  // (a fleeing unit backed into a wall simply doesn't move, rather than clipping through it).
+  if (frightenedUnits.has(u)) {
+    const state  = frightenedUnits.get(u);
+    const from   = state.turnedBy;
+    addLog(`${unitLabel(u)} is Turned — frightened and incapacitated (${state.roundsLeft} rounds left), it flees`, 'spell');
+
+    const cx = u.grp.position.x, cz = u.grp.position.z;
+    let fleePath = [];
+    if (from?.grp) {
+      const speedFt = speedOf(u);
+      const maxWU   = (speedFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+      const ax = cx - from.grp.position.x, az = cz - from.grp.position.z;   // AWAY from the cleric
+      const dist = Math.sqrt(ax * ax + az * az) || 1;
+      const destX = cx + (ax / dist) * maxWU, destZ = cz + (az / dist) * maxWU;
+      if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer)) {
+        const S   = WORLD_UNITS_PER_SQUARE;
+        const tnx = cx + Math.round((destX - cx) / S) * S;
+        const tnz = cz + Math.round((destZ - cz) / S) * S;
+        // ⚠ The layer arg is required — findPath forwards it to crossesBarrier, which FAILS
+        // SAFE (blocks) on a null layer. Omitting it walls a fleeing unit in on the cave
+        // layers and it never moves. Same trap documented on the stealth-creep path below.
+        fleePath = findPath(cx, cz, tnx, tnz, u.caveLayer);
+      } else if (!isOccupied(destX, destZ, u)) {
+        fleePath = [{ x: destX, z: destZ }];
+      }
+    }
+    setTimeout(() => {
+      if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
+      // An empty fleePath (walled in, or the turner is gone) is fine to pass straight through:
+      // animatePath early-returns onComplete() when path.length is 0, so the turn still ends.
+      animatePath(u, fleePath, () => { setTimeout(() => { doEndTurn(); }, 250); });
+    }, 300);
     return;
   }
 
@@ -6901,7 +7439,7 @@ function runAITurn(u) {
       return;
     }
 
-    const target = aiPickTarget(u, units, unitsHaveLOS);
+    const target = _aiPickTargetSanctuaryAware(u);
     if (!target) {
       setTimeout(doEndTurn, END_PAUSE);
       return;
@@ -7005,7 +7543,9 @@ function runAITurn(u) {
       const nextAttack = () => {
         if (gone() || i >= seq.length) { cb(); return; }
 
-        const t = aiPickTarget(u, units, unitsHaveLOS);
+        // Sanctuary-aware like the opener: a multiattack re-picks per swing, so the ward has
+        // to be honoured here too or an ettin's second blow walks straight through it.
+        const t = _aiPickTargetSanctuaryAware(u);
         if (!t) { cb(); return; }           // nobody left to hit
         foe = t;
         // Re-picked per swing (a multiattack can switch victims mid-sequence), so the camera

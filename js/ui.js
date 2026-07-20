@@ -1150,8 +1150,44 @@ function buildActionsPanelHTML(u) {
         </div>
       </div>
     </div>` : '';
-  const actionsContent = (attacksHTML || sneakHTML || smokeMirrorsHTML)
-    ? `<div class="ss-attacks">${attacksHTML}</div>${sneakHTML}${smokeMirrorsHTML}${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
+  // ── L5–L7 non-attack ACTIONS (2026-07-20) ─────────────────────────────────
+  // Built through one helper instead of another hand-rolled block per ability: the four
+  // above predate it and are left alone, but every new entry goes through here so the
+  // markup can't drift row to row. No imgSrc yet for any of these — _plainRow omits the
+  // <img> entirely rather than pointing at a file that doesn't exist.
+  const _plainRow = (name, desc, note = '') => `
+    <div class="ss-spell-row">
+      <div class="ss-spell">
+        <div class="ss-spell-inner">
+          <div class="ss-spell-text">
+            <div class="ss-spell-top">
+              <span class="ss-spell-name">${name}${note ? ` <span style="opacity:.55;font-weight:400">(${note})</span>` : ''}</span>
+            </div>
+            <div class="ss-spell-desc">${desc}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const lvl = u.level ?? 1;
+  const extraActions = [
+    u.type === 'dwarf' && lvl >= 5
+      ? _plainRow('Turn Undead',
+          '30 ft · Undead only · each must pass a WIS DC 13 save or be Frightened and Incapacitated for 1 minute, fleeing from Leugren on its turns · ends early on that creature if it takes any damage · once per combat, costs NO spell slot')
+      : '',
+    u.type === 'halfling' && lvl >= 5
+      ? _plainRow('Sleight of Hand',
+          'A Dexterity skill for manual trickery, stealthy theft and concealing items. Adds Milo’s proficiency bonus whenever something calls for the check — today that is Pick Locks.',
+          'Passive')
+      : '',
+    u.type === 'halfling' && lvl >= 6
+      ? _plainRow('Pick Locks',
+          'Out of combat (Q) · requires the Thieves’ Tools in his bag · a Sleight of Hand check against the lock (DC 15 for a normal one) · one attempt between fights, plus one per point of belt Resource-regen')
+      : '',
+  ].join('');
+
+  const actionsContent = (attacksHTML || sneakHTML || smokeMirrorsHTML || extraActions)
+    ? `<div class="ss-attacks">${attacksHTML}</div>${sneakHTML}${smokeMirrorsHTML}${extraActions}${hasLongRange ? '<div class="ss-range-note">† Long range = disadvantage</div>' : ''}`
     : `<div class="ss-spell-empty">— none —</div>`;
 
   // ── Bonus Actions ──────────────────────────────────────────────────────────
@@ -1223,6 +1259,19 @@ function buildActionsPanelHTML(u) {
         </div>
       </div>
     </div>`);
+  }
+  if (u.type === 'human' && (u.level ?? 1) >= 6) {
+    bonusParts.push(_plainRow('Reckless Attack',
+      'Costs no action at all — declared before he swings. Advantage on his melee attacks, but every attack against him has advantage until the start of his next turn.',
+      'Free'));
+  }
+  if (u.type === 'human' && (u.level ?? 1) >= 7) {
+    bonusParts.push(_plainRow('Second Wind',
+      'Out of combat (Q) · heals 1d8+2 · once between fights, plus one extra use per point of belt Resource-regen'));
+  }
+  if (u.type === 'dwarf' && (u.level ?? 1) >= 6) {
+    bonusParts.push(_plainRow('Sanctuary',
+      '30 ft · click an ally to ward them (Leugren included) · an enemy must pass a WIS DC 13 save to attack that ally at all, or it must choose a different target · 1 minute · ends if the warded ally attacks · costs 1 spell slot · automated turns ward the most wounded ally in range'));
   }
   const bonusContent = bonusParts.length ? bonusParts.join('') : `<div class="ss-spell-empty">— none —</div>`;
 

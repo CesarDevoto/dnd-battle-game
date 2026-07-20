@@ -3443,6 +3443,21 @@ export const ITEMS = {
     description: 'Sacred dung from the grassling mounds. Bring it to an alchemist in the towns of men to render it into 2 Potions of Lesser Healing.',
   },
 
+  // ── Tools (bag items, not equippable) ──────────────────────────────────────
+  // Milo's kit, issued at build via UNIT_TYPES.halfling.startingBagItems. No `slot`, so
+  // isDroppable() excludes it from the loot table — it is issued, never rolled. Pick Locks
+  // (js/pickLocksOOC.js) looks this id up in his bags and refuses to fire without it, so
+  // renaming the id breaks the ability silently; grep before touching it.
+  thieves_tools: {
+    id:          'thieves_tools',
+    name:        "Thieves' Tools",
+    rarity:      'green',
+    icon:        'assets/items/equipment/thievestools.png',
+    material:    true,
+    value:       25,
+    description: "Picks, a small file, a set of narrow wedges and a mirrored probe. Required to Pick Locks — a Sleight of Hand check that adds proficiency only while these are carried.",
+  },
+
   // Quest key — dropped by a Warrens goblin jailer; opens Solrac's shackles.
   goblin_key: {
     id:          'goblin_key',

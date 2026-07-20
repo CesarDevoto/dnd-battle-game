@@ -51,6 +51,33 @@ export const SPELLS = {
     imgSrc:        'assets/spells and skills/bless.jpg',
     desc:          'Party · all allies · +1d2×5% to atk & saves · conc',
   },
+  // Channel Divinity, not a spell — level 0 so it costs NO slot (hasSpellSlot/spendSpellSlot
+  // both early-return on level <= 0). Its cost is instead a per-combat charge, u.turnUndeadUses,
+  // reset in the per-combat block in combat.js. Level 0 also parks it in the S&S CANTRIP row,
+  // which is the only row in that window that doesn't imply a slot.
+  turn_undead: {
+    key:        'turn_undead',
+    name:       'Turn Undead',
+    level:      0,
+    actionType: 'action',
+    rangeFt:    30,
+    saveType:   'wis',
+    saveDC:     13,
+    duration:   10,          // 1 minute = 10 rounds, same clock as Bless/Sleep
+    undeadOnly: true,
+    desc:       '30 ft · Undead only · WIS DC 13 or Frightened + Incapacitated for 1 min · flees from you · ends early if it takes damage · once per combat',
+  },
+  sanctuary: {
+    key:        'sanctuary',
+    name:       'Sanctuary',
+    level:      1,
+    actionType: 'bonus',
+    rangeFt:    30,
+    saveType:   'wis',
+    saveDC:     13,
+    duration:   10,
+    desc:       '30 ft · Bonus action · click an ally to ward them · an enemy must pass WIS DC 13 to attack them at all, or it must pick a different target · 1 min · ends if the warded ally attacks',
+  },
 };
 
 // ── Bless condition state ─────────────────────────────────────────────────────
@@ -118,6 +145,21 @@ export const ELF_SPELLS = {
     flatBonus: 1,
     desc:      '90 ft · 4 darts · 1d4+1 each · auto-hit · free once per combat, then 1 spell slot',
   },
+  // ⚠ This definition was MISSING until 2026-07-20 while castSleep() in combat.js already
+  // read spell.poolDice/poolSides/duration off it — the function would have thrown on the
+  // first cast. Nothing could reach it (Sleep was in no UI pool), so it never surfaced.
+  // Field names here are load-bearing for castSleep; don't rename without grepping it.
+  sleep: {
+    key:       'sleep',
+    name:      'Sleep',
+    level:     1,
+    actionType:'action',
+    rangeFt:   90,
+    poolDice:  5,     // 5d8 HP pool, spent lowest-current-HP enemy first
+    poolSides: 8,
+    duration:  10,    // 1 minute = 10 rounds; any damage wakes the sleeper
+    desc:      '90 ft · 5d8 HP pool · puts the weakest enemies in range to sleep, lowest HP first · 1 min · any damage wakes them',
+  },
   burning_hands: {
     key:       'burning_hands',
     name:      'Burning Hands',
@@ -169,10 +211,10 @@ export const STARTING_SPELLS = {
 // Values are action/bonus-action keys used by both the tendencies system
 // and _tryHeroAction in combat.js. Add new entries here as heroes gain abilities.
 export const LEVEL_SPELLS = {
-  dwarf:    { 2: ['bless'], 3: ['sacred_flame'], 4: ['cure_wounds'] },
-  elf:      { 2: ['mage_armor'], 3: ['magic_missile'], 4: ['find_familiar'] },
-  human:    { 5: ['defensive_stance'] },
-  halfling: { 2: ['hide'], 3: ['smoke_mirrors'] },
+  dwarf:    { 2: ['bless'], 3: ['sacred_flame'], 4: ['cure_wounds'], 5: ['turn_undead'], 6: ['sanctuary'] },
+  elf:      { 2: ['mage_armor'], 3: ['magic_missile'], 4: ['find_familiar'], 5: ['sleep'], 6: ['burning_hands'] },
+  human:    { 5: ['defensive_stance'], 6: ['reckless_attack'], 7: ['second_wind'] },
+  halfling: { 2: ['hide'], 3: ['smoke_mirrors'], 5: ['sleight_of_hand'], 6: ['pick_locks'] },
 };
 
 // Single source of truth for "can this hero use this ability yet" — used by

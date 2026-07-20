@@ -24,6 +24,18 @@ export const ABILITY_META = {
   mage_armor:       { name: 'Mage Armor',       imgSrc: 'assets/spells and skills/magearmor.jpg' },
   magic_missile:    { name: 'Magic Missile',    imgSrc: 'assets/spells and skills/magicmissile.jpg' },
   find_familiar:    { name: 'Find Familiar',    imgSrc: 'assets/spells and skills/find familiar.jpg' },
+  // ── L5–L7 abilities (2026-07-20) ──────────────────────────────────────────
+  // No art yet, so these use the {label, cssClass} text-icon shape (as dash/dodge do)
+  // rather than {imgSrc}. Drop a .jpg into assets/spells and skills/ and swap the entry
+  // to imgSrc — this table is the only place the hotbar and the S&S window read.
+  sleep:            { name: 'Sleep',            label: 'SLEEP',              cssClass: 'hb-sleep' },
+  burning_hands:    { name: 'Burning Hands',    label: 'BURN<br>HANDS',      cssClass: 'hb-burning-hands' },
+  reckless_attack:  { name: 'Reckless Attack',  label: 'RECK<br>LESS',       cssClass: 'hb-reckless' },
+  turn_undead:      { name: 'Turn Undead',      label: 'TURN<br>UNDEAD',     cssClass: 'hb-turn-undead' },
+  sanctuary:        { name: 'Sanctuary',        label: 'SANC<br>TUARY',      cssClass: 'hb-sanctuary' },
+  // NOT here on purpose: sleight_of_hand (a passive proficiency — nothing to activate,
+  // see js/skills.js), pick_locks and second_wind (out-of-combat only, bound straight to
+  // KeyQ by their own OOC modules the way Healing Word OOC is).
 };
 
 // HTML for a fixed hotbar (.hb-btn) slot — absolutely-positioned image fill,
@@ -48,10 +60,13 @@ export function sbIconHTML(key) {
 // right in this order, filtered down to whatever the hero has unlocked at
 // their current level (isAbilityUnlocked — abilities not gated in
 // LEVEL_SPELLS default to available from level 1, e.g. dash/dodge/rage).
+// ⚠ `skills` is capped at FIVE — the buttons are static markup (index.html #sb-skill-0..4)
+// and ui.js loops to 5. A sixth entry is computed and then silently dropped, with no error.
+// human and halfling are both AT the cap now; anything further needs new buttons first.
 const HERO_ABILITY_LAYOUT = {
-  dwarf:    { skills: ['dash', 'dodge'],                                       cantrips: ['healing_word', 'sacred_flame'], spells: ['bless', 'cure_wounds'] },
-  human:    { skills: ['dash', 'dodge', 'rage', 'defensive_stance'],           cantrips: [],                               spells: [] },
-  elf:      { skills: ['dash', 'dodge'],                                       cantrips: ['fire_bolt'],                    spells: ['mage_armor', 'magic_missile'] },
+  dwarf:    { skills: ['dash', 'dodge'],                                       cantrips: ['healing_word', 'sacred_flame', 'turn_undead'], spells: ['bless', 'cure_wounds', 'sanctuary'] },
+  human:    { skills: ['dash', 'dodge', 'rage', 'defensive_stance', 'reckless_attack'], cantrips: [],                       spells: [] },
+  elf:      { skills: ['dash', 'dodge'],                                       cantrips: ['fire_bolt'],                    spells: ['mage_armor', 'magic_missile', 'sleep', 'burning_hands'] },
   halfling: { skills: ['dash', 'dodge', 'sneak_attack', 'hide', 'smoke_mirrors'], cantrips: [],                             spells: [] },
 };
 

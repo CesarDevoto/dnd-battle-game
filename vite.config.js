@@ -483,8 +483,15 @@ function saveZoneBarriersPlugin() {
             let src = fs.readFileSync(filePath, 'utf-8');
 
             const r = (n) => Math.round(n * 1e4) / 1e4;
+            // ⚠ `layer` MUST be emitted. This is the barrier editor's own save endpoint and it
+            // used to write x1/z1/x2/z2 only, silently dropping the layer the editor had sent —
+            // so every blanket barrier came back layer-less and reverted to "legacy tunnel wall"
+            // (blocks the UNDER layer), i.e. the exact opposite of where it was drawn. The OTHER
+            // writer (saveZoneTerrainPlugin, above) always emitted it, so whether your barrier
+            // survived depended on which editor you saved from. Same class of bug as the
+            // prop-editor writer dropping procedural fields — keep the two writers in step.
             const itemLines = barriers.map(b =>
-              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`
+              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)}${b.layer ? `, layer: '${b.layer}'` : ''} },`
             );
             const barriersBlock = barriers.length
               ? `  barriers: [\n${itemLines.join('\n')}\n  ],`
