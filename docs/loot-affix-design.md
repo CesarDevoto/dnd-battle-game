@@ -564,7 +564,7 @@ roll must not multiply Milo's burst on top of it.
 both stats may land on one item without the clamp problem that pins wrist's count to 1.
 
 **Cleave is a per-target FALLOFF LADDER** (user's spec, 2026-07-18). Entry `i` is the % of the
-primary hit that the **i-th nearest** foe takes, within a flat 5 ft ("adjacent") at every tier:
+primary hit that the **i-th nearest** foe takes, within a flat 10 ft at every tier (widened from 5 ft, user 2026-07-19):
 
 | tier | 1st adjacent | 2nd | 3rd | 4th |
 |---|---|---|---|---|
@@ -576,7 +576,7 @@ primary hit that the **i-th nearest** foe takes, within a flat 5 ft ("adjacent")
 
 Each tier both **raises the front number and grows the tail**, so a tier up is felt twice — the first
 neighbour hurts more *and* another neighbour joins. At red the nearest neighbour takes the **full**
-hit. Radius never changes: this affix scales by how many it catches and how hard, never by reach.
+hit. Radius never changes BETWEEN TIERS: this affix scales by how many it catches and how hard, never by reach. The flat value itself is 10 ft (raised from 5 ft on 2026-07-19).
 
 ⚠ **NOTHING about cleave is rolled.** Every other affix in the file rolls dice for its magnitude;
 cleave does not — a green cleave is 25% on every green cleaving weapon. That's why it carries
@@ -688,7 +688,7 @@ The caster's mirror of main-hand, and the LAST slot built (2026-07-18).
 **Spell splash is Cleave with a different trigger** — *"use the same formula as cleave"* (user). Both
 now read from ONE shared `SPLASH_FALLOFF` const in affixes.js rather than a pasted copy, so they
 cannot drift; if they ever *should* differ, that's the moment to split them, not before. Same
-resolver, same one-roll-per-foe volley, same deal-to-the-hits ladder, same 5 ft.
+resolver, same one-roll-per-foe volley, same deal-to-the-hits ladder, same 10 ft.
 
 ⚠ **SINGLE-TARGET SPELLS ONLY — never AoE spells** (user, 2026-07-18). An AoE already hits the whole
 cluster, so splashing it would double-dip the same geometry — and the caster's AoE upgrade path is
