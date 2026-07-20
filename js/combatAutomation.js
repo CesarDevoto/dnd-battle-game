@@ -251,9 +251,14 @@ const CATEGORIES = [
         defaults: {
           elf:      ['owl_helped', 'enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
           dwarf:    ['ally_loses_hp', 'enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los', 'ally_in_enemy_melee'],
-          human:    ['enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
-          // Milo leads with it — it's the whole point of him readying an action.
-          halfling: ['ally_in_enemy_melee', 'enemy_in_ranged_range', 'enemy_in_melee_range', 'enemy_in_los', 'ally_loses_hp'],
+          // Gobo leads with melee (user, 2026-07-19). He's the frontline barbarian — his readied
+          // action should fire when something closes to axe range, not when it wanders into
+          // handaxe range and pulls his attention outward.
+          human:    ['enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los', 'ally_in_enemy_melee', 'ally_loses_hp'],
+          // Milo leads with it — it's the whole point of him readying an action. Melee range is
+          // his SECOND (user, 2026-07-19): once the sneak setup isn't available, something closing
+          // on him personally is the next thing worth spending the held action on.
+          halfling: ['ally_in_enemy_melee', 'enemy_in_melee_range', 'enemy_in_ranged_range', 'enemy_in_los', 'ally_loses_hp'],
         },
         appliesTo: () => true,
       },
@@ -268,7 +273,12 @@ const CATEGORIES = [
 //     since the automated turn already moves toward the target before choosing an action, so
 //     spending the Action on a second move is strictly worse than readying or dodging.
 //     Manual Dash (doSprint, hotbar/QWERTY) is UNAFFECTED — a human can see a reason to sprint.
-const TENDENCIES_VERSION = 18;
+// 19: ready_trigger_priority — Gobo now LEADS with enemy_in_melee_range (was
+//     enemy_in_ranged_range), and Milo takes it SECOND, behind ally_in_enemy_melee (user,
+//     2026-07-19). Needs the bump like any defaults change: the stored list is what getTendency
+//     reads, so without it every existing save keeps the old order and the new defaults are
+//     invisible to anyone who has already played.
+const TENDENCIES_VERSION = 19;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';
