@@ -16,6 +16,7 @@ import {
 import { updateHeroUI } from './heroPortraits.js';
 import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
 import { applyHeal, affixTotal } from './affixes.js';
+import { playSound } from './audio.js';
 
 let _usedCount = 0;      // OOC Healing Words cast since the last combat ended
 let _selected  = null;   // currently PC-selected hero (from pc-hero:selected)
@@ -113,6 +114,10 @@ function _cast(target) {
   const actual = applyHeal(target, healed, { caster: _selected });   // _selected is Leugren, the caster
 
   const targetName = UNIT_TYPES[target.type]?.name ?? target.type;
+  // Same cast voice as the in-combat spell — it's the same ability, so it shouldn't sound
+  // different out of combat. This path has no projectile VFX, so there's no landing chime to
+  // pair it with; the voice is the whole audio cue here.
+  playSound('healing_word_leugren');
   showFloatingDamage(target, `+${actual}`, '#55cc55');
   addLog(`${UNIT_TYPES.dwarf.name} casts Healing Word on ${targetName}, restoring ${actual} HP`, 'heal');
 

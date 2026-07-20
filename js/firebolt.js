@@ -61,7 +61,10 @@ export function prewarmEffectShaders() {
 }
 
 export function playFireboltEffect(attacker, target, onImpact) {
+  // Two layers on the same frame: the spell's own sound, and Rasec's voice casting it. Safe inside
+  // the effect — Fire Bolt is elf-only and nothing else reuses this one.
   playSound('fire_bolt');
+  playSound('fire_bolt_rasec');
 
   const start = new THREE.Vector3(
     attacker.grp.position.x,
