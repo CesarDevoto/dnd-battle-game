@@ -702,7 +702,7 @@ const PROP_CATEGORIES = [
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
-  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb'] },
   { label: 'Terrain Surfaces',keys: ['flooring1','flooring2','rug1','road','roadcurve30','water','bloodpool'] },
   { label: 'Effects & Markers',keys:['fogpatch','campfire','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];

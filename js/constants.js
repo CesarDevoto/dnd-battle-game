@@ -952,12 +952,12 @@ export const UNIT_TYPES = {
     scale: [1.0, 1.0, 1.0], anchorY: 2.0,
     hp: 52, ac: 14, speed: 30, initiative: 0, profBonus: 2,
     abilities: { str: 10, dex: 13, con: 11, int: 11, wis: 13, cha: 14 },
-    spellSlots: 6,
+    spellSlots: 999,   // effectively unlimited: Morvath never runs dry on any spell
     attacks: [
       { name: 'Claws',           type: 'melee',    range: 5,  dice: 1, sides: 4,  dmgBonus: 2, statMod: 'dex' },
       { name: 'Inflict Wounds',  type: 'melee',    range: 5,  dice: 1, sides: 10, hitBonus: 3, spellSlotCost: 1 },
       { name: 'Grave Curse',     type: 'aoe_save', range: 30, dice: 1, sides: 6,  dmgBonus: 2,
-        saveType: 'con', saveDC: 12, aoeRadius: 15, spellSlotCost: 1 },
+        saveType: 'con', saveDC: 12, aoeRadius: 15 },  // no spellSlotCost: Morvath casts it every round without limit
     ],
   },
 
