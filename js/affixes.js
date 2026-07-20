@@ -369,14 +369,15 @@ export const SLOT_AFFIXES = {
     //   red    [100, 85, 40, 25]    ← red's first neighbour takes the FULL hit
     //
     // maxTargets is just the ladder's LENGTH (1/1/2/3/4) — never stored twice, so the two can't
-    // drift apart. Radius is a flat 5 ft ("adjacent") at every tier: this affix scales by how many
-    // it catches and how hard, never by reaching further.
+    // drift apart. Radius is FLAT at every tier: this affix scales by how many it catches and how
+    // hard, never by reaching further. Widened 5 ft → 10 ft (user, 2026-07-19); the flat-per-tier
+    // rule is unchanged, the reach it starts from is simply larger.
     cleave: {
       label: 'Cleave',
       noun:  'cleave',              // combat-log wording: "Goblin 3 suffers 7 cleave damage"
       splash: true,
       appliesTo: 'melee',           // weapon melee hits only — see _splashAffixOf
-      radiusFt: GRID_SQUARE_FEET,   // 5 ft — adjacent, at every tier
+      radiusFt: GRID_SQUARE_FEET * 2,   // 10 ft — two squares, at every tier
       falloff: SPLASH_FALLOFF,
     },
   },
@@ -400,7 +401,7 @@ export const SLOT_AFFIXES = {
       noun:  'splash',              // combat-log wording: "Goblin 3 suffers 7 splash damage"
       splash: true,
       appliesTo: 'spell',
-      radiusFt: GRID_SQUARE_FEET,   // 5 ft from the primary target, same as cleave
+      radiusFt: GRID_SQUARE_FEET * 2,   // 10 ft from the primary target, same as cleave
       falloff: SPLASH_FALLOFF,
     },
     // AoE spell radius — "merely expands the diameter of AoE spells" (user, 2026-07-18). FIXED per
