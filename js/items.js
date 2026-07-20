@@ -2377,7 +2377,15 @@ export const ITEMS = {
   // Each locks ONE elemental damage rider via signatureAffix (see js/affixes.js neck table):
   // on a hit the wearer sears the target for the tier's dice, and the target's save halves it.
   // `rarity` here is just the base's default; a drop overwrites it (loot.js _rollItem), so these
-  // scale green→red like any rolled item, the rider damage climbing with the tier.
+  // scale green→red like any rolled item, the rider damage climbing with the tier. A signature
+  // base can no longer roll BELOW its own rarity (_baseAllowedAt), so the rider always exists.
+  //
+  // ⚠ `description` is FLAVOUR ONLY — never restate the mechanic here. The tooltip already prints
+  // the ROLLED affix's own `display` line ("On hit: 1–2 disease damage · CON save DC 12 for half"),
+  // which carries this tier's actual dice, save stat and DC. These blurbs used to duplicate that in
+  // prose, one tier-blind sentence directly beneath the real numbers — and being hand-maintained in
+  // a second file, they were free to drift from the table (each save stat had to be kept in sync by
+  // hand; fire is DEX, the other three CON). The affix is the single source of the mechanic.
   emberheart_pendant: {
     id:     'emberheart_pendant',
     name:   'Emberheart Pendant',
@@ -2385,7 +2393,7 @@ export const ITEMS = {
     rarity: 'green',
     icon:   'assets/items/jewelry/necklace2.png',
     signatureAffix: 'rider_fire',
-    description: 'Your strikes carry a searing ember. On a hit the target takes fire damage — a Dexterity save halves it.',
+    description: 'Forged around a coal that never cooled.',
   },
   rimefrost_locket: {
     id:     'rimefrost_locket',
@@ -2394,7 +2402,7 @@ export const ITEMS = {
     rarity: 'green',
     icon:   'assets/items/jewelry/necklace3.png',
     signatureAffix: 'rider_ice',
-    description: 'Your strikes bite with sudden cold. On a hit the target takes cold damage — a Constitution save halves it.',
+    description: 'Frost creeps across its face, however warm the room.',
   },
   viperfang_amulet: {
     id:     'viperfang_amulet',
@@ -2403,7 +2411,7 @@ export const ITEMS = {
     rarity: 'green',
     icon:   'assets/items/jewelry/necklace4.png',
     signatureAffix: 'rider_poison',
-    description: 'Your strikes drip venom. On a hit the target takes poison damage — a Constitution save halves it.',
+    description: 'Twin fangs, still wet, set in tarnished silver.',
   },
   plaguewrought_charm: {
     id:     'plaguewrought_charm',
@@ -2412,7 +2420,7 @@ export const ITEMS = {
     rarity: 'green',
     icon:   'assets/items/jewelry/necklace7.png',
     signatureAffix: 'rider_disease',
-    description: 'Your strikes fester with sickness. On a hit the target takes disease damage — a Constitution save halves it.',
+    description: 'Warm to the touch, and faintly sweet with rot.',
   },
   necklace11: {
     id:     'necklace11',
