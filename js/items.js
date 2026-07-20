@@ -1,6 +1,13 @@
 // js/items.js — equippable item catalog (see js/equipment.js for the item schema)
 
 export const ITEMS = {
+  // ⚠ `slots` is what MAKES a bag a container — it is not optional decoration. The equipment
+  // panel gates the contents view on `item?.slots` (ui.js), and placeInFirstEmptyBagSlot skips
+  // any bag without it, so a bag missing this field equips, draws its icon, and is then inert:
+  // it opens nothing and carries nothing. bag2–bag11 shipped without it and every DROPPED bag
+  // was dead weight; only bag1 worked, because it's the hand-assigned startingEquipment bag.
+  // Every bag carries 10 — these are art variants, and per the convention above a variant
+  // changes WHICH one you get, never how much it holds. Any new bag needs this line too.
   bag1: {
     id:     'bag1',
     name:   'Bag',
@@ -15,6 +22,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag2.png',
+    slots:  10,
   },
   bag3: {
     id:     'bag3',
@@ -22,6 +30,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag3.png',
+    slots:  10,
   },
   bag4: {
     id:     'bag4',
@@ -29,6 +38,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag4.png',
+    slots:  10,
   },
   bag5: {
     id:     'bag5',
@@ -36,6 +46,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag5.png',
+    slots:  10,
   },
   bag6: {
     id:     'bag6',
@@ -43,6 +54,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag6.png',
+    slots:  10,
   },
   bag7: {
     id:     'bag7',
@@ -50,6 +62,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag7.png',
+    slots:  10,
   },
   bag8: {
     id:     'bag8',
@@ -57,6 +70,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag8.png',
+    slots:  10,
   },
   bag9: {
     id:     'bag9',
@@ -64,6 +78,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag9.png',
+    slots:  10,
   },
   bag10: {
     id:     'bag10',
@@ -71,6 +86,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag10.png',
+    slots:  10,
   },
   bag11: {
     id:     'bag11',
@@ -78,6 +94,7 @@ export const ITEMS = {
     slot:   'bag',
     rarity: 'grey',
     icon:   'assets/items/bags/bag11.png',
+    slots:  10,
   },
 
   handaxe: {

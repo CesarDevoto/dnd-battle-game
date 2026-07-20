@@ -43,6 +43,7 @@ import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled } from './dagnaEvent.js';
 import { computeAC } from './equipment.js';
+import { combatSpeed, spd } from './combatSpeed.js';
 
 // Tracks the active zone id purely off the global zone:loaded event, so loot
 // rolls can key one-time drops to a zone without importing zoneLoader.js
@@ -364,6 +365,21 @@ rangedRangeRing.renderOrder   = 3;
 rangedRangeRing.visible = false;
 scene.add(rangedRangeRing);
 
+// The band between normal range and longRange, where the shot still connects but is made at
+// DISADVANTAGE (_executeAttack derives that from distance on its own). Red so it reads as a
+// warning against the blue normal-range ring, and dimmer so the blue one stays the primary read.
+export const longRangeRing = new THREE.Mesh(
+  new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({
+    color: 0xCC3344, side: THREE.DoubleSide, transparent: true, opacity: 0.35,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  })
+);
+longRangeRing.frustumCulled = false;
+longRangeRing.renderOrder   = 3;
+longRangeRing.visible = false;
+scene.add(longRangeRing);
+
 export const moveRangeRing = new THREE.Mesh(
   new THREE.BufferGeometry(),
   new THREE.MeshBasicMaterial({
@@ -520,11 +536,26 @@ function showRangeRings(u) {
   } else {
     rangedRangeRing.visible = false;
   }
+
+  // Long-range band. Only drawn when it actually sits OUTSIDE the blue ring: `reachFt` takes the
+  // max of the weapon and the caster's furthest spell, so Rasec's 90 ft Fire Bolt already swallows
+  // a 20/30 ft thrown dart — drawing a 30 ft "long range" ring inside a 90 ft one would claim a
+  // penalty band where there is none. Milo (40/80) and Gobo (20/30, no spells) are the real cases.
+  const longFt = rangdA?.longRange ?? 0;
+  if (longFt > reachFt) {
+    longRangeRing.geometry.dispose();
+    longRangeRing.geometry = makeConformingRingGeo(ux, uz, projRangeWU(longFt, u));
+    longRangeRing.position.set(ux, 0, uz);
+    longRangeRing.visible = true;
+  } else {
+    longRangeRing.visible = false;
+  }
 }
 
 function hideRangeRings() {
   meleeRangeRing.visible  = false;
   rangedRangeRing.visible = false;
+  longRangeRing.visible   = false;
   spellRangeRing.visible  = false;
 }
 
@@ -536,6 +567,10 @@ function moveRangeRings(x, z) {
   if (rangedRangeRing.visible) {
     updateConformingRingGeo(rangedRangeRing, x, z);
     rangedRangeRing.position.set(x, 0, z);
+  }
+  if (longRangeRing.visible) {
+    updateConformingRingGeo(longRangeRing, x, z);
+    longRangeRing.position.set(x, 0, z);
   }
   if (spellRangeRing.visible) {
     updateConformingRingGeo(spellRangeRing, x, z);
@@ -1038,7 +1073,7 @@ function animatePath(unit, path, onComplete) {
     const dx = target.x - startX, dz = target.z - startZ;
     const dist    = Math.sqrt(dx * dx + dz * dz);
     const elapsed = (ts - startTs) / 1000;
-    const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED) / dist) : 1;
+    const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * combatSpeed()) / dist) : 1;
     const endY    = getGroundHeight(target.x, target.z, unit.caveLayer);
 
     unit.grp.position.x = startX + dx * t;
@@ -1198,12 +1233,29 @@ function showAttackTargets(u) {
     const dz   = enemy.grp.position.z - u.grp.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
+    // Three bands, nearest first: melee (orange) → normal ranged (teal) → LONG range (red).
+    //
+    // The long band was missing entirely, so a foe past normal range got no ring — and since
+    // atkTargets is what the click handler reads, it could not be attacked AT ALL. Everything
+    // else in the game already believed in long range: _executeAttack applies disadvantage
+    // beyond normal range, enemy AI (aiGetAttack) shoots out to longRange, the automated hero
+    // path uses it, and the tooltip advertises "40/80 ft". Only the manual click path stopped
+    // at 40, so a goblin could shoot Milo from 60 ft with no way for him to answer.
+    //
+    // Nothing here applies the penalty: _executeAttack derives disadvantage from the distance
+    // itself, so the red ring is purely the WARNING that the shot will be made at disadvantage.
+    // Generic on purpose — every unit with a `longRange` on its ranged attack gets the band,
+    // heroes and enemies alike, so the rings match what the AI was always allowed to do.
     let chosenAtk = null, color = 0xCC6644;
+    const _canShoot   = rangdA && atkHasQty(u, rangdA) && unitsHaveLOS(u, enemy);
+    const _normalWU   = rangdA ? projRangeWU(rangdA.range, u) : 0;
+    const _longWU     = rangdA?.longRange ? projRangeWU(rangdA.longRange, u) : 0;
     if (meleeA && dist <= atkTriggerWU(meleeA)) {
       chosenAtk = meleeA; color = 0xCC6644;  // orange — melee
-    } else if (rangdA && atkHasQty(u, rangdA) && dist <= projRangeWU(rangdA.range, u) &&
-               unitsHaveLOS(u, enemy)) {
-      chosenAtk = rangdA; color = 0x22ccaa;  // teal — ranged
+    } else if (_canShoot && dist <= _normalWU) {
+      chosenAtk = rangdA; color = 0x22ccaa;  // teal — ranged, normal
+    } else if (_canShoot && _longWU > 0 && dist <= _longWU) {
+      chosenAtk = rangdA; color = 0xcc3344;  // red — long range, at DISADVANTAGE
     }
     if (!chosenAtk || ri >= MAX_ATK_RINGS) continue;
 
@@ -1686,7 +1738,14 @@ function activateSmokeMirrors() {
   playSound('smoke_bomb');
   if (u._smokeVFX) u._smokeVFX.dispose();
   const radiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
-  u._smokeVFX = spawnSmokeCloud(u.grp.position.x, 0, u.grp.position.z, radiusWU);
+  // ⚠ Anchor the cloud to the HERO'S OWN Y, not world zero. spawnSmokeCloud puts its puffs
+  // 0.15–2.05 above whatever base it's handed, so passing 0 pinned the smoke to world height 0
+  // no matter where Milo stood. Flat zones hid it (their ground is near 0), but the Warrens is
+  // the cave zone — heightmap floors, surface/under layers — so the cloud rendered buried in the
+  // terrain, or above the roof when he was in a tunnel. grp.position.y is the unit's ground
+  // contact point and is already layer-correct (the attack rings anchor to it the same way), so
+  // this needs no caveLayer branch of its own.
+  u._smokeVFX = spawnSmokeCloud(u.grp.position.x, u.grp.position.y, u.grp.position.z, radiusWU);
 
   addLog(`${unitLabel(u)} throws a smoke bomb! The area is heavily obscured for ${SMOKE_ROUNDS_LOG} rounds ` +
          `(+${SMOKE_AC_BONUS} AC and free Hide while inside). ${u.smokeUses} use${u.smokeUses === 1 ? '' : 's'} left.`, 'spell');
@@ -2592,6 +2651,11 @@ function performAttack(attacker, target, atk, onSettled = null) {
   }
   faceTarget(attacker, target);
   playUnitAttackSound(attacker.type);
+  // Morvath's melee voice. Deliberately NOT a UNIT_SOUNDS `attack` entry: that key fires from
+  // playUnitAttackSound directly above for EVERY attack he makes, so it would layer on top of
+  // grave_curse on his AoE turn. Gated on the melee TYPE instead, which covers both of his melee
+  // attacks (Claws and Inflict Wounds) and leaves Grave Curse with its own sound alone.
+  if (attacker.type === 'morvath' && atk.type === 'melee') playSound('morvath_melee');
   if (atk.spellSlotCost && attacker.spellSlots !== undefined) {
     attacker.spellSlots = Math.max(0, attacker.spellSlots - atk.spellSlotCost);
   }
@@ -2603,7 +2667,7 @@ function performAttack(attacker, target, atk, onSettled = null) {
     // Same approach as Sacred Flame: fire the animation and drive timing off
     // a short fixed delay instead, independent of the raw clip length.
     playUnitAttackAnim(attacker, 'spell');
-    setTimeout(() => _executeAoeSave(attacker, target, atk, onSettled), 700);
+    setTimeout(() => _executeAoeSave(attacker, target, atk, onSettled), spd(700));
     return;
   }
   if (_resolvesRanged(atk)) {
@@ -2629,7 +2693,7 @@ function performAttack(attacker, target, atk, onSettled = null) {
       setTimeout(() => {
         if (!units.includes(attacker) || attacker.hp <= 0) { onSettled?.(); return; }
         _fire(attacker, target, () => _executeAttack(attacker, target, atk, onSettled));
-      }, UNIT_TYPES[attacker.type].rangedReleaseMs);
+      }, spd(UNIT_TYPES[attacker.type].rangedReleaseMs));
     } else {
       // Projectile launches after the ranged animation finishes; all subsequent
       // events (dice rolls, damage display) cascade from its onImpact callback.
@@ -5672,7 +5736,7 @@ export function activateTurn(index) {
         document.getElementById('turn-round').textContent = `Round ${round}`;
         buildTurnList();            // drop this unit's closed-eye tag now that it has spent its surprise
         updateCombatStatus();
-        setTimeout(() => doEndTurn(), 1000);
+        setTimeout(() => doEndTurn(), spd(1000));
         return;
       }
       if (u.team === 'red') {
@@ -5682,7 +5746,7 @@ export function activateTurn(index) {
         if (u.dormant) {
           setTimeout(() => doEndTurn(), 60);
         } else if (_saveLocksTurn(u)) {
-          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), 900); }, 300);
+          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), spd(900)); }, spd(300));
         } else {
           runAITurn(u);
         }
@@ -5702,7 +5766,7 @@ export function activateTurn(index) {
         // to click, so roll it for them, then end the turn.
         endTurnBtn.disabled = false;
         if (isAutomated()) {
-          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), 1100); }, 400);
+          setTimeout(() => { _attemptActionSave(u); setTimeout(() => doEndTurn(), spd(1100)); }, spd(400));
         }
       } else if (isAutomated()) {
         _runAutomatedHeroTurn(u);
@@ -6039,7 +6103,7 @@ function _animateRoamNudge(u) {
       return;
     }
     const elapsed = (ts - startTs) / 1000;
-    const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33) / (dist * ratio)) : 1;
+    const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33 * combatSpeed()) / (dist * ratio)) : 1;
     const endY    = getGroundHeight(destX, destZ, u.caveLayer);
 
     u.grp.position.x = startX + dx * ratio * t;
@@ -6188,7 +6252,23 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
     const sneakable = UNIT_TYPES[heroType]?.sneakAttack
       ? new Set(enemies.filter(e => _allyAdjacentToTarget(u, e) || _isHiddenForSneak(u)))
       : null;
-    const pickCtx = { helpTarget: _owlHelpTarget, sneakable };
+    // How far this hero could actually ENGAGE this turn, in world units: one full move PLUS the
+    // longer of his melee trigger and ranged range. pickAutoTarget uses it to drop enemies it
+    // could never reach (see the pool note there). Passed in rather than derived over there
+    // because only combat.js knows speedOf (gear move_speed affixes), the ft→WU conversion, and
+    // the elf's Fire Bolt exception.
+    //
+    // The attack term is NOT optional: bounding on movement alone would hide a foe a ranged hero
+    // can already shoot without taking a step (Milo's bow outranges his speed), which would
+    // quietly turn every ranged hero into a nearest-target picker.
+    const _reachAtks  = attacksOf(u);
+    const _reachMelee = _reachAtks.find(a => a.type === 'melee');
+    const _reachRangd = _reachAtks.find(a => a.type === 'ranged') ?? (u.type === 'elf' ? FIRE_BOLT_ATK : null);
+    const reachWU = (speedOf(u) / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE + Math.max(
+      _reachMelee ? atkTriggerWU(_reachMelee)             : 0,
+      _reachRangd ? projRangeWU(_reachRangd.range, u)     : 0,
+    );
+    const pickCtx = { helpTarget: _owlHelpTarget, sneakable, reachWU };
 
     // movTarget drives positioning (may be an ally for Leugren)
     const movTarget   = forced ?? pickAutoTarget(heroType, heroPos, enemies, allies, pickCtx);
@@ -6342,7 +6422,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         // PARTIALLY blessed party as done — so a hero revived mid-fight never got blessed.
         if (_allLivingHeroesHave(h => blessedUnits.has(h))) { onSkip(); return; }
         castBless(u);
-        setTimeout(onDone, 900);
+        setTimeout(onDone, spd(900));
         return;
       }
 
@@ -6367,7 +6447,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.mageArmored)               { onSkip(); return; }
         if (!hasSpellSlot(u, spellLevelOf('mage_armor'))) { onSkip(); return; }
         activateMageArmor();
-        setTimeout(onDone, 700);
+        setTimeout(onDone, spd(700));
         return;
       }
 
@@ -6394,7 +6474,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         // Already standing in a live cloud — don't burn the second charge re-throwing it.
         if (_inOwnSmoke(u))              { onSkip(); return; }
         activateSmokeMirrors();
-        setTimeout(onDone, 600);
+        setTimeout(onDone, spd(600));
         return;
       }
 
@@ -6793,8 +6873,8 @@ function runAITurn(u) {
   const PRE_ATK_MS  = isAutomated() ? 120 : 350;    // pause before swinging so player sees the target ring
   // Beat between the swings of a Multiattack, so two hits don't read as one.
   const MULTI_ATK_GAP_MS = isAutomated() ? 150 : 400;
-  // Must outlast: anim_duration(~1030) + travel(~760) + death_window(400) ≈ 2190
-  const ATK_RESOLVE = 2200;
+  // (A 2200ms ATK_RESOLVE constant used to sit here, unreferenced — every path in this function
+  // is driven by animation/projectile callbacks rather than a fixed resolve budget. Removed.)
   const END_PAUSE   = isAutomated() ? 100 : 300;    // breather before advancing to next turn
 
   setTimeout(() => {
@@ -7086,32 +7166,54 @@ function runAITurn(u) {
       }
 
       // Path 3: Out of all attack range → move toward melee, attack if now in range
+      //
+      // Candidate TILES, not units, so this keeps the coordinate LOS form — same shape the
+      // hero mover uses. Layers are bound in: the tiles belong to u's layer (validTiles is
+      // built for it) and the target sits on its own, so a creature can't score a firing
+      // position whose "clear shot" actually runs through the cave roof.
+      const _destLOS = (kx, kz) => hasLineOfSight(
+        kx, kz, target.grp.position.x, target.grp.position.z,
+        u.caveLayer ?? 'surface', target.caveLayer ?? 'surface');
       showMoveRange(u);
-      const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
+      const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU, _destLOS);
       hideMoveRange();
       if (!dest) { endAITurn(); return; }
 
-      // Sprint: melee-only enemies that can't reach their target with normal movement
-      // spend their action to dash (double movement), forfeiting their attack.
-      const _isMeleeOnly = !attacksOf(u).some(a => a.type === 'ranged');
-      if (_isMeleeOnly && !turnAttacked) {
-        const _ddx = target.grp.position.x - dest.x;
-        const _ddz = target.grp.position.z - dest.z;
-        const _destDist = Math.sqrt(_ddx * _ddx + _ddz * _ddz);
-        const _meleeTrigger = _meleeA0 ? atkTriggerWU(_meleeA0) : 0;
-        const _destInMelee  = _meleeTrigger > 0 && _destDist <= _meleeTrigger;
-        if (!_destInMelee) {
-          turnAttacked = true;
-          const _sprintBudgetFt = speedOf(u) * 2 - turnMovedFt;
-          showMoveRange(u, _sprintBudgetFt);
-          const sprintDest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU);
-          hideMoveRange();
-          updateCombatStatus();
-          if (!sprintDest) { endAITurn(); return; }
-          addLog(`${unitLabel(u)} uses Dash (action) — double move: ${speedOf(u) * 2} ft`, 'move');
-          moveToAndThen(sprintDest, endAITurn);
-          return;
-        }
+      // Sprint: an enemy whose normal move still leaves it unable to attack spends its action
+      // to dash (double movement) instead of walking and standing there.
+      //
+      // ⚠ The test is what the DESTINATION affords, not what the statblock lists. It used to be
+      // `no ranged attack at all`, which asked the wrong question twice over:
+      //   • The spider HAS a ranged attack (Web), so it never qualified — but the Web needs LOS,
+      //     and behind a Haunted Wood tree there was none. It walked one move, found nothing
+      //     playable, and ended its turn. Twice.
+      //   • Flipping it to `no USABLE ranged attack` would over-correct the other way: Path 3 is
+      //     reached precisely when nothing is playable FROM HERE, so that reads true for every
+      //     creature — and an archer who only needed to step into bow range would Dash and
+      //     forfeit the shot it was about to get.
+      // Asking "after this move, will I have an attack?" is the question both cases actually
+      // turn on: melee if the tile is in reach, ranged if it's in range WITH a clear shot.
+      const _ddx = target.grp.position.x - dest.x;
+      const _ddz = target.grp.position.z - dest.z;
+      const _destDist     = Math.sqrt(_ddx * _ddx + _ddz * _ddz);
+      const _meleeTrigger = _meleeA0 ? atkTriggerWU(_meleeA0) : 0;
+      const _destInMelee  = _meleeTrigger > 0 && _destDist <= _meleeTrigger;
+      const _rangedA0     = attacksOf(u).find(a => a.type === 'ranged');
+      const _destCanShoot = !!_rangedA0 && atkHasQty(u, _rangedA0) &&
+        (_destDist <= atkRangeWU(_rangedA0.range) ||
+         (_rangedA0.longRange && _destDist <= atkRangeWU(_rangedA0.longRange))) &&
+        _destLOS(dest.x, dest.z);
+      if (!turnAttacked && !_destInMelee && !_destCanShoot) {
+        turnAttacked = true;
+        const _sprintBudgetFt = speedOf(u) * 2 - turnMovedFt;
+        showMoveRange(u, _sprintBudgetFt);
+        const sprintDest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU, _destLOS);
+        hideMoveRange();
+        updateCombatStatus();
+        if (!sprintDest) { endAITurn(); return; }
+        addLog(`${unitLabel(u)} uses Dash (action) — double move: ${speedOf(u) * 2} ft`, 'move');
+        moveToAndThen(sprintDest, endAITurn);
+        return;
       }
 
       moveToAndThen(dest, () => setTimeout(() => doAttack(endAITurn), PRE_ATK_MS));

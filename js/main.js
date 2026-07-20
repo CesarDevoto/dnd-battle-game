@@ -8,7 +8,7 @@ import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
 import { equipItem, MATERIAL_PROF } from './equipment.js';
 import { getItem } from './items.js';
 import { rollAffixes } from './affixes.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker, trackSurpriseUI } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, longRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker, trackSurpriseUI } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -500,10 +500,12 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     activeRing.material.opacity = ANIM.activeRingBase + Math.sin(t * ANIM.activeRingFreq) * ANIM.activeRingAmp;
   }
 
-  if (meleeRangeRing.visible || rangedRangeRing.visible || spellRangeRing.visible) {
+  if (meleeRangeRing.visible || rangedRangeRing.visible || longRangeRing.visible || spellRangeRing.visible) {
     const rp = ANIM.rangeRingBase + Math.sin(t * ANIM.rangeRingFreq) * ANIM.rangeRingAmp;
     if (meleeRangeRing.visible)  meleeRangeRing.material.opacity  = rp;
     if (rangedRangeRing.visible) rangedRangeRing.material.opacity = rp;
+    // Held below the others on purpose: the long band is a warning, not the primary read.
+    if (longRangeRing.visible)   longRangeRing.material.opacity   = rp * 0.7;
     if (spellRangeRing.visible)  spellRangeRing.material.opacity  = rp;
   }
   if (moveRangeRing.visible) {

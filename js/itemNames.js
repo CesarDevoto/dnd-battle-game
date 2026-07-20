@@ -105,8 +105,35 @@ function _hasFixedName(base) {
   return !!(base?.signatureAffix || base?.noDrop || base?.fixedName || base?.heal);
 }
 
+// BODY ARMOR NAMES ITSELF, at every rarity. SLOT_NOUNS keys on `material`, but material encodes
+// the DEX cap (see ARMOR_DEX_CAP) — NOT the base AC — so bases with very different AC share one
+// noun: hide armor (12) and scale mail (14) are both 'hide' → both "Hauberk"; ring/chain/splint/
+// plate (14/16/17/18) are all 'plate' → all "Cuirass". That hid a 4-point AC spread behind one
+// label, so a drop's real value only showed up after equipping it. The chest base's AUTHORED name
+// already IS the identity ("Scale Mail", "Chain Mail"), so use it and keep the affix decoration
+// around it: "Stalwart Scale Mail of Vitality". Roman numerals are catalog variants (art, not
+// stats) and strip.
+//
+// CHEST ONLY, deliberately. It's the sole slot where the base carries a stat that varies — every
+// shield is ac 2 (nothing to disambiguate) and every other slot's power is in its affixes, so
+// those keep the flavour nouns. Widening this to `base.ac` would flatten Bulwark/Buckler into
+// "Shield" and buy nothing. Same predicate the tooltip uses to decide armour SETS vs ADDS AC.
+function _selfNaming(base) {
+  return !!(base?.ac && base?.slot === 'chest');
+}
+
+function _plainBaseName(base) {
+  return String(base.name).replace(/\s+[IVXLC]+$/, '').trim();
+}
+
 function _nounsFor(base) {
   if (base?.weaponType) return [base.weaponType];       // Dagger, Longsword, … already clean
+  // A spell focus names itself, for the same reason a weapon does: 'Orb'/'Wand' IS the identity.
+  // ⚠ The 'off-hand' slot is THREE kinds of thing — shields (ac), focuses (focus), and off-hand
+  // weapons (weaponType) — but SLOT_NOUNS can only key on the slot. So every focus fell through
+  // to the shield nouns and a grey orb dropped as "Simple Shield" wearing orb art. Shields have
+  // no marker field of their own, so they stay the slot's default rather than being singled out.
+  if (base?.focus) return [_plainBaseName(base)];
   const bySlot = SLOT_NOUNS[base?.slot];
   if (!bySlot) return ['Trinket'];
   if (Array.isArray(bySlot)) return bySlot;
@@ -118,10 +145,13 @@ export function generateItemName(base, rarity, affixes) {
   if (_hasFixedName(base)) return base.name;
 
   const nouns = _nounsFor(base);
-  // grey is the affix-less floor: always "Simple <plain noun>" (user's rule).
-  if (rarity === 'grey') return `Simple ${nouns[0]}`;
+  // grey is the affix-less floor: always "Simple <plain noun>" (user's rule). For armor the
+  // plain noun is the base's own name, so the AC tier is legible before you equip it.
+  if (rarity === 'grey') return `Simple ${_selfNaming(base) ? _plainBaseName(base) : nouns[0]}`;
 
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const noun = _selfNaming(base)
+    ? _plainBaseName(base)
+    : nouns[Math.floor(Math.random() * nouns.length)];
   const worded = (affixes ?? []).map(a => AFFIX_WORDS[a.key]).filter(Boolean);
   if (!worded.length) return noun;   // 0 affixes (unbuilt slot) — just the noun
 
