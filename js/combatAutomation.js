@@ -125,12 +125,16 @@ const CATEGORIES = [
             // LAST (user, 2026-07-18): a 1d4 dart should never be chosen over a cantrip, so
             // it's offered for completeness rather than as something Rasec actually does.
             { value: 'dart',          label: 'Dart (thrown)' },
+            { value: 'sleep',         label: 'Sleep (2+ enemies)'         },
+            { value: 'burning_hands', label: 'Burning Hands (2+ enemies)' },
             { value: 'ready_action',  label: 'Ready Action'  },
           ],
           dwarf: [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'cure_wounds',  label: 'Cure Wounds (ally <33% HP)' },
+            { value: 'turn_undead',  label: 'Turn Undead (undead in range)' },
+            { value: 'sanctuary',    label: 'Sanctuary (ally <50% HP)' },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'warhammer',    label: 'Warhammer'    },
@@ -145,6 +149,7 @@ const CATEGORIES = [
             { value: 'dodge_hurt',        label: 'Dodge (<33% HP)'   },
             { value: 'rage',              label: 'Rage'              },
             { value: 'defensive_stance',  label: 'Defensive Stance'  },
+            { value: 'reckless_attack',   label: 'Reckless Attack'   },
             { value: 'greataxe',          label: 'Greataxe'          },
             { value: 'handaxe',           label: 'Handaxe'           },
             { value: 'ready_action',      label: 'Ready Action'      },
@@ -162,12 +167,21 @@ const CATEGORIES = [
         defaults: {
           // 'dart' sits LAST on purpose — below even the quarterstaff. It only does anything
           // when darts are equipped, and a 1d4 throw must never pre-empt a cantrip.
-          elf:      ['use_potion', 'mage_armor', 'magic_missile', 'fire_bolt', 'quarterstaff', 'dart'],
-          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
+          // Sleep and Burning Hands sit ABOVE the single-target cantrips but below Mage Armor:
+          // both are guarded in _tryHeroAction to require 2+ affectable enemies, so when they
+          // do fire they are strictly better than one Magic Missile, and when they don't the
+          // list falls straight through at no cost.
+          elf:      ['use_potion', 'mage_armor', 'sleep', 'burning_hands', 'magic_missile', 'fire_bolt', 'quarterstaff', 'dart'],
+          // turn_undead above the attacks (it disables a whole undead pack for a whole minute
+          // and costs no slot), sanctuary below the heals (a ward is worth less than the HP).
+          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'turn_undead', 'sanctuary', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
           // dodge_hurt sits above the attacks on purpose: only the FIRST action in this list
           // that succeeds fires, so below it he'd never reach the dodge — Greataxe would
           // always win. Potion first (healing beats turtling if he has one), then dodge.
-          human:    ['use_potion', 'dodge_hurt', 'rage', 'defensive_stance', 'greataxe', 'handaxe'],
+          // reckless_attack MUST sit above greataxe: it costs no action and is declared before
+          // swinging, so it returns onSkip() and the list continues straight into the attack.
+          // Below the greataxe it would never be reached — the attack would always win first.
+          human:    ['use_potion', 'dodge_hurt', 'rage', 'defensive_stance', 'reckless_attack', 'greataxe', 'handaxe'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'sneak_attack', 'shortbow', 'shortsword'],
         },
         appliesTo: () => true,
@@ -195,6 +209,9 @@ const CATEGORIES = [
             { value: 'use_potion',   label: 'Use Healing Potion (<33% HP)' },
             { value: 'bless',        label: 'Bless'        },
             { value: 'cure_wounds',  label: 'Cure Wounds (ally <33% HP)' },
+            // Sanctuary but NOT Turn Undead: warding an ally is exactly what to do with no foe
+            // up, while Turn Undead needs undead in range and so can never fire in this branch.
+            { value: 'sanctuary',    label: 'Sanctuary (ally <50% HP)' },
             { value: 'healing_word', label: 'Healing Word' },
             { value: 'sacred_flame', label: 'Sacred Flame' },
             { value: 'dodge',        label: 'Dodge'        },
@@ -219,7 +236,7 @@ const CATEGORIES = [
         },
         defaults: {
           elf:      ['use_potion', 'mage_armor', 'ready_action', 'dodge', 'end_turn'],
-          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
+          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'sanctuary', 'healing_word', 'sacred_flame', 'ready_action', 'dodge', 'end_turn'],
           human:    ['use_potion', 'defensive_stance', 'ready_action', 'dodge', 'end_turn'],
           halfling: ['use_potion', 'smoke_mirrors', 'hide', 'ready_action', 'dodge', 'end_turn'],
         },
@@ -278,7 +295,11 @@ const CATEGORIES = [
 //     2026-07-19). Needs the bump like any defaults change: the stored list is what getTendency
 //     reads, so without it every existing save keeps the old order and the new defaults are
 //     invisible to anyone who has already played.
-const TENDENCIES_VERSION = 19;
+// 20: L5–L7 abilities added to the priority lists (user, 2026-07-20) — Rasec's Sleep and
+//     Burning Hands, Leugren's Turn Undead and Sanctuary, Gobo's Reckless Attack. Every one
+//     of them changes a hero's DEFAULTS, so the bump is mandatory: getTendency reads the
+//     stored list, and without it an existing save never sees the new entries at all.
+const TENDENCIES_VERSION = 20;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

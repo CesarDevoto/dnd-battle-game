@@ -77,6 +77,16 @@ const LEVEL_UNLOCKS = {
         imgSrc: 'assets/spells and skills/cure wounds.jpg',
         desc: 'Touch · 2d6+2 HP restored · costs 1 spell slot' },
     ],
+    5: [
+      { name: 'Turn Undead',
+        icon: '☨',
+        desc: 'Action · 30 ft · Undead only · each must pass WIS DC 13 or be Frightened and Incapacitated for 1 minute, fleeing from you · ends early on any damage · once per combat, costs NO spell slot' },
+    ],
+    6: [
+      { name: 'Sanctuary',
+        icon: '✦',
+        desc: 'Bonus action · 30 ft · click an ally to ward them (yourself included) · an enemy must pass WIS DC 13 to attack them at all, or it must pick a different target · 1 minute · ends if the warded ally attacks · costs 1 spell slot' },
+    ],
   },
   human: {
     2: [
@@ -93,6 +103,16 @@ const LEVEL_UNLOCKS = {
       { name: 'Defensive Stance',
         imgSrc: 'assets/spells and skills/defensive stance.jpg',
         desc: 'Bonus action · +3 AC for 3 rounds · 4-round cooldown' },
+    ],
+    6: [
+      { name: 'Reckless Attack',
+        icon: '⚔',
+        desc: 'Free — costs no action at all · declare it before you swing · advantage on your melee attacks, but every attack against you has advantage until the start of your next turn' },
+    ],
+    7: [
+      { name: 'Second Wind',
+        icon: '✚',
+        desc: 'Out of combat (Q) · heal yourself 1d8+2 · once between fights, plus one extra use per point of belt Resource-regen' },
     ],
   },
   halfling: {
@@ -114,6 +134,16 @@ const LEVEL_UNLOCKS = {
         icon: '◎',
         desc: 'Passive · +1% chance to hit on all attacks · always active' },
     ],
+    5: [
+      { name: 'Sleight of Hand',
+        icon: '✋',
+        desc: 'Passive proficiency · a Dexterity skill for manual trickery, stealthy theft and concealing items · adds your proficiency bonus to the roll whenever something calls for it · no button: it is the check other things ask you to make' },
+    ],
+    6: [
+      { name: 'Pick Locks',
+        icon: '🔓',
+        desc: 'Out of combat (Q) · requires the Thieves’ Tools in your bag · Sleight of Hand check vs the lock (DC 15 for a normal one) · one attempt between fights, plus one per point of belt Resource-regen' },
+    ],
   },
   elf: {
     2: [
@@ -130,6 +160,16 @@ const LEVEL_UNLOCKS = {
       { name: 'Find Familiar',
         imgSrc: 'assets/spells and skills/find familiar.jpg',
         desc: 'Summon a loyal owl familiar with 1 HP that rides your shoulder · does not attack but acts on its own initiative in combat · can scout, deliver touch spells or do Help action giving you advantage attacking his target' },
+    ],
+    5: [
+      { name: 'Sleep',
+        icon: '💤',
+        desc: 'Action · 90 ft · roll a 5d8 hit-point pool and spend it on the enemies in range, weakest first — each one it covers falls asleep for 1 minute · any damage wakes them · costs 1 spell slot' },
+    ],
+    6: [
+      { name: 'Burning Hands',
+        icon: '🔥',
+        desc: 'Action · 15 ft around you · 3d6 fire to every enemy caught · DEX DC 13 for half · widened by the off-hand AoE-radius affix · costs 1 spell slot' },
     ],
   },
 };

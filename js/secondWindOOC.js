@@ -12,7 +12,10 @@ import { updateHeroUI } from './heroPortraits.js';
 import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
 import { applyHeal, affixTotal } from './affixes.js';
 
-const UNLOCK_LEVEL = 6;   // Gobo's first Second Wind (user's call)
+// Level 7 (user, 2026-07-20 — was 6, moved up one to make room for Reckless Attack at 6).
+// Also declared in LEVEL_SPELLS.human so the level-up modal and isAbilityUnlocked agree;
+// keep the two in step if this ever moves again.
+const UNLOCK_LEVEL = 7;
 
 let _usedCount = 0;       // Second Winds spent since the last combat ended
 let _selected  = null;    // currently PC-selected hero

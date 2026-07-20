@@ -1051,6 +1051,9 @@ export const UNIT_TYPES = {
     // so it's proficiency-legal. Note attacks still come from UNIT_TYPES.attacks, not the
     // equipped weapon, so this changes his kit's LOOK and inventory, not his damage — yet.
     startingEquipment: { chest: 'leatherarmor1', belt: 'belt8', feet: 'leatherboots2', 'main-hand': 'longsword1', 'off-hand': 'shortbow', 'bag-1': 'bag1' },
+    // Bag CONTENTS, not worn gear (see units.js buildUnit). Milo is the only hero with
+    // a tool kit; Pick Locks (L6) checks his bags for thieves_tools and refuses without it.
+    startingBagItems: ['thieves_tools'],
     abilities: { str: 10, dex: 16, con: 12, int: 12, wis: 10, cha: 14 },
     attacks: [
       { name: 'Shortsword', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },

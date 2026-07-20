@@ -6,7 +6,7 @@ import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
 import { getTerrainHeight, getGroundHeight, initialCaveLayer, caveLayersActive } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
-import { equipItem } from './equipment.js';
+import { equipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getItem } from './items.js';
 import { combatSpeed } from './combatSpeed.js';
 
@@ -707,6 +707,17 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
             console.warn(`[startingEquipment] ${type}: equipping ${item.name} displaced ` +
               `${bumped.map(b => b.name).join(', ')} — a two-handed weapon and an off-hand item can't coexist.`);
           }
+        }
+      }
+      // Bag CONTENTS, issued after the loop above so the bag itself is already worn —
+      // placeInFirstEmptyBagSlot walks hero.equipment['bag-1'..'bag-4'] and finds nothing
+      // to fill if it runs first. Non-equippable kit only (tools, quest items); anything
+      // with a `.slot` belongs in startingEquipment so proficiency is checked.
+      for (const itemId of UNIT_TYPES[type]?.startingBagItems ?? []) {
+        const item = getItem(itemId);
+        if (!item) { console.error(`[startingBagItems] ${type}: unknown item id "${itemId}"`); continue; }
+        if (!placeInFirstEmptyBagSlot(u, item)) {
+          console.error(`[startingBagItems] ${type}: no room for ${item.name} — bags full at build.`);
         }
       }
     }
