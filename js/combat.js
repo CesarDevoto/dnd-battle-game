@@ -1838,7 +1838,15 @@ function _useHealingPotion(u) {
 
 // ── Rage ─────────────────────────────────────────────────────────────────────
 
-function activateRage(u) {
+// Everything raging IS — state, sound, floating text, log — with no UI assumptions, so the manual
+// and automated paths cannot drift.
+//
+// ⚠ They HAD drifted: the automated action list re-implemented the three state lines inline and so
+// raged silently, with no ⚔ RAGE! float and a thinner log line that omitted the damage/mitigation
+// detail. It could not simply call activateRage() because that ends by handing the player the
+// move-range UI, which is meaningless mid-automation — so the UI half stays there and this holds
+// the rest. Anything added to rage belongs HERE unless it is genuinely about the manual turn.
+function _applyRage(u) {
   u.raging  = true;
   u.rageUses--;
   turnBonusActioned = true;
@@ -1848,6 +1856,13 @@ function activateRage(u) {
   const _mit  = rageMitigationForLevel(u.level);
   if (_mit > 0) _bits.push(`resist ${Math.round(_mit * 100)}% dmg`);
   addLog(`${unitLabel(u)} enters RAGE! (${_bits.join(' · ')})`, 'spell');
+  updateCombatStatus();
+}
+
+function activateRage(u) {
+  _applyRage(u);
+  // Manual only: rage is a BONUS action, so a player who has movement left should get the range
+  // rings back to spend it. The automated turn does its own movement and must not be handed these.
   const rem = (speedOf(u)) - turnMovedFt;
   if (rem > 0) { heroMode = 'move'; showMoveRange(u); } else { heroMode = null; }
   updateCombatStatus();
@@ -6487,11 +6502,9 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (actionVal === 'rage') {
         const rageDef = UNIT_TYPES[u.type]?.rage;
         if (!rageDef || u.raging || (u.rageUses ?? 0) <= 0) { onSkip(); return; }
-        u.raging          = true;
-        u.rageUses--;
-        turnBonusActioned = true;
-        addLog(`${unitLabel(u)} enters a RAGE! (${u.rageUses} uses left)`, 'spell');
-        updateCombatStatus();
+        // Shared with the manual path — see _applyRage. This block used to duplicate the state
+        // lines and so raged with no sound and no floating text.
+        _applyRage(u);
         onSkip(); // bonus action; continue to next action in list
         return;
       }
