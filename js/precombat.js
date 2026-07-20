@@ -120,7 +120,13 @@ export function crossesAnyBarrier(ax, az, bx, bz, layer) {
     if (t < 0 || t > 1 || u < 0 || u > 1) continue;
     // Layer-test the actual CROSSING point rather than the segment's midpoint — see
     // the matching note in combat.js crossesBarrier().
-    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer)) return true;
+    //
+    // ⚠ `s.layer` is the 4th arg and was MISSING here (combat.js's crossesBarrier has always
+    // passed it). Without it barrierBlocksLayer sees segLayer == null, falls through to its
+    // legacy-wall branch — `return layer === 'under'` — and so blocked every UNDER-layer mover
+    // under EVERY barrier, including ones explicitly pinned to the blanket. That made a roof
+    // barrier wall off the tunnel floor 20 ft beneath it during exploration.
+    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer, s.layer)) return true;
   }
   return false;
 }
