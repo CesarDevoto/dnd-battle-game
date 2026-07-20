@@ -36,7 +36,7 @@ window.addEventListener('zone:loaded', e => {
 // NOTE: lines are drafted from his death-taunt voice — rewrite to taste. The trigger
 // x/z + radius may need nudging so it fires before the fight starts.
 const _MORVATH_INTRO_ID = 'morvath_intro';
-const _MORVATH_X = 24, _MORVATH_Z = -22;   // short of Morvath (35.99, -31.64), on the approach
+const _MORVATH_X = 36.91, _MORVATH_Z = -23.23;   // between the two ghouls (35.91,-23.23)/(37.91,-23.23), on the approach to Morvath (35.99,-31.64)
 const _MORVATH_INTRO_LINES = [
   { s: 'Morvath', t: "So... the Forge-god's little sparks come crawling into my tomb. Did the withered dwarf send you here to die in my dark?" },
   { s: 'Leugren', t: "Foul thing! 'Tis you who withers these lands. By Moradin's hammer, your corruption ends here!" },
