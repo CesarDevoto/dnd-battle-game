@@ -7,6 +7,7 @@ import { getItem, ITEMS, isDroppable } from './items.js';
 import { rollAffixes } from './affixes.js';
 import { generateItemName } from './itemNames.js';
 import { coveragePool } from './lootCoverage.js';
+import { RARITIES } from './equipment.js';
 // Safe: units.js does NOT import loot.js, so this is a one-way edge, not a cycle.
 // heroRoster is the LIVE array and is never cleared on death — a fallen hero still needs
 // gear, so coverage deliberately keeps counting them.
@@ -193,6 +194,22 @@ function _pickSlot() {
 //
 // affixes is [] for any slot without a table yet (14 of 15 today) — those drop as plain
 // bases, exactly as they did before, so nothing regresses while the tables land one at a time.
+// A SIGNATURE item (rider amulets) is defined by an affix its base forces via `signatureAffix`,
+// and that affix has no entry below the base's own rarity — RIDER_DICE starts at green. Roll one
+// as grey and rollAffixes returns NOTHING, so the drop keeps the base's authored description
+// ("Your strikes fester with sickness…") while doing absolutely nothing. The description is static
+// text on the base; it has no idea whether the affix rolled.
+//
+// So a signature base is simply not a candidate below its own rarity — it isn't in the grey pool
+// at all. Raising the DROP's rarity to meet the base instead would also work, but it would quietly
+// hand out green items on grey rolls; keeping grey grey and picking a different base doesn't move
+// the loot budget. If filtering empties the pool, the roll comes up empty rather than falling back
+// to the unfiltered list — falling back is what would reintroduce the inert drop.
+function _baseAllowedAt(base, rarity) {
+  if (!base?.signatureAffix) return true;
+  return RARITIES.indexOf(rarity) >= RARITIES.indexOf(base.rarity ?? 'grey');
+}
+
 function _rollItem(cr) {
   const rarity = _rollRarity(cr);
   if (!rarity || !_WEIGHTED_SLOTS.length) return null;   // this roll came up empty
@@ -200,9 +217,11 @@ function _rollItem(cr) {
   // Slot FIRST (weighted) — see _SLOT_WEIGHTS. Then coverage narrows it to the material a
   // starved hero could actually use; see lootCoverage.js.
   const slot = _pickSlot();
-  const pool = coveragePool(slot, rarity, heroRoster.map(h => h.type))
+  const rawPool = coveragePool(slot, rarity, heroRoster.map(h => h.type))
             ?? _POOL_BY_SLOT[slot];   // slots with no materials (weapons, rings, cloaks, bags)
-  if (!pool?.length) return null;
+  if (!rawPool?.length) return null;
+  const pool = rawPool.filter(b => _baseAllowedAt(b, rarity));
+  if (!pool.length) return null;
 
   const base    = pool[Math.floor(Math.random() * pool.length)];
   const affixes = rollAffixes(base, rarity);
