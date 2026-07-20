@@ -1,3 +1,4 @@
+import { combatSpeed } from './combatSpeed.js';
 // js/magicmissile.js — 4 neon purple magic-missile bolts for Rasec
 import * as THREE from 'three';
 import { scene } from './scene.js';
@@ -142,7 +143,7 @@ export function playMagicMissileEffect(attacker, target, onImpact) {
     missiles.push({
       grp,
       light,
-      t0:           performance.now() + m * STAGGER_MS,
+      t0:           performance.now() + m * (STAGGER_MS / combatSpeed()),
       impacted:     false,
       arcH:         0.28 + Math.random() * 0.52,
       wobblePhase:  (m / MISSILE_COUNT) * Math.PI * 2,
@@ -170,7 +171,7 @@ export function playMagicMissileEffect(attacker, target, onImpact) {
       if (now < ms.t0) continue;
 
       ms.grp.visible = true;
-      const t = Math.min(1, (now - ms.t0) / TRAVEL_MS);
+      const t = Math.min(1, (now - ms.t0) / (TRAVEL_MS / combatSpeed()));
 
       // Parabolic arc
       ms.grp.position.lerpVectors(origin, dest, t);

@@ -1,3 +1,4 @@
+import { combatSpeed } from './combatSpeed.js';
 // js/healingWord.js — visual effect for Leugren's Healing Word
 import * as THREE from 'three';
 import { scene, camera } from './scene.js';
@@ -133,7 +134,7 @@ export function playHealingWordEffect(attacker, target, onImpact) {
 
     // ─ Flying phase ─
     if (!impacted) {
-      const t = Math.min(1, (now - t0) / TRAVEL_MS);
+      const t = Math.min(1, (now - t0) / (TRAVEL_MS / combatSpeed()));
       coreMesh.position.lerpVectors(start, end, t);
       coreMesh.position.y += Math.sin(t * Math.PI) * 0.55;
       projLight.position.copy(coreMesh.position);

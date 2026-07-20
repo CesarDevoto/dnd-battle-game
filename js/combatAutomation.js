@@ -1,6 +1,7 @@
 import { UNIT_TYPES, WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU } from './constants.js';
 import { LEVEL_SPELLS, isAbilityUnlocked } from './spells.js';
 import { units } from './units.js';
+import { setCombatSpeedFactor, AUTO_COMBAT_SPEED } from './combatSpeed.js';
 
 // ─── Display metadata ────────────────────────────────────────────────────────
 const HERO_META = {
@@ -353,6 +354,14 @@ window.addEventListener('hero:levelup', ({ detail: { hero, newLevel } }) => {
 });
 
 // ─── Public state API ─────────────────────────────────────────────────────────
+// The ONLY writer of _mode. Every switch goes through here so the combat-speed dial can never
+// drift out of step with the mode — the failure would be silent (combat simply pacing wrong),
+// which is exactly the kind of second-copy bug this codebase has been bitten by before.
+function _setMode(mode) {
+  _mode = mode;
+  setCombatSpeedFactor(mode === 'automated' ? AUTO_COMBAT_SPEED : 1);
+}
+
 export function isAutomated()      { return _mode === 'automated'; }
 export function hasPendingSwitch() { return _pendingSwitch !== null; }
 
@@ -388,7 +397,7 @@ function _selectMode(targetMode) {
   if (targetMode === 'manual') {
     if (_mode === 'manual' && !_pendingSwitch) return;   // already manual — nothing to do
     if (_combatActive) { _queueSwitch('manual'); }
-    else { _mode = 'manual'; updateButtonLabel(); }
+    else { _setMode('manual'); updateButtonLabel(); }
     return;
   }
 
@@ -400,7 +409,7 @@ function _selectMode(targetMode) {
   if (!_tendenciesSet || !_combatActive || alreadyAutomated) {
     _openTendencies(() => {
       if (_combatActive && !alreadyAutomated) { _queueSwitch('automated'); }
-      else { _mode = 'automated'; updateButtonLabel(); }
+      else { _setMode('automated'); updateButtonLabel(); }
     });
   } else {
     _queueSwitch('automated');
@@ -411,7 +420,7 @@ function _selectMode(targetMode) {
 export function handleRoundStartSwitch(resumeFn) {
   const mode = _pendingSwitch;
   _clearQueue();
-  _mode = mode;
+  _setMode(mode);
   updateButtonLabel();
 
   const overlay = document.getElementById('mode-switch-banner');
@@ -707,8 +716,33 @@ function _scoreEnemy(e, criterion, heroPos, enemies, helpTarget = null, sneakabl
 //                (_allyAdjacentToTarget / _isHiddenForSneak), so the tendency and the
 //                dice can never disagree about what qualifies.
 export function pickAutoTarget(heroType, heroPos, enemies, allies = [], ctx = {}) {
-  const { helpTarget = null, sneakable = null } = ctx;
+  const { helpTarget = null, sneakable = null, reachWU = 0 } = ctx;
   if (!enemies.length && !allies.length) return null;
+
+  // ── Candidate pool: enemies this hero could actually ENGAGE this turn ────────
+  // Every criterion below scores a lone enemy on its own merit; only 'nearest' looks at
+  // distance at all. `lowest_hp` is literally `return e.hp`, so it happily elects the
+  // weakest foe in the ZONE — and the pool is every live red in the zone (combat.js builds
+  // both it and turnOrder from `units`), not just the ones engaged. In a small dungeon room
+  // that's invisible because everything is adjacent. In a zone the size of Bleakmire it made
+  // Gobo abandon the wolf in his face to march at a 4-HP twig blight 100+ WU away: the melee
+  // branch of aiPickHeroDest scores tiles by distance TO THE CHOSEN TARGET, so "approach my
+  // target" walked him out of the fight, he couldn't cover the ground at speed 30, and the
+  // turn fell through to the no-enemy-in-range list — i.e. he ran away and readied an action.
+  //
+  // So bound the pool by reach FIRST and let the criteria fight over what's left.
+  //
+  // The fallback is the important half: when NOTHING is in reach — the party is still closing
+  // on a distant group — we keep the full list, so the old "pick the best foe and advance on
+  // it" behaviour is untouched. This only ever discriminates when there IS something reachable,
+  // which is exactly when preferring the unreachable foe is wrong.
+  if (reachWU > 0 && enemies.length) {
+    const reachable = enemies.filter(e => {
+      const dx = e.grp.position.x - heroPos.x, dz = e.grp.position.z - heroPos.z;
+      return Math.sqrt(dx * dx + dz * dz) <= reachWU;
+    });
+    if (reachable.length) enemies = reachable;
+  }
 
   let priority = getTendency(heroType, 'target_priority');
   // Coerce legacy single-string values from old localStorage data

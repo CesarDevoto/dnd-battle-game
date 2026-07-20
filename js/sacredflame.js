@@ -1,3 +1,4 @@
+import { combatSpeed } from './combatSpeed.js';
 // js/sacredflame.js — golden radiant flame descending from above for Leugren's Sacred Flame cantrip
 import * as THREE from 'three';
 import { scene } from './scene.js';
@@ -106,6 +107,10 @@ export function playSacredFlameEffect(caster, target, onImpact) {
     scene.add(swMesh);
   }
 
+  // Captured ONCE per cast, not read per frame: a mode switch mid-flight would otherwise
+  // move the goalposts under an effect already in progress.
+  const _spd = combatSpeed();
+  const _DESCEND = DESCEND_MS / _spd, _HOLD = HOLD_MS / _spd, _FADE = FADE_MS / _spd;
   let t0 = null, prevNow = null, landed = false, doneAt = Infinity;
 
   function tick(now) {
@@ -114,7 +119,7 @@ export function playSacredFlameEffect(caster, target, onImpact) {
     prevNow = now;
 
     if (!landed) {
-      const t = Math.min(1, (now - t0) / DESCEND_MS);
+      const t = Math.min(1, (now - t0) / _DESCEND);
       const flicker = 1 + 0.10 * Math.sin(now * 0.045) + (Math.random() - 0.5) * 0.05;
       beamGrp.scale.y = Math.max(0.001, t * flicker);
       coreMat.opacity = 0.55 * (0.7 + 0.3 * Math.sin(now * 0.05));
@@ -132,13 +137,13 @@ export function playSacredFlameEffect(caster, target, onImpact) {
         light.intensity = 4.5;
         for (let k = 0; k < 26; k++) emitEmber(end.x, end.y + 0.2, end.z, true);
         spawnShockwave();
-        doneAt = now + HOLD_MS + FADE_MS + 400;
+        doneAt = now + _HOLD + _FADE + 400 / _spd;
         if (onImpact) onImpact();
       }
     } else {
-      const heldT = now - (t0 + DESCEND_MS);
-      if (heldT > HOLD_MS) {
-        const fadeT = Math.min(1, (heldT - HOLD_MS) / FADE_MS);
+      const heldT = now - (t0 + _DESCEND);
+      if (heldT > _HOLD) {
+        const fadeT = Math.min(1, (heldT - _HOLD) / _FADE);
         coreMat.opacity = 0.55 * (1 - fadeT);
         haloMat.opacity = 0.28 * (1 - fadeT);
         light.intensity = Math.max(0, 4.5 * (1 - fadeT));

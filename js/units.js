@@ -8,6 +8,7 @@ import { getTerrainHeight, getGroundHeight, initialCaveLayer, caveLayersActive }
 import { addUnitDungeonLight } from './environments.js';
 import { equipItem } from './equipment.js';
 import { getItem } from './items.js';
+import { combatSpeed } from './combatSpeed.js';
 
 export const units      = [];
 export const corpses    = [];  // animated units that have died — kept for mixer updates
@@ -778,7 +779,10 @@ export function updateMixers(dt) {
 function _locoTimeScale(unit, walking, run) {
   if (!walking) return 1;
   const def = UNIT_TYPES[unit.type] ?? {};
-  return (run ? def.runTimeScale : def.walkTimeScale) ?? 1;
+  // × combatSpeed so the stride keeps up with the body. animatePath moves the unit at
+  // MOVE_SPEED × the same factor, so leaving the walk cycle at 1× in automated mode would
+  // slide everyone across the ground. Idle deliberately stays at 1× — nothing is racing it.
+  return ((run ? def.runTimeScale : def.walkTimeScale) ?? 1) * combatSpeed();
 }
 
 // Body pitch for the locomotion clips, per unit type (UNIT_TYPES.locoPitchDeg, degrees).
@@ -996,7 +1000,11 @@ export function playUnitAttackAnim(unit, type = 'melee', onComplete = null, clip
   const rot = type === 'ranged' ? (unit.rangedRotY ?? -Math.PI / 2) : 0;
   if (rot) unit.grp.rotation.y += rot;
 
-  action.reset().setEffectiveWeight(1).play();
+  // Attack clips run at the combat-speed factor (1.0 manual, faster automated). The whole chain
+  // hangs off the mixer's 'finished' event below, so a faster clip shortens the wait by exactly
+  // as much as it shortens the animation — the two can't desync. This is the single largest
+  // per-attack cost in an automated turn (~1s of swing, every swing).
+  action.reset().setEffectiveWeight(1).setEffectiveTimeScale(combatSpeed()).play();
 
   unit.mixer.addEventListener('finished', function onFinish(e) {
     if (e.action !== action) return;

@@ -137,7 +137,21 @@ export function aiPickDestTowardMelee(u, target, validTiles, atkTriggerWU) {
   return best;
 }
 
-export function aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU) {
+// tileLOS(kx, kz) → bool: is there a clear shot from that TILE to the target? Optional; when
+// omitted every tile is treated as having a clear shot, which is the old behaviour exactly.
+//
+// ⚠ A ranged-range tile only earns its bonus if the shot actually CONNECTS. Without this the
+// picker was blind to line of sight (aiPickHeroDest has scored LOS since the kiting fix; this,
+// the ENEMY twin, never did), so it judged a ranged tile purely on distance. In a zone full of
+// LOS blockers — addProp defaults blocksLOS to TRUE, so every tree in the Haunted Wood is one —
+// the giant spider kept picking the nearest tile, which left it behind the same trunk it was
+// already behind. Its ONLY ranged attack is the Web, which aiGetAttack gates on LOS, so it then
+// found nothing to do and doAttack silently ended the turn. Two wasted rounds of walking, then a
+// bite on the third, once it was close enough that melee (which needs no LOS) applied.
+//
+// Melee keeps its flat -1000: a bite doesn't care about line of sight, and closing to melee must
+// still outrank standing off at range.
+export function aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU, tileLOS = null) {
   if (!validTiles.size) return null;
   const tx = target.grp.position.x, tz = target.grp.position.z;
   const def          = UNIT_TYPES[u.type] ?? {};
@@ -152,9 +166,12 @@ export function aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU) {
     const [kx, kz] = key.split(',').map(Number);
     const dx = tx - kx, dz = tz - kz, dist = Math.sqrt(dx * dx + dz * dz);
     let score = dist;
-    if (meleeTrigger > 0 && dist <= meleeTrigger)   score -= 1000;
-    else if (rangedRange > 0 && dist <= rangedRange) score -= 600;
-    else if (longRange > 0 && dist <= longRange)     score -= 400;
+    // Only pay for the LOS test on tiles that could actually host a shot.
+    const inRanged = (rangedRange > 0 && dist <= rangedRange) || (longRange > 0 && dist <= longRange);
+    const los = (!inRanged || !tileLOS) ? true : tileLOS(kx, kz);
+    if (meleeTrigger > 0 && dist <= meleeTrigger)          score -= 1000;
+    else if (rangedRange > 0 && dist <= rangedRange && los) score -= 600;
+    else if (longRange > 0 && dist <= longRange && los)     score -= 400;
     if (score < bestScore) { bestScore = score; best = { x: kx, z: kz }; }
   }
   return best;

@@ -5985,12 +5985,27 @@ td.bst-col-retired { color: #343228 !important; }
    so these don't need scoping by column — but if one is ever offered to a second
    hero, it will wear the wrong colour there. */
 .tend-priority-item[data-value="rage"]             .tend-priority-label { color: var(--hero-gobo); }
-.tend-priority-item[data-value="fire_bolt"]        .tend-priority-label { color: var(--hero-rasec); }
+.tend-priority-item[data-value="fire_bolt"]        .tend-priority-label,
+.tend-priority-item[data-value="mage_armor"]       .tend-priority-label,
+.tend-priority-item[data-value="magic_missile"]    .tend-priority-label { color: var(--hero-rasec); }
 .tend-priority-item[data-value="sneak_attack"]     .tend-priority-label,
-.tend-priority-item[data-value="sneak_possible"]   .tend-priority-label { color: var(--hero-milo); }
+.tend-priority-item[data-value="sneak_possible"]   .tend-priority-label,
+.tend-priority-item[data-value="hide"]             .tend-priority-label,
+.tend-priority-item[data-value="smoke_mirrors"]    .tend-priority-label { color: var(--hero-milo); }
 .tend-priority-item[data-value="healing_word"]     .tend-priority-label,
+.tend-priority-item[data-value="bless"]            .tend-priority-label,
+.tend-priority-item[data-value="sacred_flame"]     .tend-priority-label,
+.tend-priority-item[data-value="cure_wounds"]      .tend-priority-label,
 .tend-priority-item[data-value="ally_lowest_hp"]   .tend-priority-label,
 .tend-priority-item[data-value="ally_any_wounded"] .tend-priority-label { color: var(--hero-leugren); }
+/* Leugren's signature spells wear the gold AND the weight. Kept as one list so "same as Healing
+   Word" stays literally true — adding a spell to the colour rule above without adding it here
+   would leave it gold but lighter, which is the mismatch this pairing exists to prevent.
+   The ally_* TARGETING options deliberately stay unbolded: they're not spells. */
+.tend-priority-item[data-value="healing_word"]     .tend-priority-label,
+.tend-priority-item[data-value="bless"]            .tend-priority-label,
+.tend-priority-item[data-value="sacred_flame"]     .tend-priority-label,
+.tend-priority-item[data-value="cure_wounds"]      .tend-priority-label { font-weight: 700; }
 .tend-priority-btn {
   font-size: 0.54rem;
   color: rgba(212,175,55,0.38);

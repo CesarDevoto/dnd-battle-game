@@ -1,3 +1,4 @@
+import { combatSpeed } from './combatSpeed.js';
 // js/firebolt.js — cinematic visual effect for Rasec's Fire Bolt cantrip
 import * as THREE from 'three';
 import { scene, renderer, camera } from './scene.js';
@@ -188,7 +189,7 @@ export function playFireboltEffect(attacker, target, onImpact) {
 
     // ─ Flying phase ─
     if (!impacted) {
-      travelT = Math.min(1, travelT + dt / (TRAVEL_MS / 1000));
+      travelT = Math.min(1, travelT + (dt * combatSpeed()) / (TRAVEL_MS / 1000));
       const t = travelT;
       coreMesh.position.lerpVectors(start, end, t);
       coreMesh.position.y += Math.sin(t * Math.PI) * 0.38;
