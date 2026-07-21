@@ -54,6 +54,7 @@ export const HERO_RING_COLORS = {
 export const GHOST_COLORS = {
   kobold:   0x7a4a18,
   goblin:   0x33880a,
+  goblin3:  0x33880a,
   orc:      0x993300,
   ogre:     0x5a5a5a,
   elf:      0x22aaaa,
@@ -201,6 +202,28 @@ export const UNIT_TYPES = {
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     attacks: [
       { name: 'Claw', type: 'melee', range: 5, dice: 1, sides: 4, statMod: 'str', damageType: 'slashing' },
+    ],
+  },
+
+  // Rigged Meshy goblin (goblin3.glb) — full base-Goblin stat block (CR 1/4), just a
+  // higher-detail model with the hobgoblin clip family (Archery_Shot_1 + Right_Hand_Sword_Slash),
+  // so it carries both a Scimitar and a Shortbow like the base goblin. scale/anchorY are
+  // BBOX-DERIVED and unverified in-game (native ~1.0 unit tall, feet at origin) — nudge with [ / ].
+  goblin3: {
+    name: 'Goblin Raider',
+    team: 'red',
+    race: 'goblin',
+    dark: 0x0f2800, mid: 0x1e5000, bright: 0x33880a, emissive: 0x001100,
+    scale: [1.15, 1.15, 1.15],
+    anchorY: 1.35,
+    // CR 1/4 — Easy
+    detect: 20,
+    hp: 7, ac: 15, speed: 30, initiative: 0,
+    profBonus: 2,
+    abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    attacks: [
+      { name: 'Scimitar', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
+      { name: 'Shortbow', type: 'ranged', range: 40, longRange: 80, rawLongRange: 160, dice: 1, sides: 6, statMod: 'dex' },
     ],
   },
 
@@ -1125,6 +1148,7 @@ export const UNIT_TYPES = {
   elffemale2:         { name: 'Elf Woman 2',         team: 'npc', scale: [1.0, 1.0, 1.0],   yOffset: 0.95, anchorY: 2.0 },
   elfmonk:            { name: 'Elf Monk',            team: 'npc', scale: [1.0, 1.0, 1.0],   yOffset: 0.95, anchorY: 2.0 },
   gnome1:             { name: 'Gnome',               team: 'npc', scale: [0.61, 0.61, 0.61], yOffset: 0.58, anchorY: 1.25 },
+  gnomemerchant:      { name: 'Gnome Merchant',      team: 'npc', scale: [0.61, 0.61, 0.61], yOffset: 0.58, anchorY: 1.25 },
   gnomemonk:          { name: 'Gnome Monk',          team: 'npc', scale: [0.6, 0.6, 0.6],   yOffset: 0.58, anchorY: 1.25 },
   gnomewarrior:       { name: 'Gnome Warrior',       team: 'npc', scale: [0.6, 0.6, 0.6],   yOffset: 0.58, anchorY: 1.25 },
   gnomewizard:        { name: 'Gnome Wizard',        team: 'npc', scale: [0.61, 0.61, 0.61], yOffset: 0.58, anchorY: 1.25 },
@@ -1199,6 +1223,7 @@ export const ENEMY_CR = {
   abyssal_chicken:  0.125,
   // ── CR 1/4 ──────────────────────────────────────────────────────
   goblin:           0.25,
+  goblin3:          0.25,
   wolf:             0.25,
   troglodyte:       0.25,
   constrictor_snake: 0.25,
