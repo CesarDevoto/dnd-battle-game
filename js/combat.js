@@ -928,6 +928,7 @@ function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY, layer) {
 // getTerrainHeight when layers are inactive). Prefer unitsHaveLOS() below wherever both ends
 // are units — it fills these in for you and is the only form that is correct in a cave.
 export function hasLineOfSight(ax, az, tx, tz, aLayer = 'surface', tLayer = 'surface') {
+  if (window.__pathProfile) window.__losCount = (window.__losCount || 0) + 1;   // TEMP LOS counter
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
 
@@ -1129,6 +1130,7 @@ function atkTriggerWU(atk) {
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
 
 function findPath(sx, sz, tx, tz, layer) {
+  const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S = WORLD_UNITS_PER_SQUARE;
   const key = (x, z) => `${x},${z}`;
   const dirs = [
@@ -1155,6 +1157,11 @@ function findPath(sx, sz, tx, tz, layer) {
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
     }
+  }
+
+  if (window.__pathProfile) {
+    const ms = performance.now() - _pp0;
+    if (ms > 15) console.log(`[path] findPath ${ms.toFixed(0)}ms explored=${queue.length} reached=${parent.has(key(tx,tz))} props=${propPositions.length} barriers=${barrierSegments.length}`);
   }
 
   // If the target was never reached, the destination is unreachable — return
@@ -1276,6 +1283,7 @@ function _inOwnSmoke(u) {
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
 function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
+  const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S    = WORLD_UNITS_PER_SQUARE;
   const key  = (x, z) => `${x},${z}`;
   const dirs = [
@@ -1302,6 +1310,10 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
       if (!isOccupied(nx, nz, excludeUnit)) result.add(k);
       queue.push({ x: nx, z: nz, d: nd });
     }
+  }
+  if (window.__pathProfile) {
+    const ms = performance.now() - _pp0;
+    if (ms > 15) console.log(`[path] _bfsReachable ${ms.toFixed(0)}ms explored=${queue.length} maxDist=${maxDist.toFixed(1)} props=${propPositions.length}`);
   }
   return result;
 }
@@ -4475,15 +4487,34 @@ renderer.domElement.addEventListener('mouseleave', () => {
 // ── Right-click movement ───────────────────────────────────────────────────────
 // rayHitAnyUnit is used by the left-click targeting handler above.
 
+const _rhVec = new THREE.Vector3();
 function rayHitAnyUnit() {
+  // Cheap ray-vs-unit test. The old form did _ray.intersectObject(target.grp, true) — a
+  // RECURSIVE raycast against each unit's full SKINNED mesh (character rigs are thousands of
+  // triangles and three.js re-skins every vertex per raycast). With a pack on screen that was
+  // the ~160ms 'mousemove handler took Nms' stalls. Instead, measure the perpendicular distance
+  // from the pick ray to each unit's mid-body point and take the nearest-to-camera within a
+  // footprint radius — O(units) of plain math, no geometry touched.
+  const ray = _ray.ray;
+  let best = null, bestT = Infinity;
   for (const target of units) {
     // NPCs are built with hp = 0 ON PURPOSE (they have no stat block), so the usual
     // `hp <= 0` liveness test reads every one of them as a corpse and skipped them here —
     // which is why clicking a townsfolk or a quest-giver never selected anything.
     if (target.team !== 'npc' && target.hp <= 0) continue;
-    if (_ray.intersectObject(target.grp, true).length) return target;
+    const p = target.grp.position;
+    // Mid-body point + footprint radius, both scaled by the unit's own scale so a short gnome and
+    // a tall ogre are each reasonably targetable without touching geometry.
+    const s = UNIT_TYPES[target.type]?.scale?.[0] ?? 1;
+    _rhVec.set(p.x, p.y + 0.9 * s, p.z);
+    const r = 0.9 * s + 0.4;
+    if (ray.distanceSqToPoint(_rhVec) > r * r) continue;
+    const tAlong = (_rhVec.x - ray.origin.x) * ray.direction.x
+                 + (_rhVec.y - ray.origin.y) * ray.direction.y
+                 + (_rhVec.z - ray.origin.z) * ray.direction.z;
+    if (tAlong > 0 && tAlong < bestT) { bestT = tAlong; best = target; }
   }
-  return null;
+  return best;
 }
 
 // The unit under the pointer that is NOT one of the player's heroes — an enemy, an NPC, or
@@ -6044,6 +6075,10 @@ window.addEventListener('pc-hero:selected', ({ detail }) => {
 });
 
 export function activateTurn(index) {
+  if (window.__turnTiming) {
+    const _n = turnOrder[index];
+    _dbgLog('START', _n ? (UNIT_TYPES[_n.type]?.name ?? _n.type) : '?');
+  }
   clearRollFeed();
   buildTurnList();
   // Transfer barForced to the newly-active unit so its health bar stays visible
@@ -6246,7 +6281,13 @@ function _checkProximityAggro(hero) {
       const range = _dynamicAggroRangeWU(u, def);
       const dx    = hero.grp.position.x - u.grp.position.x;
       const dz    = hero.grp.position.z - u.grp.position.z;
-      if (dx * dx + dz * dz > range * range && !_roamGroupAlreadyFighting(u)) continue;
+      // In range AND actually able to see the hero. unitsHaveLOS is layer-aware, so a creature up
+      // on the cave-roof blanket no longer aggros a party in the tunnel underneath it (through
+      // solid rock) — matching the precombat aggro gate. LOS is tested AFTER the cheap range test
+      // (it costs a terrain walk + prop raycast). The roam-group clause is untouched: group-mates
+      // still pile in with their leader regardless of their own sight line.
+      const inSight = dx * dx + dz * dz <= range * range && unitsHaveLOS(u, hero);
+      if (!inSight && !_roamGroupAlreadyFighting(u)) continue;
 
       changed = true;
       u.aggro = true;
@@ -6291,8 +6332,24 @@ function _checkProximityAggro(hero) {
   if (anyNew) buildTurnList();
 }
 
+// TEMP turn-timing probe (window.__turnTiming = true to enable). Remove once the
+// "long pause after Milo" delay is located. Logs the wall-clock gap between one turn
+// ending and the next unit actually acting, so we can see WHERE the dead time is.
+let _dbgEndTs = 0, _dbgEndWho = '';
+function _dbgLog(tag, who) {
+  if (!window.__turnTiming) return;
+  const now = performance.now();
+  const gap = _dbgEndTs ? Math.round(now - _dbgEndTs) : 0;
+  console.log(`[turn-timing] ${tag} ${who}  (+${gap}ms since ${_dbgEndWho || '?'} ended)`);
+}
+
 function doEndTurn() {
   if (!combatPhase) return;
+  if (window.__turnTiming) {
+    const _c = turnOrder[turnIndex];
+    _dbgEndTs = performance.now(); _dbgEndWho = _c ? (UNIT_TYPES[_c.type]?.name ?? _c.type) : '?';
+    console.log(`[turn-timing] END ${_dbgEndWho}`);
+  }
   hideMoveRange();
   hideAttackTargets();
   hideCastConfirm();
@@ -6391,10 +6448,12 @@ function _roamAggroCheck(u) {
   const def    = UNIT_TYPES[u.type] ?? {};
   const range  = _dynamicAggroRangeWU(u, def);
   const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+  // Layer-aware: a roamer on the blanket can't "spot" a hero in the tunnel below it through the
+  // rock — LOS reads both units' caveLayer. Tested after the range check for the same perf reason.
   const spotted = heroes.some(h => {
     const dx = h.grp.position.x - u.grp.position.x;
     const dz = h.grp.position.z - u.grp.position.z;
-    return dx * dx + dz * dz <= range * range;
+    return dx * dx + dz * dz <= range * range && unitsHaveLOS(u, h);
   });
   if (spotted) {
     _dungeonAwareEnemies.add(u);
@@ -7268,6 +7327,7 @@ const _NO_RANGE_DELEGATES = new Set([
 
 function runAITurn(u) {
   endTurnBtn.disabled = true;
+  _dbgLog('AI-ACTS', UNIT_TYPES[u.type]?.name ?? u.type);
 
   // Sleeping units can't act
   if (sleepingUnits.has(u)) {
@@ -7380,10 +7440,12 @@ function runAITurn(u) {
     const def    = UNIT_TYPES[u.type] ?? {};
     const range  = _dynamicAggroRangeWU(u, def);
     const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
+    // Layer-aware LOS gate (same as the proximity/roam checks): a dormant enemy on the blanket
+    // no longer wakes to a party in the tunnel beneath it through solid rock.
     const spotted = heroes.some(h => {
       const dx = h.grp.position.x - u.grp.position.x;
       const dz = h.grp.position.z - u.grp.position.z;
-      return dx * dx + dz * dz <= range * range;
+      return dx * dx + dz * dz <= range * range && unitsHaveLOS(u, h);
     });
     if (spotted) {
       u.aggro = true;
@@ -7745,7 +7807,13 @@ function runAITurn(u) {
         kx, kz, target.grp.position.x, target.grp.position.z,
         u.caveLayer ?? 'surface', target.caveLayer ?? 'surface');
       showMoveRange(u);
+      const _apd0 = window.__pathProfile ? performance.now() : 0;
+      const _losB = window.__pathProfile ? (window.__losCount || 0) : 0;
       const dest = aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU, _destLOS);
+      if (window.__pathProfile) {
+        const ms = performance.now() - _apd0;
+        if (ms > 15) console.log(`[path] aiPickDest(rangedLOS) ${ms.toFixed(0)}ms tiles=${validTiles.size} losCalls=${(window.__losCount||0)-_losB} unit=${UNIT_TYPES[u.type]?.name ?? u.type}`);
+      }
       hideMoveRange();
       if (!dest) { endAITurn(); return; }
 
