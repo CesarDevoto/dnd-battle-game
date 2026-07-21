@@ -43,7 +43,7 @@ import { runPostCombat } from './postCombat.js';
 import { playSound, playUnitAttackSound, playUnitMoveSound, playCombatMusic, stopCombatMusic } from './audio.js';
 import { onHeroDied, onCombatEnd, onEnemyKilled } from './dagnaEvent.js';
 import { computeAC } from './equipment.js';
-import { combatSpeed, spd } from './combatSpeed.js';
+import { combatSpeed, spd, AUTO_COMBAT_SPEED } from './combatSpeed.js';
 
 // Tracks the active zone id purely off the global zone:loaded event, so loot
 // rolls can key one-time drops to a zone without importing zoneLoader.js
@@ -6589,7 +6589,11 @@ function _familiarMoveToward(u, destPos, onDone) {
 // toward Rasec with whatever movement is left.
 function _runAutomatedFamiliarTurn(u) {
   endTurnBtn.disabled = true;
-  const STEP_MS = 140;
+  // The owl always runs on automation (even in manual mode), and its turn falls right after
+  // Rasec's — so its dead-time pauses are exactly the "slow stretch after Iffir" the player
+  // feels. They were raw ms (unscaled), so automated mode never compressed them either. Route
+  // them through spd() so both modes tighten, and trim the base.
+  const STEP_MS = spd(120);
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
     const ownerU  = getFamiliar()?.owner ?? null;
@@ -6617,7 +6621,7 @@ function _runAutomatedFamiliarTurn(u) {
       setTimeout(() => {
         if (!combatPhase || !units.includes(u)) { endTurnBtn.disabled = false; return; }
         _familiarMoveToward(u, (ownerU ?? u).grp.position, () => setTimeout(doEndTurn, STEP_MS));
-      }, 700);
+      }, spd(400));
     });
   }, STEP_MS);
 }
@@ -7424,14 +7428,22 @@ function runAITurn(u) {
   }
 
   // Automated mode: no one is reading each enemy's "think" beat, so run it much
-  // tighter. Manual mode keeps the original pacing so enemy turns stay readable.
-  const THINK_MS    = isAutomated() ? 150 : 600;    // pause before acting
-  const PRE_ATK_MS  = isAutomated() ? 120 : 350;    // pause before swinging so player sees the target ring
+  // tighter. Manual mode keeps a readable beat — but a whole roam-group pack aggro'd at once
+  // turns that readability into a slog: you sit through a dozen slow enemy turns before you act
+  // again. So the manual pauses SHRINK as the aggro'd pack grows — a lone enemy keeps the full
+  // readable beat, and a big pack compresses toward the automated tempo. div: 1x at one enemy,
+  // +0.2x per extra aggro'd enemy, capped at AUTO_COMBAT_SPEED (2.2x) so a large pack lands at
+  // roughly the automated pacing it would run at anyway.
+  const _aggroPack = isAutomated() ? 0 : units.filter(o => o.team === 'red' && o.hp > 0 && o.aggro).length;
+  const _packDiv   = Math.min(AUTO_COMBAT_SPEED, 1 + 0.2 * Math.max(0, _aggroPack - 1));
+  const _man       = (ms) => Math.round(ms / _packDiv);
+  const THINK_MS    = isAutomated() ? 150 : _man(450);    // pause before acting
+  const PRE_ATK_MS  = isAutomated() ? 120 : _man(260);    // pause before swinging so player sees the target ring
   // Beat between the swings of a Multiattack, so two hits don't read as one.
-  const MULTI_ATK_GAP_MS = isAutomated() ? 150 : 400;
+  const MULTI_ATK_GAP_MS = isAutomated() ? 150 : _man(300);
   // (A 2200ms ATK_RESOLVE constant used to sit here, unreferenced — every path in this function
   // is driven by animation/projectile callbacks rather than a fixed resolve budget. Removed.)
-  const END_PAUSE   = isAutomated() ? 100 : 300;    // breather before advancing to next turn
+  const END_PAUSE   = isAutomated() ? 100 : _man(220);    // breather before advancing to next turn
 
   setTimeout(() => {
     if (!combatPhase || !units.includes(u)) {
