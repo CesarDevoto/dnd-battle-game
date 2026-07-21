@@ -25,6 +25,7 @@ const modelCache = {};
 const MODEL_PATHS = {
   kobold:     'assets/models/kobold.glb',
   goblin:     'assets/models/goblin.glb',
+  goblin3:    'assets/models/goblin3.glb',
   orc:        'assets/models/orc.glb',
   ogre:       'assets/models/ogre.glb',
   elf:        'assets/models/elf.glb',
@@ -92,6 +93,7 @@ const MODEL_PATHS = {
   elffemale2:         'assets/models/npcs/elffemalenaked.glb',
   elfmonk:            'assets/models/npcs/elfmonk.glb',
   gnome1:             'assets/models/npcs/gnome1.glb',
+  gnomemerchant:      'assets/models/npcs/gnomemerchant.glb',
   gnomemonk:          'assets/models/npcs/gnomemonk.glb',
   gnomewarrior:       'assets/models/npcs/gnomewarrior.glb',
   gnomewizard:        'assets/models/npcs/gnomewizard.glb',
@@ -143,6 +145,14 @@ const ANIM_CLIP_NAMES = {
   goblin2: {
     idle: 'Idle_02', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
     rangedAttack: null, death: 'Dead',
+  },
+  // goblin3.glb (rigged Meshy, optimized 2026-07-20). Clip family matches the hobgoblin:
+  // Archery_Shot_1, Dead, Idle_8, Right_Hand_Sword_Slash, Running, Walking. Carries both a
+  // Scimitar and Shortbow, so rangedAttack is mapped (pinned explicitly because Archery_Shot_1
+  // ties Walking on the loco tiebreak and can steal `walk`).
+  goblin3: {
+    idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   // New barbarian GLB (Jul 2026, 3rd export) — clip set changed again. This export has
   // a clip literally named "Attack" but user directed Skill_03 for the real melee swing
