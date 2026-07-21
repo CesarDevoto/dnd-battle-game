@@ -161,20 +161,43 @@ export function aiPickDest(u, target, validTiles, atkTriggerWU, atkRangeWU, tile
   const meleeTrigger = meleeA ? atkTriggerWU(meleeA) : 0;
   const rangedRange  = rangdA ? atkRangeWU(rangdA.range) : 0;
   const longRange    = rangdA?.longRange ? atkRangeWU(rangdA.longRange) : 0;
-  let best = null, bestScore = Infinity;
+
+  // The old form scored every tile inline and paid a tileLOS() call — a per-tile LINE-OF-SIGHT
+  // RAYCAST (plus cave terrain samples) — on every tile in bow range. In a barrier-heavy cave a
+  // ranged enemy's reachable set is ~100 tiles, so that's ~100 raycasts PER dest pick, and the
+  // ranged AI runs two picks a turn (walk, then sprint) — the ~550ms 'setTimeout took Nms'
+  // stalls between enemy moves. The scoring only ever needs ONE winner though, and the tiers are
+  // fixed: melee (−1000, no LOS) ALWAYS outranks a clear ranged shot (−600), which always
+  // outranks a clear long shot (−400), which outranks any bare tile — because the tier gaps
+  // (400+) dwarf any in-tier distance spread on a bounded grid. So resolve the tiers in order and
+  // only raycast the few tiles that could actually win: melee needs no LOS at all, and for the
+  // ranged/long tiers the closest tile WITH a clear shot wins, so we test in ascending distance
+  // and stop at the first hit. Same pick as before; ~100 raycasts becomes 0–2.
+  let bestMelee = null, bestMeleeD = Infinity;
+  let overall   = null, overallD   = Infinity;
+  const rangedTiles = [], longTiles = [];
   for (const key of validTiles) {
     const [kx, kz] = key.split(',').map(Number);
     const dx = tx - kx, dz = tz - kz, dist = Math.sqrt(dx * dx + dz * dz);
-    let score = dist;
-    // Only pay for the LOS test on tiles that could actually host a shot.
-    const inRanged = (rangedRange > 0 && dist <= rangedRange) || (longRange > 0 && dist <= longRange);
-    const los = (!inRanged || !tileLOS) ? true : tileLOS(kx, kz);
-    if (meleeTrigger > 0 && dist <= meleeTrigger)          score -= 1000;
-    else if (rangedRange > 0 && dist <= rangedRange && los) score -= 600;
-    else if (longRange > 0 && dist <= longRange && los)     score -= 400;
-    if (score < bestScore) { bestScore = score; best = { x: kx, z: kz }; }
+    if (dist < overallD) { overallD = dist; overall = { x: kx, z: kz }; }
+    if (meleeTrigger > 0 && dist <= meleeTrigger) {
+      if (dist < bestMeleeD) { bestMeleeD = dist; bestMelee = { x: kx, z: kz }; }
+    } else if (rangedRange > 0 && dist <= rangedRange) {
+      rangedTiles.push({ x: kx, z: kz, d: dist });
+    } else if (longRange > 0 && dist <= longRange) {
+      longTiles.push({ x: kx, z: kz, d: dist });
+    }
   }
-  return best;
+  // Melee is the top tier and needs no line of sight.
+  if (bestMelee) return bestMelee;
+  // No LOS fn → every in-range tile counts as a clear shot (matches the old los=true default).
+  const clear = tileLOS ? (t => tileLOS(t.x, t.z)) : (() => true);
+  rangedTiles.sort((a, b) => a.d - b.d);
+  for (const t of rangedTiles) if (clear(t)) return { x: t.x, z: t.z };
+  longTiles.sort((a, b) => a.d - b.d);
+  for (const t of longTiles) if (clear(t)) return { x: t.x, z: t.z };
+  // No tile offers a shot — just close the distance as much as possible.
+  return overall;
 }
 
 // Destination picker for ally-proximity tendency (Leugren healer modes).

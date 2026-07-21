@@ -429,6 +429,15 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   _prevNow = now;
   t += ANIM.timeStep;
 
+  // TEMP frame profiler (window.__frameProfile = true to enable; optional
+  // window.__frameProfileThreshold ms, default 40). Logs a per-section breakdown on any
+  // frame slower than the threshold so we can see WHAT is eating the rAF budget. Remove
+  // once the stutter source is found.
+  const _fp = window.__frameProfile;   // TEMP diag: set window.__frameProfile=true to enable
+  const _fp0 = _fp ? performance.now() : 0;
+  const _losBefore = _fp ? (window.__losCount || 0) : 0;
+  const _u0 = _fp ? performance.now() : 0;
+
   units.forEach((u, i) => {
     // Dormant enemies are stationary and invisible — don't burn per-frame terrain samples on
     // them. They get re-grounded the frame they wake (the dormant flag clears).
@@ -488,8 +497,12 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     }
   });
 
+  const _tUnits = _fp ? performance.now() - _u0 : 0;
+
   // Fade the cave roof open around any hero who has gone under it.
+  const _cr0 = _fp ? performance.now() : 0;
   tickCaveReveal(units, camera);
+  const _tCaveReveal = _fp ? performance.now() - _cr0 : 0;
 
   // Familiar rides its owner's shoulder — override its position after the
   // generic per-unit placement above so it snaps to the live bone this frame.
@@ -544,15 +557,21 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   updateCameraFocus();
   if (IS_DEV) tickDevCamera(dt);
   controls.update();
+  const _el0 = _fp ? performance.now() : 0;
   updateEngagementLines(units);
+  const _tEngage = _fp ? performance.now() - _el0 : 0;
+  const _ev0 = _fp ? performance.now() : 0;
   updateEnvironmentVisibility();
+  const _tEnvVis = _fp ? performance.now() - _ev0 : 0;
   updateParticles();
   updateWind(t);
   updateHUD();
   updateFamiliarHelpMarker();
   updateReadyIcons();
   trackSurpriseUI();   // closed-eye marker over surprised units, same anchoring as the ⚡ icon
+  const _mx0 = _fp ? performance.now() : 0;
   updateMixers(dt);
+  const _tMixers = _fp ? performance.now() - _mx0 : 0;
   tickZone(dt);
   tickRespawn(dt);
   tickPrecombat(dt);
@@ -571,7 +590,22 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   // Refresh the shadow map every other frame (autoUpdate is off — see scene.js). Halves the
   // shadow-pass cost; imperceptible for a slow, top-down tactical view.
   renderer.shadowMap.needsUpdate = (_shadowFrame++ & 1) === 0;
+  const _r0 = _fp ? performance.now() : 0;
   renderer.render(scene, camera);
+  if (_fp) {
+    const _tRender = performance.now() - _r0;
+    const total = performance.now() - _fp0;
+    if (total > (window.__frameProfileThreshold ?? 120)) {
+      const known = _tUnits + _tCaveReveal + _tEngage + _tEnvVis + _tMixers + _tRender;
+      const r = n => n.toFixed(1);
+      console.log(
+        `[frame] ${r(total)}ms | render(+shadow)=${r(_tRender)} units=${r(_tUnits)} ` +
+        `mixers=${r(_tMixers)} caveReveal=${r(_tCaveReveal)} engage=${r(_tEngage)} ` +
+        `envVis=${r(_tEnvVis)} other=${r(total - known)} | units=${units.length} ` +
+        `los=${(window.__losCount || 0) - _losBefore} shadow=${renderer.shadowMap.needsUpdate}`
+      );
+    }
+  }
 })();
 
 function dismissOverlay() {

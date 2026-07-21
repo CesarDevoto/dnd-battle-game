@@ -14,6 +14,7 @@ const RAYCAST_STRIDE = 5;
 const _raycaster = new THREE.Raycaster();
 const _rayDir    = new THREE.Vector3();
 const _unitTorso = new THREE.Vector3();
+const _boxHit    = new THREE.Vector3();
 
 let _entries = [];
 let _lastLen = -1;
@@ -115,7 +116,7 @@ function _rebuild() {
     sphere.radius *= 1.2;  // small padding so edge-grazing props aren't missed
 
     const groundY = getTerrainHeight(obj.position.x, obj.position.z);
-    _entries.push({ obj, uniforms, meshes, faded: false, sphere, groundY });
+    _entries.push({ obj, uniforms, meshes, faded: false, sphere, box, groundY });
   }
   _lastLen = activeProps.length;
 }
@@ -140,15 +141,25 @@ export function updateEnvironmentVisibility() {
   for (const u of living) {
     _unitTorso.set(u.grp.position.x, u.grp.position.y + 1.0, u.grp.position.z);
     _rayDir.subVectors(_unitTorso, camera.position).normalize();
-    const dist = camera.position.distanceTo(_unitTorso);
+    const dist   = camera.position.distanceTo(_unitTorso);
+    const distSq = dist * dist;
     _raycaster.near = 0.1;
     _raycaster.far  = dist;
     _raycaster.set(camera.position, _rayDir);
+    const ray = _raycaster.ray;
 
     for (const e of _entries) {
       if (e.faded) continue;
-      if (!_raycaster.ray.intersectsSphere(e.sphere)) continue;
-      if (_raycaster.intersectObjects(e.meshes, false).length) e.faded = true;
+      // Broad-phase sphere reject, then a BOUNDING-BOX ray test — NOT a per-triangle raycast.
+      // The old intersectObjects(e.meshes) re-walked every prop's full geometry every stride
+      // frame; against the Warrens' wall/tree meshes that was the ~500ms rAF spikes. Box-level
+      // occlusion is imperceptible for a "fade the top off a prop that's in front of a hero"
+      // effect, and it's O(1) per prop instead of O(triangles).
+      if (!ray.intersectsSphere(e.sphere)) continue;
+      // intersectBox writes the entry point; only fade props that sit BETWEEN camera and hero
+      // (nearer than the hero), matching the old raycaster.far = dist cutoff.
+      if (ray.intersectBox(e.box, _boxHit) &&
+          camera.position.distanceToSquared(_boxHit) <= distSq) e.faded = true;
     }
   }
 
