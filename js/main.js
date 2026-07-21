@@ -440,7 +440,16 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     // moved — so an idle camp of awake enemies between turns costs a couple of adds each frame
     // instead of ~3 noise-sampled height lookups per unit.
     if (u._grndX !== px || u._grndZ !== pz) {
-      if (!u.familiar) u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', px, pz);
+      if (!u.familiar) {
+        u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', px, pz);
+      } else if (u.owner) {
+        // Familiars fly and are held out of resolveCaveLayer (its ground-based transition
+        // hysteresis isn't meant for a flyer). But excluding it left the owl on a STALE layer:
+        // following heroes into a tunnel it kept 'surface' and sampled the cave blanket, so it
+        // climbed up over the party instead of flying down the tunnel with them. Mirror the
+        // owner's layer so it samples whichever surface the party is actually on.
+        u.caveLayer = u.owner.caveLayer ?? 'surface';
+      }
       u._grndY = getGroundHeight(px, pz, u.caveLayer);
       u._grndX = px; u._grndZ = pz;
     }
