@@ -1,4 +1,4 @@
-import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
+import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkFogBall, mkZoneGate, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
 
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
@@ -45,6 +45,11 @@ export const PROP_MODELS = {
   // can tuck into a corner without shoving bodies away. Heavily meshopt'd (512² webp, ~7.7k verts).
   spiderweb:    { label: 'Spider Web',  path: 'assets/environment/spiderweb.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.3  },
   dungeonwall:      { label: 'Rock Wall',       path: 'assets/environment/dungeonrockwall.glb',      defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
+  // Native span(X)~1.9 × height(Y)~0.41 × walkway(Z)~0.244. Scaled for an 8 WU (4-square) WALKWAY:
+  // 8/0.244 ≈ 32.8. Uniform scale couples the rest, so this also makes the SPAN ~62 WU and the
+  // structure ~13 WU tall (a big arched bridge). clashR blocks only its centre; for a crossable
+  // bridge use barriers along the railings instead (a single clashR circle can't cover the span).
+  bridge:           { label: 'Bridge',          path: 'assets/environment/bridge.glb',               defaultScale: 32.8, blocksLOS: false, clashR: 2.0  },
   stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
   woodensteps:      { label: 'Wooden Steps',    path: 'assets/environment/wooden steps.glb',         defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
@@ -130,6 +135,15 @@ export const PROP_MODELS = {
   arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
 
   fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
+  // The zone-gate "fog ball" mist, placeable + sizable. defaultScale 0.5 matches the gate/breach
+  // default; scale it up/down like any prop. Self-animating (no zone tick needed); does NOT hide
+  // in combat the way the actual gate fog does.
+  fogball:          { label: 'Gate Fog',           builderFn: () => mkFogBall(),          defaultScale: 0.5, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
+  // Functional travel gate: fog + a central white click-ball. Set its target zone per placement
+  // (prompted on drop; stored in params.targetZone). Only the white ball is clickable, and a hero
+  // must be within 10 ft — see the gate block in army.js. defaultScale 1.0 so the click-ball reads
+  // at ~5 ft; scaling the gate scales the ball with it.
+  zonegate:         { label: 'Zone Gate',          builderFn: (p) => mkZoneGate(p?.params?.targetZone), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
   campfire:         { label: 'Campfire',           builderFn: () => mkCampfire(1, 0),     defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
   darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.8  },
 
