@@ -1758,4 +1758,4 @@ document.getElementById('biomes-btn').addEventListener('click', () => {
 setEnv('forest');
 
 // ── Re-exports for propRegistry.js and other consumers ───────────────────────
-export { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkPointLight, setPointLightOrbsVisible, mkDarknessPlane, mkWaystoneDisc } from './propBuilders.js';
+export { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkFogBall, mkZoneGate, mkPointLight, setPointLightOrbsVisible, mkDarknessPlane, mkWaystoneDisc } from './propBuilders.js';

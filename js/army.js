@@ -261,6 +261,40 @@ renderer.domElement.addEventListener('click', e => {
     }
   }
 
+  // ── Zone Gate click: travel to the linked zone ────────────────────────────
+  // ONLY the small white centre ball is a click target (isGateBall) — the soft fog around it is
+  // never raycast, so players can't fat-finger a zone change. A hero must be within 10 ft (4 WU).
+  {
+    mouse2D.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+    mouse2D.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse2D, camera);
+    const gateBalls = [];
+    for (const m of activeProps) {
+      if (!m.userData?.isZoneGate) continue;
+      m.traverse(o => { if (o.userData?.isGateBall) gateBalls.push(o); });
+    }
+    const gHit = gateBalls.length ? raycaster.intersectObjects(gateBalls, false) : [];
+    if (gHit.length) {
+      let grp = gHit[0].object;
+      while (grp.parent && !grp.userData?.isZoneGate) grp = grp.parent;
+      const targetZone = grp.userData?.targetZone;
+      if (targetZone) {
+        const GATE_R = 4.0;   // 10 ft (5 ft = 2 WU)
+        // 3-D distance: vertical gap counts too, so a hero 50 ft below the gate (even in an
+        // adjacent XZ square) is out of range and can't click it.
+        const gx = grp.position.x, gy = grp.position.y, gz = grp.position.z;
+        const near = units.some(u => {
+          if (u.team !== 'blue' || u.hp <= 0) return false;
+          const dx = u.grp.position.x - gx, dy = u.grp.position.y - gy, dz = u.grp.position.z - gz;
+          return dx * dx + dy * dy + dz * dz <= GATE_R * GATE_R;
+        });
+        // combatPhase / postcombat gating is handled by the zoneLoader listener.
+        if (near) window.dispatchEvent(new CustomEvent('zonegate:travel', { detail: { targetZone, x: gx, z: gz } }));
+      }
+      return;   // clicking the gate ball never falls through to a ground-move
+    }
+  }
+
   // ── Precombat: hero selection + free movement ─────────────────────────────
   if (isPrecombat()) {
     // Clicked an enemy / NPC / the familiar → that's a TARGETING click, and combat.js's own

@@ -815,6 +815,38 @@ function saveZoneFogPlugin() {
           }
         });
       });
+
+      // Per-zone grid opacity — a single scalar field written into the ZONE object.
+      server.middlewares.use('/__save_zone_grid', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, gridOpacity } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath)) throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+            const val  = Math.round(Math.max(0, Math.min(1, Number(gridOpacity))) * 1e3) / 1e3;
+            const line = `  gridOpacity: ${val},`;
+            const re   = /^[ \t]*gridOpacity\s*:[^\n]*$/m;
+            src = re.test(src)
+              ? src.replace(re, line)
+              : src.replace(/^(export const ZONE = \{\n)/m, `$1${line}\n`);
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
     },
   };
 }

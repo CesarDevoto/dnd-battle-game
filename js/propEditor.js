@@ -197,6 +197,13 @@ async function _placeAtPoint(pt) {
   if (def.clashR > 0) propPositions.push({ x: pt.x, z: pt.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
   if (def.blocksLOS) losBlockerMeshes.push(mesh);
   if (modelKey === 'point_light') entry.params = { intensity: 6, range: 18 };
+  if (modelKey === 'zonegate') {
+    // Ask which zone this gate travels to. Stored in params.targetZone (persisted by the writer)
+    // and mirrored onto the group's userData so the in-game click handler can read it.
+    const tz = (typeof prompt === 'function' ? prompt('Zone Gate → target zone id (e.g. bleakmire_woods):', '') : '') || '';
+    entry.params = { targetZone: tz.trim() };
+    mesh.userData.targetZone = entry.params.targetZone || null;
+  }
   _placedProps.push(entry);
   if (modelKey === 'exclamation_marker') trackExclamation(entry.mesh, entry.x, entry.z);
   _selectIdx(_placedProps.length - 1);
@@ -672,13 +679,13 @@ function _updateStatus() {
 // section, so adding a new prop never makes it vanish from the picker.
 const PROP_CATEGORIES = [
   { label: 'Buildings',       keys: ['inn','inn2','hut1','hut2','marketstall1','marketarmory1','bigbuilding1','building2','building3','building4','building5','building6','building7','building8','building9','building10','building11','building12','building13','building14','building15','building16','buildingruinedlarge'] },
-  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
+  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
   { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb'] },
   { label: 'Terrain Surfaces',keys: ['flooring1','flooring2','rug1','road','roadcurve30','water','bloodpool'] },
-  { label: 'Effects & Markers',keys:['fogpatch','campfire','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
+  { label: 'Effects & Markers',keys:['fogpatch','fogball','zonegate','campfire','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];
 
 function _buildPanel() {

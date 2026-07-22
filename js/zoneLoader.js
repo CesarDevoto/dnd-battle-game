@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, rebuildGrid } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, rebuildGrid, setGridOpacity, DEFAULT_GRID_OPACITY } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
 import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
@@ -515,6 +515,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Update zone label in UI
   _updateZoneLabel();
 
+  // Per-zone grid visibility (how strong the grid lines read in THIS zone).
+  setGridOpacity(zone.gridOpacity ?? DEFAULT_GRID_OPACITY);
+
   // Remember last zone so HMR reloads restore it automatically
   try { localStorage.setItem('dnd-last-zone', id); } catch {}
 
@@ -632,6 +635,28 @@ function _tryActivateExit(exit) {
   }
   return true;
 }
+
+// ── Placeable Zone-Gate props (fog + white click-ball) ─────────────────────────
+// A gate prop's white ball, clicked with a hero within 10 ft (army.js), dispatches this. Routed
+// through the SAME transition flow as a coordinate exit — short-rest panel if the zone was
+// cleared, straight travel otherwise. Arrival is the destination zone's RECIPROCAL gate (the one
+// pointing back here), so connections need NO arrival coordinates: place a gate in each zone and
+// point them at each other. If the target has no reciprocal gate, arrival is null → zone default entry.
+function _reciprocalArrival(targetZoneId, originZoneId) {
+  const tz = _registry[targetZoneId];
+  if (!tz || !originZoneId) return null;
+  const gate = (tz.props ?? []).find(p => p.model === 'zonegate' && p.params?.targetZone === originZoneId);
+  return gate ? { x: gate.x, z: gate.z } : null;
+}
+
+window.addEventListener('zonegate:travel', e => {
+  const targetZone = e.detail?.targetZone;
+  if (!targetZone || _transitioning || combatPhase) return;
+  const arrival = _reciprocalArrival(targetZone, _active?.id);
+  _transitioning = true;
+  if (_postCombat) { _showShortRestPanel(targetZone, arrival); _transitioning = false; }
+  else             { _triggerNextZone(targetZone, arrival); }
+});
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 

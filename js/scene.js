@@ -224,6 +224,43 @@ export function setGridVisible(v) {
   gridBtn.classList.toggle('off', !v);
 }
 
+// ── Per-zone grid opacity ──────────────────────────────────────────────────────
+// How visible the grid lines are, authored PER ZONE. zoneLoader calls setGridOpacity with the
+// zone's `gridOpacity` (default 0.3) on load; the dev slider next to the Grid button lets you tune
+// it live and saves it back to the zone file. The on/off button is separate — opacity is what the
+// grid looks like WHEN it's on.
+export const DEFAULT_GRID_OPACITY = 0.3;
+let _gridOpacity  = DEFAULT_GRID_OPACITY;
+let _curZoneId    = null;
+const _gridOpEl   = document.getElementById('grid-opacity');
+const _gridOpVal  = document.getElementById('grid-opacity-val');
+
+export function getGridOpacity() { return _gridOpacity; }
+export function setGridOpacity(v) {
+  _gridOpacity = Math.max(0, Math.min(1, Number(v) || 0));
+  grid.material.opacity = _gridOpacity;
+  if (_gridOpEl  && document.activeElement !== _gridOpEl) _gridOpEl.value = _gridOpacity;
+  if (_gridOpVal) _gridOpVal.textContent = _gridOpacity.toFixed(2);
+}
+
+// Track the active zone so the slider knows what to save.
+window.addEventListener('zone:loaded', e => { _curZoneId = e.detail?.id ?? _curZoneId; });
+
+if (_gridOpEl) {
+  // Live preview while dragging.
+  _gridOpEl.addEventListener('input', e => setGridOpacity(e.target.value));
+  // Persist to the zone file on release.
+  _gridOpEl.addEventListener('change', async () => {
+    if (!_curZoneId) return;
+    try {
+      await fetch('/__save_zone_grid', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body:   JSON.stringify({ zoneId: _curZoneId, gridOpacity: _gridOpacity }),
+      });
+    } catch { /* dev-only save; ignore if the middleware isn't running */ }
+  });
+}
+
 export const divider = new THREE.Mesh(
   new THREE.PlaneGeometry(GROUND_SIZE, SCENE.dividerWidth),
   new THREE.MeshBasicMaterial({ color: COLORS.divider })

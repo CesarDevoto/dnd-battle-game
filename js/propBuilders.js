@@ -2124,6 +2124,138 @@ export function mkFogPatch() {
   return _mkFogMesh(_mkFogCanvas(0x4868a8), 22, 0.36, 1);
 }
 
+// ── Gate-fog ball (placeable) ───────────────────────────────────────────────────
+// The same 3-D "fog ball" mist the zone GATES use (zoneLoader _buildFogBreach), but
+// built as a self-contained GROUP so the prop editor can PLACE and SIZE it — the prop's
+// scale transform scales the whole cluster and the sprite sizes together. Self-animates
+// via onBeforeRender (opacity pulse + sprite spin + gentle bob), so it needs no external
+// per-frame tick the way the gate/breach fog does. Unlike the gate fog it does NOT hide in
+// combat (it's a decorative placement, not a transition marker).
+let _fogBallTexCache = { bright: null, soft: null };
+function _makeFogBallTex(bright) {
+  const S   = 256;
+  const cv  = document.createElement('canvas');
+  cv.width  = S; cv.height = S;
+  const ctx = cv.getContext('2d');
+  const a0  = bright ? 0.90 : 0.52;
+  const a1  = bright ? 0.65 : 0.30;
+  const a2  = bright ? 0.32 : 0.12;
+  const grad = ctx.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  grad.addColorStop(0.00, `rgba(248, 250, 255, ${a0})`);
+  grad.addColorStop(0.38, `rgba(218, 232, 255, ${a1})`);
+  grad.addColorStop(0.72, `rgba(188, 212, 255, ${a2})`);
+  grad.addColorStop(1.00, 'rgba(168, 196, 255, 0.00)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(cv);
+}
+function _fogBallTex(bright) {
+  const k = bright ? 'bright' : 'soft';
+  return (_fogBallTexCache[k] ??= _makeFogBallTex(bright));
+}
+
+// Positions/sizes are RELATIVE to the group origin (no world x/z/ground bake — the prop
+// system places the group). Mirrors the sprite layout in zoneLoader._buildFogBreach.
+const _FOG_SPR = [
+  { ox:  0.00, oy:  0.00, oz:  0.00, s: 9.0, os: 1.00, bright: true,  bp: 0.0, rs:  0.11 },
+  { ox:  0.00, oy:  2.40, oz:  0.00, s: 6.6, os: 0.72, bright: true,  bp: 1.1, rs: -0.09 },
+  { ox:  0.00, oy: -1.50, oz:  0.00, s: 7.5, os: 0.60, bright: false, bp: 0.7, rs:  0.07 },
+  { ox:  1.95, oy:  0.45, oz:  0.00, s: 5.7, os: 0.55, bright: false, bp: 2.0, rs: -0.10 },
+  { ox: -1.95, oy:  0.45, oz:  0.00, s: 5.7, os: 0.55, bright: false, bp: 3.3, rs:  0.08 },
+  { ox:  0.00, oy:  0.45, oz:  1.50, s: 5.4, os: 0.50, bright: false, bp: 4.2, rs: -0.06 },
+  { ox:  0.00, oy:  0.45, oz: -1.50, s: 5.4, os: 0.50, bright: false, bp: 5.1, rs:  0.11 },
+  { ox:  0.00, oy:  4.05, oz:  0.00, s: 4.5, os: 0.38, bright: false, bp: 1.8, rs: -0.07 },
+];
+const _FOG_DISC = [
+  { size: 11.4, yOff: 0.04, rs:  0.08, os: 0.40 },
+  { size: 16.2, yOff: 0.10, rs: -0.05, os: 0.20 },
+];
+
+const _FOG_BALL_Y = 1.8;
+
+// Add the animated fog sprites + ground discs to `grp` (children at relative positions).
+function _addFogCluster(grp) {
+  const texBright = _fogBallTex(true);
+  const texSoft   = _fogBallTex(false);
+
+  for (const def of _FOG_SPR) {
+    const mat = new THREE.SpriteMaterial({
+      map: def.bright ? texBright : texSoft,
+      transparent: true, opacity: 0.55 * def.os, depthWrite: false,
+      fog: false,   // decorative mist must ignore the zone's scene fog (see zoneLoader note)
+    });
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(def.s, def.s, 1);
+    spr.position.set(def.ox, _FOG_BALL_Y + def.oy, def.oz);
+    const baseY = spr.position.y, os = def.os, bp = def.bp, rs = def.rs;
+    spr.onBeforeRender = () => {
+      const t = performance.now() * 0.001;
+      mat.opacity    = (0.50 + Math.sin(t * 1.1) * 0.10) * os;
+      mat.rotation   = t * rs;
+      spr.position.y = baseY + Math.sin(t * 0.9 + bp) * 0.08;
+    };
+    grp.add(spr);
+  }
+
+  for (const def of _FOG_DISC) {
+    const mat = new THREE.MeshBasicMaterial({
+      map: _fogBallTex(false), transparent: true, opacity: 0.55 * def.os,
+      depthWrite: false, side: THREE.DoubleSide, fog: false,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(def.size, def.size), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(0, def.yOff, 0);
+    const os = def.os, rs = def.rs;
+    mesh.onBeforeRender = () => {
+      const t = performance.now() * 0.001;
+      mat.opacity     = (0.50 + Math.sin(t * 1.1) * 0.10) * os;
+      mesh.rotation.z = t * rs;
+    };
+    grp.add(mesh);
+  }
+}
+
+export function mkFogBall() {
+  const grp = new THREE.Group();
+  _addFogCluster(grp);
+  grp.userData.isFogBall = true;
+  return grp;
+}
+
+// ── Zone Gate (placeable travel gate) ───────────────────────────────────────────
+// A fog cluster (decorative, NOT clickable) with a small WHITE BALL at its centre that IS the
+// click target. Only the ball is raycast in army.js, so players can't accidentally trigger a
+// zone change by clicking the big soft fog. A hero must be within 10 ft (see army.js gate range)
+// to activate it. `targetZone` (set per-placement in the prop editor) is stored on the group's
+// userData; the click handler reads it and dispatches `zonegate:travel`, which zoneLoader routes
+// to the destination zone (arriving at that zone's reciprocal gate).
+export function mkZoneGate(targetZone = null) {
+  const grp = new THREE.Group();
+  _addFogCluster(grp);
+
+  // The ~5-ft white click-ball, floating in the middle of the fog. Its WORLD size stays FIXED no
+  // matter how big/small the fog is scaled: each frame it counter-scales by the gate group's own
+  // scale, so the click target is always the same ~2.5 WU ball. Its POSITION still tracks the fog
+  // centre (child of the group), so it stays in the middle as the fog grows.
+  const BALL_R = 1.25;   // ≈ 2.5 WU across ≈ a 5-ft ball
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_R, 20, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, fog: false }),
+  );
+  ball.position.set(0, _FOG_BALL_Y, 0);
+  ball.renderOrder = 4;   // draw over the surrounding fog
+  ball.userData.isGateBall = true;   // the ONLY thing the click raycaster tests
+  ball.onBeforeRender = () => {
+    const s = ball.parent?.scale?.x || 1;
+    ball.scale.setScalar(1 / s);   // cancel the gate's scale → constant world size
+  };
+  grp.add(ball);
+
+  grp.userData.isZoneGate = true;
+  grp.userData.targetZone = targetZone ?? null;
+  return grp;
+}
+
 
 // ── Investigation light ───────────────────────────────────────────────────────
 // Invisible pulsing point light — highlights nearby props/terrain as a POI marker.
