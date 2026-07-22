@@ -479,47 +479,8 @@ export function updateCameraFocus() {
   }
 }
 
-// ── Right-mouse swivel — orbit the camera horizontally around the follow unit ──
-// Play mode only (in edit mode OrbitControls owns the right button for free
-// rotate, so we bail when enableRotate is on). The camera keeps its distance and
-// height and stays pointed at the unit; only the azimuth changes. Dragging RIGHT
-// swings the camera counter-clockwise around the unit (e.g. 6 o'clock → 3
-// o'clock, to look "west"); dragging LEFT swings it clockwise (→ 9 o'clock, to
-// look "east"). The per-frame follow (updateCameraFocus) only translates the
-// camera with the target, so the swivel angle persists once set.
-const _SWIVEL_SPEED = 0.006;                 // radians per pixel of horizontal drag
-const _SWIVEL_UP    = new THREE.Vector3(0, 1, 0);
-const _swivelOffset = new THREE.Vector3();
-const _CAM_CLEARANCE = 3;                     // WU the lens must stay above the ground beneath it
-let _swivelActive   = false;
-let _swivelLastX    = 0;
-
-renderer.domElement.addEventListener('pointerdown', e => {
-  if (e.button !== 2) return;                // right button only
-  if (controls.enableRotate) return;         // edit mode → let OrbitControls handle it
-  _swivelActive = true;
-  _swivelLastX  = e.clientX;
-});
-window.addEventListener('pointermove', e => {
-  if (!_swivelActive) return;
-  const dx = e.clientX - _swivelLastX;
-  if (dx === 0) return;
-  _swivelLastX = e.clientX;
-  // Drag right (dx > 0) → +angle about +Y → offset swings 6→3 o'clock (CCW from above).
-  _swivelOffset.copy(camera.position).sub(controls.target);
-  _swivelOffset.applyAxisAngle(_SWIVEL_UP, dx * _SWIVEL_SPEED);
-  // Reject any swivel that would carry the lens onto ground taller than its own height —
-  // otherwise orbiting past a steep hill drops the camera behind/under the terrain and you
-  // see the void beneath it. The swivel is a horizontal orbit, so the height never changes;
-  // we just refuse the azimuths where the new XZ pokes into a hillside and keep the last one.
-  const camX = controls.target.x + _swivelOffset.x;
-  const camZ = controls.target.z + _swivelOffset.z;
-  const camY = controls.target.y + _swivelOffset.y;
-  if (camY < getTerrainHeight(camX, camZ) + _CAM_CLEARANCE) return;
-  camera.position.set(camX, camY, camZ);
-});
-function _endSwivel() { _swivelActive = false; }
-window.addEventListener('pointerup',     e => { if (e.button === 2) _endSwivel(); });
-window.addEventListener('pointercancel', _endSwivel);
-window.addEventListener('blur',          _endSwivel);
+// Right-click orbit is handled natively by OrbitControls now (RIGHT → ROTATE, set per-mode in
+// devMode._applyCamera). The camera orbits freely around controls.target, which updateCameraFocus
+// keeps locked on the followed hero. Suppress the browser context menu so a right-drag doesn't
+// pop it.
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
