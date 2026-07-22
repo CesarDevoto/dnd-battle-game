@@ -439,6 +439,37 @@ export function toggleTopView() {
 
 const _prevTarget = new THREE.Vector3();
 
+// ── Camera collision — keep the lens in FRONT of walls ────────────────────────
+// A free orbit could carry the camera behind a steep wall and hide the party. Instead, march the
+// sightline from the hero out toward the desired camera spot; where terrain rises across it (a
+// wall), pull the lens IN to just in front of that wall so it skims the near face and keeps the
+// hero in view. On open ground the full orbit distance is used. Smoothed so wall edges don't snap.
+const _COL_STEPS  = 24;
+const _COL_MARGIN = 1.2;   // WU kept in front of the wall
+const _COL_MIN    = 5;     // WU — never pull closer than this to the hero
+const _colDir     = new THREE.Vector3();
+let   _colDist    = SCENE.orbitMaxDist;
+
+function _applyCameraCollision() {
+  const maxD = SCENE.orbitMaxDist;
+  _colDir.copy(camera.position).sub(controls.target);
+  if (_colDir.lengthSq() < 1e-6) return;
+  _colDir.normalize();
+  const tx = controls.target.x, ty = controls.target.y, tz = controls.target.z;
+  let clearD = maxD;
+  for (let i = 1; i <= _COL_STEPS; i++) {
+    const d = (i / _COL_STEPS) * maxD;
+    // terrain rises above the sightline point here → a wall blocks it; stop just short.
+    if (getTerrainHeight(tx + _colDir.x * d, tz + _colDir.z * d) + _COL_MARGIN > ty + _colDir.y * d) {
+      clearD = Math.max(_COL_MIN, d - maxD / _COL_STEPS);
+      break;
+    }
+  }
+  _colDist += (clearD - _colDist) * 0.2;   // smooth the pull-in / release
+  controls.minDistance = _colDist;
+  controls.maxDistance = _colDist;
+}
+
 export function updateCameraFocus() {
   // Opening the editor WHILE top view is on would otherwise strand the camera: the pin below
   // runs every frame, and toggleTopView is now a no-op in the editor, so G couldn't undo it.
@@ -473,6 +504,7 @@ export function updateCameraFocus() {
   controls.target.lerp(_camFocusLook, 0.1);
 
   camera.position.add(controls.target).sub(_prevTarget);
+  if (!isEditModeActive()) _applyCameraCollision();   // skim in front of walls in play mode
 
   if (!_followUnit && controls.target.distanceTo(_camFocusLook) < 0.05) {
     _camFocusActive = false;
