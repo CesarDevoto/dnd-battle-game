@@ -22,6 +22,7 @@ const SOUNDS = {
   desert:        { src: 'assets/audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   graveyard:     { src: 'assets/audio/ambient/ForestAmbience.mp3', category: 'ambient', loop: true },
   haunted_wood:       { src: 'assets/audio/ambient/haunted forest ambience.mp3', category: 'ambient', loop: true },
+  hide_out:           { src: 'assets/audio/ambient/goblin hideout stream.mp3',   category: 'ambient', loop: true },
   mausoleum:          { src: 'assets/audio/ambient/mausoleumambience.mp3',        category: 'ambient', loop: true },
   tavern_ambience:    { src: 'assets/audio/ambient/tavernambience.mp3',           category: 'ambient', loop: true },
   // Unit-specific — aggro & attack vocalizations
