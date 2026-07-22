@@ -2240,7 +2240,7 @@ export function mkZoneGate(targetZone = null) {
   const BALL_R = 1.25;   // ≈ 2.5 WU across ≈ a 5-ft ball
   const ball = new THREE.Mesh(
     new THREE.SphereGeometry(BALL_R, 20, 16),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, fog: false }),
   );
   ball.position.set(0, _FOG_BALL_Y, 0);
   ball.renderOrder = 4;   // draw over the surrounding fog
