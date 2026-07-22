@@ -55,7 +55,6 @@ function saveZonePropsPlugin() {
                   .join(', ');
                 s += `, params: { ${kv} }`;
               }
-              if (p.layer      != null) s += `, layer: '${p.layer}'`;
               if (p.waystoneId != null) s += `, waystoneId: '${p.waystoneId}'`;
               if (p.mapTab     != null) s += `, mapTab: '${p.mapTab}'`;
               s += ' },';
@@ -208,7 +207,6 @@ function saveZoneEnemiesPlugin() {
                 s += `, patrol: [${pts}]`;
               }
               if (e.stealthed)                        s += `, stealthed: true`;
-              if (e.caveLayer)                        s += `, caveLayer: '${e.caveLayer}'`;
               if (e.attackPref)                       s += `, attackPref: '${e.attackPref}'`;
               if (e.animOverrides && Object.keys(e.animOverrides).length) {
                 const ovStr = Object.entries(e.animOverrides)
@@ -379,7 +377,7 @@ function saveZoneTerrainPlugin() {
             // Write barriers if provided (keeps file in sync when cleared)
             if (barriers !== undefined) {
               const r = (n) => Math.round(n * 1e4) / 1e4;
-              const bLines = barriers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)}${b.layer ? `, layer: '${b.layer}'` : ''} },`);
+              const bLines = barriers.map(b => `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`);
               const bBlock = barriers.length ? `  barriers: [\n${bLines.join('\n')}\n  ],` : `  barriers: [],`;
               if (/[ \t]*barriers\s*:/.test(src)) {
                 src = src.replace(/[ \t]*barriers\s*:[\s\S]*?\],?/, bBlock);
@@ -483,15 +481,8 @@ function saveZoneBarriersPlugin() {
             let src = fs.readFileSync(filePath, 'utf-8');
 
             const r = (n) => Math.round(n * 1e4) / 1e4;
-            // ⚠ `layer` MUST be emitted. This is the barrier editor's own save endpoint and it
-            // used to write x1/z1/x2/z2 only, silently dropping the layer the editor had sent —
-            // so every blanket barrier came back layer-less and reverted to "legacy tunnel wall"
-            // (blocks the UNDER layer), i.e. the exact opposite of where it was drawn. The OTHER
-            // writer (saveZoneTerrainPlugin, above) always emitted it, so whether your barrier
-            // survived depended on which editor you saved from. Same class of bug as the
-            // prop-editor writer dropping procedural fields — keep the two writers in step.
             const itemLines = barriers.map(b =>
-              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)}${b.layer ? `, layer: '${b.layer}'` : ''} },`
+              `    { x1: ${r(b.x1)}, z1: ${r(b.z1)}, x2: ${r(b.x2)}, z2: ${r(b.z2)} },`
             );
             const barriersBlock = barriers.length
               ? `  barriers: [\n${itemLines.join('\n')}\n  ],`
@@ -565,7 +556,7 @@ function saveZonePaintPlugin() {
             };
 
             upsertArray('paint',     paint);       // ground floor strokes
-            upsertArray('paintRoof', paintRoof);   // cave-blanket strokes
+            upsertArray('paintRoof', paintRoof);   // legacy roof-layer strokes (data-only)
             upsertTint('paintTint',     paintTint);
             upsertTint('paintRoofTint', paintRoofTint);
 
@@ -630,106 +621,6 @@ function saveZoneTrenchesPlugin() {
               src = src.slice(0, startIdx) + trenchesBlock + src.slice(afterArr + trailingComma);
             } else {
               src = src.replace(/^(\};)/m, `${trenchesBlock}\n$1`);
-            }
-
-            fs.writeFileSync(filePath, src, 'utf-8');
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
-          } catch (err) {
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: err.message }));
-          }
-        });
-      });
-    },
-  };
-}
-
-function saveZoneCavePlugin() {
-  return {
-    name: 'save-zone-cave',
-    configureServer(server) {
-      server.middlewares.use('/__save_zone_cave', (req, res) => {
-        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
-
-        let body = '';
-        req.on('data', c => { body += c; });
-        req.on('end', () => {
-          try {
-            const { zoneId, cave } = JSON.parse(body);
-            if (!zoneId) throw new Error('missing zoneId');
-
-            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
-            if (!fs.existsSync(filePath))
-              throw new Error(`Zone file not found: zone_${zoneId}.js`);
-
-            let src = fs.readFileSync(filePath, 'utf-8');
-            const val = cave ? 'true' : 'false';
-
-            if (/[ \t]*cave\s*:\s*(?:true|false)/.test(src)) {
-              src = src.replace(/([ \t]*)cave\s*:\s*(?:true|false)\s*,?/, `$1cave: ${val},`);
-            } else {
-              // Insert a `cave:` field right after the zone `id:` line.
-              src = src.replace(/^([ \t]*id\s*:.*,[ \t]*)$/m, `$1\n  cave: ${val},`);
-            }
-
-            fs.writeFileSync(filePath, src, 'utf-8');
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
-          } catch (err) {
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: err.message }));
-          }
-        });
-      });
-    },
-  };
-}
-
-function saveZoneCaveEntrancesPlugin() {
-  return {
-    name: 'save-zone-cave-entrances',
-    configureServer(server) {
-      server.middlewares.use('/__save_zone_cave_entrances', (req, res) => {
-        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
-
-        let body = '';
-        req.on('data', c => { body += c; });
-        req.on('end', () => {
-          try {
-            const { zoneId, caveEntrances } = JSON.parse(body);
-            if (!zoneId) throw new Error('missing zoneId');
-
-            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
-            if (!fs.existsSync(filePath))
-              throw new Error(`Zone file not found: zone_${zoneId}.js`);
-
-            let src = fs.readFileSync(filePath, 'utf-8');
-
-            const r = (n) => Math.round(n * 1e4) / 1e4;
-            const itemLines = caveEntrances.map(e =>
-              `    { x: ${r(e.x)}, z: ${r(e.z)}, r: ${r(e.r)}, seed: ${r(e.seed)} },`);
-            const block = caveEntrances.length
-              ? `  caveEntrances: [\n${itemLines.join('\n')}\n  ],`
-              : `  caveEntrances: [],`;
-
-            if (/[ \t]*caveEntrances\s*:/.test(src)) {
-              const startIdx = src.search(/[ \t]*caveEntrances\s*:/);
-              const arrStart = src.indexOf('[', startIdx);
-              let depth = 0, arrEnd = -1;
-              for (let i = arrStart; i < src.length; i++) {
-                if (src[i] === '[') depth++;
-                else if (src[i] === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
-              }
-              const afterArr = arrEnd + 1;
-              const trailingComma = src[afterArr] === ',' ? 1 : 0;
-              src = src.slice(0, startIdx) + block + src.slice(afterArr + trailingComma);
-            } else {
-              src = src.replace(/^(\};)/m, `${block}\n$1`);
             }
 
             fs.writeFileSync(filePath, src, 'utf-8');
@@ -929,5 +820,5 @@ function saveZoneFogPlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneCavePlugin(), saveZoneCaveEntrancesPlugin(), saveZoneVisionBlockersPlugin(), saveZoneFogPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), saveZoneFogPlugin(), createZonePlugin(), deleteZonePlugin()],
 });

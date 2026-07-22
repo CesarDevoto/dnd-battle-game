@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, ceiling, setCeilingGridActive, rebuildGrid } from './scene.js';
+import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, rebuildGrid } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, rebuildCeiling, clearCeiling, setCaveEntrances, setCaveLayersActive } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -54,18 +54,6 @@ const _exitPt    = new THREE.Vector2();
 
 export function getActiveZone()  { return _active; }
 
-// Toggle the cave roof (blanket) on the active zone live — same setup loadZone
-// does. The editor's Cave-roof checkbox calls this; persist with the save endpoint.
-export function applyCaveRoof(on) {
-  if (!_active) return;
-  _active.cave = on;
-  setCaveEntrances(_active.caveEntrances ?? []);
-  setCaveLayersActive(on);
-  ceiling.visible = on;
-  setCeilingGridActive(on);
-  if (on) rebuildCeiling(ceiling, _active.biome);
-  rebuildGrid();                 // grids re-conform to the surface (or back to terrain)
-}
 export function getAllZones()     { return Object.values(_registry); }
 
 // Fog / high-darkness zones — enemies can't see far, so their aggro/detection
@@ -338,7 +326,7 @@ function _buildFogBreach(x, z, scale = 0.5) {
 // exactly the same setup it had originally. Returns the unit.
 function _spawnZoneEnemy(e) {
   const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
-  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null, e.caveLayer ?? null);
+  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
   if (e.yOff)                           u.hoverY = e.yOff;
   if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
   if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
@@ -417,11 +405,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   setTerrainTrenches(zone.trenches ?? []);
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
   setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: e.notchHalfWidth ?? 2 })));
-  setCaveEntrances(zone.caveEntrances ?? []);
-  setCaveLayersActive(!!zone.cave);   // before the biome switch so the grid + terrain rebuild sample the surface
 
   // Tunnel-mode zones: swap the heightfield for the carved-canyon layout before
-  // the terrain rebuild, so both ground and ceiling bake against it.
+  // the terrain rebuild, so the ground bakes against it.
   setTunnelMode(!!zone.tunnel);
   if (zone.tunnel) {
     if (zone.tunnelPaths) setTunnelPaths(zone.tunnelPaths);
@@ -440,19 +426,12 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // Per-zone atmospheric-fog override (after setEnv, which resets to biome default)
   if (zone.fogDensity != null) setZoneFogDensity(zone.fogDensity, zone.fogColor);
 
-  // Cave ceiling — underside-of-rock roof over carved (trench) tunnels, shown for
-  // zones flagged `cave`. setEnv above has already rebuilt the ground with the
-  // hill control points + trenches, so the roof samples the final heightfield.
-  ceiling.visible = !!zone.cave;
-  setCeilingGridActive(!!zone.cave);   // show the blanket grid only in cave zones
-  if (zone.cave) rebuildCeiling(ceiling, zone.biome);
-  else           clearCeiling(ceiling);   // don't hold a half-million-triangle roof for a zone with no cave
-
   // Load barrier segments (collision data + dev visuals)
   loadBarrierVisuals(zone.barriers ?? []);
   loadTrenchVisuals(zone.trenches ?? []);
 
-  // Rasterize painted terrain strokes into the splatmaps (floor + cave blanket)
+  // Rasterize painted terrain strokes into the ground splatmap. paintRoof/paintRoofTint
+  // are still passed through to the paint module's data-only roof layer (see terrainPaint.js).
   loadPaint(zone.paint ?? [], zone.paintTint ?? null, zone.paintRoof ?? [], zone.paintRoofTint ?? null);
 
 
@@ -473,7 +452,6 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
     _box.forEach((pos, i) => {
       const h = heroes[i];
       if (!h) return;
-      h.caveLayer = 'surface';
       h.grp.position.set(pos.x, getTerrainHeight(pos.x, pos.z), pos.z);
       if (h.anchor) { h.anchor.x = pos.x; h.anchor.z = pos.z; }
     });

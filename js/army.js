@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, controls, ground, ceiling, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
-import { raySurfacePoint } from './terrain.js';
+import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFollowUnit, snapCameraToUnit } from './scene.js';
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking, pointerOverNonHeroUnit } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
@@ -87,9 +86,9 @@ export const selectRing = new THREE.Mesh(
   new THREE.RingGeometry(INTERACTION.selectRingInner, INTERACTION.selectRingOuter, 32),
   new THREE.MeshBasicMaterial({
     color: COLORS.selectRing, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
-    // depthTest off: a flat ring on the curved/sloped cave-roof blanket had its downhill
-    // half buried in the terrain and clipped away. Drawing it on top (like the other ground
-    // overlays) shows the full circle at the cost of the body no longer occluding its back arc.
+    // depthTest off: a flat ring on curved/sloped terrain had its downhill half buried in the
+    // terrain and clipped away. Drawing it on top (like the other ground overlays) shows the
+    // full circle at the cost of the body no longer occluding its back arc.
     depthTest: false, depthWrite: false,
   })
 );
@@ -121,13 +120,6 @@ function groundHit(clientX, clientY) {
   mouse2D.x =  (clientX / window.innerWidth)  * 2 - 1;
   mouse2D.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse2D, camera);
-  // Cave zones: target the surface the selected hero is on (blanket vs tunnel
-  // floor), not the carved ground beneath the blanket.
-  if (ceiling.visible) {
-    const layer = getPCSelected()?.caveLayer === 'under' ? 'under' : 'surface';
-    const p = raySurfacePoint(raycaster.ray, layer);
-    if (p) return p;
-  }
   const h = raycaster.intersectObject(ground);
   return h.length ? h[0].point : null;
 }

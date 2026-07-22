@@ -55,6 +55,7 @@ export const GHOST_COLORS = {
   kobold:   0x7a4a18,
   goblin:   0x33880a,
   goblin3:  0x33880a,
+  goblinchieftain: 0x33880a,
   orc:      0x993300,
   ogre:     0x5a5a5a,
   elf:      0x22aaaa,
@@ -224,6 +225,33 @@ export const UNIT_TYPES = {
     attacks: [
       { name: 'Scimitar', type: 'melee',  range: 5,  dice: 1, sides: 6, statMod: 'dex' },
       { name: 'Shortbow', type: 'ranged', range: 40, longRange: 80, rawLongRange: 160, dice: 1, sides: 6, statMod: 'dex' },
+    ],
+  },
+
+  // Goblin Boss (D&D 5e, CR 1) — dedicated rigged model goblinchieftain.glb. Melee-only clip
+  // set (Idle_5, Walking, Running, Right_Hand_Sword_Slash, Dead — no archery), so despite the
+  // book's Javelin option this is a two-Scimitar bruiser. Multiattack uses the all-melee ettin
+  // pattern (two Scimitar swings). scale/anchorY are BBOX-DERIVED (native ~1.35 WU tall, feet at
+  // origin) and unverified in-game — nudge with [ / ]. See-through BLEND material was flipped to
+  // OPAQUE during optimization.
+  goblinchieftain: {
+    name: 'Goblin Boss',
+    team: 'red',
+    race: 'goblin',
+    dark: 0x0f2800, mid: 0x1e5000, bright: 0x33880a, emissive: 0x001100,
+    scale: [1.15, 1.15, 1.15],
+    anchorY: 1.7,
+    // CR 1 — a cut above the rank-and-file goblins
+    detect: 20,
+    hp: 21, ac: 17, speed: 30, initiative: 0,
+    profBonus: 2,
+    abilities: { str: 10, dex: 14, con: 10, int: 10, wis: 8, cha: 10 },
+    // Two Scimitar swings (all-melee ettin pattern). The 2024 Goblin Boss can also Nimble
+    // Escape; not modelled (no bonus-action disengage system for enemies yet).
+    multiattack: ['Scimitar', 'Scimitar'],
+    multiattackNote: 'Multiattack. The goblin boss makes two attacks with its scimitar.',
+    attacks: [
+      { name: 'Scimitar', type: 'melee', range: 5, dice: 1, sides: 6, dmgBonus: 2, statMod: 'dex' },
     ],
   },
 
@@ -1247,6 +1275,7 @@ export const ENEMY_CR = {
   // ── CR 1 ────────────────────────────────────────────────────────
   snake:            0.25,
   giant_spider:     1,
+  goblinchieftain:  1,
   bugbear:          1,
   dire_wolf:        1,
   yuan_ti_pureblood: 1,

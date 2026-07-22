@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { renderer, camera, ground, ceiling, controls } from './scene.js';
+import { renderer, camera, ground, controls } from './scene.js';
 import { makeRoadTexture } from './propBuilders.js';
 import { IS_DEV } from './devConfig.js';
 import { sharedPaintUniforms, floorPaintUniforms, roofPaintUniforms, applyPaintShader } from './terrainPaintShader.js';
@@ -13,22 +13,21 @@ import { sharedPaintUniforms, floorPaintUniforms, roofPaintUniforms, applyPaintS
 //   B = tint  (multiplies the base surface toward uTintColor — grass/sand/snow)
 // "Erase" scales all three channels back toward 0.
 //
-// TWO INDEPENDENT LAYERS, each a 1024² RGBA mask in UV space (survives geometry
-// rebuilds): the ground FLOOR (visible on open ground / tunnel floors) and the
-// cave-roof BLANKET (the intact hilltop over a cave). They paint separately so a
-// road on the hilltop needn't appear on the tunnel floor below it, and vice-versa.
-// Non-cave zones only ever show the floor.
+// The ground FLOOR layer is a 1024² RGBA mask in UV space (survives geometry rebuilds)
+// and is what renders on the terrain. A second `roof` layer is retained only as a data
+// store: it round-trips the zone's legacy `paintRoof`/`paintRoofTint` fields but no longer
+// has a mesh to render onto (it painted the removed cave-roof "blanket").
 //
 // Paint is stored as vector STROKES ({x,z,r,ch}) on the zone — git-friendly,
-// editable, resolution-independent (like barriers): `paint`/`paintTint` for the
-// floor, `paintRoof`/`paintRoofTint` for the blanket.
+// editable, resolution-independent (like barriers): `paint`/`paintTint` for the floor.
 
 const MASK_SIZE  = 1024;     // mask canvas resolution
 const TILE_WU    = 6;        // road/dirt texture tiles once per this many world units
 
 // ── Paint layers ───────────────────────────────────────────────────────────────
 // Each layer owns its own mask canvas/texture, recorded strokes, and the shared
-// uniform object its material reads (floor → ground, roof → cave blanket).
+// uniform object. Only `floor` renders (onto the ground); `roof` is a data-only holdover
+// that round-trips the zone's legacy paintRoof strokes.
 function _makeLayer(uniforms) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = MASK_SIZE;
@@ -63,8 +62,8 @@ function _clearMask(layer) {
 }
 
 // ── Shader patch ─────────────────────────────────────────────────────────────
-// The paint shader + uniforms live in terrainPaintShader.js so the ground AND the
-// cave-roof blanket (patched in caveReveal.js) can each read their own layer.
+// The paint shader + uniforms live in terrainPaintShader.js; the ground material reads
+// the floor layer's mask.
 let _shader = null;    // captured ground shader ref (debug/introspection only)
 
 function _patchMaterials() {
@@ -75,7 +74,7 @@ function _patchMaterials() {
   sharedPaintUniforms.uRoadTex.value = makeRoadTexture(1, 1);
 
   _initLayerTex(_floor);
-  _initLayerTex(_roof);   // the ceiling material (caveReveal.js) reads _roof's mask
+  _initLayerTex(_roof);   // data-only layer (round-trips legacy paintRoof strokes)
 
   const mat = ground.material;
   mat.onBeforeCompile = (shader) => {
@@ -146,7 +145,7 @@ function _stamp(layer, wx, wz, rWU, ch) {
 }
 
 // ── Public: load paint for a zone ────────────────────────────────────────────
-// floorStrokes/floorTint → ground; roofStrokes/roofTint → cave blanket.
+// floorStrokes/floorTint → ground; roofStrokes/roofTint kept as data only (no mesh).
 export function loadPaint(floorStrokes, floorTint, roofStrokes, roofTint) {
   sharedPaintUniforms.uSize.value        = _gs();
   sharedPaintUniforms.uPaintRepeat.value = sharedPaintUniforms.uSize.value / TILE_WU;
@@ -179,16 +178,10 @@ export function isPaintModeActive() { return _paintMode; }
 const _rc  = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
 
-// The point to paint at. When painting the blanket, raycast the ceiling mesh so
-// the stroke lands where the cursor meets the visible hilltop; otherwise (and as
-// a fallback when there's no cave roof) raycast the ground.
+// The point to paint at — raycast the ground.
 function _paintPt(cx, cy) {
   _ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_ndc, camera);
-  if (_targetKey === 'roof' && ceiling.visible) {
-    const rh = _rc.intersectObject(ceiling);
-    if (rh.length) return rh[0].point;
-  }
   const hits = _rc.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }

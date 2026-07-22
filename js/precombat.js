@@ -5,7 +5,6 @@ import { playUnitAggroSound } from './audio.js';
 import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
 import { barrierSegments } from './environments.js';
-import { barrierBlocksLayer } from './terrain.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -108,7 +107,7 @@ export function exitPrecombat() {
 export function selectPCHero(hero)  { _selected = hero; }
 export function deselectPCHero()    { _selected = null; }
 
-export function crossesAnyBarrier(ax, az, bx, bz, layer) {
+export function crossesAnyBarrier(ax, az, bx, bz) {
   for (const s of barrierSegments) {
     const rx = bx - ax, rz = bz - az;
     const sx = s.x2 - s.x1, sz = s.z2 - s.z1;
@@ -118,15 +117,7 @@ export function crossesAnyBarrier(ax, az, bx, bz, layer) {
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
     if (t < 0 || t > 1 || u < 0 || u > 1) continue;
-    // Layer-test the actual CROSSING point rather than the segment's midpoint — see
-    // the matching note in combat.js crossesBarrier().
-    //
-    // ⚠ `s.layer` is the 4th arg and was MISSING here (combat.js's crossesBarrier has always
-    // passed it). Without it barrierBlocksLayer sees segLayer == null, falls through to its
-    // legacy-wall branch — `return layer === 'under'` — and so blocked every UNDER-layer mover
-    // under EVERY barrier, including ones explicitly pinned to the blanket. That made a roof
-    // barrier wall off the tunnel floor 20 ft beneath it during exploration.
-    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer, s.layer)) return true;
+    return true;   // the step's segment intersects this barrier — blocked
   }
   return false;
 }
@@ -140,7 +131,7 @@ export function movePCHeroTo(hero, x, z, leader = null) {
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   const cx = Math.max(-halfGS, Math.min(halfGS, x));
   const cz = Math.max(-halfGS, Math.min(halfGS, z));
-  if (!leader && crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz, hero.caveLayer)) return;
+  if (!leader && crossesAnyBarrier(hero.grp.position.x, hero.grp.position.z, cx, cz)) return;
   hero._pcTarget  = { x: cx, z: cz };
   hero._pcLeader  = leader;
   hero._pcBlocked = false;
@@ -238,15 +229,13 @@ function _leash(hero, leader, dt) {
   hero._pcLostT = (hero._pcLostT ?? 0) + dt;
   if (hero._pcLostT < LEASH_TIME) return false;
 
-  const stranded = d > LEASH_DIST || crossesAnyBarrier(hx, hz, lx, lz, hero.caveLayer);
+  const stranded = d > LEASH_DIST || crossesAnyBarrier(hx, hz, lx, lz);
   if (!stranded) return false;               // stalled but reachable — let it keep trying
 
-  // Land on the leader's own cave layer, not whatever layer the wall it slipped
-  // through put it on; main.js re-resolves from there.
   let sx = lx, sz = lz;
   for (const [ox, oz] of SNAP_SLOTS) {
     const x = lx + ox, z = lz + oz;
-    if (crossesAnyBarrier(lx, lz, x, z, leader.caveLayer)) continue;
+    if (crossesAnyBarrier(lx, lz, x, z)) continue;
     if (units.some(o => o !== hero && o.hp > 0 &&
         Math.hypot(o.grp.position.x - x, o.grp.position.z - z) < 0.9)) continue;
     sx = x; sz = z;
@@ -256,7 +245,6 @@ function _leash(hero, leader, dt) {
   hero.grp.position.z = sz;
   hero.anchor.x       = sx;
   hero.anchor.z       = sz;
-  hero.caveLayer      = leader.caveLayer;
   hero._pcTarget = null;
   hero._pcLeader = null;
   hero._pcBlocked = false;
@@ -444,7 +432,7 @@ function _tickSoloPatrol(enemy, dt) {
 
 // True if stepping from (px,pz) to (nx,nz) hits a barrier or leaves the ground.
 function _blockedStep(px, pz, nx, nz, unit) {
-  if (crossesAnyBarrier(px, pz, nx, nz, unit.caveLayer)) return true;
+  if (crossesAnyBarrier(px, pz, nx, nz)) return true;
   const zone   = getActiveZone();
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   return Math.abs(nx) > halfGS || Math.abs(nz) > halfGS;
@@ -500,16 +488,10 @@ function _checkAggro() {
       const dx = hero.grp.position.x - enemy.grp.position.x;
       const dz = hero.grp.position.z - enemy.grp.position.z;
       if (dx * dx + dz * dz <= range * range) {
-        // Enemies must actually SEE the hero, not merely be near them. Aggro used to be a
-        // pure 2D distance test, so a creature up on the cave-roof blanket would pile onto a
-        // party walking the tunnel underneath it — through solid rock — and enemies aggroed
-        // straight through walls and boulders besides. unitsHaveLOS is layer-aware (it reads
-        // both units' caveLayer), which is the part that makes this work at all: the raw
-        // coordinate LOS samples the CARVED floor for both eyes and would have put the
-        // surface enemy's eye down inside the tunnel and reported a clear view.
-        //
-        // Deliberately AFTER the range test: LOS costs a terrain walk plus a prop raycast, so
-        // it only runs for the handful of pairs already close enough to matter.
+        // Enemies must actually SEE the hero, not merely be near them. Aggro used to be a pure
+        // 2D distance test, so enemies aggroed straight through walls and boulders. Deliberately
+        // AFTER the range test: LOS costs a terrain walk plus a prop raycast, so it only runs for
+        // the handful of pairs already close enough to matter.
         if (!unitsHaveLOS(enemy, hero)) continue;
         _triggerAggro(enemy);
         return;
