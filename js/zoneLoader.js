@@ -658,6 +658,23 @@ window.addEventListener('zonegate:travel', e => {
   else             { _triggerNextZone(targetZone, arrival); }
 });
 
+// ── Fit zone to reference image (dev) ──────────────────────────────────────────
+// The REFERENCE panel's FIT ZONE button dispatches this with a groundSize matched to the picture.
+// We update the live zone object + persist it to the file, then reload the zone so terrain, grid
+// and the ground mesh rebuild at the new size (a structural change, so a full reload is safest).
+window.addEventListener('zone:fitToRef', async e => {
+  const gs = e.detail?.groundSize;
+  if (!gs || !_active) return;
+  _active.groundSize = gs;   // in-memory object loadZone reads from _registry
+  try {
+    await fetch('/__save_zone_groundsize', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body:   JSON.stringify({ zoneId: _active.id, groundSize: gs }),
+    });
+  } catch { /* dev-only save; still apply live below */ }
+  loadZone(_active.id, false);   // rebuild at the new size, keep heroes in place
+});
+
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 
 export function tickZone(dt) {

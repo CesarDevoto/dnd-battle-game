@@ -847,6 +847,38 @@ function saveZoneFogPlugin() {
           }
         });
       });
+
+      // Per-zone ground size (FIT ZONE to reference image). Forced to a multiple of 4 (zone rule).
+      server.middlewares.use('/__save_zone_groundsize', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          try {
+            const { zoneId, groundSize } = JSON.parse(body);
+            if (!zoneId) throw new Error('missing zoneId');
+            const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
+            if (!fs.existsSync(filePath)) throw new Error(`Zone file not found: zone_${zoneId}.js`);
+
+            let src = fs.readFileSync(filePath, 'utf-8');
+            const val  = Math.max(4, Math.round(Number(groundSize) / 4) * 4);   // multiple of 4
+            const line = `  groundSize: ${val},`;
+            const re   = /^[ \t]*groundSize\s*:[^\n]*$/m;
+            src = re.test(src)
+              ? src.replace(re, line)
+              : src.replace(/^(export const ZONE = \{\n)/m, `$1${line}\n`);
+
+            fs.writeFileSync(filePath, src, 'utf-8');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      });
     },
   };
 }
