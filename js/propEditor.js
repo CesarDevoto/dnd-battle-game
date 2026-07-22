@@ -680,7 +680,7 @@ function _updateStatus() {
 const PROP_CATEGORIES = [
   { label: 'Buildings',       keys: ['inn','inn2','hut1','hut2','marketstall1','marketarmory1','bigbuilding1','building2','building3','building4','building5','building6','building7','building8','building9','building10','building11','building12','building13','building14','building15','building16','buildingruinedlarge'] },
   { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
-  { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4'] },
+  { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4','mushroom1','mushroom2','mushroom3','mushroom4','mushroomtree'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
   { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb'] },

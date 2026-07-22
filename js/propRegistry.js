@@ -110,6 +110,15 @@ export const PROP_MODELS = {
   plant2:       { label: 'Plant 2',     path: 'assets/environment/plant2.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
   plant3:       { label: 'Plant 3',     path: 'assets/environment/plant3.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
   plant4:       { label: 'Plant 4',     path: 'assets/environment/plant4.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.4  },
+  // All 5 normalized to a ~2 WU unit cube by the exporter, so scale is the only size control.
+  // clashR is NOT scaled by a placement's `scale` (see loadZoneProps), so these are sized for
+  // the 0.375 default: knee-height clutter you brush past, not an obstacle that shoves units.
+  mushroom1:    { label: 'Mushroom 1',  path: 'assets/environment/mushroom1.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.15 },
+  mushroom2:    { label: 'Mushroom 2',  path: 'assets/environment/mushroom2.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.15 },
+  mushroom3:    { label: 'Mushroom 3',  path: 'assets/environment/mushroom3.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.15 },
+  mushroom4:    { label: 'Mushroom 4',  path: 'assets/environment/mushroom4.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.1  },
+  // ~2 WU tall at scale 1 — too short to break a sight line, so blocksLOS:false.
+  mushroomtree: { label: 'Mushroom Tree', path: 'assets/environment/mushroomtree.glb',   defaultScale: 1.0, blocksLOS: false, clashR: 0.35 },
   bench1:       { label: 'Bench 1',     path: 'assets/environment/bench1.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   barstand2:    { label: 'Bar Stand 2', path: 'assets/environment/barstand2.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   barloaded:    { label: 'Loaded Bar',  path: 'assets/environment/barloaded.glb',        defaultScale: 1.0, blocksLOS: true,  clashR: 2.0  },
