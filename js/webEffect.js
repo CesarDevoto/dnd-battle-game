@@ -3,7 +3,6 @@
 // the target is restrained (target.actionSave.key === 'web') and fades once it breaks free.
 import * as THREE from 'three';
 import { scene } from './scene.js';
-import { getGroundHeight, caveLayersActive } from './terrain.js';
 import { getSurfaceHeight } from './environments.js';
 
 let _webTex = null;
@@ -65,29 +64,26 @@ const WEB_SEGS   = 48;     // angular subdivisions
 const WEB_RINGS  = 6;      // radial subdivisions — what lets the disk bend over terrain
 
 // Surface height for the web, sampled exactly the way the combat rings do (combat.js
-// _ringSurfaceH). In a CAVE zone the walkable surface is layer-dependent: getSurfaceHeight
-// returns the carved floor UNDER the blanket, so using it there buries the web beneath the
-// cave roof and the blanket clips it away. getGroundHeight with the target's own layer puts
-// it on the blanket for a surface unit and on the tunnel floor for one that's underground.
-// Non-cave zones keep getSurfaceHeight so the web still floats on a water plane.
-function _webSurfaceH(x, z, layer) {
-  return caveLayersActive() ? getGroundHeight(x, z, layer) : getSurfaceHeight(x, z);
+// _ringSurfaceH) via getSurfaceHeight, so the web still floats on a water plane where a
+// zone has one.
+function _webSurfaceH(x, z) {
+  return getSurfaceHeight(x, z);
 }
 
 // A radial disk whose every vertex is dropped onto the terrain, so the web drapes over
 // slopes and bumps instead of intersecting them as a flat plate. Local X/Z are relative to
 // the centre while Y is an ABSOLUTE world height — the same trick the combat rings use, so
 // the mesh sits at (cx, 0, cz) and the baked Y lands correctly.
-function _buildWebGeo(cx, cz, layer) {
+function _buildWebGeo(cx, cz) {
   const verts = [], uvs = [], idx = [];
-  verts.push(0, _webSurfaceH(cx, cz, layer) + WEB_LIFT, 0);
+  verts.push(0, _webSurfaceH(cx, cz) + WEB_LIFT, 0);
   uvs.push(0.5, 0.5);
   for (let r = 1; r <= WEB_RINGS; r++) {
     const rad = WEB_RADIUS * (r / WEB_RINGS);
     for (let i = 0; i < WEB_SEGS; i++) {
       const th = (i / WEB_SEGS) * Math.PI * 2;
       const dx = Math.cos(th) * rad, dz = Math.sin(th) * rad;
-      verts.push(dx, _webSurfaceH(cx + dx, cz + dz, layer) + WEB_LIFT, dz);
+      verts.push(dx, _webSurfaceH(cx + dx, cz + dz) + WEB_LIFT, dz);
       uvs.push(0.5 + 0.5 * (dx / WEB_RADIUS), 0.5 + 0.5 * (dz / WEB_RADIUS));
     }
   }
@@ -115,7 +111,7 @@ function _buildWebGeo(cx, cz, layer) {
 function _groundWeb(web, u) {
   const p = u.grp.position;
   web.geometry.dispose();
-  web.geometry = _buildWebGeo(p.x, p.z, u.caveLayer ?? 'surface');
+  web.geometry = _buildWebGeo(p.x, p.z);
   web.position.set(p.x, 0, p.z);
 }
 
@@ -129,23 +125,21 @@ export function playWebEffect(from, to) {
   ball.scale.setScalar(0.7);   // the radial falloff eats the outer edge, so it needs to be
                                // bigger than the old hard-edged square to read the same size
   ball.position.copy(start);
-  ball.renderOrder = 10;       // don't let the cave-roof blanket paint over it in the Warrens
+  ball.renderOrder = 10;       // keep it above the fog patches / vision blockers
   scene.add(ball);
 
   // A ground DECAL, not a billboard: a terrain-conforming disk splayed across the dirt under
   // the target, rather than a poster hanging in the air facing the camera (what the Sprite
   // gave). The geometry is already built flat in world XZ, so no mesh rotation is needed.
   const web = new THREE.Mesh(
-    _buildWebGeo(to.grp.position.x, to.grp.position.z, to.caveLayer ?? 'surface'),
+    _buildWebGeo(to.grp.position.x, to.grp.position.z),
     new THREE.MeshBasicMaterial({
       map: _getWebTex(), color: 0xffffff, transparent: true, opacity: 0,
       depthWrite: false, fog: false, side: THREE.DoubleSide,
     }),
   );
-  // Draw after the cave-roof blanket (a TRANSPARENT material at renderOrder 1) so the web is
-  // never painted over by it — the same trap the loot labels fell into. Above the fog patches
-  // (8) and vision blockers (9) too. depthTest stays on, so anything genuinely in front of
-  // the web still occludes it.
+  // Draw above the fog patches (8) and vision blockers (9) so the web isn't painted over by
+  // them. depthTest stays on, so anything genuinely in front of the web still occludes it.
   web.renderOrder = 10;
   web.position.set(to.grp.position.x, 0, to.grp.position.z);
   scene.add(web);

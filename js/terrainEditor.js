@@ -527,7 +527,7 @@ export function initTerrainEditor() {
     // Paint mode / reference-image move own terrain drags — never place points
     if (isPaintModeActive() || isRefMoveActive()) return;
 
-    // Finalize barrier dot drag on any click (layer-aware point so blanket dots stay on the blanket)
+    // Finalize barrier dot drag on any click
     if (isDraggingBarrierDot()) {
       finalizeBarrierDotDrag(barrierPointAt(e.clientX, e.clientY));
       return;

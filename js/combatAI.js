@@ -4,12 +4,9 @@ import { totalSpellSlots } from './spells.js';
 // Pure AI query helpers — no combat module state, dependencies injected via params.
 // runAITurn() remains in combat.js as the orchestrator that wires state in.
 //
-// `losBetween(a, b)` is a UNIT-PAIR line-of-sight test (combat.js's unitsHaveLOS), not the
-// raw coordinate form. It has to be: in a cave zone the same x/z exists on two layers, so
-// coordinates alone cannot say whether an enemy up on the blanket can see a hero in the
-// tunnel underneath it — only the units' caveLayer can. aiPickHeroDest is the exception and
-// still takes a coordinate hasLOS, because it tests candidate TILES rather than units; its
-// caller binds the layers into the closure it passes.
+// `losBetween(a, b)` is a UNIT-PAIR line-of-sight test (combat.js's unitsHaveLOS).
+// aiPickHeroDest is the exception and takes a coordinate hasLOS, because it tests candidate
+// TILES rather than units.
 
 export function aiPickTarget(u, units, losBetween) {
   // Familiars (Rasec's owl) are valid targets but VASTLY de-prioritized, so

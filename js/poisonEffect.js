@@ -48,7 +48,7 @@ export function playPoisonEffect(unit) {
   }));
   burst.scale.setScalar(0.6);
   burst.position.copy(origin);
-  burst.renderOrder = 10;   // above the cave-roof blanket, which is transparent at order 1
+  burst.renderOrder = 10;   // above the fog patches / vision blockers
   group.add(burst);
 
   // Motes of vapour boiling off the wound.

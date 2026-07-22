@@ -49,7 +49,7 @@ export function playIceEffect(unit) {
   }));
   burst.scale.setScalar(0.6);
   burst.position.copy(origin);
-  burst.renderOrder = 10;   // above the cave-roof blanket (transparent at order 1)
+  burst.renderOrder = 10;   // above the fog patches / vision blockers
   group.add(burst);
 
   // Crystalline shards flung outward from the impact, each easing to a stop as it fades.

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer, ground } from './scene.js';
 import { units, buildUnit, ensureModels, getClipNamesForType, applyUnitAnimOverride, serializeZoneEnemies } from './units.js';
 import { UNIT_TYPES } from './constants.js';
-import { getGroundHeight, raySurfacePoint, caveLayersActive } from './terrain.js';
+import { getGroundHeight } from './terrain.js';
 import { activeEnv } from './environments.js';
 import { openAIPanel, closeAIPanel } from './npcAIEditor.js';
 import { isDevMode } from './devMode.js';
@@ -58,27 +58,9 @@ function _syncRing() {
 const _rc  = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
 
-// Which cave surface newly-placed units stand on: 'under' = tunnel floor (the old,
-// only behaviour), 'surface' = the hilltop blanket over a tunnel. Persisted per unit
-// as `caveLayer`, because buildUnit would otherwise re-derive it from headroom on
-// zone load and drop a hilltop NPC straight through to the tunnel floor.
-let _placeLayer = 'under';
-
-export function getNPCPlaceLayer() { return _placeLayer; }
-
-export function setNPCPlaceLayer(layer) {
-  _placeLayer = layer === 'surface' ? 'surface' : 'under';
-  document.getElementById('ne-layer-floor')?.classList.toggle('active', _placeLayer === 'under');
-  document.getElementById('ne-layer-blanket')?.classList.toggle('active', _placeLayer === 'surface');
-}
-
 function _groundPt(cx, cy) {
   _ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_ndc, camera);
-  // Cave zones: a plain ground raycast returns a point on the carved terrain beneath
-  // the blanket, so clicking a hilltop yields a shifted (x,z). March to the chosen
-  // walkable surface instead — same fix click-to-move already uses.
-  if (caveLayersActive()) return raySurfacePoint(_rc.ray, _placeLayer);
   const hits = _rc.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }
@@ -138,7 +120,7 @@ function _undo() {
   // Restore transforms
   for (const s of snap) {
     s.unit.hoverY = s.hoverY;
-    s.unit.grp.position.set(s.x, getGroundHeight(s.x, s.z, s.unit.caveLayer) + s.hoverY, s.z);
+    s.unit.grp.position.set(s.x, getGroundHeight(s.x, s.z) + s.hoverY, s.z);
     s.unit.grp.scale.setScalar(s.scaleX);
     s.unit.grp.rotation.y = s.rotY;
     if (s.unit.anchor) { s.unit.anchor.x = s.x; s.unit.anchor.z = s.z; }
@@ -163,11 +145,11 @@ function _duplicateNpc(dx, dz) {
   const src    = _selectedUnit;
   const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length ? { ...src.animOverrides } : null;
   _snapshot();
-  const nu = buildUnit(+(src.grp.position.x + dx).toFixed(2), +(src.grp.position.z + dz).toFixed(2), src.team, src.type, ovCopy, src.caveLayer ?? null);
+  const nu = buildUnit(+(src.grp.position.x + dx).toFixed(2), +(src.grp.position.z + dz).toFixed(2), src.team, src.type, ovCopy);
   nu.grp.scale.setScalar(src.grp.scale.x);
   nu.grp.rotation.y   = src.grp.rotation.y;
   nu.hoverY           = src.hoverY ?? 0;
-  nu.grp.position.y   = getGroundHeight(nu.grp.position.x, nu.grp.position.z, nu.caveLayer) + nu.hoverY;
+  nu.grp.position.y   = getGroundHeight(nu.grp.position.x, nu.grp.position.z) + nu.hoverY;
   if (src.detectRange      != null) nu.detectRange      = src.detectRange;
   if (src.socialAggroRange != null) nu.socialAggroRange = src.socialAggroRange;
   if (src.roams)                    nu.roams            = src.roams;
@@ -210,7 +192,7 @@ function _adjustY(delta) {
   const u = _selectedUnit;
   u.hoverY = (u.hoverY ?? 0) + delta;
   // Immediately push Y so the ring stays in sync without waiting for the next tick
-  u.grp.position.y = getGroundHeight(u.grp.position.x, u.grp.position.z, u.caveLayer) + u.hoverY;
+  u.grp.position.y = getGroundHeight(u.grp.position.x, u.grp.position.z) + u.hoverY;
   u.anchor.y = u.grp.position.y + u.anchorY;
   _syncRing();
   _updateStatus();
@@ -414,10 +396,6 @@ export function initNpcEditor() {
     if (!_open) { _selectedUnit = null; _ring.visible = false; closeAIPanel(); _hideAnimPanel(); }
   });
 
-  // FLOOR / BLANKET — which cave surface new units stand on
-  document.getElementById('ne-layer-floor')?.addEventListener('click',   () => setNPCPlaceLayer('under'));
-  document.getElementById('ne-layer-blanket')?.addEventListener('click', () => setNPCPlaceLayer('surface'));
-
   // Collapse body
   document.getElementById('ne-collapse-btn')?.addEventListener('click', e => {
     e.stopPropagation();
@@ -456,11 +434,11 @@ export function initNpcEditor() {
         const src = _selectedUnit;
         const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length
           ? { ...src.animOverrides } : null;
-        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), src.team, src.type, ovCopy, _placeLayer);
+        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), src.team, src.type, ovCopy);
         nu.grp.scale.setScalar(src.grp.scale.x);
         nu.grp.rotation.y = src.grp.rotation.y;
         nu.hoverY = src.hoverY ?? 0;
-        nu.grp.position.y = getGroundHeight(nu.grp.position.x, nu.grp.position.z, nu.caveLayer) + nu.hoverY;
+        nu.grp.position.y = getGroundHeight(nu.grp.position.x, nu.grp.position.z) + nu.hoverY;
         if (src.detectRange      != null) nu.detectRange      = src.detectRange;
         if (src.socialAggroRange != null) nu.socialAggroRange = src.socialAggroRange;
         if (src.roams)                    nu.roams            = src.roams;
@@ -510,13 +488,13 @@ export function initNpcEditor() {
       if (pt) {
         _snapshot();
         const team = UNIT_TYPES[_selectedType]?.team ?? 'red';
-        const type = _selectedType, layer = _placeLayer;
+        const type = _selectedType;
         const x = +pt.x.toFixed(2), z = +pt.z.toFixed(2);
         // Guarantee the model is in hand before building, so placing a type the zone doesn't
         // spawn drops the real asset instead of a placeholder box. Resolves instantly if the
         // select-time prefetch already finished.
         ensureModels([type]).then(() => {
-          buildUnit(x, z, team, type, _typeAnimDefaults[type] ?? null, layer);
+          buildUnit(x, z, team, type, _typeAnimDefaults[type] ?? null);
           _updateStatus();
         });
       }

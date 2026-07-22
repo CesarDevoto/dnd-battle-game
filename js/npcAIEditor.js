@@ -307,7 +307,7 @@ async function _save() {
 
   // Shared with the NPC editor. This panel used to keep its own copy that filtered to
   // team === 'red' — and since the save replaces the whole array, that DELETED every
-  // team:'npc' unit in the zone. It also wrote live positions and dropped caveLayer.
+  // team:'npc' unit in the zone. It also wrote live positions.
   const enemies = serializeZoneEnemies();
 
   _setStatus('Saving…', '');

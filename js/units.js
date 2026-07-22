@@ -4,7 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { scene } from './scene.js';
 import { UNIT_TYPES, COMBAT } from './constants.js';
-import { getTerrainHeight, getGroundHeight, initialCaveLayer, caveLayersActive } from './terrain.js';
+import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
 import { equipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getItem } from './items.js';
@@ -26,6 +26,7 @@ const MODEL_PATHS = {
   kobold:     'assets/models/kobold.glb',
   goblin:     'assets/models/goblin.glb',
   goblin3:    'assets/models/goblin3.glb',
+  goblinchieftain: 'assets/models/goblinchieftain.glb',
   orc:        'assets/models/orc.glb',
   ogre:       'assets/models/ogre.glb',
   elf:        'assets/models/elf.glb',
@@ -153,6 +154,13 @@ const ANIM_CLIP_NAMES = {
   goblin3: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
     rangedAttack: 'Archery_Shot_1', death: 'Dead',
+  },
+  // goblinchieftain.glb (rigged Meshy boss, optimized 2026-07-21). Clips: Dead, Idle_5,
+  // Right_Hand_Sword_Slash, Running, Walking — melee-only (no archery), so rangedAttack is
+  // pinned null. Uses Idle_5 (this export's idle, not the goblin3/hobgoblin Idle_8).
+  goblinchieftain: {
+    idle: 'Idle_5', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: null, death: 'Dead',
   },
   // New barbarian GLB (Jul 2026, 3rd export) — clip set changed again. This export has
   // a clip literally named "Attack" but user directed Skill_03 for the real melee swing
@@ -464,19 +472,12 @@ const TEAM_TINT = {
 
 // ── Unit builder ──────────────────────────────────────────────────────────────
 
-// layerOverride: 'surface' | 'under' — pins which walkable surface the unit stands on
-// in a cave zone. Without it, initialCaveLayer() auto-derives from headroom, which
-// always returns 'under' wherever there is rock above — so a unit placed on the HILL
-// ABOVE a tunnel would silently drop to the tunnel floor on zone load. Zone data may
-// now carry `caveLayer` per enemy/NPC to pin it to the surface instead.
-export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null, layerOverride = null) {
+export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null) {
   const def   = UNIT_TYPES[type] ?? UNIT_TYPES.goblin;
   const gltf  = modelCache[type];
   const label = def.name ?? type;
   const src   = gltf?.scene ? MODEL_PATHS[type] : 'PLACEHOLDER BOX (model failed to load)';
   console.log(`[units] Building ${label} (${type}) for team ${team} → ${src}`);
-
-  const caveLayer = layerOverride ?? initialCaveLayer(worldX, worldZ);
 
   // Where this unit was PLACED, as opposed to where it currently stands. The NPC
   // editor's save must serialize this, never the live grp.position: a unit that moves
@@ -485,8 +486,8 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
   // happened to be standing the moment you hit save. That is how Solrac ended up
   // spawning at the hero entrance instead of in his shackles, and very likely how
   // Floosh's spawn line was mangled back in July.
-  const spawn = { x: worldX, z: worldZ, layer: caveLayer };
-  const terrainY  = getGroundHeight(worldX, worldZ, caveLayer);
+  const spawn = { x: worldX, z: worldZ };
+  const terrainY  = getGroundHeight(worldX, worldZ);
   if (type === 'orc') {
     console.log('Orc spawned at position:', { x: worldX, y: terrainY, z: worldZ });
   }
@@ -678,7 +679,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
     : Math.random();
 
   const u = { grp, anchor, anchorY, hoverY, barEl, fill, hp, maxHp, team, type,
-              caveLayer, spawn,
+              spawn,
               familiar: def.familiar ?? false,
               barForced: false, barShowUntil: 0, xp: 0, level: 1, atkQty,
               spellSlots: def.spellSlots,
@@ -836,7 +837,7 @@ function _applyLocoPitch(unit, walking) {
 // keep its own copy that filtered to `team === 'red'`, which silently deleted every
 // team:'npc' unit in the zone on save (Floosh's kin in Bleakmire, and almost certainly the
 // five Phandalin NPCs lost in f9b3b57). That copy also wrote LIVE positions instead of
-// spawn points and omitted caveLayer entirely. One function, one behaviour.
+// spawn points. One function, one behaviour.
 //
 // ⚠ Adding a persisted enemy field means touching THREE places: here, the zone writer in
 // vite.config.js, and the loader in zoneLoader.js. Miss the writer and it vanishes on save.
@@ -876,11 +877,6 @@ export function serializeZoneEnemies() {
       if (u.stealthed)                               e.stealthed    = true;
       if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
       if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
-      // Pin the cave surface — again from the SPAWN, not the live caveLayer, which main.js
-      // re-resolves every frame as a unit walks in and out of tunnels. Only 'surface', and
-      // only in a cave zone: everywhere else 'surface' is simply what initialCaveLayer()
-      // returns by default, so writing it would be noise.
-      if (caveLayersActive() && u.spawn?.layer === 'surface') e.caveLayer = 'surface';
       return e;
     });
 }

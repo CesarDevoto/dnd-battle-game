@@ -115,7 +115,7 @@ function _tickOne(f, dt) {
   // A clear line means the follower is in the same walkable pocket as the leader —
   // it's both the fast-path test and the only safe way out of GHOST (exiting while
   // the line is still blocked would strand him on the wrong side of the wall).
-  const clear = !crossesAnyBarrier(px, pz, lx, lz, u.caveLayer);
+  const clear = !crossesAnyBarrier(px, pz, lx, lz);
 
   // Deadband: close in once he's past `resume`, settle at `stop`. A single
   // threshold makes him flicker between walk and idle on the boundary frame.
@@ -182,7 +182,7 @@ function _step(u, tx, tz, speed, dt, respectBarriers) {
     const a  = base + off;
     const nx = px + Math.sin(a) * step;
     const nz = pz + Math.cos(a) * step;
-    if (respectBarriers && crossesAnyBarrier(px, pz, nx, nz, u.caveLayer)) continue;
+    if (respectBarriers && crossesAnyBarrier(px, pz, nx, nz)) continue;
     u.grp.position.x = nx;
     u.grp.position.z = nz;
     u.grp.rotation.y = a;

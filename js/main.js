@@ -1,4 +1,4 @@
-import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera, ceiling,
+import { scene, camera, renderer, controls, updateCameraFocus, toggleTopView, flipCamera,
          precompileScene, tickAdaptiveResolution } from './scene.js';
 import { units, modelsReady, updateMixers } from './units.js';
 import { updateParticles, updateWind, evergreenReady } from './environments.js';
@@ -12,14 +12,13 @@ import { activeRing, meleeRangeRing, rangedRangeRing, longRangeRing, moveRangeRi
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
-import { getTerrainHeight, getGroundHeight, resolveCaveLayer } from './terrain.js';
-import { tickCaveReveal } from './caveReveal.js';
+import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { buildHeroPortraits, updateHeroUI } from './heroPortraits.js';
 import { initBestiary } from './bestiary.js';
 import { initSpellbook } from './spellbook.js';
 import { initHotbar, bindPermanentHotkey } from './hotbar.js';
 import { cycleHero, removeUnits, tickHoldMove } from './army.js';
-import { initZoneUI, tickZone, loadZone, getActiveZone, applyCaveRoof } from './zoneLoader.js';
+import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
 import { initPropEditor, getPlacedProps } from './propEditor.js';
@@ -32,7 +31,6 @@ import { initBarrierEditor } from './barrierEditor.js';
 import { initTerrainPaint } from './terrainPaint.js';
 import { initReferenceOverlay } from './referenceOverlay.js';
 import { initTrenchEditor } from './trenchEditor.js';
-import { initCaveEntranceEditor } from './caveEntranceEditor.js';
 import { initDevMode, tickDevCamera } from './devMode.js';
 import { initCutsceneUI } from './cutsceneManager.js';
 import { tickExclamations } from './exclamationMarkers.js';
@@ -109,16 +107,6 @@ initDevLevelTool();
     document.addEventListener('keydown', e => { if (e.key === 'Escape') sxpOverlay.classList.remove('show'); });
   }
 }
-
-// Cave ceiling toggle (K) — hide the roof so the top-down follow-cam isn't
-// occluded while playing a tunnel zone; press again to inspect the ceiling.
-document.addEventListener('keydown', e => {
-  if ((e.key === 'k' || e.key === 'K') && !e.repeat) {
-    const t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-    ceiling.visible = !ceiling.visible;
-  }
-});
 
 // Smart Aggro overlay (dev-only)
 {
@@ -204,39 +192,7 @@ if (IS_DEV) {
   initBarrierEditor();
   initReferenceOverlay();
   initTrenchEditor();
-  initCaveEntranceEditor();
   initFogEditor();
-
-  // Cave-roof checkbox (terrain editor) — toggles zone.cave live + persists it.
-  {
-    const caveCheck  = document.getElementById('te-cave-check');
-    const caveStatus = document.getElementById('te-cave-status');
-    if (caveCheck) {
-      window.addEventListener('zone:loaded', () => {
-        caveCheck.checked = !!getActiveZone()?.cave;
-        if (caveStatus) caveStatus.textContent = '';
-      });
-      caveCheck.addEventListener('change', async () => {
-        const on = caveCheck.checked;
-        applyCaveRoof(on);
-        const zone = getActiveZone();
-        if (!zone) return;
-        if (caveStatus) caveStatus.textContent = 'Saving…';
-        try {
-          const res = await fetch('/__save_zone_cave', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zoneId: zone.id, cave: on }),
-          });
-          const j = await res.json();
-          if (caveStatus) caveStatus.textContent = j.ok
-            ? (on ? 'Cave roof ON ✓' : 'Cave roof OFF ✓')
-            : `Error: ${j.error}`;
-        } catch (e) {
-          if (caveStatus) caveStatus.textContent = 'Save failed: ' + e.message;
-        }
-      });
-    }
-  }
 
   // ── Cutscenes panel toggle ────────────────────────────────────────────────
   const _cutscenesPanel = document.getElementById('setup-panel-cutscenes');
@@ -444,22 +400,12 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     if (u.dormant) return;
 
     const px = u.grp.position.x, pz = u.grp.position.z;
-    // resolveCaveLayer + getGroundHeight depend ONLY on XZ, and both are heavy in a cave zone
-    // (FBM noise + control-point/trench sampling). Recompute only when the unit has actually
-    // moved — so an idle camp of awake enemies between turns costs a couple of adds each frame
-    // instead of ~3 noise-sampled height lookups per unit.
+    // getGroundHeight depends ONLY on XZ and is heavy (FBM noise + control-point/trench
+    // sampling). Recompute only when the unit has actually moved — so an idle camp of awake
+    // enemies between turns costs a couple of adds each frame instead of a noise-sampled
+    // height lookup per unit.
     if (u._grndX !== px || u._grndZ !== pz) {
-      if (!u.familiar) {
-        u.caveLayer = resolveCaveLayer(u.caveLayer ?? 'surface', px, pz);
-      } else if (u.owner) {
-        // Familiars fly and are held out of resolveCaveLayer (its ground-based transition
-        // hysteresis isn't meant for a flyer). But excluding it left the owl on a STALE layer:
-        // following heroes into a tunnel it kept 'surface' and sampled the cave blanket, so it
-        // climbed up over the party instead of flying down the tunnel with them. Mirror the
-        // owner's layer so it samples whichever surface the party is actually on.
-        u.caveLayer = u.owner.caveLayer ?? 'surface';
-      }
-      u._grndY = getGroundHeight(px, pz, u.caveLayer);
+      u._grndY = getGroundHeight(px, pz);
       u._grndX = px; u._grndZ = pz;
     }
     const terrainY   = u._grndY;
@@ -498,11 +444,6 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   });
 
   const _tUnits = _fp ? performance.now() - _u0 : 0;
-
-  // Fade the cave roof open around any hero who has gone under it.
-  const _cr0 = _fp ? performance.now() : 0;
-  tickCaveReveal(units, camera);
-  const _tCaveReveal = _fp ? performance.now() - _cr0 : 0;
 
   // Familiar rides its owner's shoulder — override its position after the
   // generic per-unit placement above so it snaps to the live bone this frame.
@@ -596,11 +537,11 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     const _tRender = performance.now() - _r0;
     const total = performance.now() - _fp0;
     if (total > (window.__frameProfileThreshold ?? 120)) {
-      const known = _tUnits + _tCaveReveal + _tEngage + _tEnvVis + _tMixers + _tRender;
+      const known = _tUnits + _tEngage + _tEnvVis + _tMixers + _tRender;
       const r = n => n.toFixed(1);
       console.log(
         `[frame] ${r(total)}ms | render(+shadow)=${r(_tRender)} units=${r(_tUnits)} ` +
-        `mixers=${r(_tMixers)} caveReveal=${r(_tCaveReveal)} engage=${r(_tEngage)} ` +
+        `mixers=${r(_tMixers)} engage=${r(_tEngage)} ` +
         `envVis=${r(_tEnvVis)} other=${r(total - known)} | units=${units.length} ` +
         `los=${(window.__losCount || 0) - _losBefore} shadow=${renderer.shadowMap.needsUpdate}`
       );

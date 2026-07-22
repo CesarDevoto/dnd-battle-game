@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, ground, ceiling, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
+import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
 import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf, roamGroupKey } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
@@ -11,7 +11,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          WORLD_UNITS_PER_SQUARE, GRID_SQUARE_FEET, ADJACENT_WU, ENEMY_CR, GROUND_SIZE,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
          rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
-import { getTerrainHeight, getGroundHeight, raySurfacePoint, barrierBlocksLayer, caveLayersActive, layersCanSee } from './terrain.js';
+import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -337,16 +337,10 @@ function playSleepEffect(caster, color = 0xcc55ff) {
 }
 
 // ── Conforming-ring surface sampling ──────────────────────────────────────────
-// The active/range/hover rings drape their vertices over the ground. In a cave
-// zone a hero on the blanket stands on the UNCARVED roof (getGroundHeight('surface')
-// = uncarved + CEIL_LIFT), while getSurfaceHeight returns the CARVED floor below —
-// so sampling getSurfaceHeight buries the ring under the blanket and it gets clipped.
-// _conformLayer tracks the layer of the unit the rings currently belong to; set it
-// whenever the ring owner changes (turn start, selection, move). Non-cave zones fall
-// back to getSurfaceHeight so the water-plane float behaviour is preserved.
-let _conformLayer = 'surface';
+// The active/range/hover rings drape their vertices over the ground via getSurfaceHeight,
+// which also floats them on a water plane where a zone has one.
 function _ringSurfaceH(x, z) {
-  return caveLayersActive() ? getGroundHeight(x, z, _conformLayer) : getSurfaceHeight(x, z);
+  return getSurfaceHeight(x, z);
 }
 
 // ── Active ring ───────────────────────────────────────────────────────────────
@@ -636,7 +630,6 @@ function _casterReachFt(hero) {
 }
 
 function showRangeRings(u) {
-  _conformLayer = u.caveLayer ?? 'surface';
   const def    = UNIT_TYPES[u.type] ?? {};
   const atks   = attacksOf(u);
   const meleeA = atks.find(a => a.type === 'melee');
@@ -708,7 +701,6 @@ function moveRangeRings(x, z) {
 }
 
 function showSpellRangeRing(caster, rangeFt) {
-  _conformLayer = caster.caveLayer ?? 'surface';
   const radius = atkRangeWU(rangeFt);
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
   spellRangeRing.geometry.dispose();
@@ -834,7 +826,7 @@ function handleUndo() {
   hideUndoBtn();
   hideMoveRange();
   hideAttackTargets();
-  const path = findPath(u.grp.position.x, u.grp.position.z, x, z, u.caveLayer);
+  const path = findPath(u.grp.position.x, u.grp.position.z, x, z);
   animatePath(u, path, () => {
     turnMovedFt = movedFt;
     addLog(`${unitLabel(u)} undoes move`, 'walk');
@@ -871,7 +863,7 @@ function hasPropClash(x, z) {
 }
 
 // Returns true if the step from (ax,az) to (bx,bz) crosses any barrier segment.
-function crossesBarrier(ax, az, bx, bz, layer) {
+function crossesBarrier(ax, az, bx, bz) {
   // AABB of the movement step — used to cheaply reject barriers that can't possibly cross it.
   const sMinX = ax < bx ? ax : bx, sMaxX = ax < bx ? bx : ax;
   const sMinZ = az < bz ? az : bz, sMaxZ = az < bz ? bz : az;
@@ -890,10 +882,7 @@ function crossesBarrier(ax, az, bx, bz, layer) {
     const t = (qpx * sz - qpz * sx) / denom;
     const u = (qpx * rz - qpz * rx) / denom;
     if (t < 0 || t > 1 || u < 0 || u > 1) continue;
-    // Layer-test the actual CROSSING point, not the segment's midpoint: a long wall
-    // running from open ground into a tunnel would otherwise be classified by
-    // whatever its middle happens to sit on, and leak along the rest of its length.
-    if (barrierBlocksLayer(ax + rx * t, az + rz * t, layer, s.layer)) return true;
+    return true;   // the step's segment intersects this barrier — blocked
   }
   return false;
 }
@@ -908,41 +897,26 @@ const LOS_STEPS    = 12;    // terrain height samples along the ray
 
 // Returns true if terrain rises above the eye-level line between the two points.
 // Catches cliff walls and raised ridges that the prop raycaster never sees.
-//
-// `layer` picks WHICH surface to sample in a cave zone. This used to be hard-wired to
-// getTerrainHeight — the CARVED floor — which is right for two units down in a tunnel but
-// wrong for two units up on the blanket: it sampled the tunnel floor far below them, so no
-// ridge ever registered and surface units could see straight through hills that had a tunnel
-// running under them. getGroundHeight samples whichever surface the pair is actually on.
-function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY, layer) {
+function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
   for (let i = 1; i < LOS_STEPS; i++) {
     const t  = i / LOS_STEPS;
-    const th = getGroundHeight(ax + (tx - ax) * t, az + (tz - az) * t, layer);
+    const th = getGroundHeight(ax + (tx - ax) * t, az + (tz - az) * t);
     if (th > fromY + (toY - fromY) * t) return true;
   }
   return false;
 }
 
-// aLayer/tLayer are the cave layers of the two endpoints ('surface' | 'under'). They default
-// to 'surface', which is a no-op outside cave zones (getGroundHeight falls through to
-// getTerrainHeight when layers are inactive). Prefer unitsHaveLOS() below wherever both ends
-// are units — it fills these in for you and is the only form that is correct in a cave.
-export function hasLineOfSight(ax, az, tx, tz, aLayer = 'surface', tLayer = 'surface') {
+// A pure terrain + prop line-of-sight test between two world points.
+export function hasLineOfSight(ax, az, tx, tz) {
   if (window.__pathProfile) window.__losCount = (window.__losCount || 0) + 1;   // TEMP LOS counter
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
 
-  // Solid rock between them: someone on the blanket cannot see someone in the tunnel below,
-  // unless the one underground is standing in a mouth and so open to the sky.
-  if (!layersCanSee(aLayer, ax, az, tLayer, tx, tz)) return false;
-
-  // Past that gate the two are on the same walkable surface (or at a merged mouth, where the
-  // surfaces coincide and either sample gives the same answer), so one layer samples both.
-  const fromY = getGroundHeight(ax, az, aLayer) + LOS_EYE_H;
-  const toY   = getGroundHeight(tx, tz, tLayer) + LOS_EYE_H;
+  const fromY = getGroundHeight(ax, az) + LOS_EYE_H;
+  const toY   = getGroundHeight(tx, tz) + LOS_EYE_H;
 
   // Terrain check: cheap height sampling along the ray
-  if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY, aLayer)) return false;
+  if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY)) return false;
 
   // Prop check: raycaster against placed scene objects
   if (!losBlockerMeshes.length) return true;
@@ -957,17 +931,13 @@ export function hasLineOfSight(ax, az, tx, tz, aLayer = 'surface', tLayer = 'sur
   return !_losRay.intersectObjects(losBlockerMeshes, true).some(h => h.point.y <= ceilY);
 }
 
-// Layer-aware LOS between two UNITS — the form to use anywhere both ends are units, which is
-// every LOS test in the game (attack validity, AI targeting, readied triggers, hide checks).
-// The bare hasLineOfSight(x,z,x,z) call defaults both ends to 'surface' and so cannot tell a
-// hero in a tunnel from one on the hill above it; this reads each unit's live caveLayer,
-// which main.js keeps current every frame.
+// LOS between two UNITS — the form to use anywhere both ends are units (attack validity,
+// AI targeting, readied triggers, hide checks).
 export function unitsHaveLOS(a, b) {
   if (!a?.grp || !b?.grp) return false;
   return hasLineOfSight(
     a.grp.position.x, a.grp.position.z,
     b.grp.position.x, b.grp.position.z,
-    a.caveLayer ?? 'surface', b.caveLayer ?? 'surface',
   );
 }
 
@@ -1129,7 +1099,7 @@ function atkTriggerWU(atk) {
 
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
 
-function findPath(sx, sz, tx, tz, layer) {
+function findPath(sx, sz, tx, tz) {
   const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S = WORLD_UNITS_PER_SQUARE;
   const key = (x, z) => `${x},${z}`;
@@ -1153,7 +1123,7 @@ function findPath(sx, sz, tx, tz, layer) {
       if (parent.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
-      if (crossesBarrier(x, z, nx, nz, layer)) continue;
+      if (crossesBarrier(x, z, nx, nz)) continue;
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
     }
@@ -1195,7 +1165,7 @@ function animatePath(unit, path, onComplete) {
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
   let startZ  = unit.grp.position.z;
-  let startY  = getGroundHeight(startX, startZ, unit.caveLayer);
+  let startY  = getGroundHeight(startX, startZ);
   let startTs = null;
 
   // Face the first direction immediately
@@ -1210,7 +1180,7 @@ function animatePath(unit, path, onComplete) {
     const dist    = Math.sqrt(dx * dx + dz * dz);
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * combatSpeed()) / dist) : 1;
-    const endY    = getGroundHeight(target.x, target.z, unit.caveLayer);
+    const endY    = getGroundHeight(target.x, target.z);
 
     unit.grp.position.x = startX + dx * t;
     unit.grp.position.z = startZ + dz * t;
@@ -1218,7 +1188,6 @@ function animatePath(unit, path, onComplete) {
     unit.anchor.x = unit.grp.position.x;
     unit.anchor.z = unit.grp.position.z;
     unit.anchor.y = unit.grp.position.y + unit.anchorY;
-    _conformLayer = unit.caveLayer ?? 'surface';
     updateConformingRingGeo(activeRing, unit.grp.position.x, unit.grp.position.z);
     activeRing.position.set(unit.grp.position.x, 0, unit.grp.position.z);
     moveRangeRings(unit.grp.position.x, unit.grp.position.z);
@@ -1282,7 +1251,7 @@ function _inOwnSmoke(u) {
 
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
-function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
+function _bfsReachable(ux, uz, maxDist, excludeUnit) {
   const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S    = WORLD_UNITS_PER_SQUARE;
   const key  = (x, z) => `${x},${z}`;
@@ -1304,7 +1273,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
       if (dist.has(k)) continue;
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
-      if (crossesBarrier(x, z, nx, nz, layer)) continue;
+      if (crossesBarrier(x, z, nx, nz)) continue;
       dist.set(k, nd);
       // Units can pass THROUGH occupied squares but cannot stop on one.
       if (!isOccupied(nx, nz, excludeUnit)) result.add(k);
@@ -1320,7 +1289,6 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit, layer) {
 
 function showMoveRange(u, overrideFt) {
   if (_saveImmobilizes(u)) { hideMoveRange(); return; }   // held by an unbroken action-save — speed 0
-  _conformLayer = u.caveLayer ?? 'surface';
   const remainFt = overrideFt !== undefined ? overrideFt : speedOf(u) - turnMovedFt;
   if (remainFt <= 0) { hideMoveRange(); return; }
 
@@ -1328,7 +1296,7 @@ function showMoveRange(u, overrideFt) {
   const ux = u.grp.position.x, uz = u.grp.position.z;
 
   validTiles.clear();
-  for (const k of _bfsReachable(ux, uz, maxDist, u, u.caveLayer)) validTiles.add(k);
+  for (const k of _bfsReachable(ux, uz, maxDist, u)) validTiles.add(k);
 
   // Milo used to be CONFINED to his own Smoke & Mirrors cloud — every tile outside its
   // radius was pruned from validTiles until it dissipated. He can now walk out of it
@@ -2040,11 +2008,9 @@ function activateSmokeMirrors() {
   const radiusWU = (SMOKE_RADIUS_FT / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   // ⚠ Anchor the cloud to the HERO'S OWN Y, not world zero. spawnSmokeCloud puts its puffs
   // 0.15–2.05 above whatever base it's handed, so passing 0 pinned the smoke to world height 0
-  // no matter where Milo stood. Flat zones hid it (their ground is near 0), but the Warrens is
-  // the cave zone — heightmap floors, surface/under layers — so the cloud rendered buried in the
-  // terrain, or above the roof when he was in a tunnel. grp.position.y is the unit's ground
-  // contact point and is already layer-correct (the attack rings anchor to it the same way), so
-  // this needs no caveLayer branch of its own.
+  // no matter where Milo stood. Flat zones hid it (their ground is near 0), but heightmap zones
+  // rendered it buried in the terrain. grp.position.y is the unit's ground contact point (the
+  // attack rings anchor to it the same way), so it's already the correct base.
   u._smokeVFX = spawnSmokeCloud(u.grp.position.x, u.grp.position.y, u.grp.position.z, radiusWU);
 
   addLog(`${unitLabel(u)} throws a smoke bomb! The area is heavily obscured for ${SMOKE_ROUNDS_LOG} rounds ` +
@@ -4224,13 +4190,6 @@ function groundHit(clientX, clientY) {
   _mouse.x =  (clientX / window.innerWidth)  * 2 - 1;
   _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
   _ray.setFromCamera(_mouse, camera);
-  // Cave zones: target the surface the active hero is on (blanket vs tunnel floor),
-  // not the carved ground beneath the blanket.
-  if (ceiling.visible) {
-    const layer = turnOrder[turnIndex]?.caveLayer === 'under' ? 'under' : 'surface';
-    const p = raySurfacePoint(_ray.ray, layer);
-    if (p) return p;
-  }
   const hits = _ray.intersectObject(ground);
   return hits.length ? hits[0].point : null;
 }
@@ -4353,7 +4312,7 @@ renderer.domElement.addEventListener('click', e => {
           prevMoveState = { x: curU.grp.position.x, z: curU.grp.position.z, movedFt: turnMovedFt };
           hideMoveRange();
           hideAttackTargets();
-          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz, curU.caveLayer);
+          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz);
           if (!path.length) {
             // Destination blocked by barrier — restore state, do nothing
             prevMoveState = null;
@@ -5086,7 +5045,6 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
       savedRingZ:          activeRing.position.z,
       savedRingColor:      activeRing.material.color.getHex(),
       savedRingVisible:    activeRing.visible,
-      savedRingLayer:      _conformLayer,
       // Until the 'hero_moved' event existed, a readied action could only ever interrupt
       // an ENEMY's turn — so both restore paths just hard-locked End Turn on the way out
       // ("back to enemy's turn"). A readied action can now fire in the middle of a PLAYER
@@ -5175,7 +5133,6 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
   endTurnBtn.disabled = false;
 
   // Move active ring to this hero with their ring colour
-  _conformLayer = hero.caveLayer ?? 'surface';
   updateConformingRingGeo(activeRing, hero.grp.position.x, hero.grp.position.z);
   activeRing.position.set(hero.grp.position.x, 0, hero.grp.position.z);
   activeRing.material.color.set(HERO_RING_COLORS[hero.type] ?? COLORS.activeRing);
@@ -5252,7 +5209,7 @@ function _endDelayInterrupt() {
   if (!_readyCtx) return;
   const saved = _readyCtx;
   const { savedIdx, savedHeroMode, savedAttacked, savedMovedFt, savedBonusActioned,
-          savedRingX, savedRingZ, savedRingColor, savedRingVisible, savedRingLayer, cont } = _readyCtx;
+          savedRingX, savedRingZ, savedRingColor, savedRingVisible, cont } = _readyCtx;
   _readyCtx = null;
 
   const banner = document.getElementById('ready-banner');
@@ -5271,7 +5228,6 @@ function _endDelayInterrupt() {
   turnBonusActioned = savedBonusActioned;
 
   // Restore the active ring to whoever was acting
-  _conformLayer = savedRingLayer ?? 'surface';
   updateConformingRingGeo(activeRing, savedRingX, savedRingZ);
   activeRing.position.set(savedRingX, 0, savedRingZ);
   activeRing.material.color.set(savedRingColor);
@@ -6097,7 +6053,6 @@ export function activateTurn(index) {
     );
     if ((u.team === 'blue' || u.familiar) && !unawareEnemy) setFollowUnit(u);
     if (u.team === 'blue' || u.familiar) u.barForced = true;
-    _conformLayer = u.caveLayer ?? 'surface';
     updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
     activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
     activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : u.familiar ? 0xc9a0e6 : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));
@@ -6281,11 +6236,10 @@ function _checkProximityAggro(hero) {
       const range = _dynamicAggroRangeWU(u, def);
       const dx    = hero.grp.position.x - u.grp.position.x;
       const dz    = hero.grp.position.z - u.grp.position.z;
-      // In range AND actually able to see the hero. unitsHaveLOS is layer-aware, so a creature up
-      // on the cave-roof blanket no longer aggros a party in the tunnel underneath it (through
-      // solid rock) — matching the precombat aggro gate. LOS is tested AFTER the cheap range test
-      // (it costs a terrain walk + prop raycast). The roam-group clause is untouched: group-mates
-      // still pile in with their leader regardless of their own sight line.
+      // In range AND actually able to see the hero — a creature can't aggro a party it has no
+      // line of sight to (through a wall or a hill), matching the precombat aggro gate. LOS is
+      // tested AFTER the cheap range test (it costs a terrain walk + prop raycast). The roam-group
+      // clause is untouched: group-mates still pile in with their leader regardless of sight line.
       const inSight = dx * dx + dz * dz <= range * range && unitsHaveLOS(u, hero);
       if (!inSight && !_roamGroupAlreadyFighting(u)) continue;
 
@@ -6448,8 +6402,8 @@ function _roamAggroCheck(u) {
   const def    = UNIT_TYPES[u.type] ?? {};
   const range  = _dynamicAggroRangeWU(u, def);
   const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
-  // Layer-aware: a roamer on the blanket can't "spot" a hero in the tunnel below it through the
-  // rock — LOS reads both units' caveLayer. Tested after the range check for the same perf reason.
+  // A roamer only "spots" a hero it actually has line of sight to — not one behind a wall or
+  // hill. LOS is tested after the range check for the same perf reason.
   const spotted = heroes.some(h => {
     const dx = h.grp.position.x - u.grp.position.x;
     const dz = h.grp.position.z - u.grp.position.z;
@@ -6555,7 +6509,7 @@ function _animateRoamNudge(u) {
   const destZ   = cz + dz * ratio;
 
   // Skip nudge if the path crosses a barrier or the destination is occupied.
-  if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer) || isOccupied(destX, destZ, u)) {
+  if (crossesBarrier(cx, cz, destX, destZ) || isOccupied(destX, destZ, u)) {
     if (advance) u._patrolIdx = (idx + 1) % path.length;
     _roamAggroCheck(u);
     return;
@@ -6566,7 +6520,7 @@ function _animateRoamNudge(u) {
   u._roamNudging = true;
 
   const startX = cx, startZ = cz;
-  const startY = getGroundHeight(startX, startZ, u.caveLayer);
+  const startY = getGroundHeight(startX, startZ);
   let startTs  = null;
 
   function frame(ts) {
@@ -6578,7 +6532,7 @@ function _animateRoamNudge(u) {
     }
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33 * combatSpeed()) / (dist * ratio)) : 1;
-    const endY    = getGroundHeight(destX, destZ, u.caveLayer);
+    const endY    = getGroundHeight(destX, destZ);
 
     u.grp.position.x = startX + dx * ratio * t;
     u.grp.position.z = startZ + dz * ratio * t;
@@ -6621,7 +6575,7 @@ function _familiarMoveToward(u, destPos, onDone) {
   if (remFt <= 0) { onDone(); return; }
   const maxDist = (remFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   const ux = u.grp.position.x, uz = u.grp.position.z;
-  const reach = _bfsReachable(ux, uz, maxDist, u, u.caveLayer);
+  const reach = _bfsReachable(ux, uz, maxDist, u);
   if (!reach.size) { onDone(); return; }
   let best = null, bestD = Infinity;
   for (const k of reach) {
@@ -6630,7 +6584,7 @@ function _familiarMoveToward(u, destPos, onDone) {
     if (d < bestD) { bestD = d; best = { x: kx, z: kz }; }
   }
   if (!best) { onDone(); return; }
-  const path = findPath(ux, uz, best.x, best.z, u.caveLayer);
+  const path = findPath(ux, uz, best.x, best.z);
   if (!path.length) { onDone(); return; }
   const mdx = best.x - ux, mdz = best.z - uz;
   const movedFt = Math.round(Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE) * GRID_SQUARE_FEET;
@@ -7254,12 +7208,8 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
       if (isAllyMode || isAllyMovTgt) {
         dest = aiPickAllyDest(u, allies, validTiles);
       } else {
-        // Candidate TILES, not units — so this one keeps the coordinate LOS form. Bind the
-        // two layers into the closure: the tiles all belong to u's layer (validTiles is
-        // built for it), and the target sits on its own, so a hero can't score a kiting
-        // tile whose "clear shot" actually runs through the cave roof.
-        const _tileLOS = (kx, kz, tx2, tz2) => hasLineOfSight(
-          kx, kz, tx2, tz2, u.caveLayer ?? 'surface', movTarget.caveLayer ?? 'surface');
+        // Candidate TILES, not units — so this one keeps the coordinate LOS form.
+        const _tileLOS = (kx, kz, tx2, tz2) => hasLineOfSight(kx, kz, tx2, tz2);
         dest = aiPickHeroDest(u, movTarget, validTiles, preferRange, atkTriggerWU, atkRangeWU, _tileLOS,
                                u.type === 'elf' ? FIRE_BOLT_ATK : null);
       }
@@ -7268,7 +7218,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
 
     if (dest) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
+      const path = findPath(ox, oz, dest.x, dest.z);
       if (!path.length) { doActionPriority(afterAction); return; }
       animatePath(u, path, () => {
         if (!combatPhase || !units.includes(u)) return;
@@ -7354,14 +7304,11 @@ function runAITurn(u) {
       const ax = cx - from.grp.position.x, az = cz - from.grp.position.z;   // AWAY from the cleric
       const dist = Math.sqrt(ax * ax + az * az) || 1;
       const destX = cx + (ax / dist) * maxWU, destZ = cz + (az / dist) * maxWU;
-      if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer)) {
+      if (crossesBarrier(cx, cz, destX, destZ)) {
         const S   = WORLD_UNITS_PER_SQUARE;
         const tnx = cx + Math.round((destX - cx) / S) * S;
         const tnz = cz + Math.round((destZ - cz) / S) * S;
-        // ⚠ The layer arg is required — findPath forwards it to crossesBarrier, which FAILS
-        // SAFE (blocks) on a null layer. Omitting it walls a fleeing unit in on the cave
-        // layers and it never moves. Same trap documented on the stealth-creep path below.
-        fleePath = findPath(cx, cz, tnx, tnz, u.caveLayer);
+        fleePath = findPath(cx, cz, tnx, tnz);
       } else if (!isOccupied(destX, destZ, u)) {
         fleePath = [{ x: destX, z: destZ }];
       }
@@ -7409,12 +7356,8 @@ function runAITurn(u) {
       const ratio = Math.min(maxWU / dist, 1);
       const destX = cx + dx * ratio, destZ = cz + dz * ratio;
       // If the direct path crosses a barrier or lands on an occupied square, skip movement.
-      // ⚠ The layer arg is required: without it crossesBarrier treats the layer as null, which
-      // FAILS SAFE (blocks) — so a stealthed enemy in a cave was over-blocked by walls on the
-      // OTHER layer and appeared stuck for no visible reason. This was the last call site still
-      // omitting it; the roam nudge above already passes u.caveLayer.
       let stealthPath;
-      if (crossesBarrier(cx, cz, destX, destZ, u.caveLayer)) {
+      if (crossesBarrier(cx, cz, destX, destZ)) {
         const S   = WORLD_UNITS_PER_SQUARE;
         const tnx = cx + Math.round((destX - cx) / S) * S;
         const tnz = cz + Math.round((destZ - cz) / S) * S;
@@ -7440,8 +7383,8 @@ function runAITurn(u) {
     const def    = UNIT_TYPES[u.type] ?? {};
     const range  = _dynamicAggroRangeWU(u, def);
     const heroes = units.filter(h => h.team === 'blue' && h.hp > 0);
-    // Layer-aware LOS gate (same as the proximity/roam checks): a dormant enemy on the blanket
-    // no longer wakes to a party in the tunnel beneath it through solid rock.
+    // LOS gate (same as the proximity/roam checks): a dormant enemy only wakes to a hero it can
+    // actually see, not one behind a wall or hill.
     const spotted = heroes.some(h => {
       const dx = h.grp.position.x - u.grp.position.x;
       const dz = h.grp.position.z - u.grp.position.z;
@@ -7655,7 +7598,7 @@ function runAITurn(u) {
     // freshly re-picked hero instead.
     function moveToAndThen(dest, cb, faceUnit = target) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z, u.caveLayer);
+      const path = findPath(ox, oz, dest.x, dest.z);
       animatePath(u, path, () => {
         const mdx = dest.x - ox, mdz = dest.z - oz;
         const movedFt = Math.round(
@@ -7800,12 +7743,9 @@ function runAITurn(u) {
       // Path 3: Out of all attack range → move toward melee, attack if now in range
       //
       // Candidate TILES, not units, so this keeps the coordinate LOS form — same shape the
-      // hero mover uses. Layers are bound in: the tiles belong to u's layer (validTiles is
-      // built for it) and the target sits on its own, so a creature can't score a firing
-      // position whose "clear shot" actually runs through the cave roof.
+      // hero mover uses.
       const _destLOS = (kx, kz) => hasLineOfSight(
-        kx, kz, target.grp.position.x, target.grp.position.z,
-        u.caveLayer ?? 'surface', target.caveLayer ?? 'surface');
+        kx, kz, target.grp.position.x, target.grp.position.z);
       showMoveRange(u);
       const _apd0 = window.__pathProfile ? performance.now() : 0;
       const _losB = window.__pathProfile ? (window.__losCount || 0) : 0;

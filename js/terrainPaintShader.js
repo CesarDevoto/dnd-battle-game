@@ -1,28 +1,20 @@
 import * as THREE from 'three';
 // NOTE: this module must NOT statically import propBuilders (or anything that
-// pulls in scene.js). caveReveal.js imports this file, and caveReveal sits inside
-// scene.js's own initialization — so importing propBuilders here drags
-// propBuilders→units→environments→scene into scene's init and crashes with
-// "Cannot access 'scene' before initialization". The tiled ROAD texture (which
-// lives in propBuilders) is therefore installed by terrainPaint.js at init time,
-// well outside scene's init path.
+// pulls in scene.js), or it would drag propBuilders→units→environments→scene into
+// scene's init and crash with "Cannot access 'scene' before initialization". The
+// tiled ROAD texture (which lives in propBuilders) is therefore installed by
+// terrainPaint.js at init time, well outside scene's init path.
 
-// ── Terrain-paint shader patch (shared by ground + cave blanket) ─────────────
+// ── Terrain-paint shader patch (ground splatmap) ─────────────────────────────
 // The splatmap paint (road/dirt/tint) is drawn by injecting a fragment-shader
-// chunk into a material via onBeforeCompile. Both the ground AND the cave-roof
-// "blanket" get patched (blanket in caveReveal.js), but each reads its OWN paint
-// LAYER (mask + tint), so the two surfaces paint independently. The tiled road/
-// dirt textures + tiling scale are the same for both, so those live here as
-// SHARED uniforms (same pattern as caveReveal's _u) and terrainPaint updates them
-// once per zone.
-//
-// The GLSL below is identical to what terrainPaint used to inline, so the ground
-// (and the production road rendering) behaves exactly as before.
+// chunk into the ground material via onBeforeCompile. The material reads its paint
+// LAYER (mask + tint). The tiled road/dirt textures + tiling scale live here as
+// SHARED uniforms and terrainPaint updates them once per zone.
 
 const TILE_WU = 6;   // road/dirt texture tiles once per this many world units (matches terrainPaint)
 
 // 1×1 opaque-black fallback mask so a material can never compile against a null
-// sampler (e.g. the ceiling compiling before terrainPaint installs the real mask).
+// sampler (before terrainPaint installs the real mask).
 function _fallbackMask() {
   const cv = document.createElement('canvas');
   cv.width = cv.height = 1;
@@ -83,8 +75,8 @@ function _fallbackRoad() {
 //     for every layer, so they live once here. The DIRT texture is pure canvas
 //     (no propBuilders) so it's built here; the ROAD texture is installed by
 //     terrainPaint.installRoadTexture() at init (see import note up top).
-//   • PER-LAYER (the splatmap MASK + the tint colour) — the ground floor and the
-//     cave-roof blanket each get their own, so they can be painted independently.
+//   • PER-LAYER (the splatmap MASK + the tint colour) — the ground floor layer has
+//     its own; a data-only roof layer keeps a second set for legacy paintRoof strokes.
 export const sharedPaintUniforms = {
   uRoadTex:     { value: _fallbackRoad() },
   uDirtTex:     { value: _makeDirtTexture() },
@@ -101,8 +93,8 @@ export function makeLayerUniforms() {
   };
 }
 
-// The two live layers. Exported so caveReveal (blanket) and terrainPaint (floor +
-// management of BOTH masks) reference the same objects.
+// The two layers. floorPaintUniforms is read by the ground material; roofPaintUniforms
+// is retained as a data-only layer (round-trips legacy paintRoof strokes, renders nothing).
 export const floorPaintUniforms = makeLayerUniforms();
 export const roofPaintUniforms  = makeLayerUniforms();
 
@@ -110,7 +102,7 @@ export const PAINT_TILE_WU = TILE_WU;
 
 // Inject the paint splatmap chunk into `shader` (an onBeforeCompile arg), reading
 // `layer`'s mask + tint and the shared textures. Modifies diffuseColor.rgb only,
-// so it composes cleanly with other patches (e.g. the reveal alpha fade).
+// so it composes cleanly with other material patches.
 export function applyPaintShader(shader, layer) {
   shader.uniforms.uPaintMask   = layer.uPaintMask;
   shader.uniforms.uTintColor   = layer.uTintColor;

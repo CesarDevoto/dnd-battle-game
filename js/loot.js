@@ -377,10 +377,9 @@ function _makeSprite(text, color) {
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
   const spr = new THREE.Sprite(mat);
 
-  // depthTest:false alone isn't enough: the cave-roof blanket is a TRANSPARENT
-  // material (renderOrder 1), so with the default order 0 the label draws first
-  // and the blanket simply paints over it. A high renderOrder puts the label last
-  // in the transparent pass, above the blanket, water, fog and every other layer.
+  // depthTest:false alone isn't enough: with the default order 0 the label can draw
+  // before other transparent surfaces and get painted over. A high renderOrder puts the
+  // label last in the transparent pass, above water, fog and every other layer.
   spr.renderOrder = 900;
 
   const worldH = 0.48;
