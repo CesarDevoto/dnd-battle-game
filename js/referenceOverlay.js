@@ -61,7 +61,10 @@ function _buildMesh(url) {
   _tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.MeshBasicMaterial({
     map: _tex, transparent: true, opacity: _state?.opacity ?? 0.6,
-    depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+    // depthTest:false — the blueprint sits at ONE height (its centre's terrain height), so any hill
+    // that rises above that plane would otherwise clip/occlude part of the image. Drawing it with
+    // no depth test + a high renderOrder keeps the WHOLE picture visible over raised terrain.
+    depthWrite: false, depthTest: false, side: THREE.DoubleSide, toneMapped: false,
   });
   _plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
   _plane.rotation.x = -Math.PI / 2;      // lay flat
@@ -157,7 +160,7 @@ function _updateUI() {
   const has = !!_state;
   const showBtn = document.getElementById('ri-show-btn');
   if (showBtn) showBtn.textContent = _state?.visible ? 'HIDE' : 'SHOW';
-  ['ri-opacity','ri-width','ri-height','ri-rot','ri-move-btn','ri-fit-btn','ri-show-btn','ri-clear-btn']
+  ['ri-opacity','ri-width','ri-height','ri-rot','ri-move-btn','ri-fit-btn','ri-fitzone-btn','ri-show-btn','ri-clear-btn']
     .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !has; });
   if (!has) _setStatus('Import an image to use as a build guide', '');
 }
@@ -203,11 +206,26 @@ export function initReferenceOverlay() {
     if (!_state) return; _state.rotDeg = parseFloat(e.target.value) || 0; _applyState(); _save();
   });
 
+  // FIT IMG — stretch the image to fill the current zone (image → zone).
   document.getElementById('ri-fit-btn')?.addEventListener('click', () => {
     if (!_state) return;
     const gs = _gs();
     _state.x = 0; _state.z = 0; _state.w = gs; _state.h = gs; _state.rotDeg = 0;
     _applyState(); _syncInputs(); _save();
+  });
+
+  // FIT ZONE — resize the zone's GROUND to match the image (zone → image). The ground is square, so
+  // it's sized to the image's larger side, rounded UP to a multiple of 4 (zone-system constraint).
+  // zoneLoader applies + persists it (and reloads the zone to rebuild terrain/grid at the new size).
+  document.getElementById('ri-fitzone-btn')?.addEventListener('click', () => {
+    if (!_state) return;
+    const gs = Math.max(4, Math.ceil(Math.max(_state.w, _state.h) / 4) * 4);
+    // Centre the image first: the ground is always centred on origin, so an off-centre image would
+    // otherwise fall partly outside the resized ground. Now picture and ground line up.
+    _state.x = 0; _state.z = 0;
+    _applyState(); _syncInputs(); _save();
+    window.dispatchEvent(new CustomEvent('zone:fitToRef', { detail: { groundSize: gs } }));
+    _setStatus(`Zone ground → ${gs} WU (reloading…)`, 'ok');
   });
 
   document.getElementById('ri-show-btn')?.addEventListener('click', () => {
