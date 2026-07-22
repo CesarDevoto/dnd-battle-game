@@ -49,6 +49,7 @@ const _keys = { w: false, a: false, s: false, d: false, q: false, e: false };
 // constants are the full-speed values; without shift they're scaled by CAM_SLOW.
 const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full (SHIFT) speed
 const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full (SHIFT) speed
+const PLAY_ROTATE_SPEED = 1.8; // play-mode right-drag orbit sensitivity (higher = faster)
 const CAM_ZOOM_BASE   = 2.0;   // OrbitControls zoomSpeed at full (SHIFT) speed
 const CAM_SLOW        = 0.15;  // default multiplier; SHIFT removes it (→ full speed)
 let _shiftHeld = false;
@@ -308,6 +309,8 @@ function _applyCamera() {
     controls.enablePan     = true;
     controls.minDistance   = 0.3;
     controls.maxDistance   = 1200;
+    controls.minPolarAngle = 0;          // free camera — full vertical range
+    controls.maxPolarAngle = Math.PI;
     controls.zoomSpeed     = CAM_ZOOM_BASE;
     setFogDensityMultiplier(0.15);   // far zoom would otherwise fog out well before maxDistance
     controls.panSpeed      = CAM_PAN_BASE;
@@ -319,15 +322,21 @@ function _applyCamera() {
       RIGHT:  THREE.MOUSE.ROTATE,
     };
   } else {
-    controls.enableRotate  = false;
+    // Play mode: RIGHT-drag orbits freely around the followed hero (OrbitControls rotate at a
+    // fixed distance). LEFT is left unbound so it stays a game click (select / move heroes). No
+    // zoom/pan. maxPolarAngle keeps the lens above the horizon so it can't flip under the world.
+    controls.enableRotate  = true;
     controls.enableZoom    = false;
     controls.enablePan     = false;
     controls.minDistance   = SCENE.orbitMaxDist;
     controls.maxDistance   = SCENE.orbitMaxDist;
+    controls.rotateSpeed   = PLAY_ROTATE_SPEED;
+    controls.minPolarAngle = 0.15;
+    controls.maxPolarAngle = 1.45;   // ~83° — orbit low but stay above the horizon
     controls.mouseButtons  = {
-      LEFT:   THREE.MOUSE.ROTATE,
+      LEFT:   -1,                    // free for game clicks
       MIDDLE: THREE.MOUSE.DOLLY,
-      RIGHT:  THREE.MOUSE.PAN,
+      RIGHT:  THREE.MOUSE.ROTATE,
     };
     setFogDensityMultiplier(1);
     // Only snap to the default play-mode position when not mid-combat following a unit
