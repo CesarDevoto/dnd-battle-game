@@ -106,6 +106,10 @@ function _rebuild() {
   _entries = [];
 
   for (const obj of activeProps) {
+    // Gate fog / Zone Gate props are meant to be SEEN through — never fade them out when they sit
+    // between the camera and a hero (the fog is soft and the gate's white ball is a click target).
+    if (obj.userData?.isFogBall || obj.userData?.isZoneGate) continue;
+
     const { uniforms, meshes } = _collectMaterials(obj);
     if (!uniforms.length) continue;
 

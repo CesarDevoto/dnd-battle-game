@@ -3,7 +3,7 @@ import { scene, camera, renderer, controls, ground, _vec, setFollowUnit, getFoll
 import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking, pointerOverNonHeroUnit } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
-import { isGroupMove, setGroupMove } from './groupMove.js';
+import { isGroupMove, setGroupMove, groupLeader } from './groupMove.js';
 import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, SCENE } from './constants.js';
 import { hideSheet } from './ui.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
@@ -316,17 +316,17 @@ renderer.domElement.addEventListener('click', e => {
       _selectHero(hero);
       return;
     }
-    // Click on ground → move selected hero (and group if enabled)
+    // Click on ground → move. In GROUP move the party travels single file: order the leader
+    // (Leugren, or the next living hero) to the point and the rest trail its path via follower.js.
+    if (isGroupMove()) {
+      const leader = groupLeader();
+      if (leader) movePCHeroTo(leader, pt.x, pt.z);
+      return;
+    }
+    // Solo move → just the selected hero.
     const sel = getPCSelected();
     if (sel) {
-      const dx = pt.x - sel.grp.position.x;
-      const dz = pt.z - sel.grp.position.z;
       movePCHeroTo(sel, pt.x, pt.z);
-      if (isGroupMove()) {
-        units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0).forEach(o => {
-          movePCHeroTo(o, o.grp.position.x + dx, o.grp.position.z + dz, sel);
-        });
-      }
       return;
     }
     // Click on valid terrain but no hero selected → deselect
@@ -346,15 +346,15 @@ renderer.domElement.addEventListener('click', e => {
 // hero._pcTarget, walked by tickPrecombat), so this just keeps overwriting it.
 let _holdMoving    = false;
 let _holdPointer   = { x: 0, y: 0 };
-let _holdFollowers = null;   // [{ unit, ox, oz }] — captured formation offsets (group move only)
 
-function _stopHoldMove() { _holdMoving = false; _holdFollowers = null; }
+function _stopHoldMove() { _holdMoving = false; }
 
-function _issueHoldMove(x, z, sel) {
-  movePCHeroTo(sel, x, z);
-  if (_holdFollowers) {
-    for (const f of _holdFollowers) movePCHeroTo(f.unit, x + f.ox, z + f.oz, sel);
-  }
+// Who the hold-move drives: the group leader (single-file, chain trails it) or, in solo, the
+// selected hero.
+function _holdMover() { return isGroupMove() ? groupLeader() : getPCSelected(); }
+
+function _issueHoldMove(x, z, mover) {
+  movePCHeroTo(mover, x, z);   // group: leader only; the follower chain does the rest.
 }
 
 renderer.domElement.addEventListener('mousedown', e => {
@@ -370,17 +370,11 @@ renderer.domElement.addEventListener('mousedown', e => {
   const onHero = units.some(u => u.team === 'blue' && u.hp > 0 &&
     (u.grp.position.x - pt.x) ** 2 + (u.grp.position.z - pt.z) ** 2 < INTERACTION.pickRadiusSq);
   if (onHero) return;
-  const sel = getPCSelected();
-  if (!sel) return;
+  const mover = _holdMover();
+  if (!mover) return;
   _holdMoving  = true;
   _holdPointer = { x: e.clientX, y: e.clientY };
-  // Capture each follower's offset from the leader now, so the formation is held
-  // as the whole party trails the cursor.
-  _holdFollowers = isGroupMove()
-    ? units.filter(o => o.team === 'blue' && o !== sel && o.hp > 0)
-        .map(o => ({ unit: o, ox: o.grp.position.x - sel.grp.position.x, oz: o.grp.position.z - sel.grp.position.z }))
-    : null;
-  _issueHoldMove(pt.x, pt.z, sel);
+  _issueHoldMove(pt.x, pt.z, mover);
 });
 
 // Track the cursor while held; the per-frame tick re-raycasts from this position.
@@ -396,15 +390,15 @@ renderer.domElement.addEventListener('mouseleave', _stopHoldMove);
 export function tickHoldMove() {
   if (!_holdMoving) return;
   if (!isPrecombat()) { _stopHoldMove(); return; }
-  const sel = getPCSelected();
-  if (!sel || sel.hp <= 0) { _stopHoldMove(); return; }
+  const mover = _holdMover();
+  if (!mover || mover.hp <= 0) { _stopHoldMove(); return; }
   const pt = groundHit(_holdPointer.x, _holdPointer.y);
   if (!pt) return;
   // Stop re-issuing once the leader is basically at the cursor, so the walk
   // animation doesn't flicker on/off at the destination.
-  const dx = pt.x - sel.grp.position.x, dz = pt.z - sel.grp.position.z;
+  const dx = pt.x - mover.grp.position.x, dz = pt.z - mover.grp.position.z;
   if (dx * dx + dz * dz < 0.36) return;
-  _issueHoldMove(pt.x, pt.z, sel);
+  _issueHoldMove(pt.x, pt.z, mover);
 }
 
 

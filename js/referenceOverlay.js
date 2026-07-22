@@ -25,7 +25,7 @@ const _grab   = new THREE.Vector2();   // offset from center to cursor at grab
 
 function _defaultState(url) {
   const gs = _gs();
-  return { url, x: 0, z: 0, w: gs, h: gs, rotDeg: 0, opacity: 0.6, visible: true };
+  return { url, x: 0, z: 0, w: gs, h: gs, rotDeg: 0, opacity: 0.8, visible: true };
 }
 
 function _gs() { return ground.geometry.parameters?.width ?? 216; }
@@ -60,19 +60,40 @@ function _buildMesh(url) {
   });
   _tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.MeshBasicMaterial({
-    map: _tex, transparent: true, opacity: _state?.opacity ?? 0.6,
-    // depthTest:false — the blueprint sits at ONE height (its centre's terrain height), so any hill
-    // that rises above that plane would otherwise clip/occlude part of the image. Drawing it with
-    // no depth test + a high renderOrder keeps the WHOLE picture visible over raised terrain.
-    depthWrite: false, depthTest: false, side: THREE.DoubleSide, toneMapped: false,
+    map: _tex, transparent: true, opacity: _state?.opacity ?? 0.8,
+    // depthTest ON + depthWrite OFF: the blueprint is a GROUND DECAL. It's subdivided and draped
+    // onto the terrain surface (_conformToTerrain), so hills never clip it — AND, because it
+    // respects depth, props and heroes standing on it render fully OVER it instead of being washed
+    // out by it. (An earlier depthTest:false version drew over everything, hiding the props.)
+    depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
   });
-  _plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  // Subdivided so it can bend over the terrain rather than sitting flat at one height.
+  _plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 32, 32), mat);
   _plane.rotation.x = -Math.PI / 2;      // lay flat
   _plane.renderOrder = _PLANE_ORDER;
   _group = new THREE.Group();
   _group.add(_plane);
   scene.add(_group);
   _applyState();
+}
+
+const _cv = new THREE.Vector3();
+// Bend the plane's vertices so the picture drapes ~0.2 WU above the terrain everywhere (a ground
+// decal), instead of a flat sheet at one height. Called whenever the overlay moves/scales/rotates.
+function _conformToTerrain() {
+  if (!_plane || !_state) return;
+  const posAttr = _plane.geometry.attributes.position;
+  const centreH = getTerrainHeight(_state.x, _state.z);   // group base y is this + 0.2
+  _group.updateMatrixWorld(true);
+  for (let i = 0; i < posAttr.count; i++) {
+    // World XZ of this vertex (its local Z=0; the group transform is baked into matrixWorld).
+    _cv.set(posAttr.getX(i), posAttr.getY(i), 0);
+    _plane.localToWorld(_cv);
+    // Local +Z maps straight to world +Y here (plane flat, group scale.y=1, only Y-rotation), so
+    // this offset lifts each vertex to its own terrain height while the group base holds the +0.2.
+    posAttr.setZ(i, getTerrainHeight(_cv.x, _cv.z) - centreH);
+  }
+  posAttr.needsUpdate = true;
 }
 
 function _applyState() {
@@ -83,6 +104,7 @@ function _applyState() {
   _group.scale.set(_state.w, 1, _state.h);
   _group.visible = _state.visible;
   if (_plane) _plane.material.opacity = _state.opacity;
+  _conformToTerrain();
   _setGridOnTop(_state.visible);   // grid floats over the picture while it's shown
 }
 

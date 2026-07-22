@@ -5555,14 +5555,17 @@ td.bst-col-retired { color: #343228 !important; }
   height: 19px;
 }
 /* 4-dot icon: top-left dot + 3 box-shadow dots forming a 2×2 grid */
+/* Four dots in a single-file column — the party walks single file behind the leader. */
 .gm-dots-4 {
   display: block;
-  width: 7px;
-  height: 7px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 15px 0 0 currentColor, 0 15px 0 currentColor, 15px 15px 0 currentColor;
-  transform: translate(-7.5px, -7.5px);
+  box-shadow: 0 6px 0 currentColor, 0 12px 0 currentColor, 0 18px 0 currentColor;
+  /* Dots span 0→18px downward (+ the 4px dot = 22px tall); shift up by half that (9px) to centre
+     the whole column in the button. X stays 0 — the base dot is already centred horizontally. */
+  transform: translate(0, -9px);
 }
 /* single centered dot */
 .gm-dot-1 {
