@@ -228,7 +228,7 @@ export const ZONE = {
     // than up on the 90-high hill the corner would otherwise be. fogPush 0 puts the ball
     // exactly on the exit's own coords; the notch still cuts the rim along the ray through
     // them. Arrival lands just inside the Hide Out's reciprocal Warrens gate (at 95, 0).
-    { x: -190, z: 188, targetZone: 'hide_out', arrivalX: 88, arrivalZ: 0, label: 'Hide Out', clickScale: 2, notchHalfWidth: 12, fogPush: 0, fogScale: 3, fogHeight: 2 },
+    { x: -190, z: 188, targetZone: 'hide_out', arrivalX: -9, arrivalZ: 5, label: 'Hide Out', clickScale: 2, notchHalfWidth: 12, fogPush: 0, fogScale: 3, fogHeight: 2 },
   ],
   // Fog filling the ravine that runs out to the Hide Out gate — decorative only (fogBreaches
   // never trigger a zone change; the gate above is the only thing that travels). Points are
