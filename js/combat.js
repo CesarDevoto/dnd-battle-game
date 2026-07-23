@@ -357,6 +357,20 @@ activeRing.renderOrder   = 3;
 activeRing.visible       = false;
 scene.add(activeRing);
 
+// The unit whose turn it is gets a steady border on its HEALTH BAR instead of a ring underneath:
+// heroes → light-blue (hp-bar-active-turn), enemies → orange (hp-bar-enemy-turn). FAMILIARS still
+// use the ring (they're skipped here). Tracks the current owner so the border moves cleanly across
+// turns and readied interrupts; the ring's own visibility is still set at each turn-start / restore
+// site. Pass a unit to set, null to clear.
+let _activeTurnUnit = null;
+function _setActiveTurnUnit(unit) {
+  if (_activeTurnUnit === unit) return;
+  _activeTurnUnit?.barEl?.classList.remove('hp-bar-active-turn', 'hp-bar-enemy-turn');
+  _activeTurnUnit = (unit && !unit.familiar) ? unit : null;   // familiars keep the ring, no border
+  _activeTurnUnit?.barEl?.classList.add(
+    _activeTurnUnit.team === 'red' ? 'hp-bar-enemy-turn' : 'hp-bar-active-turn');
+}
+
 // ── Move-range tile set (click detection + AI — no visual tiles) ─────────────
 
 const validTiles = new Set(); // "x,z" string keys
@@ -558,15 +572,27 @@ function _setMeshEmissive(unit, color) {
 }
 
 export function setHoverPulseUnit(unit) {
+  // Skip the selected target: it already shows the STEADY pink border (hp-bar-targeted). Letting it
+  // also take the pulsing hover flash would fight that animation, and it clears here anyway.
   if (unit === selectedTarget) { clearHoverPulseUnit(); return; }
   if (_pulseHoveredUnit === unit) return;
-  if (_pulseHoveredUnit) _setMeshEmissive(_pulseHoveredUnit, new THREE.Color(0x000000));
+  if (_pulseHoveredUnit) {
+    _setMeshEmissive(_pulseHoveredUnit, new THREE.Color(0x000000));
+    _pulseHoveredUnit.barEl?.classList.remove('hp-bar-hover');
+    _pulseHoveredUnit._barHover = false;
+  }
   _pulseHoveredUnit = unit;
+  // The hovered unit's health bar pulses opacity (see .hp-bar-hover) — this replaces the old pink
+  // ring under the unit. The model still turns pink via tickHoverPulse. _barHover forces the bar
+  // visible in updateHUD, so the flash shows even on a unit whose bar is otherwise hidden.
+  if (unit) { unit.barEl?.classList.add('hp-bar-hover'); unit._barHover = true; }
 }
 
 export function clearHoverPulseUnit() {
   if (!_pulseHoveredUnit) return;
   _setMeshEmissive(_pulseHoveredUnit, new THREE.Color(0x000000));
+  _pulseHoveredUnit.barEl?.classList.remove('hp-bar-hover');
+  _pulseHoveredUnit._barHover = false;
   _pulseHoveredUnit = null;
 }
 
@@ -1097,6 +1123,20 @@ function atkTriggerWU(atk) {
   return atkRangeWU(atk.range);
 }
 
+// Max distance at which `atk` can be TAKEN against a target — not necessarily without penalty.
+// Melee → the adjacency/reach trigger (atkTriggerWU). Ranged → extended to longRange when the attack
+// has one, so a target in the long band is SELECTABLE; the shot still connects, at disadvantage
+// (applied later in _executeAttack). projRangeWU folds in the projectile_range affix, so this exactly
+// matches the red long-range band drawn by showAttackTargets / longRangeRing.
+//
+// atkTriggerWU alone (normal range, no affix) was gating showTargetMarker's eligibility, so a foe
+// past normal range but inside longRange got selectedTargetAtk = null and the attack was refused —
+// even though the red ring said "shoot at disadvantage" (the Milo 40/80 bug).
+function atkReachWU(atk, unit) {
+  if (atk.type !== 'ranged') return atkTriggerWU(atk);
+  return projRangeWU(atk.longRange ?? atk.range, unit);
+}
+
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
 
 function findPath(sx, sz, tx, tz) {
@@ -1614,8 +1654,9 @@ function handleSneakAttackBtnClick() {
   let atk = null;
   if (meleeA && dist <= atkTriggerWU(meleeA)) {
     atk = meleeA;
-  } else if (rangedA && dist <= projRangeWU(rangedA.range, u) &&
+  } else if (rangedA && dist <= atkReachWU(rangedA, u) &&
              unitsHaveLOS(u, selectedTarget)) {
+    // long-range band included (disadvantage applied in _executeAttack), matching the basic shot
     atk = rangedA;
   }
   if (!atk) return;
@@ -2557,6 +2598,7 @@ function _teardownCombat() {
   units.forEach(u => { u.barForced = false; u.barShowUntil = 0; if (UNIT_TYPES[u.type]?.rage) u.raging = false; u.mageArmored = false; u.actionSave = null; });
   endTurnBtn.disabled    = true;
   activeRing.visible     = false;
+  _setActiveTurnUnit(null);   // clear the active-turn bar border when combat ends
   meleeRangeRing.visible = false;
   rangedRangeRing.visible = false;
   hideTargetingLine();
@@ -3981,7 +4023,7 @@ function showTargetMarker(enemy) {
     const dist = Math.sqrt(dx * dx + dz * dz);
     const los  = unitsHaveLOS(u, enemy);
     const eligible = attacksOf(u)
-      .filter(a => dist <= atkTriggerWU(a) && (a.type === 'melee' || (los && atkHasQty(u, a))))
+      .filter(a => dist <= atkReachWU(a, u) && (a.type === 'melee' || (los && atkHasQty(u, a))))
       .sort((a, b) => a.range - b.range);
 
     selectedTargetAtk = eligible[0] ?? null;
@@ -4038,25 +4080,26 @@ castConfirmBtn.addEventListener('click', e => {
   castFn();
 });
 
+// Pink flash on the CURRENTLY TARGETED unit's health bar — replaces the old pink ring that used
+// to sit under the target. Driven every frame from selectedTarget, so it follows the target no
+// matter which code path set it (attack/heal/owl/click). Gated to a blue unit's combat turn, the
+// same condition the ring used, so the indicator appears in exactly the same situations as before.
+let _flashBarUnit = null;
+function _flashTargetBar() {
+  const canFlash = combatPhase && turnOrder[turnIndex]?.team === 'blue';
+  const flash    = (canFlash && selectedTarget && selectedTarget.hp > 0) ? selectedTarget : null;
+  if (flash === _flashBarUnit) return;
+  _flashBarUnit?.barEl?.classList.remove('hp-bar-targeted');
+  flash?.barEl?.classList.add('hp-bar-targeted');
+  _flashBarUnit = flash;
+}
+
 export function trackTargetUI() {
-  // Keep pink ring locked on selectedTarget when cursor isn't hovering anything
-  if (!_ringHoverActive) {
-    const canRing = combatPhase && !isAnimating && turnOrder[turnIndex]?.team === 'blue';
-    if (canRing && selectedTarget && selectedTarget.hp > 0) {
-      const tx = selectedTarget.grp.position.x, tz = selectedTarget.grp.position.z;
-      if (tx !== _hoverRingTx || tz !== _hoverRingTz) {
-        _hoverRingTx = tx; _hoverRingTz = tz;
-        const old = hoverRing.geometry;
-        hoverRing.geometry = buildHoverRingGeo(tx, tz);
-        old.dispose();
-      }
-      hoverRing.material.color.setHex(0xff44ff);
-      hoverRing.position.set(tx, 0, tz);
-      hoverRing.visible = true;
-    } else {
-      hoverRing.visible = false;
-    }
-  }
+  // The hover ring (positioned by the mousemove handler) is hidden here whenever the cursor is not
+  // actively over a unit or move tile — this is the only place that clears it. The currently
+  // TARGETED unit is no longer marked by a ring underneath; its health bar flashes pink instead.
+  if (!_ringHoverActive) hoverRing.visible = false;
+  _flashTargetBar();
 
   if (!selectedTarget) return;
   updateTargetWindowHP(selectedTarget);
@@ -4344,6 +4387,12 @@ renderer.domElement.addEventListener('click', e => {
     return;
   }
 
+  _targetUnit(hit);
+});
+
+// Select a unit as the target. Extracted from the canvas click handler so the health bars can
+// reuse it (see onBarPress) — a bar is a targeting proxy for its unit.
+function _targetUnit(hit) {
   clearHoverPulseUnit();
   // Owl Help targeting — only honored while it's actually the owl's turn.
   if (_owlHelpPicking) {
@@ -4363,7 +4412,24 @@ renderer.domElement.addEventListener('click', e => {
     targetMarkerEl.style.display    = 'block';
     showTargetWindow(hit);
   }
-});
+}
+
+// ── Health bar as a targeting proxy ───────────────────────────────────────────
+// A unit's floating HP bar sits above its head, so pointing at the bar wouldn't otherwise hit the
+// unit's model with the targeting raycast. These make the bar behave like the model: hovering it
+// pulses the unit and shows the hover ring; pressing it targets the unit. Wired per-bar in
+// units.js (the bar carries no unit ref of its own — the caller passes it).
+export function onBarHover(unit) {
+  if (!unit || unit.hp <= 0) return;
+  setHoverPulseUnit(unit);   // emissive highlight on the model; no ground ring (bar press targets)
+}
+export function onBarLeave() {
+  clearHoverPulseUnit();
+}
+export function onBarPress(unit) {
+  if (!unit || unit.hp <= 0) return;
+  _targetUnit(unit);
+}
 
 // ── Move hover ring & distance label ─────────────────────────────────────────
 
@@ -4382,22 +4448,14 @@ renderer.domElement.addEventListener('mousemove', e => {
 
   const pt = groundHit(e.clientX, e.clientY);  // primes _ray
 
-  // Unit hover takes priority: pulse ring + emissive on any hovered unit
+  // Unit hover takes priority: emissive pink pulse on the model + opacity flash on its health bar
+  // (setHoverPulseUnit). No ring under the unit anymore — the bar flash replaces it. The green
+  // ring below is still used for MOVE-TILE preview, so only the unit case drops it.
   const hoveredUnit = rayHitAnyUnit();
   if (hoveredUnit) {
     setHoverPulseUnit(hoveredUnit);
-    const ux = hoveredUnit.grp.position.x;
-    const uz = hoveredUnit.grp.position.z;
-    if (ux !== _hoverRingTx || uz !== _hoverRingTz) {
-      _hoverRingTx = ux; _hoverRingTz = uz;
-      const oldGeo = hoverRing.geometry;
-      hoverRing.geometry = buildHoverRingGeo(ux, uz);
-      oldGeo.dispose();
-    }
-    hoverRing.material.color.setHex(0xff44ff);
-    hoverRing.position.set(ux, 0, uz);
-    hoverRing.visible = true;
-    _ringHoverActive = true;
+    hoverRing.visible = false;   // no pink ring under hovered units
+    _ringHoverActive  = false;   // let trackTargetUI keep the ring hidden
     moveDistEl.style.display = 'none';
     return;
   }
@@ -4743,9 +4801,9 @@ const HERO_HUD_NAME_COLORS = {
 // ── Ready Action ──────────────────────────────────────────────────────────────
 
 const _READY_LABELS = {
-  enemy_in_los:          'Enemy enters line of sight',
+  enemy_in_los:          'Enemy enters LOS/long range',
   enemy_in_melee_range:  'Enemy enters melee range',
-  enemy_in_ranged_range: 'Enemy enters spell or ranged attack range',
+  enemy_in_ranged_range: 'Enemy enters normal spell/ranged range',
   ally_in_enemy_melee:   'Ally enters enemy melee range',
   owl_helped:            'Iffir uses the Help action',
   ally_loses_hp:         'Ally loses hit points',
@@ -4945,10 +5003,14 @@ function _openReadyModal(hero) {
 // bless, mage_armor — no rangeFt, or healDice present) don't count, since
 // they don't threaten an enemy. Returns null if the hero has no ranged
 // option at all (pure melee).
-function _heroRangedRangeWU(hero) {
+// weaponLongRange=false uses the ranged WEAPON's NORMAL range (the blue ring) instead of its
+// longRange (red ring). Spell ranges are unaffected either way — spells have no disadvantage band.
+// The 'enemy_in_ranged_range' ready trigger passes false so a readied shot fires at normal range,
+// never at long-range disadvantage; 'enemy_in_los' keeps the default (full reach).
+function _heroRangedRangeWU(hero, weaponLongRange = true) {
   const heroAtks  = attacksOf(hero);
   const rangedAtk = heroAtks.find(a => a.type === 'ranged');
-  let maxFt = rangedAtk ? (rangedAtk.longRange ?? rangedAtk.range) : 0;
+  let maxFt = rangedAtk ? (weaponLongRange ? (rangedAtk.longRange ?? rangedAtk.range) : rangedAtk.range) : 0;
 
   const pool = hero.type === 'dwarf' ? SPELLS : hero.type === 'elf' ? ELF_SPELLS : null;
   if (pool) {
@@ -4990,7 +5052,7 @@ function _checkDelayedTriggers(eventType, eventCtx, hpLost, continuation) {
         const atk = heroAtks.find(a => a.type === 'melee');
         if (atk && dist <= atkTriggerWU(atk)) matches.push({ hero, trigger, enemy });
       } else if (trigger === 'enemy_in_ranged_range') {
-        const rangeWU = _heroRangedRangeWU(hero);
+        const rangeWU = _heroRangedRangeWU(hero, false);   // NORMAL (blue-ring) range — no long-range disadvantage
         // Require the enemy to move 5 ft (1 square) INTO ranged range, not just
         // graze the outer edge, before the readied shot fires.
         if (rangeWU != null && dist <= rangeWU - WORLD_UNITS_PER_SQUARE) {
@@ -5110,6 +5172,9 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
         activeRing.position.set(savedRingX, 0, savedRingZ);
         activeRing.material.color.setHex(savedRingColor);
         activeRing.visible = savedRingVisible;
+        // Border follows the restored turn owner: hero → light-blue, enemy → orange (both had their
+        // ring saved hidden). A familiar gets no border and its ring was restored above.
+        _setActiveTurnUnit(turnOrder[savedIdx]);
         _restoreInterruptedTurn(saved);   // NOT a blanket lock — the interrupted unit may be a player hero
         setTimeout(cont, 300);
       }
@@ -5132,11 +5197,9 @@ function _showDelayInterrupt({ hero, trigger, enemy }) {
 
   endTurnBtn.disabled = false;
 
-  // Move active ring to this hero with their ring colour
-  updateConformingRingGeo(activeRing, hero.grp.position.x, hero.grp.position.z);
-  activeRing.position.set(hero.grp.position.x, 0, hero.grp.position.z);
-  activeRing.material.color.set(HERO_RING_COLORS[hero.type] ?? COLORS.activeRing);
-  activeRing.visible = true;
+  // Readied hero acts: light-blue border on their health bar, no ring (heroes don't get a turn ring).
+  _setActiveTurnUnit(hero);
+  activeRing.visible = false;
   showSelectionHighlight(hero);
 
   // Floating "Triggered!" text and pulsing arrow in turn list
@@ -5232,6 +5295,8 @@ function _endDelayInterrupt() {
   activeRing.position.set(savedRingX, 0, savedRingZ);
   activeRing.material.color.set(savedRingColor);
   activeRing.visible = savedRingVisible;
+  // Border follows the restored turn owner (hero → light-blue, enemy → orange; familiar → none).
+  _setActiveTurnUnit(turnOrder[savedIdx]);
 
   _activeReadyHero = null;
   buildTurnList();
@@ -5323,7 +5388,7 @@ const _ABILITY_HANDLERS = {
       const _meleeA  = _atks.find(a => a.type === 'melee');
       const _rangedA = _atks.find(a => a.type === 'ranged');
       const inRange = (_meleeA && dst <= atkTriggerWU(_meleeA)) ||
-                      (_rangedA && dst <= projRangeWU(_rangedA.range, curU) &&
+                      (_rangedA && dst <= atkReachWU(_rangedA, curU) &&
                        unitsHaveLOS(curU, selectedTarget));
       if (!inRange) return false;
       return _allyAdjacentToTarget(curU, selectedTarget) || _isHiddenForSneak(curU);
@@ -5876,7 +5941,10 @@ function _rebuildHotbar(u) {
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
-      return dist <= projRangeWU(firstRanged.range, curU) &&
+      // atkReachWU extends to longRange (the red ring), so a target past normal range but inside it
+      // is still attackable — the shot connects at disadvantage, applied in _executeAttack. Using
+      // projRangeWU(range) here (normal only) was what greyed out the shot in the long band.
+      return dist <= atkReachWU(firstRanged, curU) &&
              unitsHaveLOS(curU, selectedTarget) &&
              atkHasQty(curU, firstRanged);
     }, 'action');
@@ -6052,11 +6120,26 @@ export function activateTurn(index) {
       u.aggro === false
     );
     if ((u.team === 'blue' || u.familiar) && !unawareEnemy) setFollowUnit(u);
-    if (u.team === 'blue' || u.familiar) u.barForced = true;
-    updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
-    activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
-    activeRing.material.color.set(u.team === 'red' ? COLORS.activeRing : u.familiar ? 0xc9a0e6 : (HERO_RING_COLORS[u.type] ?? COLORS.activeRing));
-    activeRing.visible    = !unawareEnemy;
+    // An enemy shows its turn border once it's actively fighting (aggro === true), NOT gated on the
+    // _dungeonAwareEnemies set — that set is only populated DURING the enemy's AI turn (later this
+    // frame), so reading it here would suppress the border on the very turn the enemy engages.
+    // A dormant/waiting enemy still has aggro === false, so stealth is preserved.
+    const enemyActing = u.team === 'red' && u.aggro === true;
+    // Force the acting unit's bar visible so its turn border is actually seen — the old ring drew on
+    // the ground regardless of the bar, but the border needs a visible bar to sit on.
+    if (u.team === 'blue' || u.familiar || enemyActing) u.barForced = true;
+    if (u.familiar) {
+      // Familiar's turn → keep the purple ring under it (unchanged).
+      _setActiveTurnUnit(null);
+      updateConformingRingGeo(activeRing, u.grp.position.x, u.grp.position.z);
+      activeRing.position.set(u.grp.position.x, 0, u.grp.position.z);
+      activeRing.material.color.set(0xc9a0e6);
+      activeRing.visible = !unawareEnemy;
+    } else {
+      // Hero (blue) → light-blue bar border; acting enemy (red) → orange bar border. No ring.
+      _setActiveTurnUnit((u.team === 'blue' || enemyActing) ? u : null);
+      activeRing.visible = false;
+    }
     showSelectionHighlight(u);
     turnMovedFt     = 0;
     turnAttacked    = false;

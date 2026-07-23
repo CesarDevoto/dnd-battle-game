@@ -324,7 +324,10 @@ function _applyCamera() {
   } else {
     // Play mode: RIGHT-drag orbits freely around the followed hero (OrbitControls rotate at a
     // fixed distance). LEFT is left unbound so it stays a game click (select / move heroes). No
-    // zoom/pan. maxPolarAngle keeps the lens above the horizon so it can't flip under the world.
+    // zoom/pan. The pitch can drop BELOW the horizon to look up at the sky; the real floor is the
+    // terrain, applied per-frame by _applyTerrainPitchLimit() in scene.js, which overwrites
+    // maxPolarAngle every frame. The value set here is just the initial ceiling (hard cap short of
+    // straight-down) for the first frame before that runs.
     controls.enableRotate  = true;
     controls.enableZoom    = false;
     controls.enablePan     = false;
@@ -332,7 +335,7 @@ function _applyCamera() {
     controls.maxDistance   = SCENE.orbitMaxDist;
     controls.rotateSpeed   = PLAY_ROTATE_SPEED;
     controls.minPolarAngle = 0.15;
-    controls.maxPolarAngle = 1.45;   // ~83° — orbit low but stay above the horizon
+    controls.maxPolarAngle = 2.9;   // ~166° — terrain-limited each frame in scene.js
     controls.mouseButtons  = {
       LEFT:   -1,                    // free for game clicks
       MIDDLE: THREE.MOUSE.DOLLY,

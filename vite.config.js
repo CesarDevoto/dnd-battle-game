@@ -57,6 +57,7 @@ function saveZonePropsPlugin() {
               }
               if (p.waystoneId != null) s += `, waystoneId: '${p.waystoneId}'`;
               if (p.mapTab     != null) s += `, mapTab: '${p.mapTab}'`;
+              if (p.noFade)             s += `, noFade: true`;
               s += ' },';
               return s;
             });

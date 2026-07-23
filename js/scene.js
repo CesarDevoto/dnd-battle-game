@@ -470,6 +470,39 @@ function _applyCameraCollision() {
   controls.maxDistance = _colDist;
 }
 
+// ── Terrain-limited pitch ─────────────────────────────────────────────────────
+// Play-mode right-drag can orbit the lens DOWN past the horizon so the player sees up toward the
+// sky. Instead of a fixed angular clamp at the horizon, the only floor is the terrain: each frame
+// we march the polar angle down from the horizon along the camera's current azimuth and take the
+// lowest angle whose lens still clears the ground by _PITCH_MARGIN as maxPolarAngle. On flat ground
+// that's the horizon; where the ground falls away (a trench, a drop) the camera can sink below it
+// and look up. A hard cap short of straight-down keeps the orbit from flipping fully under the hero.
+const _PITCH_HARD_MAX = 2.9;   // ~166° from +Y — never orbit fully beneath the target
+const _PITCH_MARGIN   = 1.0;   // WU the lens is kept above the terrain surface
+const _PITCH_STEPS    = 16;
+
+function _applyTerrainPitchLimit() {
+  const t = controls.target;
+  const R = camera.position.distanceTo(t);
+  if (R < 1e-3) return;
+  // Probe along the camera's current azimuth (theta) so the swing matches how the user is orbiting.
+  // OrbitControls' spherical: theta = atan2(x, z); offset = R·(sinφ·sinθ, cosφ, sinφ·cosθ).
+  const theta = Math.atan2(camera.position.x - t.x, camera.position.z - t.z);
+  const sinT = Math.sin(theta), cosT = Math.cos(theta);
+  const span = _PITCH_HARD_MAX - Math.PI / 2;
+
+  let cap = _PITCH_HARD_MAX;
+  for (let i = 0; i <= _PITCH_STEPS; i++) {
+    const phi  = Math.PI / 2 + (i / _PITCH_STEPS) * span;
+    const sinP = Math.sin(phi);
+    const cx = t.x + R * sinP * sinT;
+    const cz = t.z + R * sinP * cosT;
+    const cy = t.y + R * Math.cos(phi);
+    if (cy < getTerrainHeight(cx, cz) + _PITCH_MARGIN) { cap = phi - span / _PITCH_STEPS; break; }
+  }
+  controls.maxPolarAngle = Math.max(Math.PI / 2, cap);
+}
+
 export function updateCameraFocus() {
   // Opening the editor WHILE top view is on would otherwise strand the camera: the pin below
   // runs every frame, and toggleTopView is now a no-op in the editor, so G couldn't undo it.
@@ -492,6 +525,10 @@ export function updateCameraFocus() {
     controls.maxDistance = _topViewY;
     return;
   }
+
+  // Play mode only: let the pitch drop below the horizon until terrain stops the lens. Runs before
+  // the focus early-return so it applies even when the camera is settled and just being orbited.
+  if (!isEditModeActive()) _applyTerrainPitchLimit();
 
   if (_followUnit) {
     const p = _followUnit.grp.position;
