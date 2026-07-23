@@ -4,7 +4,7 @@ import { units, buildUnit } from './units.js';
 import { rollInitiative, combatPhase, turnOrder, turnIndex, isAnimating, isOOCHealPicking, pointerOverNonHeroUnit } from './combat.js';
 import { isPrecombat, enterPrecombat, exitPrecombat, getPCSelected, selectPCHero, deselectPCHero, movePCHeroTo } from './precombat.js';
 import { isGroupMove, setGroupMove, groupLeader } from './groupMove.js';
-import { COLORS, HERO_RING_COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, SCENE } from './constants.js';
+import { COLORS, INTERACTION, GRID_SQUARE_FEET, WORLD_UNITS_PER_SQUARE, SCENE } from './constants.js';
 import { hideSheet } from './ui.js';
 import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighlight.js';
 import { renderHeroPortrait } from './heroPortraits.js';
@@ -25,12 +25,13 @@ export function hideMenu() {
   if (menuUnit) menuUnit.barForced = false;
   menuUnit = null;
   unitMenu.classList.remove('show');
-  if (!selectedUnit) selectRing.visible = false;
+  if (!selectedUnit) { selectRing.visible = false; _setSelectedHeroBorder(null); }
 }
 export function clearMove() {
   if (selectedUnit) selectedUnit.barForced = false;
   selectedUnit = null;
   selectRing.visible = false;
+  _setSelectedHeroBorder(null);
   distLabel.style.display = 'none';
   hideSheet();
   hideSelectionHighlight();
@@ -42,9 +43,16 @@ export function showMenu(u) {
   selectedUnit = u;
   u.barForced = true;
   unitMenu.classList.add('show');
-  selectRing.material.color.set(u.team === 'red' ? 0xdd2222 : (HERO_RING_COLORS[u.type] ?? 0x2255ee));
-  selectRing.position.set(u.grp.position.x, u.grp.position.y + 0.06, u.grp.position.z);
-  selectRing.visible = true;
+  if (u.team === 'blue') {
+    // Selected hero → light-blue border on their health bar, no ring underneath.
+    _setSelectedHeroBorder(u);
+    selectRing.visible = false;
+  } else {
+    _setSelectedHeroBorder(null);
+    selectRing.material.color.set(0xdd2222);
+    selectRing.position.set(u.grp.position.x, u.grp.position.y + 0.06, u.grp.position.z);
+    selectRing.visible = true;
+  }
   showSelectionHighlight(u);
 }
 export function trackMenu() {
@@ -98,6 +106,18 @@ selectRing.renderOrder = 12;
 selectRing.visible = false;
 scene.add(selectRing);
 
+// Out of combat, a SELECTED HERO no longer gets the selectRing under them — their health bar gets
+// the same steady light-blue border as the active-turn indicator (hp-bar-selected shares that CSS).
+// Enemies still use the ring. This tracks which hero owns the border so it clears cleanly on
+// re-select / deselect. Mirror every selectRing.visible change below with a call to this.
+let _selBorderHero = null;
+function _setSelectedHeroBorder(hero) {
+  if (_selBorderHero === hero) return;
+  _selBorderHero?.barEl?.classList.remove('hp-bar-selected');
+  _selBorderHero = hero ?? null;
+  _selBorderHero?.barEl?.classList.add('hp-bar-selected');
+}
+
 const distLabel = document.getElementById('move-dist');
 const raycaster = new THREE.Raycaster();
 
@@ -108,9 +128,8 @@ function _selectHero(hero) {
   if (!hero) return;
   selectPCHero(hero);
   selectedUnit = hero;
-  selectRing.material.color.set(HERO_RING_COLORS[hero.type] ?? 0x2255ee);
-  selectRing.position.set(hero.grp.position.x, hero.grp.position.y + 0.06, hero.grp.position.z);
-  selectRing.visible = true;
+  _setSelectedHeroBorder(hero);   // light-blue bar border instead of the ring under the hero
+  selectRing.visible = false;
   setFollowUnit(hero);
   window.dispatchEvent(new CustomEvent('pc-hero:selected', { detail: { hero } }));
 }

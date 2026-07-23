@@ -6,6 +6,7 @@ import { activeProps, propPositions, losBlockerMeshes, activeEnv } from './envir
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { PROP_MODELS } from './propRegistry.js';
 import { trackExclamation, untrackExclamation, clearAllExclamations } from './exclamationMarkers.js';
+import { markEnvVisibilityDirty } from './environmentVisibility.js';
 
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -85,6 +86,41 @@ function _updateLightControls() {
   const rVal   = document.getElementById('pe-light-range-val');
   if (iInput) { iInput.value = entry.params.intensity; iVal.textContent = entry.params.intensity; }
   if (rInput) { rInput.value = entry.params.range;     rVal.textContent = entry.params.range; }
+}
+
+// Show the "never fade" checkbox for any real (model-backed) prop and sync it to the
+// selected entry. Biome-adopted props (model === null) can't be re-serialized, so the
+// toggle would not persist — hide it for them.
+function _updateFadeControl() {
+  const wrap = document.getElementById('pe-fade-controls');
+  if (!wrap) return;
+  const entry = _selectedIdx >= 0 ? _placedProps[_selectedIdx] : null;
+  const show  = !!entry && entry.model !== null;
+  wrap.style.display = show ? 'block' : 'none';
+  if (!show) return;
+  const box = document.getElementById('pe-nofade');
+  if (box) box.checked = !!entry.noFade;
+}
+
+// Flip the selected prop's noFade and push it straight to the live mesh so the change
+// is visible immediately (no reload). Persists on the next SAVE via the serializers.
+function _setSelectedNoFade(on) {
+  if (_selectedIdx < 0) return;
+  const entry = _placedProps[_selectedIdx];
+  if (!entry || entry.model === null) return;
+  _snapshot();
+  entry.noFade = on;
+  if (on) {
+    entry.mesh.userData.noFade = true;
+    // Undo any cut currently applied so a prop faded mid-toggle snaps back to fully opaque.
+    entry.mesh.traverse(o => {
+      const mats = o.isMesh ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+      for (const m of mats) if (m?.userData?._cutY) m.userData._cutY.value = 1e6;
+    });
+  } else {
+    delete entry.mesh.userData.noFade;
+  }
+  markEnvVisibilityDirty();  // noFade is read at rebuild time — force one so the toggle takes effect now
 }
 
 // ── Selection ring ────────────────────────────────────────────────────────────
@@ -293,11 +329,13 @@ function _selectIdx(i) {
   if (i < 0 || i >= _placedProps.length) {
     _selRing.visible = false;
     _updateLightControls();
+    _updateFadeControl();
     return;
   }
   _showSelRing(_placedProps[i].mesh);
   _updateStatus();
   _updateLightControls();
+  _updateFadeControl();
 }
 
 // ── Remove selected ───────────────────────────────────────────────────────────
@@ -362,8 +400,13 @@ function _undo() {
   clearAllExclamations();
   for (const entry of _placedProps) {
     _applyTransform(entry);
+    // Re-sync noFade onto the live mesh — a toggle is undoable, and environmentVisibility
+    // reads userData at rebuild time, so the data and the mesh must not drift apart.
+    if (entry.noFade) entry.mesh.userData.noFade = true;
+    else              delete entry.mesh.userData.noFade;
     if (entry.model === 'exclamation_marker') trackExclamation(entry.mesh, entry.x, entry.z);
   }
+  markEnvVisibilityDirty();
 
   _selectIdx(-1);
   _updateStatus();
@@ -505,6 +548,7 @@ async function _saveToZone() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
+      if (p.noFade)            obj.noFade     = true;
       _carryMetadata(p, obj);
       return obj;
     });
@@ -559,6 +603,7 @@ function _exportJSON() {
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
+      if (p.noFade)            obj.noFade     = true;
       _carryMetadata(p, obj);
       return obj;
     });
@@ -624,6 +669,12 @@ export async function loadZoneProps(propsArray) {
       mesh = original.clone();
     }
 
+    // environmentVisibility fades the top off any prop that occludes a hero. `noFade` opts a prop
+    // out so it stays fully opaque. Per-placement (p.noFade, the editor checkbox) wins; a registry
+    // def.noFade is only a fallback default. Default (both undefined) is to fade.
+    const noFade = p.noFade ?? def.noFade ?? false;
+    if (noFade) mesh.userData.noFade = true;
+
     const entry = {
       mesh,
       model:  p.model,
@@ -633,6 +684,7 @@ export async function loadZoneProps(propsArray) {
       rotY:   p.rotY  ?? 0,
       rotX:   p.rotX  ?? def.defaultRotX ?? 0,
       scaleF: p.scale ?? def.defaultScale,
+      noFade,
     };
     if (p.params)       { entry.params    = { ...p.params }; _applyLightParams(entry); }
     if (p.waystoneId != null) entry.waystoneId = p.waystoneId;
@@ -882,6 +934,11 @@ export function initPropEditor() {
   // Save / Export buttons
   document.getElementById('pe-save-btn')?.addEventListener('click', _saveToZone);
   document.getElementById('pe-export-btn')?.addEventListener('click', _openExportModal);
+
+  // "Never fade" toggle — only visible when a model-backed prop is selected
+  document.getElementById('pe-nofade')?.addEventListener('change', e => {
+    _setSelectedNoFade(e.target.checked);
+  });
 
   // Light controls — only visible when a point_light is selected
   document.getElementById('pe-light-intensity')?.addEventListener('input', e => {

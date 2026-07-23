@@ -102,13 +102,22 @@ function _collectMaterials(obj) {
   return { uniforms, meshes };
 }
 
+// Force the next updateEnvironmentVisibility() to rebuild _entries. Call after toggling a prop's
+// userData.noFade at runtime (the prop-editor checkbox): noFade is read only at rebuild time, and
+// a toggle doesn't change activeProps.length, so without this the change wouldn't take effect until
+// a prop is added or removed.
+export function markEnvVisibilityDirty() { _lastLen = -1; }
+
 function _rebuild() {
   _entries = [];
 
   for (const obj of activeProps) {
     // Gate fog / Zone Gate props are meant to be SEEN through — never fade them out when they sit
     // between the camera and a hero (the fog is soft and the gate's white ball is a click target).
-    if (obj.userData?.isFogBall || obj.userData?.isZoneGate) continue;
+    // `noFade` is the general opt-out: props flagged noFade in propRegistry (or per-placement in a
+    // zone file) stay fully opaque even when they occlude a hero — use it only for props short or
+    // sparse enough that they never actually hide a unit the player needs to see.
+    if (obj.userData?.isFogBall || obj.userData?.isZoneGate || obj.userData?.noFade) continue;
 
     const { uniforms, meshes } = _collectMaterials(obj);
     if (!uniforms.length) continue;

@@ -9,6 +9,9 @@ import { addUnitDungeonLight } from './environments.js';
 import { equipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getItem } from './items.js';
 import { combatSpeed } from './combatSpeed.js';
+// Circular with combat.js (which imports `units` from here). Safe: these are only called at
+// runtime inside bar event handlers, long after both modules finish evaluating.
+import { onBarHover, onBarLeave, onBarPress } from './combat.js';
 
 export const units      = [];
 export const corpses    = [];  // animated units that have died — kept for mixer updates
@@ -246,6 +249,30 @@ const ANIM_CLIP_NAMES = {
   },
   giant_toad: {
     idle: 'Idle Alert', walk: 'Walk', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  // wolf.glb (serves wolf, dire_wolf, werewolf). Clips verified via `gltf-transform inspect`:
+  // Bite, Death, Idle Alert, Run — cleanly named by the artist, same family as the hyena.
+  // NO override existed, so all three fell back to autoMapAnimClips, whose Hips-Y heuristic
+  // scrambles this quadruped rig (the 2s 'Idle Alert' reads as an attack, 'Bite' gets pulled
+  // into a loco slot) — that's the "messed up" wolves. Pinned by name to fix it.
+  // There is NO separate walk clip, so walk and run BOTH use 'Run' (the only locomotion cycle,
+  // same as the zombie/shadow single-loco rigs). rangedAttack:null: no ranged clip, and without
+  // the pin autoMapAnimClips would hand the slot a loco cycle. ANIM_CLIP_NAMES is keyed by type,
+  // so each of the three wolf types needs its own entry or the two without it auto-detect.
+  wolf: {
+    idle: 'Idle Alert', walk: 'Run', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  dire_wolf: {
+    idle: 'Idle Alert', walk: 'Run', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  werewolf: {
+    idle: 'Idle Alert', walk: 'Run', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
+  },
+  // warg.glb. Clips verified via inspect: Bite, Death, Howl, Idle Alert, Run. Same fix/reasons as
+  // the wolf above (no override → auto-detection scrambled it). 'Howl' has no combat role and is
+  // left UNUSED; walk and run both use 'Run' (no dedicated walk clip). rangedAttack pinned null.
+  warg: {
+    idle: 'Idle Alert', walk: 'Run', run: 'Run', attack: 'Bite', rangedAttack: null, death: 'Death',
   },
   // solrac.glb has a real standing idle (Idle_11) plus loco + sit/cheer poses.
   // Pin the standing idle and loco explicitly; no attack clip (peaceful NPC).
@@ -693,6 +720,16 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               _scaleElapsed: 0,
               _scaleOnComplete: null };
   units.push(u);
+
+  // Make the floating HP bar a targeting proxy for this unit. The bar sits above the model, so
+  // pointing at it wouldn't hit the unit with the targeting raycast — these forward hover/press
+  // to the same logic the model uses. mouseenter/leave (not delegation) fire cleanly per bar.
+  if (barEl) {
+    barEl.addEventListener('mouseenter', () => onBarHover(u));
+    barEl.addEventListener('mouseleave', () => onBarLeave(u));
+    barEl.addEventListener('mousedown', ev => { ev.preventDefault(); onBarPress(u); });
+  }
+
   if (team === 'blue') {
     if (!u.equipment) {
       u.equipment = {};

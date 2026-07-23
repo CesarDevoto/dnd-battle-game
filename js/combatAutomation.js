@@ -252,8 +252,8 @@ const CATEGORIES = [
         // When triggered, executes the action_priority_in_range list as normal.
         id: 'ready_trigger_priority', label: 'Trigger priority', type: 'priority',
         options: [
-          { value: 'enemy_in_los',          label: 'Enemy enters LOS'          },
-          { value: 'enemy_in_ranged_range',  label: 'Enemy enters spell/ranged range' },
+          { value: 'enemy_in_los',          label: 'Enemy enters LOS/long range' },
+          { value: 'enemy_in_ranged_range',  label: 'Enemy enters normal spell/ranged range' },
           { value: 'enemy_in_melee_range',   label: 'Enemy enters melee range'  },
           // Milo's Sneak Attack needs an ally adjacent to his target (combat.js
           // _allyAdjacentToTarget). Holding his shot until a hero engages, then shooting

@@ -63,7 +63,9 @@ export function updateHUD() {
     // frame is pure wasted DOM work (each style write can force a reflow). Hide with
     // display:none — removed from layout, no paint — and skip the rest for them.
     const engagedEnemy = combatPhase && turnOrder.includes(u) && u.aggro;
-    const shouldShow    = u.team === 'blue' || u.familiar || engagedEnemy || u.barForced || now < u.barShowUntil;
+    // u._barHover: cursor is over this unit (or its bar) — force the bar visible so its hover
+    // opacity-flash (.hp-bar-hover) is actually seen, even on an otherwise-hidden dormant enemy.
+    const shouldShow    = u.team === 'blue' || u.familiar || engagedEnemy || u.barForced || u._barHover || now < u.barShowUntil;
     if (!shouldShow) {
       if (u.barEl.style.display !== 'none') u.barEl.style.display = 'none';
       return;
