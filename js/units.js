@@ -64,6 +64,7 @@ const MODEL_PATHS = {
   giant_rat:      'assets/models/giantrat.glb',
   hobgoblin:      'assets/models/hobgoblin.glb',
   hobgoblin_captain: 'assets/models/hobgoblinchief.glb',
+  bugbear:        'assets/models/bugbear.glb',
   goblin2:        'assets/models/goblin2.glb',
   commoner:       'assets/models/npcs/peasant1.glb',   // reuse the peasant model (static pose)
   owlbear:        'assets/models/owlbear.glb',
@@ -351,6 +352,16 @@ const ANIM_CLIP_NAMES = {
   hobgoblin_captain: {
     idle: 'Idle_8', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
     rangedAttack: 'Archery_Shot_1', death: 'Dead',
+  },
+  // bugbear.glb clips (verified via `gltf-transform inspect`): Dead, Idle_5, Right_Hand_Sword_Slash,
+  // Running, Walking — the clean-named hobgoblin/skeleton family — plus 'baseball_pitching', a
+  // scrambled-Meshy name for the wind-up THROW, mapped to the javelin's ranged attack. Pinned by
+  // name (not auto-detected) so 'baseball_pitching' can't be misread as a loco/idle clip.
+  // ⚠ baseball_pitching as the throw is inferred from the name + it being the longest clip (4s) —
+  // eyeball the javelin toss in-game to confirm; if wrong, set rangedAttack:null (melee-only).
+  bugbear: {
+    idle: 'Idle_5', walk: 'Walking', run: 'Running', attack: 'Right_Hand_Sword_Slash',
+    rangedAttack: 'baseball_pitching', death: 'Dead',
   },
   // Slow_Orc_Walk used for patrol/normal movement; Running for combat charge; Walking unused
   ghoul: {
@@ -910,6 +921,7 @@ export function serializeZoneEnemies() {
       if (u.roams && u.roamMode && u.roamMode !== 'patrol') e.roamMode = u.roamMode;
       if (u.roams && u.roamMode === 'wander')        e.wanderRadius = u.wanderRadius ?? 10;
       if (u.roamGroup)                               e.roamGroup    = u.roamGroup;
+      if (u.stationary)                              e.stationary   = true;
       if (u.patrolPath?.length >= 2)                 e.patrol       = u.patrolPath.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));
       if (u.stealthed)                               e.stealthed    = true;
       if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;

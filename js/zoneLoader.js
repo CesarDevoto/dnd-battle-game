@@ -102,6 +102,7 @@ function _tickSpawns(roundNum) {
     if (s.roamMode)                       u.roamMode = s.roamMode;
     if (s.wanderRadius != null)           u.wanderRadius = s.wanderRadius;
     if (s.roamGroup)                      { u.roamGroup = s.roamGroup; u.roams = true; }
+    if (s.stationary)                     u.stationary = true;   // never moves in combat (holds position)
     if (s.stealthed)                      { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
 
     // Reinforcements are immediately hostile
@@ -356,6 +357,7 @@ function _spawnZoneEnemy(e) {
   // A band member is a roamer by definition — the in-combat nudge is gated on `roams`,
   // so a follower given only a group id would freeze while its leader walked off.
   if (e.roamGroup)            { u.roamGroup = e.roamGroup; u.roams = true; }
+  if (e.stationary)           u.stationary = true;   // never moves in combat (holds position)
   if (e.stealthed)            { if (!isDevMode()) setUnitStealth(u, true); else u.stealthed = true; }
   if (e.attackPref)           u.attackPref   = e.attackPref;
   tagSpawnedEnemy(u, e);   // stamp _respawnId so a later defeat records its timer

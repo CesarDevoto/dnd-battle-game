@@ -1,4 +1,4 @@
-import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkFogBall, mkZoneGate, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
+import { mkRock, mkSnowBoulder, mkBoulderCluster, mkBush, mkGlowMushroom, mkRubblePile, mkDryShrub, mkFern, mkGraveMound, mkCross, mkRoadSegment, mkWaterDisc, mkBloodPool, mkCampfire, mkFireSparks, mkRoadCurve30, mkArrow, mkExclamationMarker, mkFogPatch, mkFogBall, mkZoneGate, mkPointLight, mkDarknessPlane, mkWaystoneDisc } from './environments.js';
 
 // Available props for the zone prop editor.
 // GLB entries use `path`; procedural entries use `builderFn` (called fresh per placement).
@@ -119,6 +119,21 @@ export const PROP_MODELS = {
   mushroom4:    { label: 'Mushroom 4',  path: 'assets/environment/mushroom4.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.1  },
   // ~2 WU tall at scale 1 — too short to break a sight line, so blocksLOS:false.
   mushroomtree: { label: 'Mushroom Tree', path: 'assets/environment/mushroomtree.glb',   defaultScale: 1.0, blocksLOS: false, clashR: 0.35 },
+  // Campfire MODEL (logs), ~2 WU wide at scale 1, bottom normalized to y=0. `attach` adds rising
+  // fire sparks + a warm flicker light at the centre when placed (see mkFireSparks). Distinct from
+  // the fully-procedural `campfire` (pure particle fire, no model).
+  // ~1.85 WU wide at scale 1 (bottom normalized to y=0); default small so it reads as clutter.
+  poop:         { label: 'Poop',        path: 'assets/environment/poop.glb',              defaultScale: 0.4, blocksLOS: false, clashR: 0.2  },
+  campfire2:    { label: 'Campfire (Logs)', path: 'assets/environment/campfire.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.7,
+    attach: (mesh) => {
+      // Bright warm-orange room light (the default mkFireSparks glow is a small ember flicker).
+      const sparks = mkFireSparks({ lightColor: 0xff7a28, lightIntensity: 14, lightDistance: 42 });
+      sparks.position.y = 0.18;   // just above the logs, at the fire's base; scales with the prop
+      mesh.add(sparks);
+      const prev = mesh.userData.destroy;
+      mesh.userData.destroy = () => { sparks.userData.destroy?.(); prev?.(); };
+    },
+  },
   bench1:       { label: 'Bench 1',     path: 'assets/environment/bench1.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   barstand2:    { label: 'Bar Stand 2', path: 'assets/environment/barstand2.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   barloaded:    { label: 'Loaded Bar',  path: 'assets/environment/barloaded.glb',        defaultScale: 1.0, blocksLOS: true,  clashR: 2.0  },

@@ -5675,11 +5675,12 @@ const SAVE_SLOT = 'Digit1';
 //   • Digit8 was REMOVED — it now holds the healing potion. Leaving it would let a drag-drop
 //     park an ability on top of the potion, and the hero-switch unbind would wipe the
 //     potion's binding outright.
-//   • Digit6 was ADDED — freed by the move, and an unassignable empty slot would just be dead
-//     space. Safe because AUTO_FILL_SLOTS is QWERTY-only (Q→Y), so making a DIGIT assignable
-//     cannot change where existing heroes' abilities auto-land; it only opens it to drag-drop,
-//     exactly like Digit7 beside it.
-const SPARE_SLOTS = ['Digit6', 'Digit7', 'KeyU'];
+// ⚠ Digit6 / Digit7 are now FIXED Dash / Dodge buttons (bound in _rebuildHotbar, like Ready
+//   Action on Digit4), so they are NO LONGER spare drag targets. Only KeyU remains a free slot.
+const SPARE_SLOTS = ['KeyU'];
+// Abilities that live on their own dedicated fixed slot (Digit6/Digit7), so they must NOT also be
+// auto-filled into a QWERTY slot or dragged elsewhere — they'd double-bind.
+const FIXED_SLOT_ABILITIES = new Set(['dash', 'dodge']);
 const _ASSIGNABLE_SLOTS = new Set(['Backquote', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'Tab', 'KeyY', 'KeyT',
                                    ...SPARE_SLOTS]);
 
@@ -5723,6 +5724,7 @@ export function autoAssignHotbarSlots(hero) {
   const taken = new Set(Object.values(slots));   // abilities already placed anywhere
   for (const key of _autoAbilityOrder(hero.type)) {
     if (taken.has(key)) continue;                             // already on the bar
+    if (FIXED_SLOT_ABILITIES.has(key)) continue;              // dash/dodge have dedicated Digit6/7
     if (!_ABILITY_HANDLERS[key]) continue;                    // must be bindable
     if (!isAbilityUnlocked(hero.type, hero.level ?? 1, key)) continue; // not unlocked yet
     const free = AUTO_FILL_SLOTS.find(s => !slots[s]);        // next empty QWERTY slot
@@ -5987,6 +5989,10 @@ function _rebuildHotbar(u) {
       'action'
     );
   }
+  // Dash on Digit6, Dodge on Digit7 — fixed Action buttons. Their handlers are actionType:'action',
+  // so _bindAbilitySlot renders the "A" tag exactly like the Ready Action button above.
+  _bindAbilitySlot('Digit6', 'dash');
+  _bindAbilitySlot('Digit7', 'dodge');
   {
     const potion = _heroPotion(u);
     bindHotkey('Digit8', false,
@@ -6011,6 +6017,11 @@ function _rebuildHotbar(u) {
   // before that rule existed gets dropped, so it can't fight the save button for the slot;
   // autoAssignHotbarSlots re-seeds it into a free QWERTY slot on the next pass.
   if (u.hotbarSlots?.[SAVE_SLOT]) delete u.hotbarSlots[SAVE_SLOT];
+  // Dash/Dodge are fixed on Digit6/Digit7 now — drop any stale auto-filled/dragged copy of them,
+  // and anything a hero had parked on those two slots before, so nothing double-binds or overwrites.
+  for (const [k, v] of Object.entries(u.hotbarSlots ?? {})) {
+    if (FIXED_SLOT_ABILITIES.has(v) || k === 'Digit6' || k === 'Digit7') delete u.hotbarSlots[k];
+  }
 
   autoAssignHotbarSlots(u);
   for (const [slotKey, abilityKey] of Object.entries(u.hotbarSlots ?? {})) {
@@ -7680,6 +7691,18 @@ function runAITurn(u) {
     // defaults to the turn's target, but a Multiattack leg mid-flurry may be chasing a
     // freshly re-picked hero instead.
     function moveToAndThen(dest, cb, faceUnit = target) {
+      // Stationary enemies hold their ground: face the target and continue WITHOUT moving, so they
+      // only attack when a hero is already in range (otherwise the turn just ends). Skip the
+      // 'enemy_moved' delayed-trigger check — nothing moved, so nothing can newly enter a range.
+      if (u.stationary) {
+        if (faceUnit && units.includes(faceUnit)) {
+          const fdx = faceUnit.grp.position.x - u.grp.position.x;
+          const fdz = faceUnit.grp.position.z - u.grp.position.z;
+          u.grp.rotation.y = Math.atan2(fdx, fdz);
+        }
+        cb();
+        return;
+      }
       const ox = u.grp.position.x, oz = u.grp.position.z;
       const path = findPath(ox, oz, dest.x, dest.z);
       animatePath(u, path, () => {
