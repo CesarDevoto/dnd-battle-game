@@ -23,12 +23,17 @@ import { getGroundHeight } from './terrain.js';
 // than this per tile to stay walkable; a platform edge or a deck-to-ground drop exceeds it → wall.
 export const SURFACE_STEP = 1.4;
 
-let _active   = false;
-let _surfaces = [];   // [{ contains(x,z):bool, heightAt(x,z):number, solid:bool }]
+let _active     = false;
+let _surfaces   = [];   // [{ contains(x,z):bool, heightAt(x,z):number, solid:bool }]
+let _losBlockers = [];  // the surface MESHES — line-of-sight raycasts against these (real occlusion)
 
 export function setSurfaceMovement(on) { _active = !!on; }
 export function isSurfaceMovement()     { return _active; }
-export function clearSurfaces()         { _surfaces = []; }
+export function clearSurfaces()         { _surfaces = []; _losBlockers = []; }
+// The platform/ramp/bridge meshes, for LOS raycasting. A ray through a platform box, a ramp wedge,
+// or a bridge deck slab is occluded — so elevation hides units correctly (behind a platform, under
+// a bridge) the way a height-field check can't. Empty in normal zones (no surface LOS cost).
+export function surfaceLosBlockers() { return _losBlockers; }
 
 // All walkable levels at world (x,z), sorted ascending. The terrain floor is included UNLESS a solid
 // surface covers the point; every surface at the point contributes its height. Non-solid (bridge)
@@ -100,6 +105,7 @@ export function buildSurfacesFromZone(list) {
     else if (def.type === 'bridge') { _surfaces.push(_bridgeSurface(def));   meshes.push(_bridgeMesh(def)); }
     else                            { _surfaces.push(_platformSurface(def)); meshes.push(_platformMesh(def)); }
   }
+  _losBlockers = meshes;   // same mesh objects the LOS raycast tests against
   return meshes;
 }
 
@@ -146,15 +152,31 @@ function _bridgeMesh({ x, z, w, d, h }) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
+// A solid WEDGE built in world coords whose top face IS the analytic ramp plane (h0 at the −axis
+// end, h1 at the +axis end) and whose base reaches y=0. Using a wedge instead of a tilted thin box
+// removes the thickness/pivot offset that left a visible "crack" where the ramp met the deck.
 function _rampMesh({ x, z, w, len, axis, h0, h1 }) {
   const alongX = axis === 'x';
-  const thick  = 0.5;
-  const m = new THREE.Mesh(new THREE.BoxGeometry(alongX ? len : w, thick, alongX ? w : len), _mat());
-  const slope = Math.atan2(h1 - h0, len);
-  m.position.set(x, (h0 + h1) / 2, z);
-  // Tilt so the visual top face matches heightAt (h0 at the −axis end, h1 at the +axis end).
-  // Rotating about x vs z flips the required sign, hence the mirrored signs.
-  if (alongX) m.rotation.z = slope; else m.rotation.x = -slope;
+  const a0 = -len / 2, a1 = len / 2, b0 = -w / 2, b1 = w / 2;
+  const world = (a, b) => alongX ? [x + a, z + b] : [x + b, z + a];   // (along, across) → world x,z
+  const p = [];
+  const push = (a, b, y) => { const [wx, wz] = world(a, b); p.push(wx, y, wz); };
+  push(a0, b0, h0); push(a0, b1, h0); push(a1, b1, h1); push(a1, b0, h1);   // 0..3 sloped top
+  push(a0, b0, 0);  push(a0, b1, 0);  push(a1, b1, 0);  push(a1, b0, 0);    // 4..7 flat base
+  const idx = [
+    0,1,2, 0,2,3,     // top
+    4,6,5, 4,7,6,     // base
+    0,4,5, 0,5,1,     // −along end
+    3,2,6, 3,6,7,     // +along end
+    1,5,6, 1,6,2,     // +across side
+    0,3,7, 0,7,4,     // −across side
+  ];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const mat = _mat(); mat.side = THREE.DoubleSide;   // DoubleSide so winding never hides a face
+  const m = new THREE.Mesh(g, mat);
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
