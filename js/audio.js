@@ -447,6 +447,7 @@ const UNIT_SOUNDS = {
   ogre:           { aggro: 'ogre_aggro',         attack: 'ogre_attack' },
   abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
   goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
+  goblin3:         { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },   // Goblin Raider — reuse base goblin audio
   hobgoblin:       { aggro: 'hobgoblin_aggro',   attack: 'hobgoblin_attack', move: 'hobgoblin_moving' },
   hobgoblin_captain: { aggro: 'hobgoblin_chief_aggro', attack: 'hobgoblin_chief_attack', move: 'hobgoblin_chief_moving' },
   hyena:           { aggro: 'hyena_aggro',       attack: 'hyena_attack',     move: 'hyena_moving' },

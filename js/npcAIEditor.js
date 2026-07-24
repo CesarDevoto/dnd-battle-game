@@ -89,6 +89,12 @@ function _injectPanel() {
     <span class="npc-ai-hint">(invisible until spotted)</span>
   </div>
 
+  <div class="npc-ai-row npc-ai-check-row">
+    <input id="npc-ai-stationary" type="checkbox">
+    <label for="npc-ai-stationary">Stationary</label>
+    <span class="npc-ai-hint">(holds position; never moves in combat)</span>
+  </div>
+
   <div class="npc-ai-divider"></div>
 
   <div class="npc-ai-section-label">Attack preference</div>
@@ -256,6 +262,7 @@ function _populate() {
   document.getElementById('npc-ai-group').value = _unit.roamGroup ?? '';
 
   document.getElementById('npc-ai-stealthed').checked = _unit.stealthed ?? false;
+  document.getElementById('npc-ai-stationary').checked = _unit.stationary ?? false;
 
   const pref = _unit.attackPref ?? 'default';
   const prefInput = document.querySelector(`input[name="npc-ai-atk"][value="${pref}"]`);
@@ -295,6 +302,7 @@ function _applyToUnit() {
   // patrolPath already lives on _unit (managed by waypoint add/delete)
 
   _unit.stealthed  = document.getElementById('npc-ai-stealthed').checked;
+  _unit.stationary = document.getElementById('npc-ai-stationary').checked;
   _unit.attackPref = document.querySelector('input[name="npc-ai-atk"]:checked')?.value ?? 'default';
 }
 

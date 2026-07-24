@@ -512,6 +512,27 @@ export const UNIT_TYPES = {
     ],
   },
 
+  // D&D 5e Bugbear (CR 1) — bugbear.glb. Clean hobgoblin-family clip set plus a throw
+  // ('baseball_pitching' → Javelin). Brute doubles its weapon dice, so Morningstar is 2d8 and
+  // Javelin 2d6. Surprise Attack (+2d6 vs a surprised target) is NOT modelled — no surprise-round
+  // bonus hook yet. team:'red' alone lists it in the spawn editor's enemy picker.
+  // scale/anchorY are BBOX-DERIVED (native ~1.05 WU tall, feet at origin) and UNVERIFIED — nudge [ / ].
+  bugbear: {
+    name: 'Bugbear', team: 'red',
+    scale: [2.0, 2.0, 2.0], anchorY: 2.7,
+    // Throws a JAVELIN, not an arrow (javelin.js) — same as the ogre. rangedRotY:0 faces the target
+    // on the throw; the non-elf default (-π/2) would aim the toss off to the side.
+    projectile: 'javelin',
+    rangedRotY: 0,
+    detect: 20,
+    hp: 27, ac: 16, speed: 30, initiative: 0, profBonus: 2,
+    abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9 },
+    attacks: [
+      { name: 'Morningstar', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
+      { name: 'Javelin',     type: 'ranged', range: 30, longRange: 60, rawLongRange: 120, dice: 2, sides: 6, statMod: 'str' },
+    ],
+  },
+
   hobgoblin_captain: {
     name: 'Hobgoblin Captain', team: 'red',
     // Dedicated model hobgoblinchief.glb (native height ~1.08 WU vs the base hobgoblin's

@@ -415,8 +415,11 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     // Lerp effective hover from full height (12+ WU away) down to 0 (≤5 WU away).
     // Familiars (the owl) are exempt — they hold a constant height above terrain,
     // adapting to slope but never diving toward enemies.
+    // STATIONARY units are exempt too: their hoverY is a fixed "standing on a raised surface"
+    // offset (e.g. a guard placed on the bridge with the ]-key), NOT a hover-dive — without this
+    // they'd sink toward the floor as a hero closes, since a bridge is a prop, not terrain.
     let effectiveHoverY = baseHoverY;
-    if (baseHoverY > 0 && !u.familiar) {
+    if (baseHoverY > 0 && !u.familiar && !u.stationary) {
       const foeTeam = u.team === 'red' ? 'blue' : 'red';
       let minDist = Infinity;
       for (const other of units) {

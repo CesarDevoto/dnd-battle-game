@@ -48,6 +48,18 @@ function timerForType(type) {
 }
 export function isBossType(type) { return BOSS_TYPES.has(type); }
 
+// Is an enemy killed at `killClock` eligible to respawn now?
+// Self-heal guard: a kill can NEVER be in the FUTURE relative to the world clock. If killClock >
+// _clock, the clock was lost/reset (corrupt CLOCK_KEY, partial localStorage clear, quota) while the
+// kill record survived — so `_clock - killClock` goes negative and the enemy would otherwise stay
+// stranded dead until the clock climbed back past killClock + timer. Treat that as elapsed and let
+// it respawn immediately, so a lost clock heals itself instead of freezing spawns.
+function _respawnDue(killClock, type) {
+  if (killClock == null) return true;
+  const elapsed = _clock - killClock;
+  return elapsed < 0 || elapsed >= timerForType(type);
+}
+
 // ── Persistence ───────────────────────────────────────────────────────────────
 function _loadClock() {
   try {
@@ -152,9 +164,8 @@ export function filterZoneSpawns(zoneId, enemyDefs, { fresh = false } = {}) {
   for (const def of list) {
     const id = respawnIdOf(def);
     const killClock = zoneKills[id];
-    const onCooldown = killClock != null && (_clock - killClock) < timerForType(def.type);
-    if (onCooldown) continue;                                   // still dead — skip
-    if (killClock != null) { delete zoneKills[id]; dirty = true; } // timer elapsed — clear & spawn
+    if (killClock != null && !_respawnDue(killClock, def.type)) continue;  // still dead — skip
+    if (killClock != null) { delete zoneKills[id]; dirty = true; }         // timer elapsed — clear & spawn
     toSpawn.push(def);
   }
 
@@ -186,8 +197,8 @@ export function tickRespawn(dt) {
   for (const id of Object.keys(zoneKills)) {
     const def = _defsById.get(id);
     if (!def) { delete zoneKills[id]; dirty = true; continue; }   // stale — spawn no longer exists
-    if ((_clock - zoneKills[id]) < timerForType(def.type)) continue;
-    // Timer up — respawn this individual at its spawn point.
+    if (!_respawnDue(zoneKills[id], def.type)) continue;
+    // Timer up (or a lost clock left it "in the future") — respawn this individual at its spawn point.
     const u = _spawner(def);
     if (u) tagSpawnedEnemy(u, def);
     delete zoneKills[id];

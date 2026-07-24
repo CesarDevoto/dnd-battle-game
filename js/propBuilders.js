@@ -1834,6 +1834,59 @@ export function mkCampfire(s = 1, ry = 0) {
   return grp;
 }
 
+// Rising fire sparks/embers — a self-animating Points cloud that drifts UP from the origin, with a
+// soft warm flicker light. Reused by the campfire GLB prop (attached via the registry `attach`
+// hook), independent of the fully-procedural mkCampfire above. Returns a Group; its
+// userData.destroy() stops the RAF and frees buffers (called by clearProps on zone teardown).
+export function mkFireSparks(opts = {}) {
+  const N      = opts.count  ?? 26;
+  const spread = opts.spread ?? 0.34;   // horizontal scatter (local WU)
+  const rise   = opts.rise   ?? 1.0;    // how far a spark climbs before recycling
+  const lightColor     = opts.lightColor     ?? 0xff7722;
+  const lightIntensity = opts.lightIntensity ?? 1.2;   // base; flickers around this
+  const lightDistance  = opts.lightDistance  ?? 7;     // WU the glow reaches (0 = infinite)
+  const grp = new THREE.Group();
+
+  const pos = new Float32Array(N * 3), vel = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    pos[i*3]   = (Math.random() - 0.5) * spread;
+    pos[i*3+1] = Math.random() * rise;
+    pos[i*3+2] = (Math.random() - 0.5) * spread;
+    vel[i]     = 0.45 + Math.random() * 0.6;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0xffab44, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false,
+  }));
+
+  const light = new THREE.PointLight(lightColor, lightIntensity, lightDistance, 2);
+  light.position.y = 0.4;
+  grp.add(pts, light);
+
+  let alive = true, t = 0;
+  const arr = geo.attributes.position.array;
+  (function step() {
+    if (!alive) return;
+    t += 0.016;
+    light.intensity = lightIntensity * (0.86 + Math.sin(t*23)*0.08 + Math.sin(t*7.1)*0.06);
+    for (let i = 0; i < N; i++) {
+      arr[i*3+1] += vel[i] * 0.016;
+      if (arr[i*3+1] > rise) {
+        arr[i*3+1] = 0;
+        arr[i*3]   = (Math.random() - 0.5) * spread;
+        arr[i*3+2] = (Math.random() - 0.5) * spread;
+      }
+    }
+    geo.attributes.position.needsUpdate = true;
+    requestAnimationFrame(step);
+  })();
+
+  grp.userData.destroy = () => { alive = false; geo.dispose(); pts.material.dispose(); };
+  return grp;
+}
+
 export function mkBloodPool(s, ry) {
   const geo = new THREE.CircleGeometry(6, 64);
 

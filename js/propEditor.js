@@ -220,6 +220,7 @@ async function _placeAtPoint(pt) {
     catch (e) { console.error('[propEditor] GLB load failed:', e); return; }
     mesh = original.clone();
   }
+  if (def.attach) def.attach(mesh);   // per-model effect (e.g. campfire sparks)
 
   _snapshot();
   const s = def.defaultScale;
@@ -456,6 +457,7 @@ async function _duplicateSelected(dx, dz) {
     catch (e) { console.error('[propEditor] GLB load failed:', e); return; }
     mesh = original.clone();
   }
+  if (def.attach) def.attach(mesh, src);   // per-model effect (e.g. campfire sparks)
 
   _snapshot();
   const entry = {
@@ -669,6 +671,10 @@ export async function loadZoneProps(propsArray) {
       mesh = original.clone();
     }
 
+    // Optional per-model effect attach (e.g. campfire sparks): add children to the built mesh and
+    // chain any cleanup into mesh.userData.destroy so clearProps tears it down on zone change.
+    if (def.attach) def.attach(mesh, p);
+
     // environmentVisibility fades the top off any prop that occludes a hero. `noFade` opts a prop
     // out so it stays fully opaque. Per-placement (p.noFade, the editor checkbox) wins; a registry
     // def.noFade is only a fallback default. Default (both undefined) is to fade.
@@ -735,9 +741,9 @@ const PROP_CATEGORIES = [
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4','mushroom1','mushroom2','mushroom3','mushroom4','mushroomtree'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
-  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb','poop'] },
   { label: 'Terrain Surfaces',keys: ['flooring1','flooring2','rug1','road','roadcurve30','water','bloodpool'] },
-  { label: 'Effects & Markers',keys:['fogpatch','fogball','zonegate','campfire','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
+  { label: 'Effects & Markers',keys:['fogpatch','fogball','zonegate','campfire','campfire2','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];
 
 function _buildPanel() {
