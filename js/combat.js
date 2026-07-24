@@ -12,7 +12,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
          rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
-import { surfaceHeightAt, stepPassable, isSurfaceMovement, surfacesAt, nearestLevel, SURFACE_STEP } from './surfaces.js';
+import { surfaceHeightAt, stepPassable, isSurfaceMovement, surfacesAt, nearestLevel, SURFACE_STEP, surfaceLosBlockers } from './surfaces.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -928,8 +928,10 @@ const LOS_EYE_H    = 1.10;  // WU above unit Y for the ray origin/terminus
 const LOS_CANOPY_Y = 0.75;  // hits more than this WU above the highest eye are ignored
 const LOS_STEPS    = 12;    // terrain height samples along the ray
 
-// Returns true if terrain rises above the eye-level line between the two points.
-// Catches cliff walls and raised ridges that the prop raycaster never sees.
+// Returns true if the TERRAIN heightmap rises above the eye-level line between the two points —
+// catches cliff walls and raised ridges. Platforms/ramps/bridges are NOT height-sampled here; they
+// occlude via a real mesh raycast in hasLineOfSight (a single height per x,z can't tell "behind a
+// ramp" from "over its low end", nor block a hero on a deck from the goblin directly beneath it).
 function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
   for (let i = 1; i < LOS_STEPS; i++) {
     const t  = i / LOS_STEPS;
@@ -940,23 +942,39 @@ function _terrainBlocksLOS(ax, az, tx, tz, fromY, toY) {
 }
 
 // A pure terrain + prop line-of-sight test between two world points.
-export function hasLineOfSight(ax, az, tx, tz) {
+// fromEyeY/toEyeY (optional) override the eye heights — unit callers pass the unit's actual level +
+// eye height so a unit standing on a deck sights from up there and one under a bridge from the
+// ground. Point-based callers omit them and get the ground-level eye (unchanged behaviour).
+export function hasLineOfSight(ax, az, tx, tz, fromEyeY = null, toEyeY = null) {
   if (window.__pathProfile) window.__losCount = (window.__losCount || 0) + 1;   // TEMP LOS counter
   const dx = tx - ax, dz = tz - az;
   if (dx * dx + dz * dz === 0) return true;
 
-  const fromY = getGroundHeight(ax, az) + LOS_EYE_H;
-  const toY   = getGroundHeight(tx, tz) + LOS_EYE_H;
+  const fromY = fromEyeY != null ? fromEyeY : getGroundHeight(ax, az) + LOS_EYE_H;
+  const toY   = toEyeY   != null ? toEyeY   : getGroundHeight(tx, tz) + LOS_EYE_H;
 
   // Terrain check: cheap height sampling along the ray
   if (_terrainBlocksLOS(ax, az, tx, tz, fromY, toY)) return false;
 
-  // Prop check: raycaster against placed scene objects
-  if (!losBlockerMeshes.length) return true;
   const from = new THREE.Vector3(ax, fromY, az);
   const to   = new THREE.Vector3(tx, toY,   tz);
   const dist = from.distanceTo(to);
-  _losRay.set(from, new THREE.Vector3().subVectors(to, from).normalize());
+  const dir  = new THREE.Vector3().subVectors(to, from).normalize();
+
+  // Surface check (surfaceMovement zones only): raycast the sightline against the real platform/ramp/
+  // bridge meshes. ANY hit occludes — a solid platform/ramp box blocks through its volume, and the
+  // thin deck slab blocks a ray that crosses it (hero on a bridge ↔ goblin underneath) while leaving
+  // the open space below it clear (two units under the bridge still see each other).
+  const surf = surfaceLosBlockers();
+  if (surf.length) {
+    _losRay.set(from, dir);
+    _losRay.far = dist;
+    if (_losRay.intersectObjects(surf, true).length) return false;
+  }
+
+  // Prop check: raycaster against placed scene objects
+  if (!losBlockerMeshes.length) return true;
+  _losRay.set(from, dir);
   _losRay.far = dist;
 
   // Any hit at or below the canopy threshold blocks LOS; hits above it are foliage overhead
@@ -971,6 +989,8 @@ export function unitsHaveLOS(a, b) {
   return hasLineOfSight(
     a.grp.position.x, a.grp.position.z,
     b.grp.position.x, b.grp.position.z,
+    a.grp.position.y + LOS_EYE_H,   // eye height from each unit's ACTUAL level (deck vs ground)
+    b.grp.position.y + LOS_EYE_H,
   );
 }
 
@@ -4612,7 +4632,8 @@ function rayHitAnyUnit() {
   // the ~160ms 'mousemove handler took Nms' stalls. Instead, measure the perpendicular distance
   // from the pick ray to each unit's mid-body point and take the nearest-to-camera within a
   // footprint radius — O(units) of plain math, no geometry touched.
-  const ray = _ray.ray;
+  const ray  = _ray.ray;
+  const surf = surfaceLosBlockers();   // platform/ramp/bridge meshes — empty in normal zones
   let best = null, bestT = Infinity;
   for (const target of units) {
     // NPCs are built with hp = 0 ON PURPOSE (they have no stat block), so the usual
@@ -4629,7 +4650,19 @@ function rayHitAnyUnit() {
     const tAlong = (_rhVec.x - ray.origin.x) * ray.direction.x
                  + (_rhVec.y - ray.origin.y) * ray.direction.y
                  + (_rhVec.z - ray.origin.z) * ray.direction.z;
-    if (tAlong > 0 && tAlong < bestT) { bestT = tAlong; best = target; }
+    if (tAlong <= 0 || tAlong >= bestT) continue;
+    // Surface occlusion (surfaceMovement zones only): if a platform/ramp/bridge stands between the
+    // camera and this unit, you can't click/hover it through that geometry. The occlusion ray stops
+    // short of the unit (far = tAlong − r − margin) so the surface it's STANDING ON never blocks it.
+    if (surf.length) {
+      const near0 = _ray.near, far0 = _ray.far;
+      _ray.near = 0;
+      _ray.far  = tAlong - r - 0.6;
+      const blocked = _ray.far > 0.05 && _ray.intersectObjects(surf, true).length > 0;
+      _ray.near = near0; _ray.far = far0;
+      if (blocked) continue;
+    }
+    bestT = tAlong; best = target;
   }
   return best;
 }

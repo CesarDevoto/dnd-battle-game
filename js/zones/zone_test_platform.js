@@ -11,7 +11,7 @@ export const ZONE = {
   id:         'test_platform',
   name:       'TEST — Platform',
   groundSize: 96,
-  biome:      'forest',
+  biome: 'forest',
 
   surfaceMovement: true,
   terrainAmplitude: 0,   // dead-flat base so cliffs always exceed the step limit
@@ -41,7 +41,9 @@ export const ZONE = {
   // up there. Positions are inside the platform footprint (x:−8..8, z:−18..−2).
   enemies: [
     { type: 'goblin', x: -4, z: -10, rotY: 0 },
-    { type: 'goblin', x:  4, z: -12, rotY: 0 },
+    { type: 'goblin', x: 4, z: -12, rotY: 0 },
+    { type: 'goblin', x: 4, z: -22, rotY: 0 },
+    { type: 'goblin', x: 25.5, z: 1, rotY: 0 },
   ],
 
   exits: [],
