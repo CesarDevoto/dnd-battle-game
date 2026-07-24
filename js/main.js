@@ -46,7 +46,7 @@ import { initAudio, initMixerPanel } from './audio.js';
 import { initUiScale } from './uiScale.js';
 import { initResetGame } from './resetGame.js';
 import { initRespawn, tickRespawn } from './respawn.js';
-import { surfaceHeightAt } from './surfaces.js';
+import { surfaceHeightAt, nearestLevel } from './surfaces.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { tickLoot } from './loot.js';
@@ -406,9 +406,12 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     // enemies between turns costs a couple of adds each frame instead of a noise-sampled
     // height lookup per unit.
     if (u._grndX !== px || u._grndZ !== pz) {
-      // surfaceHeightAt = terrain in normal zones, but the TOPMOST walkable platform/ramp in a
-      // surfaceMovement zone — so a unit stands on the deck it walked up to, not the floor beneath.
-      u._grndY = surfaceHeightAt(px, pz);
+      // nearestLevel = terrain in normal zones, but the walkable level CLOSEST to the unit's own
+      // level in a surfaceMovement zone — so it stays on the deck it walked onto, or on the ground it
+      // walked UNDER a bridge, instead of snapping to whatever surface is topmost. u._level persists
+      // the choice across frames (movers set it too); fall back to the unit's Y before it's set.
+      u._grndY = nearestLevel(px, pz, u._level ?? u.grp.position.y);
+      u._level = u._grndY;
       u._grndX = px; u._grndZ = pz;
     }
     const terrainY   = u._grndY;

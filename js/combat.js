@@ -12,7 +12,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
          rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
-import { surfaceHeightAt, stepPassable, isSurfaceMovement } from './surfaces.js';
+import { surfaceHeightAt, stepPassable, isSurfaceMovement, surfacesAt, nearestLevel, SURFACE_STEP } from './surfaces.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -343,7 +343,11 @@ function playSleepEffect(caster, color = 0xcc55ff) {
 // over the TOPMOST walkable platform/ramp instead, so the move-range and hover indicators sit on the
 // deck a hero is standing on, not the floor below it.
 function _ringSurfaceH(x, z) {
-  return isSurfaceMovement() ? surfaceHeightAt(x, z) : getSurfaceHeight(x, z);
+  if (!isSurfaceMovement()) return getSurfaceHeight(x, z);
+  // Drape at the level nearest the ACTIVE unit's own level, so a unit under a bridge gets
+  // ground-height indicators and one on the deck gets deck-height (not always the topmost surface).
+  const active = combatPhase ? turnOrder[turnIndex] : null;
+  return nearestLevel(x, z, active ? active.grp.position.y : Infinity);
 }
 
 // ── Active ring ───────────────────────────────────────────────────────────────
@@ -855,7 +859,7 @@ function handleUndo() {
   hideUndoBtn();
   hideMoveRange();
   hideAttackTargets();
-  const path = findPath(u.grp.position.x, u.grp.position.z, x, z);
+  const path = findPath(u.grp.position.x, u.grp.position.z, x, z, u.grp.position.y);
   animatePath(u, path, () => {
     turnMovedFt = movedFt;
     addLog(`${unitLabel(u)} undoes move`, 'walk');
@@ -1142,7 +1146,11 @@ function atkReachWU(atk, unit) {
 
 // ── Pathfinding (BFS on the grid, blocking props only) ────────────────────────
 
-function findPath(sx, sz, tx, tz) {
+function findPath(sx, sz, tx, tz, startY = null) {
+  // Surface zones (platforms/bridges) path on a (x,z,LEVEL) graph so a unit can be routed across a
+  // deck OR under it. Everything else keeps the untouched flat (x,z) BFS below.
+  if (isSurfaceMovement()) return _findPathLevels(sx, sz, tx, tz, startY);
+
   const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S = WORLD_UNITS_PER_SQUARE;
   const key = (x, z) => `${x},${z}`;
@@ -1193,6 +1201,52 @@ function findPath(sx, sz, tx, tz) {
   return path;
 }
 
+// Level-aware BFS for surfaceMovement zones. Graph node = (tile x, tile z, surface LEVEL). From a
+// node, a neighbour tile is reachable at any of ITS surface levels within SURFACE_STEP of the current
+// level — so a unit on a bridge deck reaches the next deck tile but not the ground under it, and a
+// unit under the bridge reaches the ground tiles but not the deck (only ramps bridge the gap).
+// Returns [{x,z,y}] (the y = the level walked at each waypoint); animatePath follows the y directly.
+function _findPathLevels(sx, sz, tx, tz, startY) {
+  const S = WORLD_UNITS_PER_SQUARE;
+  const dirs = [[0, S], [0, -S], [S, 0], [-S, 0], [S, S], [S, -S], [-S, S], [-S, -S]];
+  const key = (x, z, y) => `${x},${z},${Math.round(y * 4)}`;   // quantise level to 0.25 WU
+
+  // Start on the level nearest the unit's current Y (so a unit under the bridge starts on the ground,
+  // not the deck above it).
+  const ref = startY == null ? Infinity : startY;
+  const startLevels = surfacesAt(sx, sz);
+  let sy = startLevels[0];
+  for (const L of startLevels) if (Math.abs(L - ref) < Math.abs(sy - ref)) sy = L;
+
+  const parent = new Map([[key(sx, sz, sy), null]]);
+  const queue  = [{ x: sx, z: sz, y: sy }];
+  let head = 0, found = null;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    if (cur.x === tx && cur.z === tz) { found = cur; break; }
+    for (const [dx, dz] of dirs) {
+      const nx = cur.x + dx, nz = cur.z + dz;
+      if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
+      if (hasPropClash(nx, nz)) continue;
+      if (crossesBarrier(cur.x, cur.z, nx, nz)) continue;
+      for (const L of surfacesAt(nx, nz)) {
+        if (Math.abs(L - cur.y) > SURFACE_STEP) continue;   // step rule, per level
+        const k = key(nx, nz, L);
+        if (parent.has(k)) continue;
+        parent.set(k, cur);
+        queue.push({ x: nx, z: nz, y: L });
+      }
+    }
+  }
+
+  if (!found) return [];
+  const path = [];
+  let node = found;
+  while (node) { path.unshift({ x: node.x, z: node.z, y: node.y }); node = parent.get(key(node.x, node.z, node.y)); }
+  path.shift();   // drop the start
+  return path;
+}
+
 // ── Path animation ────────────────────────────────────────────────────────────
 
 const MOVE_SPEED = 5.4; // world units per second
@@ -1209,7 +1263,8 @@ function animatePath(unit, path, onComplete) {
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
   let startZ  = unit.grp.position.z;
-  let startY  = surfaceHeightAt(startX, startZ);   // walkable surface (platform/ramp) or terrain
+  let startY  = nearestLevel(startX, startZ, unit.grp.position.y);   // the LEVEL the unit is on now
+  unit._level = startY;                                              // grounding reads this as refY
   let startTs = null;
 
   // Face the first direction immediately
@@ -1224,7 +1279,8 @@ function animatePath(unit, path, onComplete) {
     const dist    = Math.sqrt(dx * dx + dz * dz);
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * combatSpeed()) / dist) : 1;
-    const endY    = surfaceHeightAt(target.x, target.z);
+    const endY    = target.y != null ? target.y : surfaceHeightAt(target.x, target.z);   // the path's level
+    unit._level   = endY;                                                                // commit to it for grounding
 
     unit.grp.position.x = startX + dx * t;
     unit.grp.position.z = startZ + dz * t;
@@ -1296,6 +1352,7 @@ function _inOwnSmoke(u) {
 // BFS flood-fill to find all tiles reachable within maxDist WU, respecting
 // props and barriers step-by-step (not just a direct-line check from origin).
 function _bfsReachable(ux, uz, maxDist, excludeUnit) {
+  if (isSurfaceMovement()) return _bfsReachableLevels(ux, uz, maxDist, excludeUnit);
   const _pp0 = window.__pathProfile ? performance.now() : 0;   // TEMP path profiler
   const S    = WORLD_UNITS_PER_SQUARE;
   const key  = (x, z) => `${x},${z}`;
@@ -1328,6 +1385,44 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit) {
   if (window.__pathProfile) {
     const ms = performance.now() - _pp0;
     if (ms > 15) console.log(`[path] _bfsReachable ${ms.toFixed(0)}ms explored=${queue.length} maxDist=${maxDist.toFixed(1)} props=${propPositions.length}`);
+  }
+  return result;
+}
+
+// Level-aware reachability for surfaceMovement zones: BFS over (x,z,LEVEL) from the unit's current
+// level, returning the set of TILE keys it can actually stop on — so the move-range highlight shows
+// the deck tiles for a unit on a bridge and the ground tiles for one under it.
+function _bfsReachableLevels(ux, uz, maxDist, excludeUnit) {
+  const S = WORLD_UNITS_PER_SQUARE;
+  const dirs = [[0, S], [0, -S], [S, 0], [-S, 0], [S, S], [S, -S], [-S, S], [-S, -S]];
+  const key = (x, z, y) => `${x},${z},${Math.round(y * 4)}`;
+  const ref = excludeUnit ? excludeUnit.grp.position.y : Infinity;
+  const startLevels = surfacesAt(ux, uz);
+  let sy = startLevels[0];
+  for (const L of startLevels) if (Math.abs(L - ref) < Math.abs(sy - ref)) sy = L;
+
+  const dist   = new Map([[key(ux, uz, sy), 0]]);
+  const queue  = [{ x: ux, z: uz, y: sy, d: 0 }];
+  const result = new Set();
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    for (const [dx, dz] of dirs) {
+      const nx = cur.x + dx, nz = cur.z + dz;
+      const nd = cur.d + Math.sqrt(dx * dx + dz * dz);
+      if (nd > maxDist + 1e-6) continue;
+      if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
+      if (hasPropClash(nx, nz)) continue;
+      if (crossesBarrier(cur.x, cur.z, nx, nz)) continue;
+      for (const L of surfacesAt(nx, nz)) {
+        if (Math.abs(L - cur.y) > SURFACE_STEP) continue;
+        const k = key(nx, nz, L);
+        if (dist.has(k)) continue;
+        dist.set(k, nd);
+        if (!isOccupied(nx, nz, excludeUnit)) result.add(`${nx},${nz}`);   // tile key for validTiles
+        queue.push({ x: nx, z: nz, y: L, d: nd });
+      }
+    }
   }
   return result;
 }
@@ -4360,7 +4455,7 @@ renderer.domElement.addEventListener('click', e => {
           prevMoveState = { x: curU.grp.position.x, z: curU.grp.position.z, movedFt: turnMovedFt };
           hideMoveRange();
           hideAttackTargets();
-          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz);
+          const path = findPath(curU.grp.position.x, curU.grp.position.z, tx, tz, curU.grp.position.y);
           if (!path.length) {
             // Destination blocked by barrier — restore state, do nothing
             prevMoveState = null;
@@ -6683,7 +6778,7 @@ function _familiarMoveToward(u, destPos, onDone) {
     if (d < bestD) { bestD = d; best = { x: kx, z: kz }; }
   }
   if (!best) { onDone(); return; }
-  const path = findPath(ux, uz, best.x, best.z);
+  const path = findPath(ux, uz, best.x, best.z, u.grp.position.y);
   if (!path.length) { onDone(); return; }
   const mdx = best.x - ux, mdz = best.z - uz;
   const movedFt = Math.round(Math.sqrt(mdx * mdx + mdz * mdz) / WORLD_UNITS_PER_SQUARE) * GRID_SQUARE_FEET;
@@ -7317,7 +7412,7 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
 
     if (dest) {
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z);
+      const path = findPath(ox, oz, dest.x, dest.z, u.grp.position.y);
       if (!path.length) { doActionPriority(afterAction); return; }
       animatePath(u, path, () => {
         if (!combatPhase || !units.includes(u)) return;
@@ -7407,7 +7502,7 @@ function runAITurn(u) {
         const S   = WORLD_UNITS_PER_SQUARE;
         const tnx = cx + Math.round((destX - cx) / S) * S;
         const tnz = cz + Math.round((destZ - cz) / S) * S;
-        fleePath = findPath(cx, cz, tnx, tnz);
+        fleePath = findPath(cx, cz, tnx, tnz, u.grp.position.y);
       } else if (!isOccupied(destX, destZ, u)) {
         fleePath = [{ x: destX, z: destZ }];
       }
@@ -7460,7 +7555,7 @@ function runAITurn(u) {
         const S   = WORLD_UNITS_PER_SQUARE;
         const tnx = cx + Math.round((destX - cx) / S) * S;
         const tnz = cz + Math.round((destZ - cz) / S) * S;
-        stealthPath = findPath(cx, cz, tnx, tnz);
+        stealthPath = findPath(cx, cz, tnx, tnz, u.grp.position.y);
       } else if (isOccupied(destX, destZ, u)) {
         stealthPath = [];
       } else {
@@ -7709,7 +7804,7 @@ function runAITurn(u) {
         return;
       }
       const ox = u.grp.position.x, oz = u.grp.position.z;
-      const path = findPath(ox, oz, dest.x, dest.z);
+      const path = findPath(ox, oz, dest.x, dest.z, u.grp.position.y);
       animatePath(u, path, () => {
         const mdx = dest.x - ox, mdz = dest.z - oz;
         const movedFt = Math.round(

@@ -14,13 +14,20 @@ export const ZONE = {
   biome:      'forest',
 
   surfaceMovement: true,
-  terrainAmplitude: 0,   // dead-flat base so the platform's 3-WU cliff always exceeds the step limit
+  terrainAmplitude: 0,   // dead-flat base so cliffs always exceed the step limit
   surfaces: [
-    // Raised deck: centred at (0,−10), 16×16 footprint, flat top at y=3.
+    // ── Phase 1: SOLID platform + ramp (walk ON only) ────────────────────────────
     { type: 'platform', x: 0, z: -10, w: 16, d: 16, h: 3 },
-    // Ramp up the near (south) edge: rises 0→3 over 10 WU (0.6/tile < the 1.4 step limit → walkable).
-    // −z end (y=3) meets the platform edge at z=−2; +z end (y=0) is the ground approach at z=8.
     { type: 'ramp', x: 0, z: 3, w: 6, len: 10, axis: 'z', h0: 3, h1: 0 },
+
+    // ── Phase 2: a BRIDGE at x=25 you can walk BOTH across AND under ──────────────
+    // NON-solid deck at y=5 spanning z=−10..10 — the ground below it stays walkable, so approach the
+    // underside from the WEST/EAST side (x<22 or x>28) at ground level. Ramps climb each z-end onto
+    // the deck (rise 5 over 8 WU = 1.25/tile < the 1.4 limit). Deck's long sides are cliffs (can't hop
+    // between deck and the ground under it — only the ramps bridge the 5-WU gap).
+    { type: 'bridge', x: 25, z:   0, w: 6, d: 20, h: 5 },
+    { type: 'ramp',   x: 25, z:  14, w: 6, len: 8, axis: 'z', h0: 5, h1: 0 },   // south end ↓ to ground
+    { type: 'ramp',   x: 25, z: -14, w: 6, len: 8, axis: 'z', h0: 0, h1: 5 },   // north end ↑ to deck
   ],
 
   heroEntry: [
