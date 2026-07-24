@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, setSceneGroundSize, snapCameraToUnit, rebuildGrid, setGridOpacity, DEFAULT_GRID_OPACITY } from './scene.js';
+import { scene, camera, renderer, ground, setSceneGroundSize, snapCameraToUnit, rebuildGrid, setGridOpacity, DEFAULT_GRID_OPACITY } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, setTerrainAmplitudeScale, rebuildTerrain } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
@@ -17,6 +17,7 @@ import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPh
 import { applyHeroSkin } from './heroSkins.js';
 import { applyHeal } from './affixes.js';
 import { filterZoneSpawns, tagSpawnedEnemy, setEnemySpawner } from './respawn.js';
+import { setSurfaceMovement, buildSurfacesFromZone, clearSurfaces } from './surfaces.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_road_to_phandelver.js';
 import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
@@ -25,11 +26,12 @@ import { ZONE as ZONE_RIVER_STYX } from './zones/zone_river_styx.js';
 import { ZONE as ZONE_WARRENS } from './zones/zone_warrens.js';
 import { ZONE as ZONE_PHANDALIN } from './zones/zone_phandalin.js';
 import { ZONE as ZONE_HIDE_OUT } from './zones/zone_hide_out.js';
+import { ZONE as ZONE_TEST_PLATFORM } from './zones/zone_test_platform.js';
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 const _registry = {};
-const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS, ZONE_PHANDALIN, ZONE_HIDE_OUT];
+const ZONE_ORDER = [ZONE_DUNGEON_ENTRANCE, ZONE_BLEAKMIRE_WOODS, ZONE_HAUNTED_WOOD, ZONE_MAUSOLEUM, ZONE_RIVER_STYX, ZONE_WARRENS, ZONE_PHANDALIN, ZONE_HIDE_OUT, ZONE_TEST_PLATFORM];
 ZONE_ORDER.forEach(z => { _registry[z.id] = z; });
 
 // Warm the prop GLBs for ONE zone. This used to prewarm every prop in every zone at module
@@ -48,6 +50,7 @@ let _postCombat  = false;
 let _transitioning = false;
 let _exitMeshes  = [];
 let _breachMeshes = [];
+let _surfaceMeshes = [];   // Phase-1 walkable platform/ramp visuals (see surfaces.js)
 let _exitT       = 0;
 const _exitRay   = new THREE.Raycaster();
 const _exitPt    = new THREE.Vector2();
@@ -425,6 +428,14 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
     setEnv(zone.biome, zone.ambient);
   }
 
+  // Per-zone terrain-amplitude override (after setEnv, which sets the biome default). 0 = dead flat
+  // — surfaceMovement zones want this so a platform's cliff height isn't eroded below the step limit
+  // by rolling FBM noise, which would let units climb the edge instead of using the ramp.
+  if (zone.terrainAmplitude != null) {
+    setTerrainAmplitudeScale(zone.terrainAmplitude);
+    rebuildTerrain(ground, zone.biome);
+  }
+
   // Per-zone atmospheric-fog override (after setEnv, which resets to biome default)
   if (zone.fogDensity != null) setZoneFogDensity(zone.fogDensity, zone.fogColor);
 
@@ -436,6 +447,18 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // are still passed through to the paint module's data-only roof layer (see terrainPaint.js).
   loadPaint(zone.paint ?? [], zone.paintTint ?? null, zone.paintRoof ?? [], zone.paintRoofTint ?? null);
 
+  // ── Surface-aware multi-level (Phase 1) ──────────────────────────────────────
+  // Tear down the previous zone's platform/ramp meshes, then build this zone's if it opts in via
+  // `surfaceMovement: true` + a `surfaces: [...]` list. Off for every heightmap zone → no-op.
+  for (const m of _surfaceMeshes) { scene.remove(m); m.geometry?.dispose?.(); m.material?.dispose?.(); }
+  _surfaceMeshes = [];
+  setSurfaceMovement(!!zone.surfaceMovement);
+  if (zone.surfaceMovement) {
+    _surfaceMeshes = buildSurfacesFromZone(zone.surfaces);
+    for (const m of _surfaceMeshes) scene.add(m);
+  } else {
+    clearSurfaces();
+  }
 
   _postCombat = false;
 

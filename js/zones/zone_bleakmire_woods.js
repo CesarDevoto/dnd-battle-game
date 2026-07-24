@@ -52,7 +52,6 @@ export const ZONE = {
   exits: [
     { x: 3.32, z: 87.47, targetZone: 'road_to_phandelver', arrivalX: -41, arrivalZ: -16, label: 'Goblin Territory' },
     { x: 82, z: -82, targetZone: 'haunted_wood', arrivalX: -82, arrivalZ: 78, label: 'Haunted Wood', fogPush: 14 },
-    { x: -94.83, z: 2.59, targetZone: 'warrens', arrivalX: 172, arrivalZ: 172, label: 'The Warrens', proximityTrigger: true, fogPush: 0, fogHeight: 7.8 },
   ],
   terrain: [
     { x: 17, z: 20, h: -3, r: 11, pr: 8 },
@@ -183,7 +182,7 @@ export const ZONE = {
     { model: 'deadtree', x: -88.08, z: 89.7, y: -1.125, yOff: -1.125, rotY: 0, scale: 9.768 },
     { model: 'log', x: -73.83, z: 79.09, y: 0, rotY: 0, scale: 2.358 },
     { model: 'foresttree', x: -85.54, z: 45.58, y: 0, rotY: 0, scale: 10 },
-    { model: 'bush', x: -84.03, z: 3.4, y: -3.2, rotY: 0, scale: 1 },
+    { model: 'bush', x: -84.03, z: 3.4, y: -0.2, rotY: 0, scale: 1 },
     { model: 'bush', x: -81.53, z: 4.42, y: -0.2, rotY: 0, scale: 1 },
     { model: 'foresttree', x: -84.76, z: -20.89, y: 0.0914, rotY: 0, scale: 10 },
     { model: 'foresttree', x: -83.47, z: -79.94, y: 3.3378, rotY: 0, scale: 10 },
@@ -196,7 +195,8 @@ export const ZONE = {
     { model: 'glowmushroom', x: -94.83, z: 2.59, y: -3.2, rotY: 0, scale: 1 },
     { model: 'water', x: -49.39, z: 24.88, y: -0.825, yOff: -0.625, rotY: 0, scale: 8.264 },
     { model: 'water', x: -91.07, z: 2.73, y: -0.575, yOff: 2.625, rotY: 0, scale: 2.594 },
-    { model: 'cavemouth1', x: -100.91, z: 2.83, y: -3.3797, yOff: 19.5, rotY: 1.309, scale: 18.864 },
+    { model: 'cavemouth1', x: -100.91, z: 2.83, y: -3.3797, yOff: 19.5, rotY: 1.309, scale: 18.864, noFade: true },
+    { model: 'zonegate', x: -91.78, z: 6.66, y: -0.6515, yOff: -1, rotY: 0, scale: 1, params: { targetZone: 'hide_out' }, noFade: true },
   ],
   barriers: [
     { x1: 6.07, z1: 92.64, x2: 5.94, z2: 96.92 },
@@ -215,6 +215,6 @@ export const ZONE = {
     { x1: -93.46, z1: -92.86, x2: -92.33, z2: -4.52 },
   ],
   trenches: [
-    { points: [{x:9.43,z:13.13,h:-3}, {x:5.67,z:10.52,h:-3}, {x:-5.21,z:9.17,h:-3}, {x:-16.82,z:7.14,h:-3}, {x:-27.35,z:10.9,h:-3}, {x:-36.62,z:10.9,h:-3}, {x:-45.18,z:3.18,h:-3}, {x:-55.35,z:-3.09,h:-3}, {x:-67.84,z:-2.62,h:-3}, {x:-80.39,z:-3.28,h:-3}, {x:-86.2,z:3.42,h:-3}, {x:-92.54,z:6.3,h:-3}, {x:-95.44,z:5.08,h:-3}], r: 3, pr: 3 },
+    { points: [{x:9.43,z:13.13,h:-3}, {x:5.67,z:10.52,h:-3}, {x:-5.21,z:9.17,h:-3}, {x:-16.82,z:7.14,h:-3}, {x:-27.35,z:10.9,h:-3}, {x:-36.62,z:10.9,h:-3}, {x:-45.18,z:3.18,h:-3}, {x:-55.35,z:-3.09,h:-3}, {x:-67.84,z:-2.62,h:-3}, {x:-80.39,z:-3.28,h:-3}, {x:-86.2,z:-1.08,h:-3}, {x:-92.54,z:0.3,h:-3}, {x:-95.44,z:1.08,h:-3}], r: 3, pr: 3 },
   ],
 };

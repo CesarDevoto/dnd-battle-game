@@ -2227,7 +2227,10 @@ const _FOG_DISC = [
 const _FOG_BALL_Y = 1.8;
 
 // Add the animated fog sprites + ground discs to `grp` (children at relative positions).
-function _addFogCluster(grp) {
+// opts.discs=false skips the flat ground planes — zone gates use this because those planes (a
+// CanvasTexture fog on default Normal blending) read as a black square with a white circle under
+// the gate ball (see the fog-patch note: this fog needs AdditiveBlending, or no ground disc).
+function _addFogCluster(grp, { discs = true } = {}) {
   const texBright = _fogBallTex(true);
   const texSoft   = _fogBallTex(false);
 
@@ -2250,7 +2253,7 @@ function _addFogCluster(grp) {
     grp.add(spr);
   }
 
-  for (const def of _FOG_DISC) {
+  if (discs) for (const def of _FOG_DISC) {
     const mat = new THREE.MeshBasicMaterial({
       map: _fogBallTex(false), transparent: true, opacity: 0.55 * def.os,
       depthWrite: false, side: THREE.DoubleSide, fog: false,
@@ -2284,7 +2287,7 @@ export function mkFogBall() {
 // to the destination zone (arriving at that zone's reciprocal gate).
 export function mkZoneGate(targetZone = null) {
   const grp = new THREE.Group();
-  _addFogCluster(grp);
+  _addFogCluster(grp, { discs: false });   // no flat ground disc (reads as a black square under the ball)
 
   // The ~5-ft white click-ball, floating in the middle of the fog. Its WORLD size stays FIXED no
   // matter how big/small the fog is scaled: each frame it counter-scales by the gate group's own
