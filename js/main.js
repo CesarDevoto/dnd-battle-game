@@ -46,6 +46,7 @@ import { initAudio, initMixerPanel } from './audio.js';
 import { initUiScale } from './uiScale.js';
 import { initResetGame } from './resetGame.js';
 import { initRespawn, tickRespawn } from './respawn.js';
+import { surfaceHeightAt } from './surfaces.js';
 import { initDagna, tickDagna } from './dagnaEvent.js';
 import { initAmbush, tickAmbush } from './ambushEvent.js';
 import { tickLoot } from './loot.js';
@@ -405,7 +406,9 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
     // enemies between turns costs a couple of adds each frame instead of a noise-sampled
     // height lookup per unit.
     if (u._grndX !== px || u._grndZ !== pz) {
-      u._grndY = getGroundHeight(px, pz);
+      // surfaceHeightAt = terrain in normal zones, but the TOPMOST walkable platform/ramp in a
+      // surfaceMovement zone — so a unit stands on the deck it walked up to, not the floor beneath.
+      u._grndY = surfaceHeightAt(px, pz);
       u._grndX = px; u._grndZ = pz;
     }
     const terrainY   = u._grndY;

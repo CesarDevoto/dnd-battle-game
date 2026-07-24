@@ -15,8 +15,8 @@ export const ZONE = {
     { x:  -8, z: 6, type: 'halfling' },
   ],
   enemies: [
-    { type: 'goblin3', x: 5.96, z: -24.49, yOff: 8.25, rotY: 0, detectRange: 15, stationary: true },
-    { type: 'goblin3', x: 2.46, z: -27.49, yOff: 11.25, rotY: 0, detectRange: 15, stationary: true },
+    { type: 'goblin3', x: 5.96, z: -24.49, yOff: 8.25, rotY: 0, detectRange: 15 },
+    { type: 'goblin3', x: 2.46, z: -27.49, yOff: 11.25, rotY: 0, detectRange: 15 },
     { type: 'goblin', x: 43.56, z: 13.43, rotY: 0 },
     { type: 'goblin3', x: 48.87, z: 14.86, rotY: 0 },
     { type: 'goblin3', x: 43.28, z: 16.67, rotY: 1.5708 },
@@ -25,6 +25,10 @@ export const ZONE = {
     { type: 'bugbear', x: 48, z: 20.97, rotY: 3.927 },
     { type: 'goblin', x: 36.96, z: -10.01, rotY: 10.2102 },
     { type: 'warg', x: 50.13, z: 19.59, rotY: 3.927 },
+    { type: 'warg', x: 11.83, z: 11.09, rotY: 3.927 },
+    { type: 'warg', x: 13.02, z: 8.88, rotY: 3.927 },
+    { type: 'dire_wolf', x: 14.05, z: 6.55, scale: 1.331, rotY: 3.927 },
+    { type: 'dire_wolf', x: 11.05, z: 13.05, scale: 1.331, rotY: 3.927 },
   ],
   // Old coordinate exit removed (user, 2026-07-21): it drew the fog ball AND cut the "crack" notch
   // in the east wall. Use a placed Zone Gate prop for the return trip to the Warrens instead.
@@ -116,7 +120,7 @@ export const ZONE = {
     { model: 'water', x: 55.84, z: -20.98, y: 3.925, yOff: 4.125, rotY: 0, scale: 1.331 },
     { model: 'water', x: 57.17, z: -19.23, y: 3.925, yOff: 4.125, rotY: 0, scale: 1.331 },
     { model: 'water', x: 48.67, z: -17.9, y: 4.05, yOff: 4.25, rotY: 0, scale: 1.331 },
-    { model: 'cavemouth1', x: -10.31, z: 23.39, y: -4.125, yOff: -4.125, rotY: 9.425, scale: 17.149 },
+    { model: 'cavemouth1', x: -8.56, z: 23.39, y: -4.375, yOff: -4.375, rotY: 9.425, scale: 17.149, noFade: true },
     { model: 'water', x: -11.16, z: 13.95, y: -1.7, yOff: 0.5, rotY: 0.131, scale: 1.331 },
     { model: 'bridge', x: 6.08, z: -25.54, y: 9.875, yOff: 7.875, rotY: 14.923, scale: 10.451, noFade: true },
     { model: 'bridge', x: 4.62, z: -27.29, y: 9.8368, yOff: 10.75, rotY: 24.347, scale: 10.451, noFade: true },
@@ -170,7 +174,7 @@ export const ZONE = {
     { model: 'mushroom1', x: 4.84, z: 11.11, y: 1, rotY: 4.1, rotX: 0.5236, scale: 0.35 },
     { model: 'mushroom4', x: -17.9, z: -20.7, y: 5, rotY: 0.3, scale: 0.4 },
     { model: 'mushroom4', x: -18, z: -21.2, y: 5, rotY: 0.3, rotX: -0.3927, scale: 0.4 },
-    { model: 'mushroom1', x: 29.07, z: -34.58, y: 2.686, yOff: 1, rotY: 5.2, rotX: 0.9163, scale: 0.325 },
+    { model: 'mushroom1', x: 29.07, z: -34.58, y: 2.6867, yOff: 1, rotY: 5.2, rotX: 0.9163, scale: 0.325 },
     { model: 'campfire', x: 46.24, z: 18.56, y: 9.175, yOff: 0.375, rotY: 0, scale: 1.611, noFade: true },
     { model: 'campfire2', x: 46.05, z: 18.39, y: 9, rotY: 0, scale: 1.331, noFade: true },
     { model: 'campfire', x: 45.88, z: 18.81, y: 9.175, yOff: 0.375, rotY: 0, scale: 1.611, noFade: true },
@@ -179,6 +183,7 @@ export const ZONE = {
     { model: 'poop', x: 19.98, z: 8.53, y: 5, rotY: 0, scale: 0.484 },
     { model: 'poop', x: 19, z: 9.03, y: 5, rotY: 0, scale: 0.484 },
     { model: 'poop', x: 16.19, z: 5.87, y: 1, rotY: 0, scale: 0.644 },
+    { model: 'zonegate', x: -9.9, z: 17.33, y: -2.2, rotY: 0, scale: 1, params: { targetZone: 'bleakmire_woods' }, noFade: true },
   ],          // placed + saved via the prop editor — don't hand-write
   barriers: [
     { x1: -15.26, z1: 16.79, x2: -14.46, z2: 21.41 },

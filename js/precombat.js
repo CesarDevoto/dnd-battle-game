@@ -5,6 +5,7 @@ import { playUnitAggroSound } from './audio.js';
 import { getActiveZone, capDetectRange } from './zoneLoader.js';
 import { showQuickDialogue } from './dagnaEvent.js';
 import { barrierSegments } from './environments.js';
+import { stepPassable } from './surfaces.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -433,6 +434,7 @@ function _tickSoloPatrol(enemy, dt) {
 // True if stepping from (px,pz) to (nx,nz) hits a barrier or leaves the ground.
 function _blockedStep(px, pz, nx, nz, unit) {
   if (crossesAnyBarrier(px, pz, nx, nz)) return true;
+  if (!stepPassable(px, pz, nx, nz)) return true;   // surface zones: cliff/platform edges block, ramps pass
   const zone   = getActiveZone();
   const halfGS = ((zone?.groundSize ?? GROUND_SIZE) / 2) - 2;
   return Math.abs(nx) > halfGS || Math.abs(nz) > halfGS;

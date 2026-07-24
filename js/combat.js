@@ -12,6 +12,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
          rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
+import { surfaceHeightAt, stepPassable, isSurfaceMovement } from './surfaces.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -337,10 +338,12 @@ function playSleepEffect(caster, color = 0xcc55ff) {
 }
 
 // ── Conforming-ring surface sampling ──────────────────────────────────────────
-// The active/range/hover rings drape their vertices over the ground via getSurfaceHeight,
-// which also floats them on a water plane where a zone has one.
+// The active/range/hover/move-range rings drape their vertices over the ground via getSurfaceHeight,
+// which also floats them on a water plane where a zone has one. In a surfaceMovement zone they drape
+// over the TOPMOST walkable platform/ramp instead, so the move-range and hover indicators sit on the
+// deck a hero is standing on, not the floor below it.
 function _ringSurfaceH(x, z) {
-  return getSurfaceHeight(x, z);
+  return isSurfaceMovement() ? surfaceHeightAt(x, z) : getSurfaceHeight(x, z);
 }
 
 // ── Active ring ───────────────────────────────────────────────────────────────
@@ -1164,6 +1167,7 @@ function findPath(sx, sz, tx, tz) {
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
       if (crossesBarrier(x, z, nx, nz)) continue;
+      if (!stepPassable(x, z, nx, nz)) continue;   // surface zones: block cliff/edge steps, allow ramps
       parent.set(k, { x, z });
       queue.push({ x: nx, z: nz });
     }
@@ -1205,7 +1209,7 @@ function animatePath(unit, path, onComplete) {
   let stepIdx = 0;
   let startX  = unit.grp.position.x;
   let startZ  = unit.grp.position.z;
-  let startY  = getGroundHeight(startX, startZ);
+  let startY  = surfaceHeightAt(startX, startZ);   // walkable surface (platform/ramp) or terrain
   let startTs = null;
 
   // Face the first direction immediately
@@ -1220,7 +1224,7 @@ function animatePath(unit, path, onComplete) {
     const dist    = Math.sqrt(dx * dx + dz * dz);
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * combatSpeed()) / dist) : 1;
-    const endY    = getGroundHeight(target.x, target.z);
+    const endY    = surfaceHeightAt(target.x, target.z);
 
     unit.grp.position.x = startX + dx * t;
     unit.grp.position.z = startZ + dz * t;
@@ -1314,6 +1318,7 @@ function _bfsReachable(ux, uz, maxDist, excludeUnit) {
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
       if (crossesBarrier(x, z, nx, nz)) continue;
+      if (!stepPassable(x, z, nx, nz)) continue;   // surface zones: cliff/edge steps aren't reachable
       dist.set(k, nd);
       // Units can pass THROUGH occupied squares but cannot stop on one.
       if (!isOccupied(nx, nz, excludeUnit)) result.add(k);
@@ -6614,7 +6619,7 @@ function _animateRoamNudge(u) {
   u._roamNudging = true;
 
   const startX = cx, startZ = cz;
-  const startY = getGroundHeight(startX, startZ);
+  const startY = surfaceHeightAt(startX, startZ);
   let startTs  = null;
 
   function frame(ts) {
@@ -6626,7 +6631,7 @@ function _animateRoamNudge(u) {
     }
     const elapsed = (ts - startTs) / 1000;
     const t       = dist > 0 ? Math.min(1, (elapsed * MOVE_SPEED * 0.33 * combatSpeed()) / (dist * ratio)) : 1;
-    const endY    = getGroundHeight(destX, destZ);
+    const endY    = surfaceHeightAt(destX, destZ);
 
     u.grp.position.x = startX + dx * ratio * t;
     u.grp.position.z = startZ + dz * ratio * t;
