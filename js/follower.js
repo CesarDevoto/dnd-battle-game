@@ -23,6 +23,7 @@
 
 import { units, setUnitWalking } from './units.js';
 import { isPrecombat, crossesAnyBarrier } from './precombat.js';
+import { stepPassableAt, isSurfaceMovement } from './surfaces.js';
 
 const TRAIL_STEP  = 0.35;  // WU between breadcrumbs
 const TRAIL_MAX   = 160;   // ~56 WU of history, then the oldest drop off
@@ -116,6 +117,10 @@ function _tickOne(f, dt) {
   // it's both the fast-path test and the only safe way out of GHOST (exiting while
   // the line is still blocked would strand him on the wrong side of the wall).
   const clear = !crossesAnyBarrier(px, pz, lx, lz);
+  // BEELINE only when it's actually safe. In a surfaceMovement zone the straight line to the leader can
+  // cross a cliff or a mesh wall (neither is a barrier SEGMENT), so a beeline would climb/clip. There we
+  // always trace the trail instead — the leader's own collision-checked footsteps, safe to retrace.
+  const beeline = clear && !isSurfaceMovement();
 
   // Deadband: close in once he's past `resume`, settle at `stop`. A single
   // threshold makes him flicker between walk and idle on the boundary frame.
@@ -141,7 +146,7 @@ function _tickOne(f, dt) {
   setUnitWalking(u, true);
 
   if (f.ghost)  { _step(u, lx, lz, speed, dt, false); return; }   // through the wall
-  if (clear)    {                                                  // straight at her
+  if (beeline)  {                                                  // straight at her (safe open ground)
     if (_step(u, lx, lz, speed, dt, true)) { f.trail.length = 0; f.ti = 0; }
     return;
   }
@@ -178,11 +183,14 @@ function _step(u, tx, tz, speed, dt, respectBarriers) {
 
   const step = Math.min(speed * dt, dist);
   const base = Math.atan2(dx, dz);
+  const refLvl = u._level ?? u.grp.position.y;
   for (const off of (respectBarriers ? DEFLECT : [0])) {
     const a  = base + off;
     const nx = px + Math.sin(a) * step;
     const nz = pz + Math.cos(a) * step;
     if (respectBarriers && crossesAnyBarrier(px, pz, nx, nz)) continue;
+    // Same surface collision the leader obeys (cliffs, mesh walls, slope) — no-op in non-surface zones.
+    if (respectBarriers && !stepPassableAt(px, pz, nx, nz, refLvl)) continue;
     u.grp.position.x = nx;
     u.grp.position.z = nz;
     u.grp.rotation.y = a;
