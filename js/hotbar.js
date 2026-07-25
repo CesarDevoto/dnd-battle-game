@@ -17,15 +17,18 @@ const TOP_KEYS = [
 // row, ` through =). Keep additions contiguous with the real layout: there is no
 // KeyI slot because I is the inventory panel (ui.js), and jumping Y→U→O would
 // leave a phantom gap where I physically sits.
+// The bottom row is now triggered by SHIFT + number (1–8), freeing plain W/A/S/D for WASD movement.
+// `code` stays the internal SLOT ID (Tab/KeyQ/… — kept so every existing binding, auto-fill, owl and
+// OOC handler keeps targeting the same slot); `trigger` + Shift is the activation key; `label` is ⇧N.
 const BOTTOM_KEYS = [
-  { code: 'Tab',  label: 'Tab' },
-  { code: 'KeyQ', label: 'Q' },
-  { code: 'KeyW', label: 'W' },
-  { code: 'KeyE', label: 'E' },
-  { code: 'KeyR', label: 'R' },
-  { code: 'KeyT', label: 'T' },
-  { code: 'KeyY', label: 'Y' },
-  { code: 'KeyU', label: 'U' },
+  { code: 'Tab',  trigger: 'Digit1', label: '⇧1' },
+  { code: 'KeyQ', trigger: 'Digit2', label: '⇧2' },
+  { code: 'KeyW', trigger: 'Digit3', label: '⇧3' },
+  { code: 'KeyE', trigger: 'Digit4', label: '⇧4' },
+  { code: 'KeyR', trigger: 'Digit5', label: '⇧5' },
+  { code: 'KeyT', trigger: 'Digit6', label: '⇧6' },
+  { code: 'KeyY', trigger: 'Digit7', label: '⇧7' },
+  { code: 'KeyU', trigger: 'Digit8', label: '⇧8' },
 ];
 
 const MOUSE_SLOTS_TOP    = [{ code: 'MouseMiddle', label: 'MMB', button: 1 }];
@@ -225,12 +228,16 @@ export function initHotbar() {
   // Keyboard event listener — fires matching slot regardless of shift
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    const k = ALL_KEYBOARD_KEYS.find(k => k.code === e.code);
-    if (!k) return;
+    // Bottom row = SHIFT + its trigger digit; top row = the plain key (no shift). This keeps plain
+    // 1–8 on the top row and W/A/S/D free for movement, while Shift+1–8 hit the bottom row's slots.
+    let slotCode = null;
+    if (e.shiftKey) { const bk = BOTTOM_KEYS.find(k => k.trigger === e.code); if (bk) slotCode = bk.code; }
+    else            { const tk = TOP_KEYS.find(k => k.code === e.code);       if (tk) slotCode = tk.code; }
+    if (!slotCode) return;
     e.preventDefault();
-    const btn = _btns[k.code];
+    const btn = _btns[slotCode];
     if (btn) _flash(btn);
-    _fire(k.code);
+    _fire(slotCode);
   });
 
   // Middle-click anywhere fires the MMB slot

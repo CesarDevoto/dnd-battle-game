@@ -410,12 +410,39 @@ export function getUncarvedHeight(wx, wz) {
   return base + _controlPointHeight(wx, wz);
 }
 
+// ── Flatten pads — rectangular regions that pull the terrain to a fixed height under a placed
+// structure (EQ-style building pad), so a building can sit level on otherwise bumpy ground without
+// flattening the whole zone (`terrainAmplitude:0`). Each pad: { x, z, w, d, h, border? } — center,
+// full width/depth, target height, and an edge-blend band that eases back to the natural terrain.
+let _flattenPads = [];
+export function setTerrainFlatten(pads) { _flattenPads = pads ?? []; }
+export function getTerrainFlatten()      { return _flattenPads; }
+
+// Blend the natural height toward a pad's flat height: fully flat inside the rect, smoothstepping to
+// 0 across a `border`-wide band just outside it. Strongest (nearest) pad wins where pads overlap.
+function _applyFlatten(wx, wz, natural) {
+  let strength = 0, target = natural;
+  for (const pad of _flattenPads) {
+    const ox = Math.abs(wx - pad.x) - pad.w / 2;    // >0 → outside the rect on X
+    const oz = Math.abs(wz - pad.z) - pad.d / 2;    // >0 → outside the rect on Z
+    const band = pad.border ?? 3;
+    const outside = Math.hypot(Math.max(ox, 0), Math.max(oz, 0));   // 0 inside the rect
+    if (outside >= band) continue;
+    const t = 1 - outside / band;                   // 1 at/inside the edge → 0 at the band's outer rim
+    const s = t * t * (3 - 2 * t);                  // smoothstep
+    if (s > strength) { strength = s; target = pad.h; }
+  }
+  return strength > 0 ? natural + (target - natural) * strength : natural;
+}
+
 // Returns positive (hill) or negative (valley) height relative to base level.
 export function getTerrainHeight(wx, wz) {
   if (_tunnelMode) return _tunnelHeight(wx, wz);
   const surrounding = getUncarvedHeight(wx, wz);
   const trH = _trenchHeight(wx, wz, surrounding);
-  return trH !== null ? trH : surrounding;
+  let h = trH !== null ? trH : surrounding;
+  if (_flattenPads.length) h = _applyFlatten(wx, wz, h);
+  return h;
 }
 
 // ── Biome vertex colours ──────────────────────────────────────────────────────

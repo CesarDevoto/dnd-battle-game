@@ -49,7 +49,7 @@ const _keys = { w: false, a: false, s: false, d: false, q: false, e: false };
 // constants are the full-speed values; without shift they're scaled by CAM_SLOW.
 const CAM_PAN_BASE    = 0.7;   // OrbitControls panSpeed at full (SHIFT) speed
 const CAM_ROTATE_BASE = 0.5;   // OrbitControls rotateSpeed at full (SHIFT) speed
-const PLAY_ROTATE_SPEED = 1.8; // play-mode right-drag orbit sensitivity (higher = faster)
+const PLAY_ROTATE_SPEED = 1.3; // play-mode right-drag orbit sensitivity (higher = faster)
 const CAM_ZOOM_BASE   = 2.0;   // OrbitControls zoomSpeed at full (SHIFT) speed
 const CAM_SLOW        = 0.15;  // default multiplier; SHIFT removes it (→ full speed)
 let _shiftHeld = false;

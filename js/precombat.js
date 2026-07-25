@@ -65,6 +65,7 @@ let _morvathDialogFired = false;
 
 export const isPrecombat   = () => _active;
 export const getPCSelected = () => _selected;
+export const isPrecombatFrozen = () => _frozen;   // true during scripted dialogue freezes (WASD must yield)
 
 export function setPrecombatFrozen(frozen) {
   _frozen = frozen;
@@ -467,6 +468,30 @@ function _stepToward(unit, tx, tz, speed, dt, deflect = false) {
     return false;
   }
   return 'blocked';
+}
+
+// Move `unit` one frame in a DIRECTION (dirX,dirZ; needn't be normalised), with the same collision +
+// wall-sliding deflection as _stepToward but WITHOUT changing facing — WASD strafing keeps the body
+// oriented to the camera while it slides sideways (the caller owns rotation.y). Returns true if it
+// moved. Grounding (Y / _level) is left to the main-loop surface grounding, same as click-move.
+export function stepUnitDir(unit, dirX, dirZ, speed, dt) {
+  const len = Math.hypot(dirX, dirZ);
+  if (len < 1e-6) return false;
+  const px = unit.grp.position.x, pz = unit.grp.position.z;
+  const step = speed * dt;
+  const baseAng = Math.atan2(dirX, dirZ);
+  for (const off of DEFLECT_ANGLES) {
+    const a  = baseAng + off;
+    const nx = px + Math.sin(a) * step;
+    const nz = pz + Math.cos(a) * step;
+    if (_blockedStep(px, pz, nx, nz, unit)) continue;
+    unit.grp.position.x = nx;
+    unit.grp.position.z = nz;
+    unit.anchor.x       = nx;
+    unit.anchor.z       = nz;
+    return true;
+  }
+  return false;
 }
 
 // ── Proximity aggro ───────────────────────────────────────────────────────────

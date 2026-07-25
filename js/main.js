@@ -21,6 +21,7 @@ import { cycleHero, removeUnits, tickHoldMove } from './army.js';
 import { initZoneUI, tickZone, loadZone, getActiveZone } from './zoneLoader.js';
 import { setPrecombatFrozen } from './precombat.js';
 import { tickPrecombat } from './precombat.js';
+import { tickExploreMove } from './exploreMove.js';
 import { initPropEditor, getPlacedProps } from './propEditor.js';
 import { tickActivationRadius } from './activationRadius.js';
 import { initNpcEditor } from './npcEditor.js';
@@ -525,6 +526,7 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   tickZone(dt);
   tickRespawn(dt);
   tickPrecombat(dt);
+  tickExploreMove(dt);   // WASD strafe drive of the leader (before tickFollowers so followers chase this frame)
   tickHoldMove();
   tickExclamations(dt);
   tickDagna(dt);

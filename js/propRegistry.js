@@ -50,6 +50,7 @@ export const PROP_MODELS = {
   // structure ~13 WU tall (a big arched bridge). clashR blocks only its centre; for a crossable
   // bridge use barriers along the railings instead (a single clashR circle can't cover the span).
   bridge:           { label: 'Bridge',          path: 'assets/environment/bridge.glb',               defaultScale: 32.8, blocksLOS: false, clashR: 2.0  },
+  bridgelantern:    { label: 'Bridge (Lantern)',path: 'assets/environment/bridge lantern.glb',       defaultScale: 10.0, blocksLOS: false, clashR: 0.0  },
   stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
   woodensteps:      { label: 'Wooden Steps',    path: 'assets/environment/wooden steps.glb',         defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },

@@ -1642,12 +1642,7 @@ setupPanelToggle('panel-header-cutscenes', 'body-cutscenes', '▶', '◀');
     _toggleSpellBar();
   });
 
-  // S — toggle the Skills & Spells window open/closed, same as clicking its arrow.
-  document.addEventListener('keydown', e => {
-    if (e.repeat) return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.code === 'KeyS') _toggleSpellBar();
-  });
+  // (The S-key toggle was removed — S now drives WASD movement. Toggle via the arrow button instead.)
 
   body.addEventListener('click', e => {
     const btn = e.target.closest('.sb-btn');

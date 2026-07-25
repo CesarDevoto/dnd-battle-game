@@ -40,15 +40,30 @@ export const ZONE = {
   // Two goblins standing ON the platform (top at y=3) — grounding + combat pathing must handle them
   // up there. Positions are inside the platform footprint (x:−8..8, z:−18..−2).
   enemies: [
-    { type: 'goblin', x: -4, z: -10, rotY: 0 },
     { type: 'goblin', x: 4, z: -12, rotY: 0 },
     { type: 'goblin', x: 4, z: -22, rotY: 0 },
     { type: 'goblin', x: 25.5, z: 1, rotY: 0 },
+    { type: 'goblin', x: -28.5, z: 23, rotY: 0 },
   ],
 
   exits: [],
-  terrain: [],        // flat base — the platform/ramp provide the verticality
-  props: [],
+  // A hill on the open east side (control point survives terrainAmplitude:0 — it's ADDED on top of the
+  // zeroed noise) so the terrain-flatten feature has bumpy ground to cut a level pad into. See building2.
+  terrain: [
+    { x: 18, z: 16, r: 16, h: 5, pr: 2 },
+  ],
+
+  // ── Mesh-collision proof (Phase-3 authoring): imported GLBs flagged `collision:true` become
+  // walkable/blocking geometry sampled by LIVE raycasts (floors + walls + body-clearance + LOS); the
+  // prop also OPTS OUT of the 2D clash radius. Colliders get a three-mesh-bvh tree at load, so even a
+  // detailed model (the lantern bridge) raycasts fast. Placed in the open west area.
+  props: [
+    { model: 'dungeonwalllong', x: -14, z: 8, y: 0, rotY: 0, scale: 8, noFade: true, collision: true },
+    { model: 'widestonesteps', x: -26, z: 0, y: 0, rotY: 0, scale: 2, noFade: true, collision: true },
+    { model: 'bridgelantern', x: -26.57, z: 22.02, y: -2.25, yOff: -2.25, rotY: 0, scale: 10, noFade: true, collision: true },
+    { model: 'widestonesteps', x: -26, z: -2.75, y: 1.75, yOff: 1.75, rotY: 0, scale: 2, noFade: true, collision: true },
+    { model: 'building2', x: 14.75, z: 19.5, y: 4.4881, rotY: 0, scale: 10.375, noFade: true, flatten: true },
+  ],
   barriers: [],
   trenches: [],
 };

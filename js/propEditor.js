@@ -7,6 +7,7 @@ import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { PROP_MODELS } from './propRegistry.js';
 import { trackExclamation, untrackExclamation, clearAllExclamations } from './exclamationMarkers.js';
 import { markEnvVisibilityDirty } from './environmentVisibility.js';
+import { registerCollisionMesh, clearCollisionMeshes, isSurfaceMovement } from './surfaces.js';
 
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -100,6 +101,32 @@ function _updateFadeControl() {
   if (!show) return;
   const box = document.getElementById('pe-nofade');
   if (box) box.checked = !!entry.noFade;
+  const cbox = document.getElementById('pe-collision');
+  if (cbox) cbox.checked = !!entry.collision;
+  const fbox = document.getElementById('pe-flatten');
+  if (fbox) fbox.checked = !!entry.flatten;
+}
+
+// Flip the selected prop's collision flag. Unlike noFade this isn't live — the collision nav-grid is
+// baked at zone load — so it persists on SAVE and applies after a reload.
+function _setSelectedCollision(on) {
+  if (_selectedIdx < 0) return;
+  const entry = _placedProps[_selectedIdx];
+  if (!entry || entry.model === null) return;
+  _snapshot();
+  if (on) entry.collision = true; else delete entry.collision;
+  _setSaveStatus(`Collision ${on ? 'ON' : 'OFF'} — Save, then reload the zone to apply`, '');
+}
+
+// Flip the selected prop's flatten flag — flattens the terrain under its footprint. Applied at zone
+// load (terrain rebuild), so it persists on SAVE and takes effect after a reload.
+function _setSelectedFlatten(on) {
+  if (_selectedIdx < 0) return;
+  const entry = _placedProps[_selectedIdx];
+  if (!entry || entry.model === null) return;
+  _snapshot();
+  if (on) entry.flatten = true; else delete entry.flatten;
+  _setSaveStatus(`Flatten terrain ${on ? 'ON' : 'OFF'} — Save, then reload the zone to apply`, '');
 }
 
 // Flip the selected prop's noFade and push it straight to the live mesh so the change
@@ -229,10 +256,16 @@ async function _placeAtPoint(pt) {
   if (_propsHidden) mesh.visible = false;
   scene.add(mesh);
 
-  // Register for collision/LOS tracking without overriding the position set above
+  // Register for collision/LOS tracking without overriding the position set above.
   activeProps.push(mesh);
-  if (def.clashR > 0) propPositions.push({ x: pt.x, z: pt.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
-  if (def.blocksLOS) losBlockerMeshes.push(mesh);
+  entry.collision = true;   // collision ON by default for newly placed props (uncheck in the panel to opt out)
+  const isCollider = entry.collision && isSurfaceMovement();
+  if (isCollider) {
+    registerCollisionMesh(mesh);   // walkable/blocking geometry; skips the 2D clash radius + prop LOS list
+  } else {
+    if (def.clashR > 0) propPositions.push({ x: pt.x, z: pt.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
+    if (def.blocksLOS) losBlockerMeshes.push(mesh);
+  }
   if (modelKey === 'point_light') entry.params = { intensity: 6, range: 18 };
   if (modelKey === 'zonegate') {
     // Ask which zone this gate travels to. Stored in params.targetZone (persisted by the writer)
@@ -529,6 +562,8 @@ function _carryMetadata(entry, obj) {
   const tab = entry.mapTab     ?? ud.mapTab;
   if (wid != null) obj.waystoneId = wid;
   if (tab != null) obj.mapTab     = tab;
+  if (entry.collision) obj.collision = true;   // whole-model collision flag (surface bake)
+  if (entry.flatten)   obj.flatten   = true;   // flatten terrain under this footprint
 }
 
 async function _saveToZone() {
@@ -624,6 +659,7 @@ export function getPlacedProps() { return _placedProps; }
 
 export function clearEditorProps() {
   clearAllExclamations();
+  _flattenPads = [];   // zone-load boundary — drop any flatten footprints from the previous zone
 
   const removed = new Set(_placedProps.map(p => p.mesh));
   _placedProps.forEach(p => scene.remove(p.mesh));
@@ -642,8 +678,15 @@ export function clearEditorProps() {
 
 // ── Load props from zone data ─────────────────────────────────────────────────
 
+// Terrain-flatten pads collected from `flatten:true` props during the most recent loadZoneProps.
+// zoneLoader reads these after the async load resolves, then setTerrainFlatten + rebuilds the terrain.
+let _flattenPads = [];
+export function collectFlattenPads() { return _flattenPads; }
+
 export async function loadZoneProps(propsArray) {
   clearEditorProps();
+  clearCollisionMeshes();   // reset collider registrations so a re-run (HMR/editor) doesn't double-add
+  _flattenPads = [];        // reset flatten footprints so a re-run doesn't accumulate
 
   // Load all unique GLBs in parallel so network fetches overlap
   const glbKeys = [...new Set(
@@ -681,6 +724,12 @@ export async function loadZoneProps(propsArray) {
     const noFade = p.noFade ?? def.noFade ?? false;
     if (noFade) mesh.userData.noFade = true;
 
+    // Collision model (per-placement, whole-model): the imported mesh becomes walkable/blocking
+    // geometry that the surface bake raycasts for floors + walls + LOS. It must OPT OUT of the 2D
+    // clash radius (which would wall off its own interior) and of the prop LOS list (the surface
+    // system's raycast covers it instead).
+    const isCollider = (p.collision ?? def.collision ?? false) && isSurfaceMovement();
+
     const entry = {
       mesh,
       model:  p.model,
@@ -692,6 +741,8 @@ export async function loadZoneProps(propsArray) {
       scaleF: p.scale ?? def.defaultScale,
       noFade,
     };
+    if (p.collision)    entry.collision  = true;   // preserve for editor round-trip / re-save
+    if (p.flatten)      entry.flatten    = true;
     if (p.params)       { entry.params    = { ...p.params }; _applyLightParams(entry); }
     if (p.waystoneId != null) entry.waystoneId = p.waystoneId;
     if (p.mapTab     != null) entry.mapTab     = p.mapTab;
@@ -699,8 +750,22 @@ export async function loadZoneProps(propsArray) {
     if (_propsHidden) mesh.visible = false;
     scene.add(mesh);
     activeProps.push(mesh);
-    if (def.clashR > 0) propPositions.push({ x: p.x, z: p.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
-    if (def.blocksLOS) losBlockerMeshes.push(mesh);
+    if (isCollider) {
+      registerCollisionMesh(mesh);
+    } else {
+      if (def.clashR > 0) propPositions.push({ x: p.x, z: p.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
+      if (def.blocksLOS) losBlockerMeshes.push(mesh);
+    }
+    // Terrain-flatten pad from this prop's world footprint (target height = the mesh's bottom, so the
+    // terrain rises/falls to meet the building's base). zoneLoader applies these + rebuilds after load.
+    if (p.flatten) {
+      mesh.updateWorldMatrix(true, true);
+      const b = new THREE.Box3().setFromObject(mesh);
+      if (!b.isEmpty()) _flattenPads.push({
+        x: (b.min.x + b.max.x) / 2, z: (b.min.z + b.max.z) / 2,
+        w: b.max.x - b.min.x, d: b.max.z - b.min.z, h: b.min.y,
+      });
+    }
     _placedProps.push(entry);
     if (p.model === 'exclamation_marker') trackExclamation(entry.mesh, p.x, p.z);
   }
@@ -737,7 +802,7 @@ function _updateStatus() {
 // section, so adding a new prop never makes it vanish from the picker.
 const PROP_CATEGORIES = [
   { label: 'Buildings',       keys: ['inn','inn2','hut1','hut2','marketstall1','marketarmory1','bigbuilding1','building2','building3','building4','building5','building6','building7','building8','building9','building10','building11','building12','building13','building14','building15','building16','buildingruinedlarge'] },
-  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
+  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','bridgelantern','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
   { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4','mushroom1','mushroom2','mushroom3','mushroom4','mushroomtree'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
@@ -944,6 +1009,16 @@ export function initPropEditor() {
   // "Never fade" toggle — only visible when a model-backed prop is selected
   document.getElementById('pe-nofade')?.addEventListener('change', e => {
     _setSelectedNoFade(e.target.checked);
+  });
+
+  // "Collision" toggle — marks the whole model as walkable/blocking geometry (surface bake)
+  document.getElementById('pe-collision')?.addEventListener('change', e => {
+    _setSelectedCollision(e.target.checked);
+  });
+
+  // "Flatten terrain" toggle — flattens the ground under the model's footprint
+  document.getElementById('pe-flatten')?.addEventListener('change', e => {
+    _setSelectedFlatten(e.target.checked);
   });
 
   // Light controls — only visible when a point_light is selected
