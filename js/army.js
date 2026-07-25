@@ -10,6 +10,8 @@ import { showSelectionHighlight, hideSelectionHighlight } from './selectionHighl
 import { renderHeroPortrait } from './heroPortraits.js';
 import { openWorldMapAuto } from './worldMap.js';
 import { activeProps } from './environments.js';
+import { surfaceLosBlockers } from './surfaces.js';
+import { isExploreActive } from './exploreMove.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -139,8 +141,17 @@ function groundHit(clientX, clientY) {
   mouse2D.x =  (clientX / window.innerWidth)  * 2 - 1;
   mouse2D.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse2D, camera);
-  const h = raycaster.intersectObject(ground);
-  return h.length ? h[0].point : null;
+  const gHits = raycaster.intersectObject(ground);
+  let best = gHits.length ? gHits[0] : null;
+  // In surface-movement zones, also stop the pick at solid collision geometry (bridge deck, building
+  // floors, walls) and take whichever hit is NEARER the camera — so clicking ON a raised deck targets
+  // the deck surface, not the ground plane below it. Empty in normal zones → identical to before.
+  const blockers = surfaceLosBlockers();
+  if (blockers.length) {
+    const cHits = raycaster.intersectObjects(blockers, true);
+    if (cHits.length && (!best || cHits[0].distance < best.distance)) best = cHits[0];
+  }
+  return best ? best.point : null;
 }
 
 // ── Mouse move: move line ─────────────────────────────────────────────────────
@@ -408,6 +419,7 @@ renderer.domElement.addEventListener('mouseleave', _stopHoldMove);
 // Called every frame from the main render loop (after tickPrecombat).
 export function tickHoldMove() {
   if (!_holdMoving) return;
+  if (isExploreActive()) { _stopHoldMove(); return; }   // WASD is driving — yield the leader
   if (!isPrecombat()) { _stopHoldMove(); return; }
   const mover = _holdMover();
   if (!mover || mover.hp <= 0) { _stopHoldMove(); return; }

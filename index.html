@@ -485,7 +485,6 @@
 
           <div class="sxp-section-hdr">HOTBAR</div>
           <div class="sxp-formula-block">
-            <div class="sxp-formula-row"><span class="sxp-label">S</span><span class="sxp-val">Toggle the Skills &amp; Spells window open/closed</span></div>
             <div class="sxp-formula-row"><span class="sxp-label">I</span><span class="sxp-val">Open the equipment/inventory panel for the active hero (in combat) or the targeted/selected hero (out of combat)</span></div>
             <div class="sxp-formula-row"><span class="sxp-label">Shift + Left Click</span><span class="sxp-val">Drag a spell or skill from the Skills &amp; Spells window onto a hotbar slot</span></div>
           </div>
@@ -778,11 +777,6 @@
         </div>
         <div id="te-save-status"></div>
         <div class="te-section-divider">── BARRIERS ──</div>
-        <div id="be-layer-row" class="ed-layer-row">
-          <span class="ed-layer-lbl">Draw on:</span>
-          <button id="be-layer-floor" class="tp-layer-btn active" title="Ground / tunnel floor">FLOOR</button>
-          <button id="be-layer-blanket" class="tp-layer-btn" title="Cave-roof blanket (hilltop above a tunnel)">BLANKET</button>
-        </div>
         <div id="te-barrier-status" class="te-status-small">Click DRAW to place barriers</div>
         <div id="te-barrier-counter" class="te-counter">Barriers: 0</div>
         <div id="te-btn-row">
@@ -817,11 +811,6 @@
         <label id="te-cave-lbl"><input id="te-cave-check" type="checkbox"> Cave roof — blanket over trenches</label>
         <div id="te-cave-status" class="te-status-small"></div>
         <div class="te-section-divider">── PAINT ──</div>
-        <div id="te-btn-row">
-          <span class="te-lbl">Layer:</span>
-          <button class="tp-layer-btn active" data-layer="floor" title="Ground / tunnel floor">FLOOR</button>
-          <button class="tp-layer-btn" data-layer="roof" title="Cave-roof blanket (hilltop)">BLANKET</button>
-        </div>
         <div id="tp-status" class="te-status-small">Click PAINT MODE, then drag on the terrain</div>
         <div id="tp-counter" class="te-counter">Floor strokes: 0</div>
         <div id="te-btn-row">
@@ -881,11 +870,6 @@
         <button id="ne-collapse-btn" class="ne-collapse">▼</button>
       </div>
       <div id="ne-body">
-        <div id="ne-layer-row" class="ed-layer-row">
-          <span class="ed-layer-lbl">Place on:</span>
-          <button id="ne-layer-floor" class="tp-layer-btn active" title="Tunnel floor / open ground">FLOOR</button>
-          <button id="ne-layer-blanket" class="tp-layer-btn" title="Cave-roof blanket (hilltop above a tunnel)">BLANKET</button>
-        </div>
         <input id="ne-search" class="editor-search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
         <div id="ne-type-list"></div>
         <div id="ne-selected-row">
@@ -955,11 +939,6 @@
         <button id="pe-collapse-btn" class="pe-collapse">▼</button>
       </div>
       <div id="pe-body">
-        <div id="pe-layer-row" class="ed-layer-row">
-          <span class="ed-layer-lbl">Place on:</span>
-          <button id="pe-layer-floor" class="tp-layer-btn active" title="Tunnel floor / open ground">FLOOR</button>
-          <button id="pe-layer-blanket" class="tp-layer-btn" title="Cave-roof blanket (hilltop above a tunnel)">BLANKET</button>
-        </div>
         <input id="pe-search" class="editor-search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
         <div id="pe-model-list"></div>
         <div id="pe-selected-row">
@@ -971,6 +950,14 @@
           <label class="pe-fade-row">
             <input id="pe-nofade" type="checkbox">
             <span>Never fade when blocking hero view</span>
+          </label>
+          <label class="pe-fade-row">
+            <input id="pe-collision" type="checkbox">
+            <span>Collision (walkable/blocking · surface zones · reload to apply)</span>
+          </label>
+          <label class="pe-fade-row">
+            <input id="pe-flatten" type="checkbox">
+            <span>Flatten terrain under footprint (reload to apply)</span>
           </label>
         </div>
         <div id="pe-light-controls" style="display:none">

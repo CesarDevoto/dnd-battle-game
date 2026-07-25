@@ -12,7 +12,7 @@ import { COLORS, INTERACTION, UNIT_TYPES, COMBAT, HERO_RING_COLORS,
          rageUsesForLevel, rageMitigationForLevel, precisionHitBonusForLevel,
          rageDamageForLevel, sneakAttackDiceForLevel } from './constants.js';
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
-import { surfaceHeightAt, stepPassable, isSurfaceMovement, surfacesAt, nearestLevel, SURFACE_STEP, surfaceLosBlockers } from './surfaces.js';
+import { surfaceHeightAt, stepPassable, isSurfaceMovement, surfacesAt, nearestLevel, SURFACE_STEP, MAX_DROP, surfaceLosBlockers, wallBlocksStep, bodyBlocksStand } from './surfaces.js';
 import { roll, showRoll, clearRollFeed, parseDiceFormula } from './dice.js';
 import { playMagicMissileEffect }  from './magicmissile.js';
 import { playSacredFlameEffect }   from './sacredflame.js';
@@ -352,6 +352,10 @@ function _ringSurfaceH(x, z) {
 
 // ── Active ring ───────────────────────────────────────────────────────────────
 
+// Declared here (before activeRing, which builds its geometry at module load) so it's initialised by
+// the time _ringVertY reads it — a `const` isn't hoisted, so a later declaration would TDZ-crash.
+const RING_MAX_RISE = 2.5;   // WU above the hero before a ring segment is clipped away
+
 export const activeRing = new THREE.Mesh(
   _makeConformingGeo(0, 0, INTERACTION.activeRingInner, INTERACTION.activeRingOuter, 32, 0.05),
   new THREE.MeshBasicMaterial({
@@ -430,18 +434,27 @@ const healTargets = new Map(); // ally unit → spellKey
 // _makeConformingGeo / updateConformingRingGeo are regular function declarations
 // and therefore hoisted — activeRing (declared earlier) can call them safely.
 
+// A ring vertex is hidden (NaN Y → its triangles drop out on the GPU) when the terrain there rises
+// more than RING_MAX_RISE above the hero's own level — so the ring cuts off at the base of a cliff /
+// steep face instead of riding up it and looking ridiculous. Parts LOWER than the hero still show.
+function _ringVertY(x, z, baseH, lift) {
+  const h = _ringSurfaceH(x, z);
+  return (h - baseH > RING_MAX_RISE) ? NaN : h + lift;
+}
+
 function _makeConformingGeo(cx, cz, inner, outer, segs, lift) {
   const pos = new Float32Array((segs + 1) * 2 * 3);
   const idx = [];
   let vi = 0;
+  const baseH = _ringSurfaceH(cx, cz);   // the hero's ground level — the clip reference
   for (let i = 0; i <= segs; i++) {
     const theta = (i / segs) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     pos[vi++] = inner * cos;
-    pos[vi++] = _ringSurfaceH(cx + inner * cos, cz + inner * sin) + lift;
+    pos[vi++] = _ringVertY(cx + inner * cos, cz + inner * sin, baseH, lift);
     pos[vi++] = inner * sin;
     pos[vi++] = outer * cos;
-    pos[vi++] = _ringSurfaceH(cx + outer * cos, cz + outer * sin) + lift;
+    pos[vi++] = _ringVertY(cx + outer * cos, cz + outer * sin, baseH, lift);
     pos[vi++] = outer * sin;
   }
   for (let i = 0; i < segs; i++) {
@@ -453,6 +466,9 @@ function _makeConformingGeo(cx, cz, inner, outer, segs, lift) {
   posAttr.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute('position', posAttr);
   geo.setIndex(idx);
+  // Fixed, always-visible bounding sphere so NaN-clipped vertices can't produce a NaN sphere that
+  // frustum-culls the WHOLE ring; the clipped triangles just don't rasterize.
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 1e6);
   geo.userData = { inner, outer, segs, lift };
   return geo;
 }
@@ -460,12 +476,13 @@ function _makeConformingGeo(cx, cz, inner, outer, segs, lift) {
 function updateConformingRingGeo(ring, cx, cz) {
   const { inner, outer, segs, lift } = ring.geometry.userData;
   const arr = ring.geometry.attributes.position.array;
+  const baseH = _ringSurfaceH(cx, cz);
   for (let i = 0; i <= segs; i++) {
     const theta = (i / segs) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     const base = i * 6;
-    arr[base + 1] = _ringSurfaceH(cx + inner * cos, cz + inner * sin) + lift;
-    arr[base + 4] = _ringSurfaceH(cx + outer * cos, cz + outer * sin) + lift;
+    arr[base + 1] = _ringVertY(cx + inner * cos, cz + inner * sin, baseH, lift);
+    arr[base + 4] = _ringVertY(cx + outer * cos, cz + outer * sin, baseH, lift);
   }
   ring.geometry.attributes.position.needsUpdate = true;
 }
@@ -568,7 +585,9 @@ let _ringHoverActive = false;   // true only while cursor is actively over a uni
 
 // ── Unit hover emissive pulse ─────────────────────────────────────────────────
 const _PULSE_COLOR = new THREE.Color(0xff44ff);
+const _EMISSIVE_OFF = new THREE.Color(0x000000);
 let _pulseHoveredUnit = null;
+let _lastPulsedTarget = null;   // the selected enemy currently flashing pink (reset when it changes)
 
 function _setMeshEmissive(unit, color) {
   unit.grp.traverse(obj => {
@@ -603,10 +622,8 @@ export function clearHoverPulseUnit() {
   _pulseHoveredUnit = null;
 }
 
-export function tickHoverPulse(t) {
-  if (!_pulseHoveredUnit) return;
-  const intensity = 3.0 + Math.abs(Math.sin(t * 4.5)) * 5.0;
-  _pulseHoveredUnit.grp.traverse(obj => {
+function _pulseMeshEmissive(unit, intensity) {
+  unit.grp.traverse(obj => {
     if (!obj.isMesh) return;
     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
     mats.forEach(m => {
@@ -615,18 +632,33 @@ export function tickHoverPulse(t) {
   });
 }
 
+export function tickHoverPulse(t) {
+  const intensity = 3.0 + Math.abs(Math.sin(t * 4.5)) * 5.0;
+
+  // Selected ENEMY target: flash its mesh pink to match the steady pink health-bar border. Self-managed
+  // — when the target changes or clears, reset the previous one's emissive (no hook into show/hide needed).
+  const tgt = (selectedTarget && selectedTarget.team === 'red' && selectedTarget.hp > 0) ? selectedTarget : null;
+  if (_lastPulsedTarget && _lastPulsedTarget !== tgt) _setMeshEmissive(_lastPulsedTarget, _EMISSIVE_OFF);
+  _lastPulsedTarget = tgt;
+  if (tgt) _pulseMeshEmissive(tgt, intensity);
+
+  // Hovered unit (setHoverPulseUnit skips the selected target, so these never double up).
+  if (_pulseHoveredUnit) _pulseMeshEmissive(_pulseHoveredUnit, intensity);
+}
+
 function buildHoverRingGeo(cx, cz) {
   const pos = new Float32Array((_HOVER_SEGS + 1) * 2 * 3);
   const idx = [];
   let vi = 0;
+  const baseH = _ringSurfaceH(cx, cz);   // the hovered tile's level — clip parts that rise above it
   for (let i = 0; i <= _HOVER_SEGS; i++) {
     const theta = (i / _HOVER_SEGS) * Math.PI * 2;
     const cos = Math.cos(theta), sin = Math.sin(theta);
     pos[vi++] = _HOVER_INNER * cos;
-    pos[vi++] = _ringSurfaceH(cx + _HOVER_INNER * cos, cz + _HOVER_INNER * sin) + _HOVER_LIFT;
+    pos[vi++] = _ringVertY(cx + _HOVER_INNER * cos, cz + _HOVER_INNER * sin, baseH, _HOVER_LIFT);
     pos[vi++] = _HOVER_INNER * sin;
     pos[vi++] = _HOVER_OUTER * cos;
-    pos[vi++] = _ringSurfaceH(cx + _HOVER_OUTER * cos, cz + _HOVER_OUTER * sin) + _HOVER_LIFT;
+    pos[vi++] = _ringVertY(cx + _HOVER_OUTER * cos, cz + _HOVER_OUTER * sin, baseH, _HOVER_LIFT);
     pos[vi++] = _HOVER_OUTER * sin;
   }
   for (let i = 0; i < _HOVER_SEGS; i++) {
@@ -636,6 +668,7 @@ function buildHoverRingGeo(cx, cz) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 1e6);   // NaN-clip safe
   return geo;
 }
 
@@ -1249,8 +1282,11 @@ function _findPathLevels(sx, sz, tx, tz, startY) {
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
       if (crossesBarrier(cur.x, cur.z, nx, nz)) continue;
+      if (wallBlocksStep(cur.x, cur.z, nx, nz, cur.y)) continue;   // collision-mesh wall between tiles
       for (const L of surfacesAt(nx, nz)) {
-        if (Math.abs(L - cur.y) > SURFACE_STEP) continue;   // step rule, per level
+        if (L - cur.y > SURFACE_STEP) continue;             // too tall to climb
+        if (cur.y - L > MAX_DROP)     continue;             // too far to drop (walk off ledges ≤ MAX_DROP)
+        if (bodyBlocksStand(nx, nz, L)) continue;           // a wall's body occupies this spot
         const k = key(nx, nz, L);
         if (parent.has(k)) continue;
         parent.set(k, cur);
@@ -1434,8 +1470,11 @@ function _bfsReachableLevels(ux, uz, maxDist, excludeUnit) {
       if (Math.abs(nx) > _halfGroundSize || Math.abs(nz) > _halfGroundSize) continue;
       if (hasPropClash(nx, nz)) continue;
       if (crossesBarrier(cur.x, cur.z, nx, nz)) continue;
+      if (wallBlocksStep(cur.x, cur.z, nx, nz, cur.y)) continue;   // collision-mesh wall between tiles
       for (const L of surfacesAt(nx, nz)) {
-        if (Math.abs(L - cur.y) > SURFACE_STEP) continue;
+        if (L - cur.y > SURFACE_STEP) continue;             // too tall to climb
+        if (cur.y - L > MAX_DROP)     continue;             // too far to drop (walk off ledges ≤ MAX_DROP)
+        if (bodyBlocksStand(nx, nz, L)) continue;           // a wall's body occupies this spot
         const k = key(nx, nz, L);
         if (dist.has(k)) continue;
         dist.set(k, nd);
@@ -4353,8 +4392,18 @@ function groundHit(clientX, clientY) {
   _mouse.x =  (clientX / window.innerWidth)  * 2 - 1;
   _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
   _ray.setFromCamera(_mouse, camera);
-  const hits = _ray.intersectObject(ground);
-  return hits.length ? hits[0].point : null;
+  const gHits = _ray.intersectObject(ground);
+  let best = gHits.length ? gHits[0] : null;
+  // In surface-movement zones, also stop the pick at solid collision geometry (walls/buildings): take
+  // whichever hit is NEARER the camera, so a click whose ray grazes through a tall wall lands the move
+  // target on the wall's near face rather than punching through to the ground on the far side (which
+  // made the stop point depend on camera angle). Empty in normal zones → identical to before.
+  const blockers = surfaceLosBlockers();
+  if (blockers.length) {
+    const cHits = _ray.intersectObjects(blockers, true);
+    if (cHits.length && (!best || cHits[0].distance < best.distance)) best = cHits[0];
+  }
+  return best ? best.point : null;
 }
 
 // Reuses _ray from the most recent groundHit call.

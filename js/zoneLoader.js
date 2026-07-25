@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, setSceneGroundSize, snapCameraToUnit, rebuildGrid, setGridOpacity, DEFAULT_GRID_OPACITY } from './scene.js';
 import { units, buildUnit, corpses, modelsReady, ensureModels, setUnitStealth } from './units.js';
-import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, setTerrainAmplitudeScale, rebuildTerrain } from './terrain.js';
+import { setTerrainControlPoints, setTerrainSeed, setActiveGroundSize, setGateNotches, setTerrainTrenches, setTunnelMode, buildTunnelPaths, setTunnelPaths, setTerrainAmplitudeScale, rebuildTerrain, setTerrainFlatten } from './terrain.js';
 import { UNIT_TYPES, GROUND_SIZE, WORLD_UNITS_PER_SQUARE } from './constants.js';
 import { IS_DEV } from './devConfig.js';
 import { removeUnits, resetToSetup } from './army.js';
 import { setEnv, setEnvSkipProps, clearProps, addUnitDungeonLight, setZoneFogDensity } from './environments.js';
-import { loadZoneProps, clearEditorProps, prewarmGLBs, isPropEditorOpen } from './propEditor.js';
+import { loadZoneProps, clearEditorProps, prewarmGLBs, isPropEditorOpen, collectFlattenPads } from './propEditor.js';
 import { loadBarrierVisuals } from './barrierEditor.js';
 import { loadPaint } from './terrainPaint.js';
 import { loadTrenchVisuals } from './trenchEditor.js';
@@ -17,7 +17,7 @@ import { turnOrder, addLog, registerPendingSpawnCheck, setGroundBounds, combatPh
 import { applyHeroSkin } from './heroSkins.js';
 import { applyHeal } from './affixes.js';
 import { filterZoneSpawns, tagSpawnedEnemy, setEnemySpawner } from './respawn.js';
-import { setSurfaceMovement, buildSurfacesFromZone, clearSurfaces } from './surfaces.js';
+import { setSurfaceMovement, buildSurfacesFromZone, clearSurfaces, bakeCollisionGrid, hasCollisionMeshes } from './surfaces.js';
 import { ZONE as ZONE_DUNGEON_ENTRANCE } from './zones/zone_road_to_phandelver.js';
 import { ZONE as ZONE_BLEAKMIRE_WOODS } from './zones/zone_bleakmire_woods.js';
 import { ZONE as ZONE_HAUNTED_WOOD } from './zones/zone_haunted_wood.js';
@@ -331,6 +331,9 @@ function _buildFogBreach(x, z, scale = 0.5) {
 function _spawnZoneEnemy(e) {
   const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
   const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
+  // Seed the spawn Y so surface grounding picks the intended LEVEL (e.g. a bridge deck vs the ground
+  // under it) — nearestLevel snaps to the walkable level closest to this. No-op in non-surface zones.
+  if (e.y != null)                      u.grp.position.y = e.y;
   if (e.yOff)                           u.hoverY = e.yOff;
   if (e.rotY != null)                   u.grp.rotation.y = e.rotY;
   if (e.scale != null && e.scale !== 1) u.grp.scale.set(e.scale, e.scale, e.scale);
@@ -408,6 +411,7 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   // so they're all baked into the terrain rebuild.
   setTerrainControlPoints(zone.terrain ?? []);
   setTerrainTrenches(zone.trenches ?? []);
+  setTerrainFlatten([]);   // cleared now so the biome build is un-flattened; pads applied after props load
   if (zone.terrainSeed) setTerrainSeed(zone.terrainSeed);
   setGateNotches((zone.exits ?? []).map(e => ({ x: e.x, z: e.z, halfWidth: e.notchHalfWidth ?? 2 })));
 
@@ -421,9 +425,10 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
 
   // Switch biome — skip random props if zone defines its own
   clearEditorProps();
+  let _propsLoaded = Promise.resolve();
   if (zone.props?.length) {
     setEnvSkipProps(zone.biome, zone.ambient);
-    loadZoneProps(zone.props);  // async; props load in after biome switch
+    _propsLoaded = loadZoneProps(zone.props);  // async; props load in after biome switch
   } else {
     setEnv(zone.biome, zone.ambient);
   }
@@ -459,6 +464,17 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   } else {
     clearSurfaces();
   }
+
+  // After the ASYNC prop load resolves: (1) apply terrain-flatten pads from `flatten:true` props (their
+  // footprints) plus any zone-authored `flatten` array, and rebuild the terrain to bake them in; then
+  // (2) bake the collision nav data (colliders registered during the same load). Flatten runs for every
+  // zone; collision only for surfaceMovement. Flatten first so getGroundHeight is final before the bake.
+  _propsLoaded.then(() => {
+    const pads = (zone.flatten ?? []).concat(collectFlattenPads());
+    setTerrainFlatten(pads);
+    if (pads.length) rebuildTerrain(ground, zone.biome);
+    if (zone.surfaceMovement && hasCollisionMeshes()) bakeCollisionGrid({ half: (zone.groundSize ?? 108) / 2 });
+  });
 
   _postCombat = false;
 
@@ -1008,7 +1024,12 @@ if (import.meta.hot) {
       _registry[zone.id] = zone;
       if (_active && zone.id === _active.id) {
         _active = zone;
-        loadZoneProps(zone.props);
+        loadZoneProps(zone.props).then(() => {
+          const pads = (zone.flatten ?? []).concat(collectFlattenPads());
+          setTerrainFlatten(pads);
+          if (pads.length) rebuildTerrain(ground, zone.biome);
+          if (zone.surfaceMovement && hasCollisionMeshes()) bakeCollisionGrid({ half: (zone.groundSize ?? 108) / 2 });
+        });
         console.info(`[zoneLoader] '${zone.id}' reloaded from file — editor props re-synced${isPropEditorOpen() ? ' (editor open)' : ''}.`);
       }
     }

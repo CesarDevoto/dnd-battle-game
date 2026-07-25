@@ -5,6 +5,7 @@ import { COLORS, SCENE, GROUND_SIZE, GRID_DIVISIONS, WORLD_UNITS_PER_SQUARE } fr
 let _sceneGS = GROUND_SIZE;
 export function setSceneGroundSize(s) { _sceneGS = s; }
 import { buildTerrainMesh, getTerrainHeight } from './terrain.js';
+import { surfaceLosBlockers } from './surfaces.js';
 import { isEditModeActive } from './devConfig.js';
 
 export const scene = new THREE.Scene();
@@ -363,7 +364,16 @@ let _topViewY    = TOP_VIEW_Y_DEFAULT;
 let _topViewActive  = false;
 let _topViewSavedPos = null;
 let _topViewSavedTgt = null;
-let _regZoom     = 0;   // 0 = default, REG_ZOOM_MAX = most zoomed in
+
+// EQ-style dolly zoom: the wheel drives a continuous orbit DISTANCE from orbitMaxDist all the way in to
+// FP_MIN_DIST (first person). Below FP_ENTER the camera is at the hero's head → first-person look. The
+// camera pipeline (updateCameraFocus) owns min/maxDistance from this; the wheel only sets the target.
+const HEAD_H       = 1.6;   // WU above the hero's base to orbit around (top of the head)
+const FP_MIN_DIST  = 0.25;  // orbit distance at full first-person zoom
+const FP_ENTER     = 1.4;   // orbit distance below this = first-person mode (relaxed pitch, hero hidden)
+const ZOOM_STEP    = 1.5;   // WU per wheel notch
+let _zoomDist    = SCENE.orbitMaxDist;   // wheel-selected orbit distance (20 → FP_MIN_DIST)
+const _isFirstPerson = () => _zoomDist < FP_ENTER;
 
 renderer.domElement.addEventListener('wheel', e => {
   // Dev/edit mode uses OrbitControls' own free dolly (see devMode.js) — this
@@ -378,12 +388,8 @@ renderer.domElement.addEventListener('wheel', e => {
     controls.minDistance = _topViewY;
     controls.maxDistance = _topViewY;
   } else {
-    _regZoom = Math.min(REG_ZOOM_MAX, Math.max(0, _regZoom + (inward ? 1 : -1)));
-    const d = SCENE.orbitMaxDist - _regZoom * REG_ZOOM_ORBIT;
-    controls.minDistance = d;
-    controls.maxDistance = d;
-    camera.fov = SCENE.cameraFov - _regZoom * REG_ZOOM_FOV;
-    camera.updateProjectionMatrix();
+    // Dolly the orbit distance in/out; updateCameraFocus applies it (with wall pull-in / FP handling).
+    _zoomDist = Math.min(SCENE.orbitMaxDist, Math.max(FP_MIN_DIST, _zoomDist + (inward ? -ZOOM_STEP : ZOOM_STEP)));
   }
 }, { passive: false });
 
@@ -426,10 +432,9 @@ export function toggleTopView() {
       camera.position.copy(_topViewSavedPos);
       controls.target.copy(_topViewSavedTgt);
     }
-    const d = SCENE.orbitMaxDist - _regZoom * REG_ZOOM_ORBIT;
-    controls.minDistance = d;
-    controls.maxDistance = d;
-    camera.fov = SCENE.cameraFov - _regZoom * REG_ZOOM_FOV;
+    controls.minDistance = _zoomDist;
+    controls.maxDistance = _zoomDist;
+    camera.fov = SCENE.cameraFov;
     camera.updateProjectionMatrix();
     controls.update();
     _topViewSavedPos = null;
@@ -448,22 +453,36 @@ const _COL_STEPS  = 24;
 const _COL_MARGIN = 1.2;   // WU kept in front of the wall
 const _COL_MIN    = 5;     // WU — never pull closer than this to the hero
 const _colDir     = new THREE.Vector3();
+const _colOrigin  = new THREE.Vector3();
+const _camRay     = new THREE.Raycaster();
 let   _colDist    = SCENE.orbitMaxDist;
 
 function _applyCameraCollision() {
-  const maxD = SCENE.orbitMaxDist;
+  const maxD = _zoomDist;   // the wheel-selected orbit distance — collision only pulls IN from here
   _colDir.copy(camera.position).sub(controls.target);
   if (_colDir.lengthSq() < 1e-6) return;
   _colDir.normalize();
   const tx = controls.target.x, ty = controls.target.y, tz = controls.target.z;
+  const floor = Math.min(_COL_MIN, maxD);   // don't force out past the zoom when zoomed inside _COL_MIN
   let clearD = maxD;
   for (let i = 1; i <= _COL_STEPS; i++) {
     const d = (i / _COL_STEPS) * maxD;
     // terrain rises above the sightline point here → a wall blocks it; stop just short.
     if (getTerrainHeight(tx + _colDir.x * d, tz + _colDir.z * d) + _COL_MARGIN > ty + _colDir.y * d) {
-      clearD = Math.max(_COL_MIN, d - maxD / _COL_STEPS);
+      clearD = Math.max(floor, d - maxD / _COL_STEPS);
       break;
     }
+  }
+  // Collision MODELS (imported buildings/walls) are solid to the camera too — raycast the sightline
+  // from the hero's head toward the lens and pull in to just short of the nearest hit, so the camera
+  // can't slide BEHIND a wall/building and lose the party. BVH-accelerated; empty in normal zones.
+  const blockers = surfaceLosBlockers();
+  if (blockers.length) {
+    _colOrigin.set(tx, ty, tz);
+    _camRay.set(_colOrigin, _colDir);
+    _camRay.far = clearD;
+    const hit = _camRay.intersectObjects(blockers, true);
+    if (hit.length) clearD = Math.max(floor, hit[0].distance - _COL_MARGIN);
   }
   _colDist += (clearD - _colDist) * 0.2;   // smooth the pull-in / release
   controls.minDistance = _colDist;
@@ -526,26 +545,53 @@ export function updateCameraFocus() {
     return;
   }
 
-  // Play mode only: let the pitch drop below the horizon until terrain stops the lens. Runs before
-  // the focus early-return so it applies even when the camera is settled and just being orbited.
-  if (!isEditModeActive()) _applyTerrainPitchLimit();
+  const fp = !isEditModeActive() && !!_followUnit && _isFirstPerson();
+
+  // Pitch limits. First person: look nearly straight up/down freely (no terrain floor — the lens is at
+  // the head, not orbiting into the ground). Third person: horizon floor set by terrain each frame.
+  if (fp) {
+    controls.minPolarAngle = 0.05;
+    controls.maxPolarAngle = Math.PI - 0.05;
+  } else if (!isEditModeActive()) {
+    controls.minPolarAngle = 0.15;
+    // Runs before the focus early-return so it applies even when settled and just being orbited.
+    _applyTerrainPitchLimit();
+  }
 
   if (_followUnit) {
     const p = _followUnit.grp.position;
-    _camFocusLook.set(p.x, p.y + 1, p.z - 3);
+    _camFocusLook.set(p.x, p.y + HEAD_H, p.z);   // orbit around the top of the hero's head
     _camFocusActive = true;
   }
+  // Hide the driven hero's own model in first person so we don't see inside it.
+  _applyFirstPersonModelHide(fp ? _followUnit : null);
   if (!_camFocusActive) return;
 
   _prevTarget.copy(controls.target);
   controls.target.lerp(_camFocusLook, 0.1);
 
   camera.position.add(controls.target).sub(_prevTarget);
-  if (!isEditModeActive()) _applyCameraCollision();   // skim in front of walls in play mode
+  // Distance: first person snaps the lens to the head; third person uses the wheel distance, pulled in
+  // by walls. (Skip both in the editor, which owns its own free dolly.)
+  if (fp) {
+    controls.minDistance = controls.maxDistance = FP_MIN_DIST;
+  } else if (!isEditModeActive()) {
+    _applyCameraCollision();   // skim in front of walls in play mode
+  }
 
   if (!_followUnit && controls.target.distanceTo(_camFocusLook) < 0.05) {
     _camFocusActive = false;
   }
+}
+
+// Toggle the FP model hide: hide `unit` (the followed hero) in first person, restore whoever was hidden
+// before. Called every frame with the current FP target (or null when not in first person).
+let _fpHidden = null;
+function _applyFirstPersonModelHide(unit) {
+  if (_fpHidden === unit) return;
+  if (_fpHidden?.grp) _fpHidden.grp.visible = true;
+  if (unit?.grp) unit.grp.visible = false;
+  _fpHidden = unit ?? null;
 }
 
 // Right-click orbit is handled natively by OrbitControls now (RIGHT → ROTATE, set per-mode in
