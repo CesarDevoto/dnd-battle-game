@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { camera, controls, scene, getFollowUnit, setFollowUnit, saveCameraPose, restoreCameraPose } from './scene.js';
+import { camera, controls, scene, getFollowUnit, setFollowUnit, snapCameraToUnit, saveCameraPose, restoreCameraPose } from './scene.js';
 import { SCENE, UNIT_TYPES } from './constants.js';
 import { getTerrainHeight } from './terrain.js';
 import { units, setUnitStealth } from './units.js';
@@ -342,11 +342,18 @@ function _applyCamera() {
       RIGHT:  THREE.MOUSE.ROTATE,
     };
     setFogDensityMultiplier(1);
-    // Only snap to the default play-mode position when not mid-combat following a unit
+    // Returning to play view: re-follow a hero rather than snapping to the map centre, so toggling
+    // dev/play repeatedly keeps the camera on the party. Dev mode clears the follow unit (setFollowUnit
+    // (null) above), so getFollowUnit() is null here even though the heroes are right where we left them.
     if (!getFollowUnit()) {
-      camera.position.set(...SCENE.cameraPos);
-      controls.target.set(0, 0, SCENE.cameraPlayTarget);
-      controls.update();
+      const hero = units.find(u => u.team === 'blue' && u.hp > 0) || units.find(u => u.team === 'blue');
+      if (hero) {
+        snapCameraToUnit(hero);   // sets the follow unit + parks the camera at play distance on the hero
+      } else {
+        camera.position.set(...SCENE.cameraPos);
+        controls.target.set(0, 0, SCENE.cameraPlayTarget);
+        controls.update();
+      }
     }
   }
 }

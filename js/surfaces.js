@@ -133,23 +133,25 @@ export function stepPassable(x0, z0, x1, z1) {
 // ground (level 0) instead of being blocked by the deck overhead, and can't hop up onto the deck.
 export function stepPassableAt(x0, z0, x1, z1, refLevel) {
   if (!_active) return true;
-  // Terrain-steepness gate with LOOKAHEAD: block a step that CLIMBS natural terrain faster than
-  // MAX_CLIMB_PER_SQUARE per grid square. Rather than only the tiny per-frame step's local gradient
-  // (which lets a WASD unit ride the incline UP into the cliff before it registers), probe a short
-  // distance AHEAD in the movement direction — so the unit stops at the cliff BASE, not inside it.
-  // Descents are fine (walk off ledges). Mesh stairs/ramps unaffected — this reads raw terrain only.
-  const run = Math.hypot(x1 - x0, z1 - z0);
-  if (run > 1e-6) {
-    const ux = (x1 - x0) / run, uz = (z1 - z0) / run;
-    const hHere = getGroundHeight(x0, z0);
-    for (let i = 1; i <= SLOPE_PROBE_SAMPLES; i++) {
-      const d = (i / SLOPE_PROBE_SAMPLES) * SLOPE_PROBE_DIST;
-      if ((getGroundHeight(x0 + ux * d, z0 + uz * d) - hHere) / d * WORLD_UNITS_PER_SQUARE > MAX_CLIMB_PER_SQUARE) {
-        return false;
+  const from = nearestLevel(x0, z0, refLevel);
+  // Terrain-steepness gate with LOOKAHEAD (the WASD cliff barrier), applied ONLY when the unit is
+  // actually on the natural GROUND. If it's up on a mesh floor (a bridge DECK, a platform), the steep
+  // ravine/cliff terrain far below is irrelevant and must NOT block deck travel — that movement is
+  // governed by the level system + wall/body checks below. Probe a short distance AHEAD in the move
+  // direction so the unit stops at the cliff BASE, not inside it. Descents fine (walk off ledges).
+  const hHere = getGroundHeight(x0, z0);
+  if (from - hHere < SURFACE_STEP) {                            // on/near the ground, not up on a deck
+    const run = Math.hypot(x1 - x0, z1 - z0);
+    if (run > 1e-6) {
+      const ux = (x1 - x0) / run, uz = (z1 - z0) / run;
+      for (let i = 1; i <= SLOPE_PROBE_SAMPLES; i++) {
+        const d = (i / SLOPE_PROBE_SAMPLES) * SLOPE_PROBE_DIST;
+        if ((getGroundHeight(x0 + ux * d, z0 + uz * d) - hHere) / d * WORLD_UNITS_PER_SQUARE > MAX_CLIMB_PER_SQUARE) {
+          return false;
+        }
       }
     }
   }
-  const from = nearestLevel(x0, z0, refLevel);
   for (const L of surfacesAt(x1, z1)) {
     if (L - from > SURFACE_STEP) continue;                    // too tall to climb
     if (from - L > MAX_DROP)     continue;                    // too far to drop
