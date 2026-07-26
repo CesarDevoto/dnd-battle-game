@@ -48,6 +48,7 @@ function saveZonePropsPlugin() {
               if (p.yOff != null && p.yOff !== 0) s += `, yOff: ${p.yOff}`;
               s += `, rotY: ${p.rotY}`;
               if (p.rotX != null && p.rotX !== 0) s += `, rotX: ${p.rotX}`;
+              if (p.rotZ != null && p.rotZ !== 0) s += `, rotZ: ${p.rotZ}`;
               s += `, scale: ${p.scale}`;
               if (p.params && Object.keys(p.params).length) {
                 const kv = Object.entries(p.params)

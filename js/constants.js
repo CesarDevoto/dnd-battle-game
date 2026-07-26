@@ -466,17 +466,6 @@ export const UNIT_TYPES = {
     ],
   },
 
-  bugbear: {
-    name: 'Bugbear', team: 'red',
-    scale: [1.25, 1.25, 1.25], anchorY: 2.4,
-    hp: 27, ac: 16, speed: 30, initiative: 0, profBonus: 2,
-    abilities: { str: 15, dex: 14, con: 13, int: 8, wis: 11, cha: 9 },
-    attacks: [
-      { name: 'Morningstar', type: 'melee',  range: 5,  dice: 2, sides: 8, statMod: 'str' },
-      { name: 'Javelin',     type: 'ranged', range: 15, longRange: 30, rawLongRange: 60, dice: 2, sides: 6, statMod: 'str' },
-    ],
-  },
-
   warg: {
     name: 'Warg', team: 'red',
     scale: [1.45, 1.45, 1.45], anchorY: 1.6,

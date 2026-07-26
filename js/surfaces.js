@@ -282,9 +282,18 @@ const _DOWN      = new THREE.Vector3(0, -1, 0);
 // raycasts (and the LOS pass) hit every triangle regardless of the model's winding — otherwise a
 // wall's near face (a backface) is culled and a unit walks through it. Also feeds _losBlockers, so an
 // imported wall/building occludes vision the same way an analytic platform does.
+// A Sprite/Points/Line inside a collider subtree is decoration, never collision geometry — but
+// intersectObjects(..., true) recurses into it anyway, and THREE.Sprite.raycast() dereferences
+// `raycaster.camera.matrixWorld`. The bake/step raycasters have no camera, so a single flame
+// sprite inside a collider throws "Cannot read properties of null (reading 'matrixWorld')" and
+// takes the whole zone load down with it. Ticking Collision on a campfire (whose flames ARE
+// sprites) is what surfaced this. Neutralize their raycast so only real meshes are ever hit.
+const _noRaycast = () => {};
+
 export function registerCollisionMesh(obj) {
   if (!obj) return;
   obj.traverse((n) => {
+    if (n.isSprite || n.isPoints || n.isLine || n.isLineSegments) { n.raycast = _noRaycast; return; }
     if (!n.isMesh) return;
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     for (const m of mats) if (m) m.side = THREE.DoubleSide;

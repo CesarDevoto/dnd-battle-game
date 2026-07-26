@@ -54,6 +54,11 @@ export const PROP_MODELS = {
   stonesteps:       { label: 'Stone Steps',     path: 'assets/environment/stonesteps.glb',           defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
   widestonesteps:   { label: 'Wide Stone Steps',path: 'assets/environment/wide stone steps.glb',     defaultScale: 2.0, blocksLOS: false, clashR: 1.2  },
   woodensteps:      { label: 'Wooden Steps',    path: 'assets/environment/wooden steps.glb',         defaultScale: 2.0, blocksLOS: false, clashR: 0.8  },
+  // Native ~3.7 WU (X) × 2.1 tall × 4.6 deep, so 2x → a ~7.4 × 9.1 WU footprint that climbs
+  // ~4.2 WU — roughly double the rise of `widestonesteps`, which is the point of a spiral.
+  // clashR only guards the centre column; tick "Collision" on the placement so heroes actually
+  // walk the treads (see surfaces.js GLB-collision authoring) rather than relying on clashR.
+  windingstonesteps:{ label: 'Winding Stone Steps', path: 'assets/environment/winding stone steps.glb', defaultScale: 2.0, blocksLOS: false, clashR: 1.5  },
   dungeonwallsmall: { label: 'Wall (Small)',    path: 'assets/environment/dungeon small wall.glb',   defaultScale: 8.0, blocksLOS: true,  clashR: 0.8  },
   dungeonwalllong:  { label: 'Wall (Long)',      path: 'assets/environment/dungeon long wall.glb',        defaultScale: 8.0, blocksLOS: true,  clashR: 1.5  },
   dungeonwallxlong: { label: 'Wall (X-Long)',   path: 'assets/environment/dungeon really long wall.glb', defaultScale: 8.0, blocksLOS: true,  clashR: 2.0  },
@@ -81,9 +86,9 @@ export const PROP_MODELS = {
   pileofbones:  { label: 'Pile of Bones', path: 'assets/environment/pile of bones.glb',  defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   woodchair:    { label: 'Wood Chair',  path: 'assets/environment/wood chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   barstand:     { label: 'Bar Stand',   path: 'assets/environment/bar stand.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
-  flooring1:    { label: 'Flooring 1',  path: 'assets/environment/flooring1.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
-  flooring2:    { label: 'Flooring 2',  path: 'assets/environment/flooring2.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
-  rug1:         { label: 'Rug 1',       path: 'assets/environment/rug1.glb',             defaultScale: 2.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
+  flooring1:    { label: 'Flooring 1',  path: 'assets/environment/flooring1.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.05 },
+  flooring2:    { label: 'Flooring 2',  path: 'assets/environment/flooring2.glb',        defaultScale: 4.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.05 },
+  rug1:         { label: 'Rug 1',       path: 'assets/environment/rug1.glb',             defaultScale: 2.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.05 },
   platform1:    { label: 'Platform 1',  path: 'assets/environment/platform1.glb',        defaultScale: 2.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.05 },
   inn:          { label: 'Inn',         path: 'assets/environment/inn.glb',              defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
   inn2:         { label: 'Inn 2',       path: 'assets/environment/inn2.glb',             defaultScale: 4.0, blocksLOS: true,  clashR: 3.0  },
@@ -120,12 +125,16 @@ export const PROP_MODELS = {
   mushroom4:    { label: 'Mushroom 4',  path: 'assets/environment/mushroom4.glb',        defaultScale: 0.375, blocksLOS: false, clashR: 0.1  },
   // ~2 WU tall at scale 1 — too short to break a sight line, so blocksLOS:false.
   mushroomtree: { label: 'Mushroom Tree', path: 'assets/environment/mushroomtree.glb',   defaultScale: 1.0, blocksLOS: false, clashR: 0.35 },
+  // Ground cover: a ~2 WU (one grid square) patch, ~0.7 tall. clashR:0 so units walk straight
+  // over it and other props can sit on it; the small negative yOff beds it into the terrain
+  // instead of perching it on top (the loader normalizes the bottom to y=0).
+  moss1:        { label: 'Moss Patch',  path: 'assets/environment/moss1.glb',            defaultScale: 1.0, defaultYOff: -0.15, blocksLOS: false, clashR: 0.0  },
   // Campfire MODEL (logs), ~2 WU wide at scale 1, bottom normalized to y=0. `attach` adds rising
   // fire sparks + a warm flicker light at the centre when placed (see mkFireSparks). Distinct from
   // the fully-procedural `campfire` (pure particle fire, no model).
   // ~1.85 WU wide at scale 1 (bottom normalized to y=0); default small so it reads as clutter.
   poop:         { label: 'Poop',        path: 'assets/environment/poop.glb',              defaultScale: 0.4, blocksLOS: false, clashR: 0.2  },
-  campfire2:    { label: 'Campfire (Logs)', path: 'assets/environment/campfire.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.7,
+  campfire2:    { label: 'Campfire (Logs)', path: 'assets/environment/campfire.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.7, noCollision: true,
     attach: (mesh) => {
       // Bright warm-orange room light (the default mkFireSparks glow is a small ember flicker).
       const sparks = mkFireSparks({ lightColor: 0xff7a28, lightIntensity: 14, lightDistance: 42 });
@@ -136,9 +145,17 @@ export const PROP_MODELS = {
     },
   },
   bench1:       { label: 'Bench 1',     path: 'assets/environment/bench1.glb',           defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
+  // Native ~1.84 WU long × 0.74 wide × only 0.12 tall — a low bedroll/pallet, not a framed bunk.
+  // 1.3x makes it ~2.4 WU (6 ft) long, i.e. one grid square plus a bit. Far too low to break a
+  // sight line, so blocksLOS:false; clashR 0.7 walks units around its length rather than over it.
+  cot:          { label: 'Cot',         path: 'assets/environment/cot.glb',              defaultScale: 1.3, blocksLOS: false, clashR: 0.7  },
   barstand2:    { label: 'Bar Stand 2', path: 'assets/environment/barstand2.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.8  },
   barloaded:    { label: 'Loaded Bar',  path: 'assets/environment/barloaded.glb',        defaultScale: 1.0, blocksLOS: true,  clashR: 2.0  },
   barrel1:      { label: 'Barrel 1',    path: 'assets/environment/barrel1.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
+  // Near-cubic, ~1.96 WU per side at scale 1 (a full grid square / 5 ft — too big for a crate).
+  // 0.8x lands it at ~1.6 WU ≈ 4 ft. Auto-grounded, so no yOff. blocksLOS:false to match the
+  // barrels: waist-high cargo is cover you shoot over, not a sight blocker.
+  crate1:       { label: 'Crate 1',     path: 'assets/environment/crate1.glb',           defaultScale: 0.8, blocksLOS: false, clashR: 0.6  },
   barrel2:      { label: 'Barrel 2',    path: 'assets/environment/barrel2.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
   // ~1.4 WU wide × ~1.9 tall centered; at 3x → ~4.2 WU (~2 grid squares) wide, awning height. Auto-grounded.
   marketstall1: { label: 'Market Stall', path: 'assets/environment/market stall1.glb',   defaultScale: 3.0, blocksLOS: true,  clashR: 1.5  },
@@ -159,28 +176,28 @@ export const PROP_MODELS = {
   cross:        { label: 'Cross',        builderFn: () => mkCross(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.3 },
   arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
 
-  fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
+  fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.25 },
   // The zone-gate "fog ball" mist, placeable + sizable. defaultScale 0.5 matches the gate/breach
   // default; scale it up/down like any prop. Self-animating (no zone tick needed); does NOT hide
   // in combat the way the actual gate fog does.
-  fogball:          { label: 'Gate Fog',           builderFn: () => mkFogBall(),          defaultScale: 0.5, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
+  fogball:          { label: 'Gate Fog',           builderFn: () => mkFogBall(),          defaultScale: 0.5, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.0 },
   // Functional travel gate: fog + a central white click-ball. Set its target zone per placement
   // (prompted on drop; stored in params.targetZone). Only the white ball is clickable, and a hero
   // must be within 10 ft — see the gate block in army.js. defaultScale 1.0 so the click-ball reads
   // at ~5 ft; scaling the gate scales the ball with it.
-  zonegate:         { label: 'Zone Gate',          builderFn: (p) => mkZoneGate(p?.params?.targetZone), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
-  campfire:         { label: 'Campfire',           builderFn: () => mkCampfire(1, 0),     defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.0 },
-  darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.8  },
+  zonegate:         { label: 'Zone Gate',          builderFn: (p) => mkZoneGate(p?.params?.targetZone), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.0 },
+  campfire:         { label: 'Campfire',           builderFn: () => mkCampfire(1, 0),     defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.0 },
+  darknessplane:    { label: 'Darkness',           builderFn: () => mkDarknessPlane(),   defaultScale: 12.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.8  },
 
   // ── Special interactive markers ───────────────────────────────────────────────
-  waystone:         { label: 'Waystone',          builderFn: (p) => mkWaystoneDisc(p?.waystoneId, p?.mapTab),    defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.20 },
-  exclamation_marker: { label: 'Exclamation Marker', builderFn: () => mkExclamationMarker(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0 },
-  point_light:      { label: 'Point Light',        builderFn: () => mkPointLight(),       defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
-  point_light_bright: { label: 'Bright Point Light', builderFn: () => mkPointLight(22, 50), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 2.0 },
+  waystone:         { label: 'Waystone',          builderFn: (p) => mkWaystoneDisc(p?.waystoneId, p?.mapTab),    defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.20 },
+  exclamation_marker: { label: 'Exclamation Marker', builderFn: () => mkExclamationMarker(), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true },
+  point_light:      { label: 'Point Light',        builderFn: () => mkPointLight(),       defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 2.0 },
+  point_light_bright: { label: 'Bright Point Light', builderFn: () => mkPointLight(22, 50), defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 2.0 },
 
   // ── Terrain surface assets ────────────────────────────────────────────────────
-  road:         { label: 'Road Segment', builderFn: () => mkRoadSegment(1, 0),               defaultScale: 3.0, blocksLOS: false, clashR: 0.0, conformTerrain: true },
-  roadcurve30:  { label: 'Road Turn 30', builderFn: () => mkRoadCurve30(1, 0),               defaultScale: 3.0, blocksLOS: false, clashR: 0.0, conformTerrain: true },
-  water:        { label: 'Water Disc',   builderFn: () => mkWaterDisc(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
-  bloodpool:    { label: 'Blood Pool',   builderFn: () => mkBloodPool(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.0, defaultYOff: 0.25 },
+  road:         { label: 'Road Segment', builderFn: () => mkRoadSegment(1, 0),               defaultScale: 3.0, blocksLOS: false, clashR: 0.0, noCollision: true, conformTerrain: true },
+  roadcurve30:  { label: 'Road Turn 30', builderFn: () => mkRoadCurve30(1, 0),               defaultScale: 3.0, blocksLOS: false, clashR: 0.0, noCollision: true, conformTerrain: true },
+  water:        { label: 'Water Disc',   builderFn: () => mkWaterDisc(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.25 },
+  bloodpool:    { label: 'Blood Pool',   builderFn: () => mkBloodPool(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.25 },
 };

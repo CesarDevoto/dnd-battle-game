@@ -102,10 +102,21 @@ function _updateFadeControl() {
   const box = document.getElementById('pe-nofade');
   if (box) box.checked = !!entry.noFade;
   const cbox = document.getElementById('pe-collision');
-  if (cbox) cbox.checked = !!entry.collision;
+  if (cbox) {
+    const allowed = canCollide(entry.model);
+    cbox.checked  = !!entry.collision && allowed;
+    cbox.disabled = !allowed;          // grey the box out rather than let it be ticked and ignored
+    cbox.title    = allowed ? '' : 'This prop cannot be a collider (sprite/particle geometry)';
+  }
   const fbox = document.getElementById('pe-flatten');
   if (fbox) fbox.checked = !!entry.flatten;
 }
+
+// Props that must NEVER become collision geometry (PROP_MODELS[key].noCollision). A collider is
+// raycast for floors/walls, so this is for models made of sprites/particles/light rather than
+// solid surfaces — a campfire's flames are Sprites, and a Sprite in a collider subtree used to
+// throw during the surface bake and take the whole zone load with it (see surfaces.js).
+export function canCollide(modelKey) { return !PROP_MODELS[modelKey]?.noCollision; }
 
 // Flip the selected prop's collision flag. Unlike noFade this isn't live — the collision nav-grid is
 // baked at zone load — so it persists on SAVE and applies after a reload.
@@ -113,6 +124,12 @@ function _setSelectedCollision(on) {
   if (_selectedIdx < 0) return;
   const entry = _placedProps[_selectedIdx];
   if (!entry || entry.model === null) return;
+  if (on && !canCollide(entry.model)) {
+    _setSaveStatus(`${PROP_MODELS[entry.model]?.label ?? entry.model} can't be a collider`, 'error');
+    const cbox = document.getElementById('pe-collision');
+    if (cbox) cbox.checked = false;
+    return;
+  }
   _snapshot();
   if (on) entry.collision = true; else delete entry.collision;
   _setSaveStatus(`Collision ${on ? 'ON' : 'OFF'} — Save, then reload the zone to apply`, '');
@@ -251,14 +268,18 @@ async function _placeAtPoint(pt) {
 
   _snapshot();
   const s = def.defaultScale;
-  const entry = { mesh, model: modelKey, x: pt.x, z: pt.z, yOff: def.defaultYOff ?? 0, rotY: 0, rotX: def.defaultRotX ?? 0, scaleF: s };
+  // noFade ON by default for newly placed props (uncheck in the panel to opt back into fading).
+  // Stamped onto userData too, not just the entry — environmentVisibility reads the MESH at
+  // rebuild time, so without this the prop would fade until the next save+reload.
+  const entry = { mesh, model: modelKey, x: pt.x, z: pt.z, yOff: def.defaultYOff ?? 0, rotY: 0, rotX: def.defaultRotX ?? 0, rotZ: def.defaultRotZ ?? 0, scaleF: s, noFade: true };
+  mesh.userData.noFade = true;
   _applyTransform(entry);  // sets position/rotation/scale
   if (_propsHidden) mesh.visible = false;
   scene.add(mesh);
 
   // Register for collision/LOS tracking without overriding the position set above.
   activeProps.push(mesh);
-  entry.collision = true;   // collision ON by default for newly placed props (uncheck in the panel to opt out)
+  if (canCollide(modelKey)) entry.collision = true;   // ON by default for newly placed props (uncheck in the panel to opt out)
   const isCollider = entry.collision && isSurfaceMovement();
   if (isCollider) {
     registerCollisionMesh(mesh);   // walkable/blocking geometry; skips the 2D clash radius + prop LOS list
@@ -276,6 +297,7 @@ async function _placeAtPoint(pt) {
   }
   _placedProps.push(entry);
   if (modelKey === 'exclamation_marker') trackExclamation(entry.mesh, entry.x, entry.z);
+  markEnvVisibilityDirty();   // pick up the default noFade now rather than at the next rebuild
   _selectIdx(_placedProps.length - 1);
 }
 
@@ -287,8 +309,14 @@ function _applyTransform(entry, savedY = null) {
   const terrainH = getGroundHeight(entry.x, entry.z);
   const isGLB = !!(entry.model && PROP_MODELS[entry.model]?.path);
 
+  // Euler order is the three.js default XYZ, i.e. R = Rx·Ry·Rz. With rotX at 0 the model's
+  // local up maps to (-sin rotZ·cos rotY, cos rotZ, sin rotZ·sin rotY) — so rotZ is the TILT
+  // off vertical and rotY aims that tilt at any compass heading. That pair is what lets a
+  // flat prop (moss, a decal) lie against an arbitrarily-facing slope; rotX alone can only
+  // ever tilt toward ±Z, because rotY is applied inside it and leaves the up-vector alone.
   entry.mesh.rotation.x = entry.rotX ?? 0;
   entry.mesh.rotation.y = entry.rotY;
+  entry.mesh.rotation.z = entry.rotZ ?? 0;
   entry.mesh.scale.setScalar(entry.scaleF);
 
   let finalY;
@@ -501,8 +529,14 @@ async function _duplicateSelected(dx, dz) {
     yOff: src.yOff,
     rotY: src.rotY,
     rotX: src.rotX ?? 0,
+    rotZ: src.rotZ ?? 0,
     scaleF: src.scaleF,
+    // A duplicate is a placement too: inherit the source's flags (defaulting noFade ON like a
+    // fresh drop) instead of silently dropping them, which is what used to happen.
+    noFade: src.noFade ?? true,
   };
+  if (entry.noFade) mesh.userData.noFade = true;
+  if (src.collision && canCollide(src.model)) entry.collision = true;
   if (src.params)            entry.params     = { ...src.params };
   if (src.waystoneId != null) entry.waystoneId = src.waystoneId;
   if (src.mapTab     != null) entry.mapTab     = src.mapTab;
@@ -511,9 +545,15 @@ async function _duplicateSelected(dx, dz) {
   scene.add(mesh);
 
   activeProps.push(mesh);
-  if (def.clashR > 0) propPositions.push({ x: entry.x, z: entry.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
-  if (def.blocksLOS) losBlockerMeshes.push(mesh);
+  // Mirror the placement path: a collider opts OUT of the 2D clash radius and the prop LOS list.
+  if (entry.collision && isSurfaceMovement()) {
+    registerCollisionMesh(mesh);
+  } else {
+    if (def.clashR > 0) propPositions.push({ x: entry.x, z: entry.z, blocksLOS: def.blocksLOS, clashRSq: def.clashR * def.clashR });
+    if (def.blocksLOS) losBlockerMeshes.push(mesh);
+  }
   _placedProps.push(entry);
+  markEnvVisibilityDirty();
   _selectIdx(_placedProps.length - 1);
 }
 
@@ -584,6 +624,7 @@ async function _saveToZone() {
       };
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
+      if (p.rotZ)              obj.rotZ       = +p.rotZ.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
       if (p.noFade)            obj.noFade     = true;
       _carryMetadata(p, obj);
@@ -639,6 +680,7 @@ function _exportJSON() {
       };
       if (p.yOff !== 0)        obj.yOff       = +p.yOff.toFixed(3);
       if (p.rotX)              obj.rotX       = +p.rotX.toFixed(4);
+      if (p.rotZ)              obj.rotZ       = +p.rotZ.toFixed(4);
       if (p.params)            obj.params     = { ...p.params };
       if (p.noFade)            obj.noFade     = true;
       _carryMetadata(p, obj);
@@ -728,7 +770,9 @@ export async function loadZoneProps(propsArray) {
     // geometry that the surface bake raycasts for floors + walls + LOS. It must OPT OUT of the 2D
     // clash radius (which would wall off its own interior) and of the prop LOS list (the surface
     // system's raycast covers it instead).
-    const isCollider = (p.collision ?? def.collision ?? false) && isSurfaceMovement();
+    // canCollide() also DISARMS a stale collision:true already sitting in a zone file — three
+    // campfires in hide_out were saved that way and crashed the surface bake on every load.
+    const isCollider = (p.collision ?? def.collision ?? false) && canCollide(p.model) && isSurfaceMovement();
 
     const entry = {
       mesh,
@@ -738,10 +782,11 @@ export async function loadZoneProps(propsArray) {
       yOff:   p.yOff  ?? 0,
       rotY:   p.rotY  ?? 0,
       rotX:   p.rotX  ?? def.defaultRotX ?? 0,
+      rotZ:   p.rotZ  ?? def.defaultRotZ ?? 0,
       scaleF: p.scale ?? def.defaultScale,
       noFade,
     };
-    if (p.collision)    entry.collision  = true;   // preserve for editor round-trip / re-save
+    if (p.collision && canCollide(p.model)) entry.collision = true;   // preserve for editor round-trip / re-save
     if (p.flatten)      entry.flatten    = true;
     if (p.params)       { entry.params    = { ...p.params }; _applyLightParams(entry); }
     if (p.waystoneId != null) entry.waystoneId = p.waystoneId;
@@ -802,11 +847,11 @@ function _updateStatus() {
 // section, so adding a new prop never makes it vanish from the picker.
 const PROP_CATEGORIES = [
   { label: 'Buildings',       keys: ['inn','inn2','hut1','hut2','marketstall1','marketarmory1','bigbuilding1','building2','building3','building4','building5','building6','building7','building8','building9','building10','building11','building12','building13','building14','building15','building16','buildingruinedlarge'] },
-  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','bridgelantern','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','woodwall1','woodwall2','platform1'] },
-  { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4','mushroom1','mushroom2','mushroom3','mushroom4','mushroomtree'] },
+  { label: 'Structures',      keys: ['dungeonwall','dungeonwallsmall','dungeonwalllong','dungeonwallxlong','dungeonwallcurve','dungeonwallsmalltall','dungeonwalllongtall','dungeonwallxlongtall','dungeonwallcurvetall','dungeoncolumn','dungeoncolumntall','bridge','bridgelantern','cavemouth1','cavemouth2','cavemouth3','cavemouth4','stonesteps','widestonesteps','windingstonesteps','woodensteps','woodwall1','woodwall2','platform1'] },
+  { label: 'Trees & Plants',  keys: ['deadtree','brokentree','evergreen','foresttree','mangrove','savannahtree','log','bush','dryshrub','fern','glowmushroom','plant1','plant2','plant3','plant4','mushroom1','mushroom2','mushroom3','mushroom4','mushroomtree','moss1'] },
   { label: 'Rocks',           keys: ['rock','snowrock','boulder','rockpile','stalactite','rubble'] },
   { label: 'Graves & Corpses',keys: ['mausoleum','tombstone','coffin','gravemound','cross','pileofbones','corpse1','corpsespike','deadhorse','skeleton1'] },
-  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','shackles','spiderweb','poop'] },
+  { label: 'Objects',         keys: ['wagonhorses','saddlebag','alchemylab','fancychair','woodchair','barstand','barstand2','bench1','barloaded','barrel1','barrel2','crate1','shackles','spiderweb','cot','poop'] },
   { label: 'Terrain Surfaces',keys: ['flooring1','flooring2','rug1','road','roadcurve30','water','bloodpool'] },
   { label: 'Effects & Markers',keys:['fogpatch','fogball','zonegate','campfire','campfire2','darknessplane','waystone','exclamation_marker','point_light','point_light_bright','arrow'] },
 ];
