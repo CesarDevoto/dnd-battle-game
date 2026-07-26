@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { renderer, camera, ground, controls } from './scene.js';
 import { makeRoadTexture } from './propBuilders.js';
 import { IS_DEV } from './devConfig.js';
-import { sharedPaintUniforms, floorPaintUniforms, roofPaintUniforms, applyPaintShader } from './terrainPaintShader.js';
+import { sharedPaintUniforms, floorPaintUniforms, applyPaintShader } from './terrainPaintShader.js';
 
 // ── Terrain paint (splatmap) ──────────────────────────────────────────────────
 // Spray-paint biome surfaces onto the terrain. Each channel is a paint material
@@ -14,9 +14,7 @@ import { sharedPaintUniforms, floorPaintUniforms, roofPaintUniforms, applyPaintS
 // "Erase" scales all three channels back toward 0.
 //
 // The ground FLOOR layer is a 1024² RGBA mask in UV space (survives geometry rebuilds)
-// and is what renders on the terrain. A second `roof` layer is retained only as a data
-// store: it round-trips the zone's legacy `paintRoof`/`paintRoofTint` fields but no longer
-// has a mesh to render onto (it painted the removed cave-roof "blanket").
+// and is what renders on the terrain.
 //
 // Paint is stored as vector STROKES ({x,z,r,ch}) on the zone — git-friendly,
 // editable, resolution-independent (like barriers): `paint`/`paintTint` for the floor.
@@ -25,9 +23,8 @@ const MASK_SIZE  = 1024;     // mask canvas resolution
 const TILE_WU    = 6;        // road/dirt texture tiles once per this many world units
 
 // ── Paint layers ───────────────────────────────────────────────────────────────
-// Each layer owns its own mask canvas/texture, recorded strokes, and the shared
-// uniform object. Only `floor` renders (onto the ground); `roof` is a data-only holdover
-// that round-trips the zone's legacy paintRoof strokes.
+// The floor layer owns its mask canvas/texture, recorded strokes, and the shared
+// uniform object, and renders onto the ground.
 function _makeLayer(uniforms) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = MASK_SIZE;
@@ -41,9 +38,6 @@ function _makeLayer(uniforms) {
   };
 }
 const _floor = _makeLayer(floorPaintUniforms);
-const _roof  = _makeLayer(roofPaintUniforms);
-let _targetKey = 'floor';                 // which layer the brush paints into
-function _tgt() { return _targetKey === 'roof' ? _roof : _floor; }
 
 function _initLayerTex(layer) {
   layer.tex = new THREE.CanvasTexture(layer.cv);
@@ -74,7 +68,6 @@ function _patchMaterials() {
   sharedPaintUniforms.uRoadTex.value = makeRoadTexture(1, 1);
 
   _initLayerTex(_floor);
-  _initLayerTex(_roof);   // data-only layer (round-trips legacy paintRoof strokes)
 
   const mat = ground.material;
   mat.onBeforeCompile = (shader) => {
@@ -145,12 +138,11 @@ function _stamp(layer, wx, wz, rWU, ch) {
 }
 
 // ── Public: load paint for a zone ────────────────────────────────────────────
-// floorStrokes/floorTint → ground; roofStrokes/roofTint kept as data only (no mesh).
-export function loadPaint(floorStrokes, floorTint, roofStrokes, roofTint) {
+// floorStrokes/floorTint → ground.
+export function loadPaint(floorStrokes, floorTint) {
   sharedPaintUniforms.uSize.value        = _gs();
   sharedPaintUniforms.uPaintRepeat.value = sharedPaintUniforms.uSize.value / TILE_WU;
   _loadLayer(_floor, floorStrokes, floorTint);
-  _loadLayer(_roof,  roofStrokes,  roofTint);
   _syncTintInput();
   _updateCounter();
 }
@@ -189,7 +181,7 @@ function _paintPt(cx, cy) {
 function _paintAt(pt) {
   // Record + rasterize, but space out recorded strokes so a drag doesn't store
   // thousands of near-duplicate points.
-  const layer = _tgt();
+  const layer = _floor;
   const spacing = Math.max(0.4, _brush * 0.4);
   if (layer.lastRec) {
     const dx = pt.x - layer.lastRec.x, dz = pt.z - layer.lastRec.z;
@@ -210,15 +202,6 @@ function _setChannel(ch) {
   _updateStatus();
 }
 
-function _setTarget(key) {
-  _targetKey = key === 'roof' ? 'roof' : 'floor';
-  document.querySelectorAll('.tp-layer-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.layer === _targetKey));
-  _syncTintInput();
-  _updateCounter();
-  _updateStatus();
-}
-
 function _setPaintMode(on) {
   _paintMode = on;
   if (!on && _painting) { _painting = false; controls.enabled = true; }
@@ -229,22 +212,20 @@ function _setPaintMode(on) {
 
 function _syncTintInput() {
   const el = document.getElementById('tp-tint');
-  if (el) el.value = '#' + _tgt().uniforms.uTintColor.value.getHexString();
+  if (el) el.value = '#' + _floor.uniforms.uTintColor.value.getHexString();
 }
 
 function _updateStatus() {
   const el = document.getElementById('tp-status');
   if (!el) return;
-  const layerName = _targetKey === 'roof' ? 'blanket' : 'floor';
   el.textContent = _paintMode
-    ? `Painting ${layerName} "${_channel}" · brush ${_brush.toFixed(1)} · drag on terrain`
-    : `Target: ${layerName} · click PAINT MODE, then drag`;
+    ? `Painting "${_channel}" · brush ${_brush.toFixed(1)} · drag on terrain`
+    : 'Click PAINT MODE, then drag on the terrain';
 }
 function _updateCounter() {
   const el = document.getElementById('tp-counter');
   if (!el) return;
-  const layerName = _targetKey === 'roof' ? 'Blanket' : 'Floor';
-  el.textContent = `${layerName} strokes: ${_tgt().strokes.length}`;
+  el.textContent = `Floor strokes: ${_floor.strokes.length}`;
 }
 function _setSave(msg, cls) {
   const el = document.getElementById('tp-save-status');
@@ -263,13 +244,11 @@ async function _save() {
         zoneId:        _activeZone,
         paint:         _floor.strokes,
         paintTint:     '#' + _floor.uniforms.uTintColor.value.getHexString(),
-        paintRoof:     _roof.strokes,
-        paintRoofTint: '#' + _roof.uniforms.uTintColor.value.getHexString(),
       }),
     });
     const json = await res.json();
     if (json.ok) {
-      const total = _floor.strokes.length + _roof.strokes.length;
+      const total = _floor.strokes.length;
       _setSave(`Saved ${total} stroke${total !== 1 ? 's' : ''} ✓`, 'ok');
       setTimeout(() => _setSave('', ''), 3000);
     } else {
@@ -281,7 +260,7 @@ async function _save() {
 }
 
 function _clearPaint() {
-  const layer = _tgt();
+  const layer = _floor;
   layer.strokes = [];
   layer.lastRec = null;
   _clearMask(layer);
@@ -304,7 +283,6 @@ export function initTerrainPaint() {
       uSize:              sharedPaintUniforms.uSize.value,
       uPaintRepeat:       sharedPaintUniforms.uPaintRepeat.value,
       floorStrokes:       _floor.strokes.length,
-      roofStrokes:        _roof.strokes.length,
       activeZone:         _activeZone,
       groundType:         ground.geometry?.type,
       groundWidth:        ground.geometry?.parameters?.width ?? null,
@@ -330,15 +308,11 @@ export function initTerrainPaint() {
 
   document.getElementById('tp-paint-btn')?.addEventListener('click', () => _setPaintMode(!_paintMode));
   document.getElementById('tp-clear-btn')?.addEventListener('click', () => {
-    const n = _tgt().strokes.length;
-    const layerName = _targetKey === 'roof' ? 'blanket' : 'floor';
-    if (n && !confirm(`Clear all ${n} ${layerName} paint stroke(s)?`)) return;
+    const n = _floor.strokes.length;
+    if (n && !confirm(`Clear all ${n} paint stroke(s)?`)) return;
     _clearPaint();
   });
   document.getElementById('tp-save-btn')?.addEventListener('click', _save);
-
-  document.querySelectorAll('.tp-layer-btn').forEach(b =>
-    b.addEventListener('click', () => _setTarget(b.dataset.layer)));
 
   document.querySelectorAll('.tp-ch-btn').forEach(b =>
     b.addEventListener('click', () => _setChannel(b.dataset.ch)));
@@ -351,11 +325,11 @@ export function initTerrainPaint() {
 
   const tintInput = document.getElementById('tp-tint');
   tintInput?.addEventListener('input', e => {
-    _tgt().uniforms.uTintColor.value.set(e.target.value);   // active layer's tint
+    _floor.uniforms.uTintColor.value.set(e.target.value);
   });
   document.querySelectorAll('.tp-tint-swatch').forEach(b =>
     b.addEventListener('click', () => {
-      _tgt().uniforms.uTintColor.value.set(b.dataset.color);
+      _floor.uniforms.uTintColor.value.set(b.dataset.color);
       if (tintInput) tintInput.value = b.dataset.color;
     }));
 
@@ -367,7 +341,7 @@ export function initTerrainPaint() {
     e.stopImmediatePropagation();
     controls.enabled = false;   // drag paints instead of orbiting the camera
     _painting = true;
-    _tgt().lastRec = null;
+    _floor.lastRec = null;
     _paintAt(pt);
   }, true);
 
@@ -382,11 +356,11 @@ export function initTerrainPaint() {
     if (!_painting) return;
     _painting = false;
     controls.enabled = true;
-    _tgt().lastRec = null;
+    _floor.lastRec = null;
   };
   window.addEventListener('pointerup', _endStroke, true);
 
-  _setTarget('floor');
+  _syncTintInput();
   _updateStatus();
   _updateCounter();
 }

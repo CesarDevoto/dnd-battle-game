@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { scene } from './scene.js';
-import { UNIT_TYPES, COMBAT } from './constants.js';
+import { UNIT_TYPES, COMBAT, ENVS } from './constants.js';
 import { getTerrainHeight, getGroundHeight } from './terrain.js';
 import { addUnitDungeonLight } from './environments.js';
 import { equipItem, placeInFirstEmptyBagSlot } from './equipment.js';
@@ -508,6 +508,49 @@ const TEAM_TINT = {
   familiar: new THREE.Color(0x000000),
 };
 
+// ── Emissive dimming for dark biomes ──────────────────────────────────────────
+// Emissive is added AFTER lighting and ignores every light in the scene, so a model
+// with an emissive texture renders at full brightness no matter how dark the zone is.
+// Most enemy models are meshy.ai exports carrying one, which is why they read as lit
+// cut-outs against a black dungeon while the terrain around them goes properly dark.
+//
+// The scale below multiplies each material's AUTHORED emissive (stashed as
+// _baseEmissiveIntensity at build time), so the model falls back to being lit by the
+// scene — ambient plus the hero torches — the way everything else is. Driven per-biome
+// by ENVS[biome].unitEmissive; 1 = unchanged, 0 = fully light-dependent.
+let _unitEmissiveScale = 1;
+
+function _applyEmissiveScale(m) {
+  if (!(m?.emissive instanceof THREE.Color)) return;
+  const base = m.userData._baseEmissiveIntensity;
+  if (base == null) return;
+  m.emissiveIntensity = base * _unitEmissiveScale;
+}
+
+// Driven by the `env:set` event environments.js already dispatches — a direct call would
+// close an import cycle, since units.js imports addUnitDungeonLight from environments.js.
+if (typeof window !== 'undefined') {
+  window.addEventListener('env:set', e => setUnitEmissiveScale(ENVS[e.detail]?.unitEmissive ?? 1));
+}
+
+// Re-apply to every unit already in the scene. Called on biome change; new units pick
+// the scale up in the tint pass instead.
+export function setUnitEmissiveScale(scale) {
+  _unitEmissiveScale = scale ?? 1;
+  const seen = new Set();
+  for (const list of [units, corpses, heroRoster]) {
+    for (const u of list) {
+      if (!u?.grp || seen.has(u)) continue;
+      seen.add(u);
+      u.grp.traverse(n => {
+        if (!n.isMesh && !n.isSkinnedMesh) return;
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        for (const m of mats) _applyEmissiveScale(m);
+      });
+    }
+  }
+}
+
 // ── Unit builder ──────────────────────────────────────────────────────────────
 
 export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null) {
@@ -566,8 +609,7 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       const tint = mat => {
         const m = mat.clone();
         if (m.emissiveMap) {
-          // meshy.ai / emissive-primary model: emissive texture IS the color source.
-          // Don't touch emissiveIntensity or the texture goes dark.
+          // meshy.ai model: an emissive texture rides on top of the base colour.
           // Fix: force opaque (GLB exports as BLEND by default) and reduce shininess.
           m.transparent = false;
           m.depthWrite  = true;
@@ -576,6 +618,12 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
         } else if (m.emissive instanceof THREE.Color) {
           m.emissive.copy(TEAM_TINT[team]);
           m.emissiveIntensity = 0.18;
+        }
+        // Remember what the material WANTS to emit, so the per-biome dim below is a
+        // reversible multiplier rather than a one-way edit (see setUnitEmissiveScale).
+        if (m.emissive instanceof THREE.Color) {
+          m.userData._baseEmissiveIntensity = m.emissiveIntensity ?? 1;
+          _applyEmissiveScale(m);
         }
         return m;
       };

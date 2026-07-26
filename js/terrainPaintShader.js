@@ -75,8 +75,7 @@ function _fallbackRoad() {
 //     for every layer, so they live once here. The DIRT texture is pure canvas
 //     (no propBuilders) so it's built here; the ROAD texture is installed by
 //     terrainPaint.installRoadTexture() at init (see import note up top).
-//   • PER-LAYER (the splatmap MASK + the tint colour) — the ground floor layer has
-//     its own; a data-only roof layer keeps a second set for legacy paintRoof strokes.
+//   • PER-LAYER (the splatmap MASK + the tint colour) — owned by the ground floor layer.
 export const sharedPaintUniforms = {
   uRoadTex:     { value: _fallbackRoad() },
   uDirtTex:     { value: _makeDirtTexture() },
@@ -93,10 +92,8 @@ export function makeLayerUniforms() {
   };
 }
 
-// The two layers. floorPaintUniforms is read by the ground material; roofPaintUniforms
-// is retained as a data-only layer (round-trips legacy paintRoof strokes, renders nothing).
+// floorPaintUniforms is read by the ground material.
 export const floorPaintUniforms = makeLayerUniforms();
-export const roofPaintUniforms  = makeLayerUniforms();
 
 export const PAINT_TILE_WU = TILE_WU;
 

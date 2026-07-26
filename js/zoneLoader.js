@@ -449,9 +449,9 @@ export function loadZone(id, repositionHeroes = false, arrivalPos = null) {
   loadBarrierVisuals(zone.barriers ?? []);
   loadTrenchVisuals(zone.trenches ?? []);
 
-  // Rasterize painted terrain strokes into the ground splatmap. paintRoof/paintRoofTint
+  // Rasterize painted terrain strokes into the ground splatmap.
   // are still passed through to the paint module's data-only roof layer (see terrainPaint.js).
-  loadPaint(zone.paint ?? [], zone.paintTint ?? null, zone.paintRoof ?? [], zone.paintRoofTint ?? null);
+  loadPaint(zone.paint ?? [], zone.paintTint ?? null);
 
   // ── Surface-aware multi-level (Phase 1) ──────────────────────────────────────
   // Tear down the previous zone's platform/ramp meshes, then build this zone's if it opts in via
