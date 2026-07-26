@@ -1467,6 +1467,8 @@ export const UI = {
 //  ENVIRONMENT CONFIGS
 //  sky/fog/density control Three.js scene appearance.
 //  ambColor/ambInt, moonColor/moonInt, rimColor/rimInt override the lights.
+//  unitEmissive (default 1) scales UNIT emissive so models stop self-lighting in dark
+//  zones — see setUnitEmissiveScale in units.js. Lower = more light-dependent.
 //  ground is a colour tint multiplied over the procedural canvas texture.
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1507,6 +1509,7 @@ export const ENVS = {
     ambColor: 0x080c18, ambInt: 1.4,
     moonColor: 0xa8b4cc, moonInt: 0.0,
     rimColor:  0x4a5878, rimInt:  0.0,
+    unitEmissive: 0.16,
   },
   dungeon: {
     sky: 0x050505, fog: 0x080808, density: 0.028, ground: 0x0c0c0c,
@@ -1514,5 +1517,6 @@ export const ENVS = {
     ambColor: 0x0e0e12, ambInt: 2.4,
     moonColor: 0x8890a0, moonInt: 0.9,
     rimColor:  0x334466, rimInt:  0.4,
+    unitEmissive: 0.12,
   },
 };

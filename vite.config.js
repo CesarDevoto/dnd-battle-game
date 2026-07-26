@@ -525,7 +525,7 @@ function saveZonePaintPlugin() {
         req.on('data', c => { body += c; });
         req.on('end', () => {
           try {
-            const { zoneId, paint, paintTint, paintRoof, paintRoofTint } = JSON.parse(body);
+            const { zoneId, paint, paintTint } = JSON.parse(body);
             if (!zoneId) throw new Error('missing zoneId');
 
             const filePath = path.resolve(`js/zones/zone_${zoneId}.js`);
@@ -537,8 +537,8 @@ function saveZonePaintPlugin() {
             const r = (n) => Math.round(n * 10) / 10;
 
             // Upsert a `<name>: [ … ]` stroke array. The `\s*:` guard means the
-            // `paint` field regex never matches `paintRoof`/`paintTint` (which have
-            // no colon straight after `paint`), so the four fields stay independent.
+            // `paint` field regex never matches `paintTint` (which has no colon
+            // straight after `paint`), so the two fields stay independent.
             const upsertArray = (name, arr) => {
               const lines = (arr ?? []).map(p =>
                 `    { x: ${r(p.x)}, z: ${r(p.z)}, r: ${r(p.r)}, ch: '${p.ch}' },`
@@ -561,9 +561,7 @@ function saveZonePaintPlugin() {
             };
 
             upsertArray('paint',     paint);       // ground floor strokes
-            upsertArray('paintRoof', paintRoof);   // legacy roof-layer strokes (data-only)
             upsertTint('paintTint',     paintTint);
-            upsertTint('paintRoofTint', paintRoofTint);
 
             fs.writeFileSync(filePath, src, 'utf-8');
             res.statusCode = 200;
