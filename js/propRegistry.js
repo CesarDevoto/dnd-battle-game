@@ -30,7 +30,7 @@ export const PROP_MODELS = {
   hut2:         { label: 'Hut',         path: 'assets/environment/hut2.glb',            defaultScale: 4.0, blocksLOS: true,  clashR: 1.5, brighten: 1.35  },
   // Flat ground decal. clashR:0 so bodies / other props can sit ON it; tiny yOff beats
   // z-fighting with the terrain. blocksLOS:false — it's paint on the floor.
-  bloodstain:   { label: 'Blood Stain', path: 'assets/environment/blood stain.glb',      defaultScale: 2.0, defaultYOff: 0.03, blocksLOS: false, clashR: 0.0  },
+  bloodstain:   { label: 'Blood Stain', path: 'assets/environment/blood stain.glb',      defaultScale: 2.0, defaultYOff: 0.03, blocksLOS: false, clashR: 0.0, noCollision: true  },
   stalactite:   { label: 'Stalactite',  path: 'assets/environment/stalactite.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   shackles:     { label: 'Shackles',    path: 'assets/environment/shackles.glb',        defaultScale: 1.0, blocksLOS: false, clashR: 0.3  },
   // ~1.9 WU centered cube at scale 1; at 2x → ~3.8 WU (~2 grid squares) — a captive-sized cell.
@@ -81,7 +81,7 @@ export const PROP_MODELS = {
   rockpile:     { label: 'Rock Pile',   path: 'assets/environment/rockpile.glb',         defaultScale: 1.0, blocksLOS: false, clashR: 0.6  },
   alchemylab:   { label: 'Alchemy Lab', path: 'assets/environment/alchemy lab.glb',      defaultScale: 1.0, blocksLOS: true,  clashR: 0.8  },
   corpsespike:  { label: 'Corpse on Spike', path: 'assets/environment/corpse on spike.glb', defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
-  corpse1:      { label: 'Corpse',      path: 'assets/environment/corpse1.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0  },
+  corpse1:      { label: 'Corpse',      path: 'assets/environment/corpse1.glb',          defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true  },
   fancychair:   { label: 'Fancy Chair', path: 'assets/environment/fancy chair.glb',      defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
   pileofbones:  { label: 'Pile of Bones', path: 'assets/environment/pile of bones.glb',  defaultScale: 1.0, blocksLOS: false, clashR: 0.7  },
   woodchair:    { label: 'Wood Chair',  path: 'assets/environment/wood chair.glb',       defaultScale: 1.0, blocksLOS: false, clashR: 0.4  },
@@ -128,7 +128,9 @@ export const PROP_MODELS = {
   // Ground cover: a ~2 WU (one grid square) patch, ~0.7 tall. clashR:0 so units walk straight
   // over it and other props can sit on it; the small negative yOff beds it into the terrain
   // instead of perching it on top (the loader normalizes the bottom to y=0).
-  moss1:        { label: 'Moss Patch',  path: 'assets/environment/moss1.glb',            defaultScale: 1.0, defaultYOff: -0.15, blocksLOS: false, clashR: 0.0  },
+  // noCollision because collision defaults ON for editor placements: a wall patch is tilted
+  // 55–85° off vertical, so as a collider it would be an invisible sloped ledge units walk up.
+  moss1:        { label: 'Moss Patch',  path: 'assets/environment/moss1.glb',            defaultScale: 1.0, defaultYOff: -0.15, blocksLOS: false, clashR: 0.0, noCollision: true  },
   // Campfire MODEL (logs), ~2 WU wide at scale 1, bottom normalized to y=0. `attach` adds rising
   // fire sparks + a warm flicker light at the centre when placed (see mkFireSparks). Distinct from
   // the fully-procedural `campfire` (pure particle fire, no model).
@@ -167,14 +169,14 @@ export const PROP_MODELS = {
   snowrock:     { label: 'Snow Rock',    builderFn: () => mkSnowBoulder(1, 0),                defaultScale: 1.0, blocksLOS: false, clashR: 0.6 },
   boulder:      { label: 'Boulders',     builderFn: () => mkBoulderCluster(0x7a6040, 1, 0),   defaultScale: 1.0, blocksLOS: true,  clashR: 1.0 },
   bush:         { label: 'Bush',         builderFn: () => _noCast(mkBush(0x1a4012, 1, 0)),     defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
-  glowmushroom: { label: 'Glow Mushroom',builderFn: () => _noCast(mkGlowMushroom(0x8833cc, 1, 0)), defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  glowmushroom: { label: 'Glow Mushroom',builderFn: () => _noCast(mkGlowMushroom(0x8833cc, 1, 0)), defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true },
   rubble:       { label: 'Rubble',       builderFn: () => _noCast(mkRubblePile(1, 0)),         defaultScale: 1.0, blocksLOS: false, clashR: 0.5 },
-  dryshrub:     { label: 'Dry Shrub',    builderFn: () => _noCast(mkDryShrub(1, 0)),           defaultScale: 1.0, blocksLOS: false, clashR: 0 },
-  fern:         { label: 'Fern',         builderFn: () => _noCast(mkFern(1, 0)),               defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  dryshrub:     { label: 'Dry Shrub',    builderFn: () => _noCast(mkDryShrub(1, 0)),           defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true },
+  fern:         { label: 'Fern',         builderFn: () => _noCast(mkFern(1, 0)),               defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true },
   coffin:       { label: 'Coffin',       path: 'assets/environment/coffin.glb',               defaultScale: 2.0, blocksLOS: false, clashR: 0.5 },
-  gravemound:   { label: 'Grave Mound',  builderFn: () => mkGraveMound(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0 },
+  gravemound:   { label: 'Grave Mound',  builderFn: () => mkGraveMound(1, 0),                 defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true },
   cross:        { label: 'Cross',        builderFn: () => mkCross(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0.3 },
-  arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
+  arrow:        { label: 'Arrow',        builderFn: () => mkArrow(1, 0),                      defaultScale: 1.0, blocksLOS: false, clashR: 0, noCollision: true, defaultRotX: Math.PI / 2, defaultYOff: 0.29 },
 
   fogpatch:         { label: 'Fog Patch',          builderFn: () => mkFogPatch(),         defaultScale: 1.0, blocksLOS: false, clashR: 0.0, noCollision: true, defaultYOff: 0.25 },
   // The zone-gate "fog ball" mist, placeable + sizable. defaultScale 0.5 matches the gate/breach
