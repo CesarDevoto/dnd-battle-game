@@ -448,6 +448,10 @@ const UNIT_SOUNDS = {
   abyssal_chicken: { aggro: 'chicken_aggro',     attack: 'chicken_attack' },
   goblin:          { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },
   goblin3:         { aggro: 'goblin_aggro',      attack: 'goblin_yell',  move: 'goblin_moving' },   // Goblin Raider — reuse base goblin audio
+  // Goblin Boss + Bugbear borrow the OGRE set: both are big bruisers, and the ogre grunts read
+  // as heavier than the goblin yelps. Ogre has no `move` sound, so neither gets footsteps.
+  goblinchieftain: { aggro: 'ogre_aggro',        attack: 'ogre_attack' },   // Goblin Boss
+  bugbear:         { aggro: 'ogre_aggro',        attack: 'ogre_attack' },
   hobgoblin:       { aggro: 'hobgoblin_aggro',   attack: 'hobgoblin_attack', move: 'hobgoblin_moving' },
   hobgoblin_captain: { aggro: 'hobgoblin_chief_aggro', attack: 'hobgoblin_chief_attack', move: 'hobgoblin_chief_moving' },
   hyena:           { aggro: 'hyena_aggro',       attack: 'hyena_attack',     move: 'hyena_moving' },
