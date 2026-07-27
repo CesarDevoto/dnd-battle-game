@@ -2,6 +2,40 @@ import { defineConfig } from 'vite';
 import fs   from 'node:fs';
 import path from 'node:path';
 
+// ⚠ Copies the whole runtime asset tree into the build output.
+//
+// Vite only bundles assets it can SEE — ones reached through an `import` or a
+// `new URL(...)`. Practically everything this game loads is referenced by a
+// runtime STRING instead: 'assets/models/goblin.glb' in units.js, the spell-icon
+// imgSrc entries in abilityRegistry.js, the dialogue busts in dagnaEvent.js,
+// audio in audio.js. The bundler never sees any of them, so `vite build`
+// produced a dist/ whose assets/ held nothing but ten hashed chunks — every
+// portrait, icon, model and sound 404'd, showing the browser's broken-image
+// glyph in the corner of each box. It works in `npm run dev` only because the
+// dev server also serves straight off the project root, which hides the problem
+// until you build.
+//
+// (public/ is Vite's normal answer to this, but public/assets/ here is an empty
+// leftover — the real tree is the git-tracked assets/ at the project root, and
+// moving ~60 MB of it would rewrite every path in the codebase.)
+//
+// Merges into dist/assets rather than replacing it: the hashed chunks Vite
+// writes there are flat filenames and everything copied here lives in
+// subdirectories, so the two can't collide.
+function copyRuntimeAssetsPlugin() {
+  return {
+    name: 'copy-runtime-assets',
+    apply: 'build',
+    closeBundle() {
+      const src  = path.resolve('assets');
+      const dest = path.resolve('dist/assets');
+      if (!fs.existsSync(src)) return;
+      fs.cpSync(src, dest, { recursive: true });
+      console.log('[copy-runtime-assets] assets/ -> dist/assets/');
+    },
+  };
+}
+
 function saveZonePropsPlugin() {
   return {
     name: 'save-zone-props',
@@ -888,5 +922,5 @@ function saveZoneFogPlugin() {
 }
 
 export default defineConfig({
-  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), saveZoneFogPlugin(), createZonePlugin(), deleteZonePlugin()],
+  plugins: [saveZonePropsPlugin(), saveZoneEnemiesPlugin(), saveZoneSpawnsPlugin(), saveZoneTerrainPlugin(), saveZoneBarriersPlugin(), saveZonePaintPlugin(), saveZoneTrenchesPlugin(), saveZoneVisionBlockersPlugin(), saveZoneFogPlugin(), createZonePlugin(), deleteZonePlugin(), copyRuntimeAssetsPlugin()],
 });

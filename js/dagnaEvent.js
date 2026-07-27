@@ -73,6 +73,7 @@ let _dlgEl        = null;
 let _lines        = [];
 let _lineIdx      = 0;
 let _dlgOnDone    = null;
+let _dlgChoices   = null;   // [{label,onPick}] rendered on the LAST line, if set
 let _forcePreview = false;  // set before async sequence so _showLines picks it up
 
 // ── Dialogue gating ───────────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ function _flushDlgQueue() {
   if (_dlgEl && _dlgEl.style.display !== 'none') return;   // busy — it'll chain on close
   const d = _dlgQueue.shift();
   if (!d?.lines?.length) return;
-  _showLines(d.lines, d.onDone);
+  _showLines(d.lines, d.onDone, false, false, d.choices ?? null);
   _lineIdx = Math.min(Math.max(0, d.lineIdx ?? 0), d.lines.length - 1);
   _renderLine();   // resume from the interrupted line
 }
@@ -458,56 +459,79 @@ function _buildDlgUI() {
 // through onDone must check this: a banked dialogue's onDone doesn't run until the player
 // takes their short rest, and stalling the post-combat chain that long would hold up the
 // loot panel behind it.
-export function showQuickDialogue(lines, onDone) { return _showLines(lines, onDone); }
+// `choices` (optional) = [{ label, onPick }]. When given, the LAST line renders the
+// choice buttons in place of its Close button, so the decision is offered on the line
+// that sets it up instead of after dismissing it.
+export function showQuickDialogue(lines, onDone, choices = null) {
+  return _showLines(lines, onDone, false, false, choices);
+}
 
-// Shows a set of lines then replaces the Continue button with labelled choice buttons.
+// Puts the choice buttons in the footer in place of the Continue/Close button.
 // choices = [{ label: string, onPick: fn }]
-export function showChoiceUI(choices) {
-  _buildDlgUI();
-  _dlgEl.style.display = 'flex';
-
+// Shared by showChoiceUI (choices as their own box) and _renderLine (choices ON
+// the last line of a set), so the two can't drift apart.
+function _renderChoiceButtons(choices) {
   const footer  = _dlgEl.querySelector('.dagna-dlg-footer');
   const origBtn = footer.querySelector('.dagna-dlg-btn');
   origBtn.style.display = 'none';
   footer.style.justifyContent = 'center';
   footer.style.gap = '12px';
 
-  const tempBtns = [];
   for (const ch of choices) {
     const btn = document.createElement('button');
-    btn.className = 'dagna-dlg-btn';
+    btn.className = 'dagna-dlg-btn dlg-choice-btn';
     btn.textContent = ch.label;
     btn.addEventListener('click', () => {
-      origBtn.style.display = '';
-      footer.style.justifyContent = '';
-      footer.style.gap = '';
-      tempBtns.forEach(b => b.remove());
+      _clearChoiceButtons();
+      _dlgOnDone = null;   // the pick IS the outcome; don't also fire a pending onDone
       _hideDlg();
       ch.onPick?.();
     });
     footer.appendChild(btn);
-    tempBtns.push(btn);
   }
+}
+
+// Restores the footer to its single-button state. Safe to call when no choice
+// buttons are up, so _renderLine can call it unconditionally on every line.
+function _clearChoiceButtons() {
+  if (!_dlgEl) return;
+  const footer = _dlgEl.querySelector('.dagna-dlg-footer');
+  const origBtn = footer.querySelector('.dagna-dlg-btn');
+  footer.querySelectorAll('.dlg-choice-btn').forEach(b => b.remove());
+  if (origBtn) origBtn.style.display = '';
+  footer.style.justifyContent = '';
+  footer.style.gap = '';
+}
+
+// Shows choice buttons as a box of their own (no lines). Prefer passing `choices`
+// to showQuickDialogue instead — that puts them on the last line, so the player
+// doesn't have to dismiss the line before being offered the decision it sets up.
+export function showChoiceUI(choices) {
+  _buildDlgUI();
+  _dlgEl.style.display = 'flex';
+  _renderChoiceButtons(choices);
 }
 
 // bypassDownGate: for Dagna's own sequences only — she appears BECAUSE the party is
 // wiped, so the dead-hero gate would silence her permanently.
 // Returns true if shown, false if banked. See showQuickDialogue.
-function _showLines(lines, onDone, preview = false, bypassDownGate = false) {
+function _showLines(lines, onDone, preview = false, bypassDownGate = false, choices = null) {
   const isPrev = preview || _forcePreview;
   const gated  = _combatActive || (!bypassDownGate && _partyIsDown());
   // Gated: never pop the box — bank it and replay once the fight is over and the
-  // party is back on its feet.
+  // party is back on its feet. Choices ride along, or a banked decision would
+  // replay as an un-answerable set of lines.
   if (gated && !isPrev) {
-    _dlgQueue.push({ lines, onDone, lineIdx: 0 });
+    _dlgQueue.push({ lines, onDone, lineIdx: 0, choices });
     return false;
   }
   _isPreview = isPrev;
   _forcePreview = false;
   _buildDlgUI();
-  _lines     = lines;
-  _lineIdx   = 0;
-  _dlgOnDone = onDone;
+  _lines      = lines;
+  _lineIdx    = 0;
+  _dlgOnDone  = onDone;
+  _dlgChoices = choices;
   _renderLine();
   _dlgEl.style.display = 'flex';
   return true;
@@ -627,6 +651,10 @@ function _renderLine() {
   _dlgEl.querySelector('.dagna-dlg-text').textContent = l.t;
   const isLast = _lineIdx === _lines.length - 1;
   _dlgEl.querySelector('.dagna-dlg-btn').textContent = isLast ? 'Close' : 'Continue';
+  // Unconditional, so stepping BACKWARD (a resumed banked dialogue) can't leave
+  // stale choice buttons behind on a non-final line.
+  _clearChoiceButtons();
+  if (isLast && _dlgChoices?.length) _renderChoiceButtons(_dlgChoices);
 }
 
 function _previewCleanup() {
@@ -647,6 +675,8 @@ function _onContinue() {
   _lineIdx++;
   if (_lineIdx >= _lines.length) {
     _hideDlg();
+    _clearChoiceButtons();
+    _dlgChoices = null;
     const cb = _dlgOnDone;
     _dlgOnDone = null;
     if (_isPreview) _previewCleanup();

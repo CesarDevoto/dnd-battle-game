@@ -29,9 +29,13 @@ export function initQuests() {
   if (_quests.some(q => q.status === 'active')) _setVisible(true);
 }
 
-export function addQuest(id, title, description, reward = null) {
+// `parent` (a quest id) makes this a SUBQUEST: it renders indented beneath its
+// parent instead of as a top-level entry, and follows the parent between the
+// active and completed sections. An unknown/absent parent falls back to
+// top-level, so a subquest added before its parent still shows up.
+export function addQuest(id, title, description, reward = null, parent = null) {
   if (_quests.find(q => q.id === id)) return;
-  _quests.push({ id, title, description, reward, status: 'active', open: false });
+  _quests.push({ id, title, description, reward, parent, status: 'active', open: false });
   _save();
   _render();
   if (!_visible) _setVisible(true);
@@ -100,7 +104,7 @@ function _save() {
   try {
     localStorage.setItem(_STORAGE_KEY, JSON.stringify(
       _quests.map(q => ({ id: q.id, title: q.title, description: q.description,
-                          reward: q.reward, status: q.status }))
+                          reward: q.reward, parent: q.parent ?? null, status: q.status }))
     ));
   } catch {}
 }
@@ -134,10 +138,10 @@ function _render() {
   const done   = _quests.filter(q => q.status === 'completed');
 
   let html = '<div class="ql-title">QUESTS</div>';
-  html += active.map(_questHtml).join('');
+  html += _sectionHtml(active);
   if (done.length) {
     html += '<div class="ql-section-done">COMPLETED</div>';
-    html += done.map(_questHtml).join('');
+    html += _sectionHtml(done);
   }
   _panelEl.innerHTML = html;
 
@@ -156,7 +160,22 @@ function _render() {
   });
 }
 
-function _questHtml(q) {
+// Renders one status section with each subquest tucked under its parent.
+// A subquest whose parent is in the OTHER section (parent still active while the
+// child is done, or vice versa) would otherwise vanish, so anything left over is
+// emitted at top level rather than dropped.
+function _sectionHtml(list) {
+  const ids  = new Set(list.map(q => q.id));
+  const kids = q => list.filter(c => c.parent === q.id);
+  const out  = [];
+  for (const q of list) {
+    if (q.parent && ids.has(q.parent)) continue;   // rendered under its parent below
+    out.push(_questHtml(q) + kids(q).map(c => _questHtml(c, true)).join(''));
+  }
+  return out.join('');
+}
+
+function _questHtml(q, isSub = false) {
   const arrow     = q.open ? '&#9660;' : '&#9658;';
   const doneClass = q.status === 'completed' ? ' ql-done' : '';
   const openClass = q.open ? ' ql-open' : '';
@@ -165,7 +184,7 @@ function _questHtml(q) {
   const btnHtml   = (q.open && action)
     ? `<button class="ql-action-btn" data-quest-action="${q.id}">${action.label}</button>`
     : '';
-  return '<div class="ql-item' + doneClass + openClass + '">'
+  return '<div class="ql-item' + doneClass + openClass + (isSub ? ' ql-sub' : '') + '">'
     + '<div class="ql-row" data-quest="' + q.id + '">'
     + '<span class="ql-arrow">' + arrow + '</span>'
     + '<span class="ql-name">' + q.title + '</span>'

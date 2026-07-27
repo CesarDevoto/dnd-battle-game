@@ -173,8 +173,11 @@ const CATEGORIES = [
           // list falls straight through at no cost.
           elf:      ['use_potion', 'mage_armor', 'sleep', 'burning_hands', 'magic_missile', 'fire_bolt', 'quarterstaff', 'dart'],
           // turn_undead above the attacks (it disables a whole undead pack for a whole minute
-          // and costs no slot), sanctuary below the heals (a ward is worth less than the HP).
-          dwarf:    ['use_potion', 'bless', 'cure_wounds', 'turn_undead', 'sanctuary', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
+          // and costs no slot). sanctuary sits at the TOP of the spells (user, 2026-07-27):
+          // it only unlocks at level 6 (spells.js ABILITY_LEVELS), so until then it's gated
+          // out of the list entirely and the order below it is what actually runs — from 6
+          // on, warding the hurt ally pre-empts Bless.
+          dwarf:    ['use_potion', 'sanctuary', 'bless', 'cure_wounds', 'turn_undead', 'healing_word', 'sacred_flame', 'warhammer', 'ready_action'],
           // dodge_hurt sits above the attacks on purpose: only the FIRST action in this list
           // that succeeds fires, so below it he'd never reach the dodge — Greataxe would
           // always win. Potion first (healing beats turtling if he has one), then dodge.
@@ -299,7 +302,10 @@ const CATEGORIES = [
 //     Burning Hands, Leugren's Turn Undead and Sanctuary, Gobo's Reckless Attack. Every one
 //     of them changes a hero's DEFAULTS, so the bump is mandatory: getTendency reads the
 //     stored list, and without it an existing save never sees the new entries at all.
-const TENDENCIES_VERSION = 20;
+// 21: sanctuary moved above bless in the dwarf enemy-in-range defaults. MUST be bumped
+// whenever a default ORDER changes — a saved localStorage list is loaded verbatim, so
+// without the bump an existing player keeps the old order and never sees the change.
+const TENDENCIES_VERSION = 21;
 
 const LS_KEY     = 'dnd-combat-tendencies';
 const LS_SET_KEY = 'dnd-tendencies-set';

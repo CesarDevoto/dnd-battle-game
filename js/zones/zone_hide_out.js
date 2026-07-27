@@ -292,6 +292,14 @@ export const ZONE = {
     { model: 'barrel2', x: 56.88, z: 24.59, y: 9, rotY: 0, scale: 0.683, noFade: true, collision: true },
     { model: 'barrel2', x: 57.88, z: 19.65, y: 9.375, yOff: 0.375, rotY: 0.524, rotX: 7.7231, scale: 0.683, noFade: true, collision: true },
     { model: 'barrel2', x: 55.82, z: 25.15, y: 9, rotY: 0, rotX: 0.1309, scale: 0.683, noFade: true, collision: true },
+    { model: 'campfire', x: -30.76, z: -1.94, y: 11.175, yOff: 0.375, rotY: 0, scale: 1.611, noFade: true },
+    { model: 'campfire', x: -30.15, z: -1.94, y: 11.175, yOff: 0.375, rotY: 0, scale: 1.611, noFade: true },
+    { model: 'campfire2', x: -30.51, z: -2.05, y: 11, rotY: 0, scale: 1, noFade: true },
+    { model: 'crate1', x: -23.35, z: -7.09, y: 11, rotY: 0, scale: 0.8, noFade: true, collision: true },
+    { model: 'crate1', x: -23.7, z: -4.27, y: 11, rotY: 0, scale: 0.8, noFade: true, collision: true },
+    { model: 'crate1', x: -25.22, z: -7.97, y: 11, rotY: 0.654, scale: 0.8, noFade: true, collision: true },
+    { model: 'barrel2', x: -23.75, z: -5.68, y: 11, rotY: 0, scale: 0.683, noFade: true, collision: true },
+    { model: 'barrel2', x: -23.22, z: -7.04, y: 12.125, yOff: 1.125, rotY: 0, scale: 0.683, noFade: true, collision: true },
   ],          // placed + saved via the prop editor — don't hand-write
   barriers: [],       // drawn + saved via the barrier editor — don't hand-write
   trenches: [

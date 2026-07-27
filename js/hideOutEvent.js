@@ -28,16 +28,24 @@
 // departure scene below therefore plays as dialogue only, with no Sildar model
 // in the next zone.
 
+import { scene } from './scene.js';
+import { getTerrainHeight } from './terrain.js';
+import { mkExclamationMarker } from './propBuilders.js';
+import { addQuest, completeQuest } from './quests.js';
 import { units, playUnitClip, playUnitAttackAnim, setUnitAnimLocked, setUnitWalking } from './units.js';
-import { showQuickDialogue, showChoiceUI, registerDialogueScene } from './dagnaEvent.js';
+import { showQuickDialogue, registerDialogueScene } from './dagnaEvent.js';
 import { addFollower } from './follower.js';
 import { setPrecombatFrozen, forceAggro } from './precombat.js';
 import { spendCoinsCp, CP_PER_GP } from './equipment.js';
 import { addLog } from './combat.js';
 
 // ── Tuning ────────────────────────────────────────────────────────────────────
-const TRIGGER_X = -52, TRIGGER_Z = -12;
-const TRIGGER_R = 6;    // WU — how close a hero must get to spring the standoff
+const TRIGGER_X = -50, TRIGGER_Z = -6;
+// WU — how close a hero must get to spring the standoff. Tightened 6 -> 2 so the
+// party closes 4 WU further in before the chieftain speaks; at 6 it fired while
+// they were still well short of the camp. A hero walks ~0.09 WU per frame, so a
+// 2 WU catch radius is still far too wide to step over between ticks.
+const TRIGGER_R = 2;
 const RANSOM_PER_HERO = 5;    // gp taken from EACH hero on the pay branch (20 total)
 
 // He's judged "arrived" a little outside the follower stop distance, so the
@@ -49,10 +57,21 @@ const ARRIVE_R      = 3.2;
 
 const DEATH_CLIP = 'Dead';
 
+// Quest marker floating over the hostage, so the camp reads as somewhere to go
+// rather than just more goblins. Height is above his head (he's ~2.1 WU tall).
+const EXCL_Y = 3.4;
+
+// "Free Sildar" hangs under the Gundren hunt — that quest is literally
+// "rescue Gundren Rockseeker and Sildar Hallwinter" (ambushEvent.js), so this is
+// one half of it rather than an errand of its own.
+const QUEST_ID     = 'free_sildar';
+const QUEST_PARENT = 'goblin_pursuit';
+
 // ── Persistent flags ──────────────────────────────────────────────────────────
 const PAID_KEY   = 'dnd-sildar-paid';     // ransom paid — he was never struck
 const REFUSED_KEY= 'dnd-sildar-refused';  // ransom refused — he was beaten down
 const JOINED_KEY = 'dnd-sildar-joined';   // he is UP and travelling with the party (either route)
+const ARRIVED_KEY= 'dnd-sildar-arrived';  // the thank-you / Gundren exchange has played
 const OUTRO_KEY  = 'dnd-sildar-outro';    // the leaving-the-Hide-Out scene has played
 
 function _flag(k)    { try { return localStorage.getItem(k) === '1'; } catch { return false; } }
@@ -73,6 +92,9 @@ let _reviveFired = false; // the post-fight revival scene has been queued this v
 function _reset() {
   _fired = false; _following = false; _arrived = false;
   _posedDown = false; _reviveFired = false; _dropped = false;
+  // Units and scene contents are rebuilt per zone, so a marker left over from the
+  // last visit would be a dangling reference that never gets re-spawned correctly.
+  _removeExcl();
 }
 
 const _sildar  = () => units.find(u => u.type === 'sildar' && u.team === 'npc') ?? null;
@@ -118,7 +140,8 @@ window.addEventListener('combat:ended', () => {
 
 // ── Lines ─────────────────────────────────────────────────────────────────────
 const _RANSOM_LINES = [
-  { narration: true, t: 'A knot of goblins parts around a scarred brute of a chieftain. He holds a blade to the throat of a battered man in torn finery.' },
+  { narration: true, t: 'A ring of goblins has a man in torn finery surrounded — battered, bloodied, swaying on his knees. Their scarred brute of a chieftain shoulders a heavy morningstar and levels it at the man\'s head.' },
+  { s: 'Leugren',     t: "Sildar! You're alive!" },
   { s: 'Goblin Boss', t: '20 gold or I cave this human\'s skull right now!' },
 ];
 
@@ -137,7 +160,7 @@ const _ARRIVE_LINES = [
 // live and testable; replace the text with the real scene.
 const _DEPART_LINES = [
   { narration: true, t: 'The stink of the goblin camp falls away behind you. Sildar leans against a rock, catching his breath for the first time in days.' },
-  { s: 'Sildar',  t: 'Forgive me. I could not speak freely with a knife at my neck.' },
+  { s: 'Sildar',  t: 'Forgive me. I could not speak freely with that brute\'s morningstar levelled at my head.' },
   { s: 'Sildar',  t: 'Your kinsman lives — or he did when they took him. They did not march him back to the Hide Out. They took the eastern road.' },
   { s: 'Leugren', t: 'Then we ride east. Speak plainly now, sir — all of it.' },
   { s: 'Sildar',  t: 'Aye. All of it. But we should be far from here before we talk of where they took him.' },
@@ -176,8 +199,18 @@ function _beginFollow() {
   const u = _sildar();
   if (!u || _following) return;
   setUnitAnimLocked(u, false);   // in case anything had him pinned in a pose
-  addFollower(u, _leugren, { stop: FOLLOW_STOP, resume: FOLLOW_RESUME });
+  // run: he's just been cut loose from a goblin camp — he covers the ground to
+  // Leugren at a run, not a stroll.
+  addFollower(u, _leugren, { stop: FOLLOW_STOP, resume: FOLLOW_RESUME, run: true });
   _following = true;
+  completeQuest(QUEST_ID);   // free by either route — paid off, or fought for and revived
+  // ⚠ Set HERE, at the single choke point every route to "he's with the party"
+  // passes through, rather than in each branch. The pay branch previously set only
+  // PAID_KEY, so the tick's `if (_flag(JOINED_KEY))` arm never ran: _checkArrival
+  // was never called and the arrival exchange never fired, and the departure scene
+  // (also gated on JOINED_KEY) never fired either. Paying looked like it did
+  // nothing but take the money.
+  _setFlag(JOINED_KEY);
 }
 
 // ── Refuse branch ─────────────────────────────────────────────────────────────
@@ -273,18 +306,62 @@ function _aggroWholeCamp() {
   setTimeout(() => { spotter.socialAggroRange = prev; }, 100);
 }
 
+// ── Quest marker ──────────────────────────────────────────────────────────────
+// Sits over Sildar (and so over the goblins holding him) until the standoff opens.
+// Parented to nothing and positioned from his LIVE spot each spawn, so it lands
+// correctly whether he's still at the camp or has been moved in the editor.
+let _excl = null, _exclT = 0;
+
+function _spawnExcl() {
+  if (_excl) return;
+  const u = _sildar();
+  if (!u) return;
+  const x = u.grp.position.x, z = u.grp.position.z;
+  _excl = mkExclamationMarker();
+  _excl.position.set(x, getTerrainHeight(x, z) + EXCL_Y, z);
+  scene.add(_excl);
+  _exclT = 0;
+}
+
+function _removeExcl() {
+  if (!_excl) return;
+  scene.remove(_excl);
+  // Canvas texture + material are made per marker in mkExclamationMarker, so they
+  // leak on every zone re-entry unless disposed here (same teardown Floosh uses).
+  _excl.userData.sprite?.material.map?.dispose();
+  _excl.userData.sprite?.material.dispose();
+  _excl = null;
+}
+
+// Bob + pulse, matching the Floosh marker so the two read as the same UI element.
+function _tickExcl(dt) {
+  if (!_excl) return;
+  _exclT += dt;
+  const spr = _excl.userData.sprite;
+  if (!spr) return;
+  const pulse = 0.88 + 0.24 * (0.5 + 0.5 * Math.sin(_exclT * 2.1));
+  spr.scale.set(_excl.userData.baseScaleX * pulse, _excl.userData.baseScaleY * pulse, 1);
+  spr.position.y = Math.sin(_exclT * 1.8) * 0.15;
+}
+
 // ── The standoff ──────────────────────────────────────────────────────────────
 function _openStandoff() {
   // Fire at most once per visit no matter which way this goes — a banked dialogue
   // must not be re-banked every frame.
   _fired = true;
+  // The marker has done its job the moment the scene opens — drop it here rather
+  // than on the choice, so it can't hang over the camp during the dialogue.
+  _removeExcl();
+  addQuest(QUEST_ID, 'Free Sildar',
+    'The goblin chieftain of the Hide Out is holding Sildar Hallwinter hostage and wants gold for him. Pay the ransom, or take him back by force.',
+    null, QUEST_PARENT);
   setPrecombatFrozen(true);
-  const shown = showQuickDialogue(_RANSOM_LINES, () => {
-    showChoiceUI([
-      { label: 'Pay the ransom', onPick: _onPaid },
-      { label: 'Refuse',         onPick: _onRefused },
-    ]);
-  });
+  // Choices ride on the demand itself — the buttons replace that line's Close, so
+  // the player answers the ultimatum while it's still on screen.
+  const shown = showQuickDialogue(_RANSOM_LINES, null, [
+    { label: 'Pay the ransom', onPick: _onPaid },
+    { label: 'Refuse',         onPick: _onRefused },
+  ]);
   // ⚠ showQuickDialogue BANKS instead of showing while any hero is at hp<=0
   // (heroRoster-wide, so one corpse is enough) and replays after the short rest.
   // The freeze above would then hold the party in place with no dialogue on
@@ -296,15 +373,18 @@ function _openStandoff() {
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 export function tickHideOut(dt) {
-  if (!_active) return;
+  if (!_active) { if (_excl) _removeExcl(); return; }
 
   const sildar = _sildar();
   if (!sildar) return;
+
+  _tickExcl(dt);
 
   // He's up and with the party (paid, or refused-then-revived) — on this visit or
   // an earlier one. Checked FIRST so a revived Sildar is never re-flattened by the
   // downed branch below.
   if (_flag(JOINED_KEY)) {
+    _removeExcl();   // belt-and-braces: he's free, nothing should still be marking him
     if (!_following) _beginFollow();
     _checkArrival(sildar);
     return;
@@ -335,6 +415,15 @@ export function tickHideOut(dt) {
 
   if (_combat || _fired) return;
 
+  // ⚠ MUST stay BELOW the _fired guard. Above it, this re-spawned the marker on the
+  // very next frame after _openStandoff removed it, so the "!" hung over the camp
+  // for the whole scene and stayed there after he was freed.
+  //
+  // Unresolved and not yet triggered → the "!" marks where he's being held. Retried
+  // each tick because the GLB (and so his position) may not be ready on the first
+  // frame after the zone loads.
+  if (!_excl) _spawnExcl();
+
   // Spring the standoff when any living hero reaches the camp mouth.
   for (const h of _heroes()) {
     const dx = h.grp.position.x - TRIGGER_X;
@@ -345,13 +434,17 @@ export function tickHideOut(dt) {
 
 // Once he's caught up with Leugren, the thank-you exchange plays (one-shot).
 function _checkArrival(u) {
-  if (_arrived || _combat) return;
+  // ARRIVED_KEY as well as the per-visit flag: he re-spawns at his camp position on
+  // every later visit and walks back to Leugren each time, which would replay the
+  // whole exchange on arrival. It's a one-time story beat.
+  if (_arrived || _combat || _flag(ARRIVED_KEY)) return;
   const leader = _leugren();
   if (!leader) return;
   const dx = u.grp.position.x - leader.grp.position.x;
   const dz = u.grp.position.z - leader.grp.position.z;
   if (dx * dx + dz * dz > ARRIVE_R * ARRIVE_R) return;
   _arrived = true;
+  _setFlag(ARRIVED_KEY);
   showQuickDialogue(_ARRIVE_LINES);
 }
 
