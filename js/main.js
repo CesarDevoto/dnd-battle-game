@@ -62,6 +62,7 @@ import { updateFamiliar } from './familiar.js';
 import { tickBleakmireWoods } from './bleakmireWoodsEvent.js';
 import './mausoleumEvent.js';
 import { tickWarrens } from './warrensEvent.js';
+import { tickHideOut } from './hideOutEvent.js';
 import { tickFollowers } from './follower.js';
 import { tickPhandalin } from './phandalinEvent.js';
 import { initXPTable } from './xpTable.js';
@@ -534,6 +535,7 @@ let _shadowFrame = 0;   // drives the every-other-frame shadow-map refresh
   tickLoot(dt);
   tickBleakmireWoods(dt);
   tickWarrens(dt);
+  tickHideOut(dt);
   tickFollowers(dt);   // after the zone events, so a companion registered this frame walks this frame
   tickPhandalin(dt);
   tickActivationRadius(getPlacedProps());

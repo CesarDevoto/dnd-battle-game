@@ -601,6 +601,8 @@ const _BUST_SRC = {
   Floosh:  '/assets/Pictures%20Cutscenes%20Icons/grassling.jpg',
   Morvath: '/assets/Pictures%20Cutscenes%20Icons/morvathbust.jpg',
   Solrac:  '/assets/Pictures%20Cutscenes%20Icons/Solrac.jpg',
+  'Goblin Boss': '/assets/Pictures%20Cutscenes%20Icons/goblinboss.jpg',
+  Sildar:  '/assets/Pictures%20Cutscenes%20Icons/Sildar.jpg',
 };
 
 function _renderLine() {
@@ -615,7 +617,7 @@ function _renderLine() {
     bustEl.style.display     = 'none';
   } else {
     const isDagna = l.s === 'Dagna';
-    const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec', Floosh: 'dlg-speaker-floosh', Solrac: 'dlg-speaker-solrac' };
+    const _SPEAKER_CLS = { Leugren: 'dlg-speaker-leugren', Milo: 'dlg-speaker-milo', Gobo: 'dlg-speaker-gobo', Rasec: 'dlg-speaker-rasec', Floosh: 'dlg-speaker-floosh', Solrac: 'dlg-speaker-solrac', Sildar: 'dlg-speaker-solrac' };
     speakerEl.style.display = '';
     bustEl.style.display    = '';
     speakerEl.textContent   = l.s;

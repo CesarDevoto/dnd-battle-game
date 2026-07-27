@@ -1169,7 +1169,7 @@ export const UNIT_TYPES = {
     anchorY: 1.9,
   },
 
-  // Sindar — animated NPC (sindarceeze.glb). Rigged, feet-at-origin, ~1.70u tall in
+  // Sildar — animated NPC (sildarceeze.glb). Rigged, feet-at-origin, ~1.70u tall in
   // bind pose; scale ~1.23 reads ~2.1u (adult height, matching the heroes). Six clips
   // (idle/walk/run + sword/bow/death), pinned in the units.js clip map. The head is a
   // separate unskinned mesh parented to the Head bone — same construction as Solrac,
@@ -1179,8 +1179,8 @@ export const UNIT_TYPES = {
   // the head's IS its base albedo, so he read as a lit cut-out even at the dungeon
   // biome's 0.12. Final emissive = authored × this × ENVS[biome].unitEmissive. Lower it
   // toward 0 for a fully light-dependent body, raise toward 1 to get the glow back.
-  sindar: {
-    name: 'Sindar',
+  sildar: {
+    name: 'Sildar',
     team: 'npc',
     scale:   [1.23, 1.23, 1.23],
     yOffset: 0.02,

@@ -83,7 +83,7 @@ const MODEL_PATHS = {
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
   solrac:    'assets/models/npcs/solrac.glb',
-  sindar:    'assets/models/npcs/sindarceeze.glb',
+  sildar:    'assets/models/npcs/sildarceeze.glb',
   owl:       'assets/models/owl.glb',
   // Townsfolk NPCs — assets/models/npcs/ subfolder (lowercase — case-sensitive on deploy)
   npc_dwarf:          'assets/models/npcs/npc dwarf.glb',
@@ -281,10 +281,10 @@ const ANIM_CLIP_NAMES = {
   solrac: {
     idle: 'Idle_11', walk: 'Walking.001', run: 'Running.001', attack: null,
   },
-  // sindarceeze.glb — same six-clip set as twig_blight (Archery_Shot_1, Dead, Idle_02,
+  // sildarceeze.glb — same six-clip set as twig_blight (Archery_Shot_1, Dead, Idle_02,
   // Right_Hand_Sword_Slash, Running, Walking). Pinned rather than auto-detected because
   // Archery_Shot_1 and Walking are both 1.0s and the loco tiebreak swaps them (see kobold).
-  sindar: {
+  sildar: {
     idle: 'Idle_02', walk: 'Walking', run: 'Running',
     attack: 'Right_Hand_Sword_Slash', rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
@@ -563,7 +563,7 @@ export function setUnitEmissiveScale(scale) {
 
 // opts.deadPose holds the unit frozen on the LAST frame of its death clip — a body
 // already on the ground when you walk in, not one that collapses on cue. Used for
-// Sindar in the Hide Out. It locks the anim (setUnitWalking is a no-op) so idle can
+// Sildar in the Hide Out. It locks the anim (setUnitWalking is a no-op) so idle can
 // never stand the corpse back up; setUnitAnimLocked(u, false) releases it if a quest
 // ever revives him.
 export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null, opts = {}) {

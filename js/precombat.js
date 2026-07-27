@@ -79,6 +79,14 @@ export function setPrecombatFrozen(frozen) {
   }
 }
 
+// Start a fight on demand from a scripted event, using the same path a spotted
+// hero takes: social/roam-group cascade, then exitPrecombat + rollInitiative.
+// Widen the spotter's socialAggroRange first if the whole room should join.
+export function forceAggro(spotter) {
+  if (!spotter || _aggroed) return;
+  _triggerAggro(spotter);
+}
+
 export function enterPrecombat(silent = false) {
   _active   = true;
   _aggroed  = false;
