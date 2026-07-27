@@ -213,6 +213,7 @@ function saveZoneEnemiesPlugin() {
               if (e.stealthed)                        s += `, stealthed: true`;
               if (e.stationary)                       s += `, stationary: true`;
               if (e.attackPref)                       s += `, attackPref: '${e.attackPref}'`;
+              if (e.deadPose)                         s += `, deadPose: true`;
               if (e.animOverrides && Object.keys(e.animOverrides).length) {
                 const ovStr = Object.entries(e.animOverrides)
                   .map(([role, idx]) => `${role}:${idx}`)

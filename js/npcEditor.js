@@ -145,7 +145,7 @@ function _duplicateNpc(dx, dz) {
   const src    = _selectedUnit;
   const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length ? { ...src.animOverrides } : null;
   _snapshot();
-  const nu = buildUnit(+(src.grp.position.x + dx).toFixed(2), +(src.grp.position.z + dz).toFixed(2), src.team, src.type, ovCopy);
+  const nu = buildUnit(+(src.grp.position.x + dx).toFixed(2), +(src.grp.position.z + dz).toFixed(2), src.team, src.type, ovCopy, { deadPose: !!src._deadPose });
   nu.grp.scale.setScalar(src.grp.scale.x);
   nu.grp.rotation.y   = src.grp.rotation.y;
   nu.hoverY           = src.hoverY ?? 0;
@@ -434,7 +434,7 @@ export function initNpcEditor() {
         const src = _selectedUnit;
         const ovCopy = src.animOverrides && Object.keys(src.animOverrides).length
           ? { ...src.animOverrides } : null;
-        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), src.team, src.type, ovCopy);
+        const nu = buildUnit(+pt.x.toFixed(2), +pt.z.toFixed(2), src.team, src.type, ovCopy, { deadPose: !!src._deadPose });
         nu.grp.scale.setScalar(src.grp.scale.x);
         nu.grp.rotation.y = src.grp.rotation.y;
         nu.hoverY = src.hoverY ?? 0;

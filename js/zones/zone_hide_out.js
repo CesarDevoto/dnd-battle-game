@@ -31,14 +31,15 @@ export const ZONE = {
     { type: 'goblin', x: 42.56, z: -6.57, rotY: 3.927 },
     { type: 'goblin', x: 39.56, z: -10.07, rotY: 3.927 },
     { type: 'goblin', x: -35.94, z: 1.43, rotY: 13.3518 },
-    { type: 'goblinchieftain', x: -33.17, z: 4.37, rotY: 3.927 },
+    { type: 'goblinchieftain', x: -33.17, z: 4.37, scale: 1.331, rotY: 3.927 },
     { type: 'goblin', x: -33.44, z: 0.43, rotY: 12.5664 },
     { type: 'goblin', x: -31.94, z: 1.93, rotY: 10.9956 },
     { type: 'goblin', x: -35.94, z: 3.93, rotY: 9.4248 },
-    { type: 'goblin3', x: -37.48, z: 2.54, rotY: 3.927 },
+    { type: 'goblin3', x: -37.48, z: 2.54, scale: 0.909, rotY: 3.927 },
     { type: 'goblin3', x: -54.35, z: -21.68, rotY: 1.5708 },
     { type: 'goblin3', x: -53.03, z: -25.02, rotY: 1.5708 },
     { type: 'goblin', x: -53.44, z: -19.07, rotY: 13.3518 },
+    { type: 'sindar', x: -33.77, z: 2.01, team: 'npc', rotY: 0, deadPose: true },
   ],
   // Old coordinate exit removed (user, 2026-07-21): it drew the fog ball AND cut the "crack" notch
   // in the east wall. Use a placed Zone Gate prop for the return trip to the Warrens instead.
