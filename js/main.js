@@ -8,7 +8,7 @@ import { updateHUD, trackSheet, sheetUnit, showSheet } from './ui.js';
 import { equipItem, MATERIAL_PROF } from './equipment.js';
 import { getItem } from './items.js';
 import { rollAffixes } from './affixes.js';
-import { activeRing, meleeRangeRing, rangedRangeRing, longRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, trackFearUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker, trackSurpriseUI } from './combat.js';
+import { activeRing, meleeRangeRing, rangedRangeRing, longRangeRing, moveRangeRing, hoverRing, spellRangeRing, trackTargetUI, trackSleepUI, trackFearUI, turnOrder, turnIndex, combatPhase, tickHoverPulse, forceCombatExitWithLoot, updateReadyIcons, updateFamiliarHelpMarker, trackSurpriseUI, devBurningHands } from './combat.js';
 import { selectedUnit, menuUnit, selectRing, trackMenu } from './army.js';
 import { updateSelectionHighlight } from './selectionHighlight.js';
 import { ANIM, UNIT_TYPES } from './constants.js';
@@ -222,6 +222,13 @@ if (IS_DEV) {
   document.getElementById('dlg-log-close').addEventListener('click', () => {
     document.getElementById('dlg-log-panel').style.display = 'none';
   });
+
+  // Burning Hands cone probe — see devBurningHands in combat.js.
+  //   devBurningHands()                  preview the cone Rasec is already facing
+  //   devBurningHands(90)                preview it pointing +X (0 = +Z, degrees clockwise)
+  //   devBurningHands(null,{aim:true})   open the real aim mode — cursor steers, click fires
+  //   devBurningHands(90, {cast:true})   cast it outright (needs his turn + a slot)
+  window.devBurningHands = devBurningHands;
 
   // Custom 100-level XP thresholds — must match XP_THRESHOLDS in progression.js
   const _DEV_XP = [0,200,450,750,1100,1500,1950,2450,3000,3600,4300,5100,6000,7000,8200,9500,11000,12700,14600,16700];

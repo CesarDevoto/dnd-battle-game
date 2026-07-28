@@ -169,7 +169,7 @@ const LEVEL_UNLOCKS = {
     6: [
       { name: 'Burning Hands',
         imgSrc: 'assets/spells and skills/burninghands.jpg',
-        desc: 'Action · 15 ft around you · 3d6 fire to every enemy caught · DEX DC 13 for half · widened by the off-hand AoE-radius affix · costs 1 spell slot' },
+        desc: 'Action · aim a 15 ft cone — the grid lights up the squares it covers · 3d6 fire to every enemy caught · DEX DC 13 for half · lengthened by the off-hand AoE-radius affix · costs 1 spell slot' },
     ],
   },
 };

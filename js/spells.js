@@ -170,12 +170,14 @@ export const ELF_SPELLS = {
     level:     1,
     actionType:'action',
     imgSrc:    'assets/spells and skills/burninghands.jpg',
+    // rangeFt is the cone's LENGTH. Width at any point along it equals that point's distance
+    // from Rasec (5e cone), so length is the only dimension there is to set — see _coneSquares.
     rangeFt:   15,
     dice:      3,
     sides:     6,
     saveStat:  'dex',
     saveDC:    13,
-    desc:      '15 ft cone · 3d6 fire · DEX DC 13 for half',
+    desc:      'Aim a 15 ft cone · 3d6 fire to everything caught · DEX DC 13 for half',
   },
   // Conjuration ritual — castable both in and out of combat via the
   // find_familiar ability handler (combat.js _ABILITY_HANDLERS). Gated to L4 via

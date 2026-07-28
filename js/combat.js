@@ -23,6 +23,7 @@ import { affixTotal, abilityModOf, applyHeal, speedOf } from './affixes.js';
 import { SPELLS, ELF_SPELLS, LEVEL_SPELLS, STARTING_SPELLS, isAbilityUnlocked, blessedUnits, applyBless, clearBless, tickBless, initSpellSlots, concentrating, concentratingSpell,
          hasSpellSlot, spendSpellSlot, totalSpellSlots, spellLevelOf, syncSlotsToLevel } from './spells.js';
 import { playFireboltEffect }      from './firebolt.js';
+import { playBurningHandsEffect, BURNING_HANDS_IMPACT_MS } from './burningHands.js';
 import { playHealingWordEffect }   from './healingWord.js';
 import { playInflictWoundsEffect, playGraveCurseEffect, playGraveCurseBolt } from './morvathEffects.js';
 import { fireRangedAttack }        from './arrow.js';
@@ -338,6 +339,7 @@ function playSleepEffect(caster, color = 0xcc55ff) {
     requestAnimationFrame(step);
   })();
 }
+
 
 // ── Conforming-ring surface sampling ──────────────────────────────────────────
 // The active/range/hover/move-range rings drape their vertices over the ground via getSurfaceHeight,
@@ -780,6 +782,129 @@ function showSpellRangeRing(caster, rangeFt) {
 function hideSpellRangeRing() {
   spellRangeRing.visible = false;
 }
+
+// ── Cone areas of effect ──────────────────────────────────────────────────────
+// A Cone extends in straight lines from a point of origin in a direction its creator chooses.
+// Its WIDTH at any point along its length equals that point's DISTANCE from the origin — so a
+// cone is 15 ft wide 15 ft out. That makes it a triangle of half-angle atan(0.5) ≈ 26.57°,
+// which is what the perp <= t/2 test below is. The origin square is NOT included.
+//
+// Squares are selected by testing their CENTRE, not by any-overlap. That's the predictable
+// reading: it makes the lit area a pure function of origin + direction, and it means a 15 ft
+// cone is always 7 squares (1 + 3 + 3) rather than swelling and shrinking with sub-tile
+// position. The lit squares are AUTHORITATIVE — _coneCatch below hits what the player sees lit,
+// so there is no "it looked like it covered him" gap between the preview and the damage.
+//
+// Centres sit on ODD world coordinates, matching the move-tile snap in the mousemove handler
+// (Math.round((x - 1) / 2) * 2 + 1), so cone squares line up with the movement grid already
+// on screen rather than being a second, offset grid.
+const _CONE_CELL     = WORLD_UNITS_PER_SQUARE;
+const _CONE_TILE_LIFT = 0.06;
+const _CONE_TILE_INSET = 0.10;   // shrink each quad so neighbours read as separate tiles
+
+function _squareCentre(x, z) {
+  return {
+    cx: Math.round((x - 1) / _CONE_CELL) * _CONE_CELL + 1,
+    cz: Math.round((z - 1) / _CONE_CELL) * _CONE_CELL + 1,
+  };
+}
+const _sqKey = (cx, cz) => `${cx},${cz}`;
+
+// Is world point (px,pz) inside the cone from (ox,oz) along unit vector (dx,dz), length lenWU?
+function _pointInCone(px, pz, ox, oz, dx, dz, lenWU) {
+  const vx = px - ox, vz = pz - oz;
+  const t  = vx * dx + vz * dz;                 // distance along the cone axis
+  if (t <= 1e-6 || t > lenWU) return false;
+  const perp = Math.abs(vx * dz - vz * dx);     // lateral distance from the axis
+  return perp <= t * 0.5;                       // width at t == t  →  half-width == t/2
+}
+
+// Every grid square whose centre falls inside the cone. Returns [{cx,cz}], origin square excluded
+// (its centre gives t = 0, which the t <= 1e-6 test above already drops).
+function _coneSquares(ox, oz, dx, dz, lenWU) {
+  const out = [];
+  const org = _squareCentre(ox, oz);
+  const reach = lenWU + _CONE_CELL;
+  const lo = _squareCentre(ox - reach, oz - reach);
+  const hi = _squareCentre(ox + reach, oz + reach);
+  for (let cx = lo.cx; cx <= hi.cx; cx += _CONE_CELL) {
+    for (let cz = lo.cz; cz <= hi.cz; cz += _CONE_CELL) {
+      if (cx === org.cx && cz === org.cz) continue;   // point of origin isn't in the area
+      if (_pointInCone(cx, cz, ox, oz, dx, dz, lenWU)) out.push({ cx, cz });
+    }
+  }
+  return out;
+}
+
+// Units a cone catches. A unit is caught when it STANDS IN A LIT SQUARE — what you see is what
+// burns. The raw-position test is OR'd in for large units, whose centres sit on even coordinates
+// and so can straddle the odd-centred grid the squares are snapped to.
+function _coneCatch(caster, squares, ox, oz, dx, dz, lenWU) {
+  const lit = new Set(squares.map(s => _sqKey(s.cx, s.cz)));
+  return units.filter(e => {
+    if (e === caster || e.hp <= 0) return false;
+    if (e.team === caster.team || e.team === 'npc') return false;
+    const px = e.grp.position.x, pz = e.grp.position.z;
+    const sq = _squareCentre(px, pz);
+    return lit.has(_sqKey(sq.cx, sq.cz)) || _pointInCone(px, pz, ox, oz, dx, dz, lenWU);
+  });
+}
+
+// One mesh, geometry rebuilt per preview frame — a pool would cap the square count, and a cone
+// has no fixed size. Corners are sampled off _ringSurfaceH so the tiles drape over terrain like
+// every other indicator.
+const coneAreaMesh = new THREE.Mesh(
+  new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({
+    color: 0xff7722, side: THREE.DoubleSide, transparent: true, opacity: 0.38,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  })
+);
+coneAreaMesh.frustumCulled = false;
+coneAreaMesh.renderOrder   = 3;
+coneAreaMesh.visible       = false;
+scene.add(coneAreaMesh);
+
+function showConeArea(squares, baseH) {
+  if (!squares.length) { hideConeArea(); return; }
+  const h = _CONE_CELL * 0.5 - _CONE_TILE_INSET;
+  const pos = new Float32Array(squares.length * 4 * 3);
+  const idx = [];
+  let vi = 0;
+  squares.forEach(({ cx, cz }, i) => {
+    const corners = [[-h, -h], [h, -h], [-h, h], [h, h]];
+    for (const [ox2, oz2] of corners) {
+      const x = cx + ox2, z = cz + oz2;
+      pos[vi++] = x;
+      pos[vi++] = _ringVertY(x, z, baseH, _CONE_TILE_LIFT);
+      pos[vi++] = z;
+    }
+    const b = i * 4;
+    idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 1e6);
+  coneAreaMesh.geometry.dispose();
+  coneAreaMesh.geometry = geo;
+  coneAreaMesh.visible  = true;
+}
+
+function hideConeArea() {
+  coneAreaMesh.visible = false;
+}
+
+// Timestamp until which the lit tiles survive WITHOUT the aim mode — the afterglow right after a
+// cast, so the player sees what actually burned. trackTargetUI's sweep respects it.
+let _coneCastGlowUntil = 0;
+
+// The caster's facing as it was when aim mode opened, so an ABANDONED aim can be undone. Rasec
+// turns to track the cursor while aiming (it reads far better than a stationary model whose cone
+// swings around him), but a preview must not leave permanent state behind — cancel and he should
+// be looking exactly where he was. castBurningHands clears this the moment a cast commits, which
+// is what stops the restore from undoing a real cast's facing.
+let _coneAim = null;   // { unit, rotY } | null
 
 // ── Ranged targeting line ──────────────────────────────────────────────────────
 // A dashed yellow line drawn from attacker to target before a ranged shot fires.
@@ -1523,6 +1648,27 @@ function hideMoveRange() {
   _hoverRingTx = _hoverRingTz = null;
 }
 
+// ── Hostile-target gate ───────────────────────────────────────────────────────
+// The ONE test for "may `attacker` deal damage to `target`". Every damaging path a PLAYER can
+// trigger has to run it, because being `selectedTarget` is NOT permission to be hit: clicking an
+// ally — or your own model, portrait or HP bar — legitimately sets selectedTarget, since that is
+// how the target window and the heal/ward pickers choose who they act on (_targetUnit).
+//
+// ⚠ That is the bug this closes. The Digit2/Digit3 weapon hotkeys and Fire Bolt fired straight at
+// selectedTarget with no team test at all, and their enable-checks only asked "alive?" and "in
+// range?" — so selecting yourself and pressing the melee key had Gobo swing at himself, at a
+// distance of 0, which trivially passes any reach check.
+//
+// team:'npc' is excluded as well as your own team. Friendly NPCs are built at hp = 0 on purpose,
+// but 'npc' !== 'blue' would otherwise read as "another team" — so without this clause Sildar,
+// standing right next to the party, is a legal thing for them to swing at.
+function _isHostileTarget(attacker, target) {
+  if (!attacker || !target) return false;
+  if (target === attacker) return false;
+  if (target.hp <= 0) return false;
+  return target.team !== attacker.team && target.team !== 'npc';
+}
+
 // ── Attack targets ────────────────────────────────────────────────────────────
 
 function showAttackTargets(u) {
@@ -2072,7 +2218,9 @@ function castSanctuary(caster, ward) {
   applySanctuary(ward, spell.duration ?? 10);
 
   addLog(`${unitLabel(caster)} casts Sanctuary on ${unitLabel(ward)} — attackers must pass WIS DC ${spell.saveDC} to target them.`, 'spell');
-  showFloatingDamage(ward, '✦ SANCTUARY', '#9fd8ff');
+  // Gold, matching the cond-sanctuary badge on the hero card — the ✦ rides the same string,
+  // so the diamond takes the colour with it. Was the pale blue of the old .hb-sanctuary label.
+  showFloatingDamage(ward, '✦ SANCTUARY', '#f0d868');
   updateCombatStatus();
 }
 
@@ -2578,35 +2726,49 @@ function castSleep(caster, target) {
 
 }
 
-function castBurningHands(caster) {
+// Burning Hands is a CONE now, not a circle centred on Rasec. `dirX`/`dirZ` are the direction the
+// player (or the AI) chose; the caller is responsible for normalising them.
+//
+// The off-hand aoe_radius affix still applies, and still widens the same number the targeting uses
+// — but on a cone that number is the cone's LENGTH, so the affix makes the fan reach further and
+// (since width == distance) proportionally wider at the same time. One knob, both dimensions.
+function castBurningHands(caster, dirX, dirZ) {
   const spell = ELF_SPELLS.burning_hands;
   if (!hasSpellSlot(caster, spellLevelOf('burning_hands'))) return;
+  const len = Math.hypot(dirX ?? 0, dirZ ?? 0);
+  if (!len) return;
+  const dx = dirX / len, dz = dirZ / len;
+
+  // The aim COMMITTED — drop the saved facing so the restore below can't undo it. Must happen
+  // before heroMode changes, or trackTargetUI's sweep would spin him back on the next frame.
+  _coneAim = null;
+  faceDirection(caster, dx, dz);
   playUnitAttackAnim(caster, 'ranged');
+  hideConeArea();
+  hideSpellRangeRing();
   spendSpellSlot(caster, spellLevelOf('burning_hands'));
   _spendHeroAction('spell');
   heroMode = null;
 
-  playSleepEffect(caster, 0xff6622);   // fire orange, not Sleep's violet
-
-  // Burning Hands is the game's ONLY hero AoE, so it's the only consumer of the off-hand aoe_radius
-  // affix. Its area is a radius around the CASTER (spell.rangeFt), not a cone, despite the
-  // description — so the affix widens exactly the circle the targeting below already uses.
   const areaFt  = aoeRadiusFtOf(caster, spell.rangeFt);
-  const rangeWU = atkRangeWU(areaFt);
+  const lenWU   = (areaFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
   const ux = caster.grp.position.x, uz = caster.grp.position.z;
-  const targets = units.filter(e => {
-    if (e.team === caster.team || e.hp <= 0) return false;
-    const dx = e.grp.position.x - ux, dz = e.grp.position.z - uz;
-    return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
-  });
+  const squares = _coneSquares(ux, uz, dx, dz, lenWU);
+  const targets = _coneCatch(caster, squares, ux, uz, dx, dz, lenWU);
+
+  playBurningHandsEffect(caster, dx, dz, lenWU);
+  // Leave the lit tiles up for the length of the spray so the player can see what it covered.
+  // trackTargetUI clears them once this window lapses — no timer to leak or double-fire.
+  showConeArea(squares, _ringSurfaceH(ux, uz));
+  _coneCastGlowUntil = Date.now() + 1200;
 
   const dmgResult = roll({ sides: spell.sides, count: spell.dice });
   showRoll(`${unitLabel(caster)}  ·  Burning Hands`, dmgResult, { autoDismiss: false });
-  addLog(`${unitLabel(caster)} casts Burning Hands (${areaFt} ft · DEX DC ${spell.saveDC})` +
+  addLog(`${unitLabel(caster)} casts Burning Hands (${areaFt} ft cone · ${squares.length} squares · DEX DC ${spell.saveDC})` +
          (areaFt > spell.rangeFt ? ` — widened from ${spell.rangeFt} ft` : ''), 'spell');
 
   if (targets.length === 0) {
-    addLog('  Burning Hands: no enemies in range', 'spell');
+    addLog('  Burning Hands: no enemies in the cone', 'spell');
   } else {
     targets.forEach((target, i) => {
       setTimeout(() => {
@@ -2629,7 +2791,9 @@ function castBurningHands(caster) {
         showFloatingDamage(target, `-${dmg}${saved ? ' ½' : ''}`, '#ff6622');
         addLog(`  ${unitLabel(target)}: ${saved ? 'saves' : 'fails'} DEX → ${dmg} fire dmg`, 'spell');
         if (target.hp <= 0) setTimeout(() => removeDefeatedUnit(target, caster), 400);
-      }, i * 700 + 1000);
+        // Base delay is the animation's own first-impact time, not a magic number — see
+        // BURNING_HANDS_IMPACT_MS. Retiming the bolts retimes the saves automatically.
+      }, i * 700 + BURNING_HANDS_IMPACT_MS);
     });
   }
 
@@ -2700,8 +2864,112 @@ function handleElfSpellBtnClick(spellKey) {
     updateCombatStatus();
 
   } else if (spellKey === 'burning_hands') {
-    castBurningHands(u);
+    // A cone needs a DIRECTION, so this is an aim mode rather than an instant cast: the lit
+    // squares follow the cursor and the click commits. Same click-again-to-cancel contract as
+    // Magic Missile and Sleep, including restoring leftover movement.
+    if (heroMode === 'elfatk_burning_hands') {
+      heroMode = null;
+      hideCastConfirm();
+      hideConeArea();
+      hideSpellRangeRing();
+      const cancelRemaining = (speedOf(u)) - turnMovedFt;
+      if (cancelRemaining > 0) { heroMode = 'move'; showMoveRange(u); }
+      updateCombatStatus();
+      return;
+    }
+    hideMoveRange();
+    hideHealTargets();
+    hideAttackTargets();
+    heroMode = 'elfatk_burning_hands';
+    // Remember where he was looking BEFORE the preview starts turning him, so cancelling puts
+    // him back. Captured here rather than in _previewBurningHandsCone, which runs every frame.
+    _coneAim = { unit: u, rotY: u.grp.rotation.y };
+    // Seed the preview along the way he's already facing, so the tiles are on screen before the
+    // mouse moves. rotation.y is the same atan2(dx,dz) convention faceDirection writes.
+    _previewBurningHandsCone(u, Math.sin(u.grp.rotation.y), Math.cos(u.grp.rotation.y));
+    updateCombatStatus();
   }
+}
+
+// ── Dev probe: Burning Hands cone ─────────────────────────────────────────────
+// Wired to window.devBurningHands in main.js (dev builds only). Exists because the cone's
+// geometry is the part worth checking and the particles are the part that hides it — this
+// reports the actual squares and the actual units caught, so "is the shape right" is answerable
+// without a fight, a spell slot, or a turn.
+//
+// `deg` is a compass heading: 0 = +Z, 90 = +X, matching the atan2(dx, dz) convention
+// faceDirection writes into rotation.y. Omit it to use whichever way Rasec is already facing.
+export function devBurningHands(deg = null, { cast = false, aim = false } = {}) {
+  const caster = units.find(u => u.team === 'blue' && u.type === 'elf' && u.hp > 0);
+  if (!caster) { console.warn('[DEV] no living elf (Rasec) in units[]'); return null; }
+
+  // aim:true opens the real targeting mode — cursor steers the cone, left click fires it. That is
+  // the same mode the spell button enters, so it exercises the actual flow rather than a mock.
+  // The click handler that fires it is gated on a legitimate turn, so report exactly what's
+  // missing rather than opening a mode whose click would silently do nothing.
+  if (aim) {
+    const active = turnOrder[turnIndex];
+    const why = !combatPhase              ? 'not in combat'
+              : active !== caster         ? `it is ${active ? unitLabel(active) : 'nobody'}'s turn, not Rasec's`
+              : turnAttacked              ? 'his action is already spent this turn'
+              : !hasSpellSlot(caster, spellLevelOf('burning_hands')) ? 'no spell slot left'
+              : !isAbilityUnlocked(caster.type, caster.level ?? 1, 'burning_hands')
+                                          ? `Burning Hands is locked at level ${caster.level ?? 1} — run devSetLevel(6)`
+              : null;
+    if (why) { console.warn(`[DEV] can't aim: ${why}`); return null; }
+    handleElfSpellBtnClick('burning_hands');
+    console.log('[DEV] aim mode ON — move the cursor to steer the cone, LEFT CLICK to fire. ' +
+                'Run devBurningHands(null, { aim: true }) again to cancel.');
+    return { aiming: true };
+  }
+
+  const rad = deg === null ? caster.grp.rotation.y : (deg * Math.PI) / 180;
+  const dx = Math.sin(rad), dz = Math.cos(rad);
+
+  const areaFt = aoeRadiusFtOf(caster, ELF_SPELLS.burning_hands.rangeFt);
+  const lenWU  = (areaFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  const squares = _coneSquares(ux, uz, dx, dz, lenWU);
+  const caught  = _coneCatch(caster, squares, ux, uz, dx, dz, lenWU);
+
+  // Squares grouped by their distance band along the cone axis — the 5e shape for a 15 ft cone
+  // is 1 / 3 / 3, so a wrong band count is the fastest tell that the width rule has drifted.
+  const bands = {};
+  for (const s of squares) {
+    const t = Math.round(((s.cx - ux) * dx + (s.cz - uz) * dz) / WORLD_UNITS_PER_SQUARE * GRID_SQUARE_FEET);
+    bands[`${t}ft`] = (bands[`${t}ft`] ?? 0) + 1;
+  }
+
+  console.log(
+    `[DEV] Burning Hands cone — heading ${((rad * 180) / Math.PI).toFixed(1)}°, ` +
+    `length ${areaFt} ft (${lenWU} WU) from (${ux.toFixed(1)}, ${uz.toFixed(1)})\n` +
+    `  ${squares.length} squares by band:`, bands,
+    `\n  catches ${caught.length}:`, caught.map(u => unitLabel(u))
+  );
+
+  // Light the tiles for 3s so the shape can be eyeballed on the ground. Purely visual — the
+  // 'cast: true' path below is the only one that spends anything.
+  showConeArea(squares, _ringSurfaceH(ux, uz));
+  _coneCastGlowUntil = Date.now() + 3000;
+  playBurningHandsEffect(caster, dx, dz, lenWU);
+
+  if (cast) castBurningHands(caster, dx, dz);
+  return { squares, caught, areaFt, lenWU, headingDeg: (rad * 180) / Math.PI };
+}
+
+// Redraw the aim preview for a cone pointing (dx,dz) from `caster`. Shared by the seed above,
+// the mousemove handler and nothing else — the cast recomputes its own squares so a stale
+// preview can never decide what actually burns.
+function _previewBurningHandsCone(caster, dx, dz) {
+  const len = Math.hypot(dx, dz);
+  if (!len) return;
+  // Turn to track the aim. Reversible — see _coneAim.
+  faceDirection(caster, dx / len, dz / len);
+  const areaFt = aoeRadiusFtOf(caster, ELF_SPELLS.burning_hands.rangeFt);
+  const lenWU  = (areaFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  const squares = _coneSquares(ux, uz, dx / len, dz / len, lenWU);
+  showConeArea(squares, _ringSurfaceH(ux, uz));
 }
 
 // ── Combat status bar ─────────────────────────────────────────────────────────
@@ -3208,9 +3476,22 @@ function faceTarget(unit, target) {
   unit.grp.rotation.y = Math.atan2(dx, dz);
 }
 
+// faceTarget's other half — turn to a DIRECTION rather than at a unit. A cone has no target to
+// face, only an axis, and the caster must be looking down it or the fan sprays out of his ear.
+function faceDirection(unit, dx, dz) {
+  if (!dx && !dz) return;
+  unit.grp.rotation.y = Math.atan2(dx, dz);
+}
+
 // Ranged attacks show a targeting line first; melee fires immediately.
 // Fire Bolt (elf) gets the full cinematic particle effect instead.
 function performAttack(attacker, target, atk, onSettled = null) {
+  // Backstop, not the real gate — the callers own that via _isHostileTarget. A unit swinging at
+  // ITSELF is never legitimate for any attacker on any team, so refuse it here rather than trust
+  // every present and future call site to have checked. Deliberately narrower than
+  // _isHostileTarget: this must not start refusing enemy-on-enemy or scripted attacks.
+  // onSettled still fires, or a turn waiting on it would hang (the /timing-audit rule).
+  if (!attacker || !target || attacker === target) { onSettled?.(); return; }
   // If this attacker is the delay-interrupt hero, end the interrupt after the attack resolves.
   // Capture the context reference so a later hero's interrupt isn't accidentally closed.
   if (_readyCtx && attacker === turnOrder[turnIndex]) {
@@ -4329,6 +4610,20 @@ export function trackTargetUI() {
   // actively over a unit or move tile — this is the only place that clears it. The currently
   // TARGETED unit is no longer marked by a ring underneath; its health bar flashes pink instead.
   if (!_ringHoverActive) hoverRing.visible = false;
+  // Cone preview lives exactly as long as its aim mode. Clearing it HERE rather than at every
+  // mode-switch site means turn end, combat end, casting something else, cancelling and any
+  // future exit all tear it down for free — there is no path that can strand lit tiles on the
+  // ground. The cast's own 1200ms afterglow is what the _coneCastGlowUntil window protects.
+  if (coneAreaMesh.visible && heroMode !== 'elfatk_burning_hands' && Date.now() > _coneCastGlowUntil) {
+    hideConeArea();
+  }
+  // Same self-healing idea for the AIM FACING: any exit that isn't a cast — cancel, casting
+  // something else, turn end, combat end — leaves _coneAim set with the mode gone, and puts him
+  // back where he was looking. A committed cast nulls _coneAim itself, so this can't undo one.
+  if (_coneAim && heroMode !== 'elfatk_burning_hands') {
+    _coneAim.unit.grp.rotation.y = _coneAim.rotY;
+    _coneAim = null;
+  }
   _flashTargetBar();
 
   if (!selectedTarget) return;
@@ -4533,6 +4828,23 @@ renderer.domElement.addEventListener('click', e => {
         return;
       }
 
+      // Burning Hands: the click commits the cone in whatever direction the cursor is. Unlike
+      // the target-picking spells there is nothing to hit-test — any ground point is a valid
+      // aim — so the only way out is the button toggle or clicking the caster's own square.
+      if (heroMode === 'elfatk_burning_hands' && !turnAttacked) {
+        if (pt) {
+          const dx = pt.x - u.grp.position.x;
+          const dz = pt.z - u.grp.position.z;
+          if (Math.hypot(dx, dz) > 0.2) { castBurningHands(u, dx, dz); return; }
+        }
+        hideCastConfirm();
+        heroMode = null;
+        hideConeArea();
+        hideSpellRangeRing();
+        updateCombatStatus();
+        return;
+      }
+
       if (heroMode === 'elfatk_sleep' && !turnAttacked) {
         const meshHit = rayHitUnit(atkTargets);
         if (meshHit) {
@@ -4709,6 +5021,19 @@ renderer.domElement.addEventListener('mousemove', e => {
   }
 
   const pt = groundHit(e.clientX, e.clientY);  // primes _ray
+
+  // Cone aiming owns the cursor while it's active — the tiles must track even when the pointer is
+  // over an enemy, so this sits ABOVE the unit-hover branch that returns early.
+  if (heroMode === 'elfatk_burning_hands' && pt) {
+    const cdx = pt.x - u.grp.position.x;
+    const cdz = pt.z - u.grp.position.z;
+    if (Math.hypot(cdx, cdz) > 0.2) _previewBurningHandsCone(u, cdx, cdz);
+    clearHoverPulseUnit();
+    hoverRing.visible = false;
+    _ringHoverActive  = false;
+    moveDistEl.style.display = 'none';
+    return;
+  }
 
   // Unit hover takes priority: emissive pink pulse on the model + opacity flash on its health bar
   // (setHoverPulseUnit). No ring under the unit anymore — the bar flash replaces it. The green
@@ -5761,6 +6086,7 @@ const _ABILITY_HANDLERS = {
       if (!selectedTarget || turnAttacked || isAnimating) return;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
+      if (!_isHostileTarget(curU, selectedTarget)) return;
       const tgt = selectedTarget;
       _spendHeroAction('spell');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
@@ -5774,6 +6100,7 @@ const _ABILITY_HANDLERS = {
       if (!selectedTarget || turnAttacked || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.type !== 'elf') return false;
+      if (!_isHostileTarget(curU, selectedTarget)) return false;
       const atk = FIRE_BOLT_ATK;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
@@ -6181,6 +6508,7 @@ function _rebuildHotbar(u) {
       if (!selectedTarget || turnAttacked || isAnimating) return;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
+      if (!_isHostileTarget(curU, selectedTarget)) return;
       const tgt = selectedTarget;
       _spendHeroAction('weapon');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
@@ -6193,6 +6521,7 @@ function _rebuildHotbar(u) {
       if (!selectedTarget || turnAttacked || _saveLocksTurn(turnOrder[turnIndex]) || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return false;
+      if (!_isHostileTarget(curU, selectedTarget)) return false;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       return Math.sqrt(dx * dx + dz * dz) <= atkTriggerWU(firstMelee);
@@ -6203,6 +6532,7 @@ function _rebuildHotbar(u) {
       if (!selectedTarget || turnAttacked || isAnimating) return;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return;
+      if (!_isHostileTarget(curU, selectedTarget)) return;
       const tgt = selectedTarget;
       _spendHeroAction('weapon');
       hideUndoBtn(); hideAttackTargets(); hideTargetMarker();
@@ -6215,6 +6545,7 @@ function _rebuildHotbar(u) {
       if (!selectedTarget || turnAttacked || _saveLocksTurn(turnOrder[turnIndex]) || selectedTarget.hp <= 0) return false;
       const curU = turnOrder[turnIndex];
       if (!curU || curU.team !== 'blue') return false;
+      if (!_isHostileTarget(curU, selectedTarget)) return false;
       const dx = selectedTarget.grp.position.x - curU.grp.position.x;
       const dz = selectedTarget.grp.position.z - curU.grp.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
@@ -7396,19 +7727,46 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (u.type !== 'elf')            { onSkip(); return; }
         if (!isAbilityUnlocked(u.type, u.level, 'burning_hands')) { onSkip(); return; }
         if (!hasSpellSlot(u, spellLevelOf('burning_hands'))) { onSkip(); return; }
-        // Radius is centred on RASEC, so this pulls him into danger — only worth it for 2+.
+        // The cone starts AT Rasec, so this pulls him into danger — only worth it for 2+.
         // aoeRadiusFtOf so the off-hand affix widens the AI's check exactly as it widens the cast.
-        const _bhRangeWU = atkRangeWU(aoeRadiusFtOf(u, ELF_SPELLS.burning_hands.rangeFt));
-        const _caught = units.filter(e => {
-          if (e.team === u.team || e.hp <= 0) return false;
-          const dx = e.grp.position.x - u.grp.position.x, dz = e.grp.position.z - u.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= _bhRangeWU;
+        //
+        // A cone has to be AIMED, so instead of one radius check the AI sweeps candidate headings
+        // and keeps the best. Each live enemy supplies one heading (aim straight at him) plus the
+        // bisector with every other enemy, which is what finds the angle that catches a pair
+        // standing apart — aiming at either one alone would miss the other.
+        const _bhAreaFt = aoeRadiusFtOf(u, ELF_SPELLS.burning_hands.rangeFt);
+        const _bhLenWU  = (_bhAreaFt / GRID_SQUARE_FEET) * WORLD_UNITS_PER_SQUARE;
+        const _bhUx = u.grp.position.x, _bhUz = u.grp.position.z;
+        const _bhFoes = units.filter(e => e.team !== u.team && e.team !== 'npc' && e.hp > 0);
+        const _bhHeadings = [];
+        const _pushHeading = (hx, hz) => {
+          const m = Math.hypot(hx, hz);
+          if (m > 1e-6) _bhHeadings.push([hx / m, hz / m]);
+        };
+        _bhFoes.forEach((a, i) => {
+          const ax = a.grp.position.x - _bhUx, az = a.grp.position.z - _bhUz;
+          _pushHeading(ax, az);
+          const am = Math.hypot(ax, az) || 1;
+          for (let j = i + 1; j < _bhFoes.length; j++) {
+            const b = _bhFoes[j];
+            const bx = b.grp.position.x - _bhUx, bz = b.grp.position.z - _bhUz;
+            const bm = Math.hypot(bx, bz) || 1;
+            _pushHeading(ax / am + bx / bm, az / am + bz / bm);   // bisector of the two
+          }
         });
-        if (_caught.length < 2) { onSkip(); return; }
-        castBurningHands(u);
-        // Stagger is i*700+1000. The old flat spd(1600) was short on EVERY cast — the gate
-        // guarantees 2+ targets, and target 2 alone resolves at 1700ms. Unscaled, count-derived.
-        setTimeout(onDone, (_caught.length - 1) * 700 + 1000 + 400);
+        let _bhDir = null, _caught = [];
+        for (const [hx, hz] of _bhHeadings) {
+          const sq  = _coneSquares(_bhUx, _bhUz, hx, hz, _bhLenWU);
+          const hit = _coneCatch(u, sq, _bhUx, _bhUz, hx, hz, _bhLenWU);
+          if (hit.length > _caught.length) { _caught = hit; _bhDir = [hx, hz]; }
+        }
+        if (!_bhDir || _caught.length < 2) { onSkip(); return; }
+        castBurningHands(u, _bhDir[0], _bhDir[1]);
+        // Budget tracks the cast's ACTUAL stagger: first save at BURNING_HANDS_IMPACT_MS, then
+        // 700ms per extra target, plus a settle beat. Derived, not a constant, so the slower
+        // seven-bolt fan can't end the turn while saves are still landing.
+        // (The old flat spd(1600) was short on EVERY cast — the gate guarantees 2+ targets.)
+        setTimeout(onDone, (_caught.length - 1) * 700 + BURNING_HANDS_IMPACT_MS + 400);
         return;
       }
 
