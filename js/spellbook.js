@@ -92,7 +92,7 @@ const SPELL_DATA = [
     effect:     '3d6 fire',
     effectNote: 'DEX DC 13 half',
     conc:       false,
-    desc: 'A thin sheet of flame jets from outstretched fingertips in a 15 ft cone. Each creature in the area must make a DEX saving throw DC 13, taking 3d6 fire damage on a failure or half on a success.',
+    desc: 'A thin sheet of flame jets from outstretched fingertips in a 15 ft cone, aimed where you choose — the grid lights up the squares it covers. The cone is as wide at any point as that point is far from you, and your own square is not included. Each creature caught must make a DEX saving throw DC 13, taking 3d6 fire damage on a failure or half on a success.',
   },
   {
     name:       'Mage Armor',
