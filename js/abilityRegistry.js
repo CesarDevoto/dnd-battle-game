@@ -11,6 +11,11 @@ export const ABILITY_META = {
   dodge:            { name: 'Dodge',            label: 'DODGE',              cssClass: 'hb-dodge' },
   rage:             { name: 'Rage',             imgSrc: 'assets/spells and skills/rage.jpg' },
   sneak_attack:     { name: 'Sneak Attack',     imgSrc: 'assets/spells and skills/sneak attack.jpg' },
+  // Precision is a PASSIVE with no button — it's here purely as the one place its art is
+  // named, the way ui.js already pulls ABILITY_META.sneak_attack.imgSrc for an inline row
+  // image. It is deliberately absent from HERO_ABILITY_LAYOUT below, so it never renders
+  // as a hotbar slot (it couldn't anyway — human and halfling are both at the 5-skill cap).
+  precision:        { name: 'Precision',        imgSrc: 'assets/spells and skills/precision.jpg' },
   // "Combat Hide" since 2026-07-18 — out-of-combat stealth is the whole party's now, so this
   // key is specifically the in-combat bonus-action version.
   hide:             { name: 'Combat Hide',     imgSrc: 'assets/spells and skills/hide.jpg' },
@@ -24,18 +29,26 @@ export const ABILITY_META = {
   mage_armor:       { name: 'Mage Armor',       imgSrc: 'assets/spells and skills/magearmor.jpg' },
   magic_missile:    { name: 'Magic Missile',    imgSrc: 'assets/spells and skills/magicmissile.jpg' },
   find_familiar:    { name: 'Find Familiar',    imgSrc: 'assets/spells and skills/find familiar.jpg' },
-  // ── L5–L7 abilities (2026-07-20) ──────────────────────────────────────────
-  // No art yet, so these use the {label, cssClass} text-icon shape (as dash/dodge do)
-  // rather than {imgSrc}. Drop a .jpg into assets/spells and skills/ and swap the entry
-  // to imgSrc — this table is the only place the hotbar and the S&S window read.
-  sleep:            { name: 'Sleep',            label: 'SLEEP',              cssClass: 'hb-sleep' },
-  burning_hands:    { name: 'Burning Hands',    label: 'BURN<br>HANDS',      cssClass: 'hb-burning-hands' },
-  reckless_attack:  { name: 'Reckless Attack',  label: 'RECK<br>LESS',       cssClass: 'hb-reckless' },
-  turn_undead:      { name: 'Turn Undead',      label: 'TURN<br>UNDEAD',     cssClass: 'hb-turn-undead' },
-  sanctuary:        { name: 'Sanctuary',        label: 'SANC<br>TUARY',      cssClass: 'hb-sanctuary' },
-  // NOT here on purpose: sleight_of_hand (a passive proficiency — nothing to activate,
-  // see js/skills.js), pick_locks and second_wind (out-of-combat only, bound straight to
-  // KeyQ by their own OOC modules the way Healing Word OOC is).
+  sleep:            { name: 'Sleep',            imgSrc: 'assets/spells and skills/sleep.jpg' },
+  reckless_attack:  { name: 'Reckless Attack',  imgSrc: 'assets/spells and skills/recklessattack.jpg' },
+  sanctuary:        { name: 'Sanctuary',        imgSrc: 'assets/spells and skills/sanctuary.jpg' },
+  turn_undead:      { name: 'Turn Undead',      imgSrc: 'assets/spells and skills/turn undead.jpg' },
+  burning_hands:    { name: 'Burning Hands',    imgSrc: 'assets/spells and skills/burninghands.jpg' },
+  // The L5–L7 abilities (2026-07-20) all shipped as {label, cssClass} text icons because no
+  // art existed for them. Every one got its .jpg on 2026-07-27 and moved up to {imgSrc}, so
+  // dash and dodge are now the ONLY text-icon entries left — deliberately, they've always
+  // been text. If a future ability lands art-less, give it {label, cssClass} and an .hb-*
+  // rule in style.css; this table stays the only place the hotbar and S&S window read.
+  // second_wind and pick_locks are out-of-combat only (their own modules bind KeyQ directly,
+  // the way Healing Word OOC does) so neither is in HERO_ABILITY_LAYOUT and neither renders
+  // as a combat slot. They're listed here purely because their art is read from TWO files
+  // each — the OOC module's hotbar button and ui.js's S&S row — and one path beats two
+  // literals drifting apart.
+  second_wind:      { name: 'Second Wind',      imgSrc: 'assets/spells and skills/secondwind.jpg' },
+  pick_locks:       { name: 'Pick Locks',       imgSrc: 'assets/spells and skills/picklocks.jpg' },
+  // sleight_of_hand is a PASSIVE proficiency with nothing to activate (see js/skills.js) —
+  // here for its art alone, like precision above. Not in HERO_ABILITY_LAYOUT, so no button.
+  sleight_of_hand:  { name: 'Sleight of Hand',  imgSrc: 'assets/spells and skills/sleightofhand.jpg' },
 };
 
 // HTML for a fixed hotbar (.hb-btn) slot — absolutely-positioned image fill,

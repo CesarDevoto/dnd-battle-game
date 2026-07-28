@@ -1197,6 +1197,48 @@ export function playUnitDeathAnim(unit) {
   corpses.push(unit);
 }
 
+// Sleep pose — a sleeper drops with the DEATH clip and gets back up into idle when woken.
+//
+// ⚠ Deliberately does NOT touch corpses[] and does NOT go through playUnitDeathAnim: a
+// sleeping unit is ALIVE. It keeps its HP bar, its slot in the turn order, its aggro and
+// its place in units[] — only the pose is borrowed. Pushing it to corpses[] would make the
+// rest of the codebase treat it as a kill.
+//
+// The lock matters as much as the clip: without _animLocked, the first setUnitWalking call
+// from any mover would stand the body straight back up mid-nap.
+export function setUnitSleepPose(unit, sleeping) {
+  // A real corpse outranks any sleep pose — never stand a dead unit up on wake. (Damage
+  // wakes a sleeper, so the killing blow runs wakeUnit and removeDefeatedUnit back to back.)
+  if (unit.hp <= 0) { if (!sleeping) unit._animLocked = false; return; }
+
+  if (unit._scaleMode !== null) {
+    // Procedural (non-GLB) units: 'death' is already a terminal mode setUnitWalking refuses
+    // to override, so it locks itself.
+    unit._scaleMode    = sleeping ? 'death' : 'idle';
+    unit._scaleElapsed = 0;
+    return;
+  }
+  if (!unit.mixer) return;
+
+  unit.isWalking = false;
+  unit._runMode  = false;
+
+  if (sleeping) {
+    unit.mixer.stopAllAction();
+    _applyLocoPitch(unit, false);   // lie flat, not tilted from the run pose
+    // deathAction is LoopOnce + clampWhenFinished, so the body settles and stays down.
+    unit.deathAction?.reset().setEffectiveWeight(1).play();
+    unit._animLocked = true;
+  } else {
+    unit._animLocked = false;
+    // stopAllAction FIRST, then start idle explicitly — mirroring reviveUnit below. Going
+    // through setUnitWalking instead would hit its same-state branch, which only restarts
+    // idle and never stops the death clip, leaving the two blended at full weight.
+    unit.mixer.stopAllAction();
+    unit.idleAction?.reset().setEffectiveWeight(1).play();
+  }
+}
+
 // Reverses playUnitDeathAnim's corpse state — pulls the unit out of corpses[],
 // resets its pose to idle, reattaches its (detached, not destroyed) HP bar,
 // and puts it back in units[] so updateHeroUI()/targeting/aggro see it again.

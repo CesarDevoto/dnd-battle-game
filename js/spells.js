@@ -60,6 +60,7 @@ export const SPELLS = {
     name:       'Turn Undead',
     level:      0,
     actionType: 'action',
+    imgSrc:     'assets/spells and skills/turn undead.jpg',
     rangeFt:    30,
     saveType:   'wis',
     saveDC:     13,
@@ -72,6 +73,7 @@ export const SPELLS = {
     name:       'Sanctuary',
     level:      1,
     actionType: 'bonus',
+    imgSrc:     'assets/spells and skills/sanctuary.jpg',
     rangeFt:    30,
     saveType:   'wis',
     saveDC:     13,
@@ -154,17 +156,20 @@ export const ELF_SPELLS = {
     name:      'Sleep',
     level:     1,
     actionType:'action',
-    rangeFt:   90,
+    imgSrc:    'assets/spells and skills/sleep.jpg',
+    rangeFt:   90,    // how far Rasec can PICK the centre target
+    radiusFt:  20,    // the pool only reaches enemies within this of that target
     poolDice:  5,     // 5d8 HP pool, spent lowest-current-HP enemy first
     poolSides: 8,
     duration:  10,    // 1 minute = 10 rounds; any damage wakes the sleeper
-    desc:      '90 ft · 5d8 HP pool · puts the weakest enemies in range to sleep, lowest HP first · 1 min · any damage wakes them',
+    desc:      'Pick a target within 90 ft · 5d8 HP pool · puts the weakest enemies within 20 ft of that target to sleep, lowest HP first · 1 min · any damage wakes them',
   },
   burning_hands: {
     key:       'burning_hands',
     name:      'Burning Hands',
     level:     1,
     actionType:'action',
+    imgSrc:    'assets/spells and skills/burninghands.jpg',
     rangeFt:   15,
     dice:      3,
     sides:     6,

@@ -79,12 +79,12 @@ const LEVEL_UNLOCKS = {
     ],
     5: [
       { name: 'Turn Undead',
-        icon: '☨',
+        imgSrc: 'assets/spells and skills/turn undead.jpg',
         desc: 'Action · 30 ft · Undead only · each must pass WIS DC 13 or be Frightened and Incapacitated for 1 minute, fleeing from you · ends early on any damage · once per combat, costs NO spell slot' },
     ],
     6: [
       { name: 'Sanctuary',
-        icon: '✦',
+        imgSrc: 'assets/spells and skills/sanctuary.jpg',
         desc: 'Bonus action · 30 ft · click an ally to ward them (yourself included) · an enemy must pass WIS DC 13 to attack them at all, or it must pick a different target · 1 minute · ends if the warded ally attacks · costs 1 spell slot' },
     ],
   },
@@ -96,7 +96,7 @@ const LEVEL_UNLOCKS = {
     ],
     4: [
       { name: 'Precision',
-        icon: '◎',
+        imgSrc: 'assets/spells and skills/precision.jpg',
         desc: 'Passive · +1% chance to hit on all attacks · always active' },
     ],
     5: [
@@ -106,12 +106,12 @@ const LEVEL_UNLOCKS = {
     ],
     6: [
       { name: 'Reckless Attack',
-        icon: '⚔',
+        imgSrc: 'assets/spells and skills/recklessattack.jpg',
         desc: 'Free — costs no action at all · declare it before you swing · advantage on your melee attacks, but every attack against you has advantage until the start of your next turn' },
     ],
     7: [
       { name: 'Second Wind',
-        icon: '✚',
+        imgSrc: 'assets/spells and skills/secondwind.jpg',
         desc: 'Out of combat (Q) · heal yourself 1d8+2 · once between fights, plus one extra use per point of belt Resource-regen' },
     ],
   },
@@ -131,17 +131,17 @@ const LEVEL_UNLOCKS = {
     ],
     4: [
       { name: 'Precision',
-        icon: '◎',
+        imgSrc: 'assets/spells and skills/precision.jpg',
         desc: 'Passive · +1% chance to hit on all attacks · always active' },
     ],
     5: [
       { name: 'Sleight of Hand',
-        icon: '✋',
+        imgSrc: 'assets/spells and skills/sleightofhand.jpg',
         desc: 'Passive proficiency · a Dexterity skill for manual trickery, stealthy theft and concealing items · adds your proficiency bonus to the roll whenever something calls for it · no button: it is the check other things ask you to make' },
     ],
     6: [
       { name: 'Pick Locks',
-        icon: '🔓',
+        imgSrc: 'assets/spells and skills/picklocks.jpg',
         desc: 'Out of combat (Q) · requires the Thieves’ Tools in your bag · Sleight of Hand check vs the lock (DC 15 for a normal one) · one attempt between fights, plus one per point of belt Resource-regen' },
     ],
   },
@@ -163,12 +163,12 @@ const LEVEL_UNLOCKS = {
     ],
     5: [
       { name: 'Sleep',
-        icon: '💤',
-        desc: 'Action · 90 ft · roll a 5d8 hit-point pool and spend it on the enemies in range, weakest first — each one it covers falls asleep for 1 minute · any damage wakes them · costs 1 spell slot' },
+        imgSrc: 'assets/spells and skills/sleep.jpg',
+        desc: 'Action · pick a target within 90 ft · roll a 5d8 hit-point pool and spend it on the enemies within 20 ft of that target, weakest first — each one it covers falls asleep for 1 minute · any damage wakes them · costs 1 spell slot' },
     ],
     6: [
       { name: 'Burning Hands',
-        icon: '🔥',
+        imgSrc: 'assets/spells and skills/burninghands.jpg',
         desc: 'Action · 15 ft around you · 3d6 fire to every enemy caught · DEX DC 13 for half · widened by the off-hand AoE-radius affix · costs 1 spell slot' },
     ],
   },

@@ -3869,6 +3869,27 @@ body {
   border: 1px solid rgba(160,80,255,0.45);
   text-shadow: 0 0 6px rgba(160,100,255,0.5);
 }
+/* Sanctuary — the only badge that leans on the base .cond-badge GOLD rather than
+   recolouring it. It's a ward, so it reads as the warm protective one; the slow shimmer
+   (same idea as cond-conc's pulse, half the intensity) marks it as an active ward
+   rather than a static stat like Mage Armor. */
+.cond-badge.cond-sanctuary {
+  color: var(--gold-bright);
+  background: rgba(150,115,20,0.30);
+  border: 1px solid rgba(240,216,104,0.55);
+  text-shadow: 0 0 7px rgba(240,216,104,0.60);
+  animation: sanctuary-shimmer 2.8s ease-in-out infinite;
+}
+@keyframes sanctuary-shimmer {
+  0%, 100% {
+    border-color: rgba(240,216,104,0.38);
+    box-shadow: none;
+  }
+  50% {
+    border-color: rgba(255,235,150,0.85);
+    box-shadow: 0 0 10px rgba(212,175,55,0.40), inset 0 0 6px rgba(240,216,104,0.14);
+  }
+}
 .cond-badge.cond-stealth {
   color: #44cc88;
   background: rgba(10,60,30,0.35);
@@ -6275,45 +6296,12 @@ td.bst-col-retired { color: #343228 !important; }
   letter-spacing: 0.8px;
 }
 
-/* ── L5–L7 abilities (2026-07-20) ──────────────────────────────────────────
-   Text icons ONLY because no art exists yet in assets/spells and skills/. The
-   moment a .jpg is dropped in, swap the ABILITY_META entry from {label,cssClass}
-   to {imgSrc} and these rules stop being reached — nothing else needs touching. */
-.hb-sleep {
-  color: #cc88ff;
-  text-shadow: 0 0 7px rgba(190, 120, 255, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-burning-hands {
-  color: #ff8844;
-  text-shadow: 0 0 7px rgba(255, 110, 40, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-reckless {
-  color: #ff5544;
-  text-shadow: 0 0 7px rgba(255, 70, 50, 0.6);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-turn-undead {
-  color: #ffe9a8;
-  text-shadow: 0 0 8px rgba(255, 225, 150, 0.65);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-sanctuary {
-  color: #9fd8ff;
-  text-shadow: 0 0 7px rgba(140, 200, 255, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
+/* The L5–L7 abilities (2026-07-20) each shipped with an .hb-* text-icon rule here because
+   no art existed for them: .hb-sleep, .hb-reckless, .hb-sanctuary, .hb-turn-undead and
+   .hb-burning-hands. All five were deleted on 2026-07-27 once their .jpgs arrived and the
+   ABILITY_META entries moved from {label,cssClass} to {imgSrc}. Nothing else needed
+   touching, which is the point of that table. A future art-less ability wants a new
+   .hb-* rule here plus the {label,cssClass} shape. */
 
 /* ── Ready Action hotbar label ─────────────────────────────────────────── */
 .hb-ready {

@@ -10,6 +10,7 @@ import { UNIT_TYPES } from './constants.js';
 import { combatPhase, showFloatingDamage, addLog } from './combat.js';
 import { updateHeroUI } from './heroPortraits.js';
 import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
+import { ABILITY_META } from './abilityRegistry.js';
 import { applyHeal, affixTotal } from './affixes.js';
 
 // Level 7 (user, 2026-07-20 — was 6, moved up one to make room for Reckless Attack at 6).
@@ -48,7 +49,7 @@ function _render() {
   if (_selected?.type !== 'human') return;
   if ((_selected.level ?? 1) < UNLOCK_LEVEL) { updateHotkeyRanges(); return; }
   bindHotkey('KeyQ', false,
-    '<span class="hb-ready">SECOND<br>WIND</span>',
+    `<img class="hb-spell-img-fill" src="${ABILITY_META.second_wind.imgSrc}" alt="Second Wind">`,
     _use,
     _canUse,
     'action',
