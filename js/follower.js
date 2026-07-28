@@ -45,11 +45,14 @@ const _followers = [];
 
 // leaderFn is resolved every frame rather than captured, so the follower survives
 // the leader dying, being revived, or the unit list being rebuilt on zone load.
-export function addFollower(unit, leaderFn, { stop = 2, resume = 3 } = {}) {
+// `run: true` makes this follower cover ground at a run — the run CLIP plus the
+// sprint speed, so the feet match the pace instead of skating. Opt-in: without it
+// a follower keeps the original walk-clip gait at all distances (Solrac's).
+export function addFollower(unit, leaderFn, { stop = 2, resume = 3, run = false } = {}) {
   if (!unit || !leaderFn) return;
   removeFollower(unit);
   _followers.push({
-    unit, leaderFn, stop, resume,
+    unit, leaderFn, stop, resume, run,
     trail: [], ti: 0,
     moving: false, ghost: false,
     stallT: 0, lastD: Infinity,
@@ -142,8 +145,13 @@ function _tickOne(f, dt) {
   else                         { f.stallT += dt; }
   if (f.stallT >= GHOST_AFTER) f.ghost = true;
 
-  const speed = SPEED * (d > SPRINT_FROM ? SPRINT_MULT : 1);
-  setUnitWalking(u, true);
+  // A `run` follower moves at sprint speed the whole way; everyone else keeps the
+  // original rule (sprint only to close a gap bigger than SPRINT_FROM). The third
+  // arg picks the run CLIP, and it's tied to the same flag — a run clip played at
+  // walk speed reads as skating.
+  const sprinting = f.run || d > SPRINT_FROM;
+  const speed = SPEED * (sprinting ? SPRINT_MULT : 1);
+  setUnitWalking(u, true, !!f.run);
 
   if (f.ghost)  { _step(u, lx, lz, speed, dt, false); return; }   // through the wall
   if (beeline)  {                                                  // straight at her (safe open ground)

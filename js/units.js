@@ -83,6 +83,7 @@ const MODEL_PATHS = {
   // Friendly NPCs
   grassling: 'assets/models/grassling.glb',
   solrac:    'assets/models/npcs/solrac.glb',
+  sildar:    'assets/models/npcs/sildarceeze.glb',
   owl:       'assets/models/owl.glb',
   // Townsfolk NPCs — assets/models/npcs/ subfolder (lowercase — case-sensitive on deploy)
   npc_dwarf:          'assets/models/npcs/npc dwarf.glb',
@@ -279,6 +280,13 @@ const ANIM_CLIP_NAMES = {
   // Pin the standing idle and loco explicitly; no attack clip (peaceful NPC).
   solrac: {
     idle: 'Idle_11', walk: 'Walking.001', run: 'Running.001', attack: null,
+  },
+  // sildarceeze.glb — same six-clip set as twig_blight (Archery_Shot_1, Dead, Idle_02,
+  // Right_Hand_Sword_Slash, Running, Walking). Pinned rather than auto-detected because
+  // Archery_Shot_1 and Walking are both 1.0s and the loco tiebreak swaps them (see kobold).
+  sildar: {
+    idle: 'Idle_02', walk: 'Walking', run: 'Running',
+    attack: 'Right_Hand_Sword_Slash', rangedAttack: 'Archery_Shot_1', death: 'Dead',
   },
   // Archery_Shot_1 (rangeY 8.6) beats Walking (7.0) on the loco tiebreak since both are 1.0s;
   // pin the two swapped slots to fix it.
@@ -553,7 +561,13 @@ export function setUnitEmissiveScale(scale) {
 
 // ── Unit builder ──────────────────────────────────────────────────────────────
 
-export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null) {
+// opts.deadPose holds the unit frozen on the LAST frame of its death clip — a body
+// already on the ground when you walk in, not one that collapses on cue. Used for
+// Sildar in the Hide Out. It locks the anim (setUnitWalking is a no-op) so idle can
+// never stand the corpse back up; setUnitAnimLocked(u, false) releases it if a quest
+// ever revives him.
+export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides = null, opts = {}) {
+  const { deadPose = false } = opts;
   const def   = UNIT_TYPES[type] ?? UNIT_TYPES.goblin;
   const gltf  = modelCache[type];
   const label = def.name ?? type;
@@ -621,9 +635,21 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
         }
         // Remember what the material WANTS to emit, so the per-biome dim below is a
         // reversible multiplier rather than a one-way edit (see setUnitEmissiveScale).
+        // UNIT_TYPES[type].emissiveScale folds in here rather than being a second runtime
+        // multiplier: it's baked into the stashed base, so the per-biome dim still layers
+        // on top (final = authored × type scale × biome scale). For a model whose emissive
+        // map IS its base albedo — the meshy.ai head-attachment pattern, where the face
+        // glows at full colour and ignores every light — this is the knob that settles it.
         if (m.emissive instanceof THREE.Color) {
-          m.userData._baseEmissiveIntensity = m.emissiveIntensity ?? 1;
+          m.userData._baseEmissiveIntensity = (m.emissiveIntensity ?? 1) * (def.emissiveScale ?? 1);
           _applyEmissiveScale(m);
+        }
+        // colorScale darkens the ALBEDO. Needed because emissive is only half of why a
+        // meshy.ai model reads bright: once emissiveScale has taken the self-lighting to
+        // ~0, what's left is a pale base texture responding to the scene's lights, and no
+        // amount of further emissive dimming touches that. 1 = as authored, lower = darker.
+        if (def.colorScale != null && m.color instanceof THREE.Color) {
+          m.color.multiplyScalar(def.colorScale);
         }
         return m;
       };
@@ -684,6 +710,26 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
       }
       if (walkClip) { walkAction = mixer.clipAction(walkClip); walkAction.setLoop(THREE.LoopRepeat, Infinity); }
       if (runClip)  { runAction  = mixer.clipAction(runClip);  runAction.setLoop(THREE.LoopRepeat, Infinity);  }
+
+      // Corpse pose. Resolved here rather than in the combat block below, because that
+      // block is skipped for team:'npc' — and a posed body is exactly an NPC. Start the
+      // action AT the clip's end so the very first rendered frame is already the body on
+      // the ground; playing from 0 would drop him as the party walks in. The nudge back
+      // off the end keeps mixer.update() from stepping past a zero-length window.
+      if (deadPose) {
+        const poseClip = autoClips.death ?? clips.find(c => /^dead|death/i.test(c.name)) ?? null;
+        if (poseClip) {
+          const poseAction = mixer.clipAction(poseClip);
+          poseAction.setLoop(THREE.LoopOnce, 1);
+          poseAction.clampWhenFinished = true;
+          mixer.stopAllAction();
+          poseAction.reset().setEffectiveWeight(1).play();
+          poseAction.time = Math.max(0, poseClip.duration - 1e-4);
+          mixer.update(0);
+        } else {
+          console.warn(`[units] deadPose requested for ${type} but no death clip was found`);
+        }
+      }
 
       // NPCs never enter combat — skip attack/death actions entirely.
       if (team !== 'npc') {
@@ -774,6 +820,9 @@ export function buildUnit(worldX, worldZ, team, type = 'goblin', animOverrides =
               model: modelRoot,
               clips: unitClips,
               rangedRotY, animOverrides: animOverrides ? { ...animOverrides } : {},
+              // Held in the corpse pose: _animLocked stops setUnitWalking swapping in idle,
+              // _deadPose is what serializeZoneEnemies round-trips back to the zone file.
+              _deadPose: deadPose, _animLocked: deadPose,
               // scale-animate state (only used when SCALE_ANIMATE_TYPES.has(type))
               _scaleMode: SCALE_ANIMATE_TYPES.has(type) ? 'idle' : null,
               _scaleElapsed: 0,
@@ -974,6 +1023,7 @@ export function serializeZoneEnemies() {
       if (u.stealthed)                               e.stealthed    = true;
       if (u.attackPref && u.attackPref !== 'default') e.attackPref  = u.attackPref;
       if (u.animOverrides && Object.keys(u.animOverrides).length) e.animOverrides = { ...u.animOverrides };
+      if (u._deadPose)                               e.deadPose     = true;
       return e;
     });
 }
@@ -1145,6 +1195,48 @@ export function playUnitDeathAnim(unit) {
   }
   // Keep the mixer ticking so the death animation actually plays out.
   corpses.push(unit);
+}
+
+// Sleep pose — a sleeper drops with the DEATH clip and gets back up into idle when woken.
+//
+// ⚠ Deliberately does NOT touch corpses[] and does NOT go through playUnitDeathAnim: a
+// sleeping unit is ALIVE. It keeps its HP bar, its slot in the turn order, its aggro and
+// its place in units[] — only the pose is borrowed. Pushing it to corpses[] would make the
+// rest of the codebase treat it as a kill.
+//
+// The lock matters as much as the clip: without _animLocked, the first setUnitWalking call
+// from any mover would stand the body straight back up mid-nap.
+export function setUnitSleepPose(unit, sleeping) {
+  // A real corpse outranks any sleep pose — never stand a dead unit up on wake. (Damage
+  // wakes a sleeper, so the killing blow runs wakeUnit and removeDefeatedUnit back to back.)
+  if (unit.hp <= 0) { if (!sleeping) unit._animLocked = false; return; }
+
+  if (unit._scaleMode !== null) {
+    // Procedural (non-GLB) units: 'death' is already a terminal mode setUnitWalking refuses
+    // to override, so it locks itself.
+    unit._scaleMode    = sleeping ? 'death' : 'idle';
+    unit._scaleElapsed = 0;
+    return;
+  }
+  if (!unit.mixer) return;
+
+  unit.isWalking = false;
+  unit._runMode  = false;
+
+  if (sleeping) {
+    unit.mixer.stopAllAction();
+    _applyLocoPitch(unit, false);   // lie flat, not tilted from the run pose
+    // deathAction is LoopOnce + clampWhenFinished, so the body settles and stays down.
+    unit.deathAction?.reset().setEffectiveWeight(1).play();
+    unit._animLocked = true;
+  } else {
+    unit._animLocked = false;
+    // stopAllAction FIRST, then start idle explicitly — mirroring reviveUnit below. Going
+    // through setUnitWalking instead would hit its same-state branch, which only restarts
+    // idle and never stops the death clip, leaving the two blended at full weight.
+    unit.mixer.stopAllAction();
+    unit.idleAction?.reset().setEffectiveWeight(1).play();
+  }
 }
 
 // Reverses playUnitDeathAnim's corpse state — pulls the unit out of corpses[],

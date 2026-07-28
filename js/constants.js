@@ -1169,6 +1169,26 @@ export const UNIT_TYPES = {
     anchorY: 1.9,
   },
 
+  // Sildar — animated NPC (sildarceeze.glb). Rigged, feet-at-origin, ~1.70u tall in
+  // bind pose; scale ~1.23 reads ~2.1u (adult height, matching the heroes). Six clips
+  // (idle/walk/run + sword/bow/death), pinned in the units.js clip map. The head is a
+  // separate unskinned mesh parented to the Head bone — same construction as Solrac,
+  // and its emissive shares the head's base albedo so it matches the body's brightness.
+  // Grounding is bbox-derived — nudge scale/yOffset with [ / ] in the NPC editor.
+  // emissiveScale dims his self-lighting: both his materials carry an emissive map, and
+  // the head's IS its base albedo, so he read as a lit cut-out even at the dungeon
+  // biome's 0.12. Final emissive = authored × this × ENVS[biome].unitEmissive. Lower it
+  // toward 0 for a fully light-dependent body, raise toward 1 to get the glow back.
+  sildar: {
+    name: 'Sildar',
+    team: 'npc',
+    scale:   [1.23, 1.23, 1.23],
+    yOffset: 0.02,
+    anchorY: 1.9,
+    emissiveScale: 0,     // self-lighting fully off — he is lit by the scene like everything else
+    colorScale:    0.5,   // and his albedo halved, which is what actually darkens him
+  },
+
   // ── Townsfolk NPCs (assets/models/npcs/) ────────────────────────────────────
   // Static posed figures (no rig/anim), all team:'npc' — they stand in place.
   // scale/yOffset/anchorY are BBOX-DERIVED: every model is normalized to a ~2-unit

@@ -45,6 +45,33 @@ export const CP_PER_SP = 10;
 export const CP_PER_GP = 100;
 export const CP_PER_PP = 1000;
 
+// Take `cp` copper out of a hero's purse, drawing across ALL denominations, and
+// return how much was actually taken (< cp only if the hero couldn't cover it).
+//
+// Anything charging a hero has to go through something like this rather than
+// decrementing one field: the wallet keeps the four denominations separately, so
+// a hero holding 3 gp and 40 sp CAN pay 5 gp even though `currency.gold` alone
+// says otherwise. Converting the whole purse to copper, subtracting, and
+// re-splitting is the only way that stays exact — and it's why the split runs
+// largest-first, so change is handed back in the fewest coins.
+export function spendCoinsCp(hero, cp) {
+  const want = Math.max(0, Math.round(cp ?? 0));
+  if (!want || !hero) return 0;
+  if (!hero.currency) hero.currency = { copper: 0, silver: 0, gold: 5, platinum: 0 };
+  const c = hero.currency;
+  const total = (c.copper ?? 0)
+              + (c.silver ?? 0) * CP_PER_SP
+              + (c.gold ?? 0) * CP_PER_GP
+              + (c.platinum ?? 0) * CP_PER_PP;
+  const taken = Math.min(want, total);
+  let rest = total - taken;
+  c.platinum = Math.floor(rest / CP_PER_PP); rest %= CP_PER_PP;
+  c.gold     = Math.floor(rest / CP_PER_GP); rest %= CP_PER_GP;
+  c.silver   = Math.floor(rest / CP_PER_SP); rest %= CP_PER_SP;
+  c.copper   = rest;
+  return taken;
+}
+
 // ── Sell value ────────────────────────────────────────────────────────────────
 // Rarity sets what an item sells for (user's numbers, 2026-07-16).
 //

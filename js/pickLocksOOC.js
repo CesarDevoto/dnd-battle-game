@@ -17,6 +17,7 @@ import { bindHotkey, updateHotkeyRanges } from './hotbar.js';
 import { affixTotal } from './affixes.js';
 import { isAbilityUnlocked } from './spells.js';
 import { rollSleightOfHand } from './skills.js';
+import { ABILITY_META } from './abilityRegistry.js';
 
 const REACH = 1.5 * WORLD_UNITS_PER_SQUARE;   // must be within ~1.5 squares of the lock
 const UNLOCK_LEVEL   = 6;                     // Milo's first Pick Locks (user, 2026-07-20)
@@ -73,7 +74,7 @@ function _render() {
   // showing a permanently-dead PICK LOCK button from level 1 (mirrors secondWindOOC).
   if ((_selected.level ?? 1) < UNLOCK_LEVEL) { updateHotkeyRanges(); return; }
   bindHotkey('KeyQ', false,
-    '<span class="hb-ready">PICK<br>LOCK</span>',
+    `<img class="hb-spell-img-fill" src="${ABILITY_META.pick_locks.imgSrc}" alt="Pick Locks">`,
     _use,
     _canUse,
     'action',

@@ -1155,9 +1155,11 @@ function buildActionsPanelHTML(u) {
   // ── L5–L7 non-attack ACTIONS (2026-07-20) ─────────────────────────────────
   // Built through one helper instead of another hand-rolled block per ability: the four
   // above predate it and are left alone, but every new entry goes through here so the
-  // markup can't drift row to row. No imgSrc yet for any of these — _plainRow omits the
-  // <img> entirely rather than pointing at a file that doesn't exist.
-  const _plainRow = (name, desc, note = '') => `
+  // markup can't drift row to row. The trailing imgSrc is OPTIONAL: pass one and the row
+  // gets the same inline art as Rage/Sneak Attack, omit it and the <img> is left out
+  // entirely rather than pointing at a file that doesn't exist. As of 2026-07-27 every
+  // caller passes one — the optional arm is kept for the next art-less ability.
+  const _plainRow = (name, desc, note = '', imgSrc = '') => `
     <div class="ss-spell-row">
       <div class="ss-spell">
         <div class="ss-spell-inner">
@@ -1167,6 +1169,7 @@ function buildActionsPanelHTML(u) {
             </div>
             <div class="ss-spell-desc">${desc}</div>
           </div>
+          ${imgSrc ? `<img src="${imgSrc}" class="ss-spell-inline-img" alt="${name}">` : ''}
         </div>
       </div>
     </div>`;
@@ -1175,16 +1178,18 @@ function buildActionsPanelHTML(u) {
   const extraActions = [
     u.type === 'dwarf' && lvl >= 5
       ? _plainRow('Turn Undead',
-          '30 ft · Undead only · each must pass a WIS DC 13 save or be Frightened and Incapacitated for 1 minute, fleeing from Leugren on its turns · ends early on that creature if it takes any damage · once per combat, costs NO spell slot')
+          '30 ft · Undead only · each must pass a WIS DC 13 save or be Frightened and Incapacitated for 1 minute, fleeing from Leugren on its turns · ends early on that creature if it takes any damage · once per combat, costs NO spell slot',
+          '', ABILITY_META.turn_undead.imgSrc)
       : '',
     u.type === 'halfling' && lvl >= 5
       ? _plainRow('Sleight of Hand',
           'A Dexterity skill for manual trickery, stealthy theft and concealing items. Adds Milo’s proficiency bonus whenever something calls for the check — today that is Pick Locks.',
-          'Passive')
+          'Passive', ABILITY_META.sleight_of_hand.imgSrc)
       : '',
     u.type === 'halfling' && lvl >= 6
       ? _plainRow('Pick Locks',
-          'Out of combat (Q) · requires the Thieves’ Tools in his bag · a Sleight of Hand check against the lock (DC 15 for a normal one) · one attempt between fights, plus one per point of belt Resource-regen')
+          'Out of combat (Q) · requires the Thieves’ Tools in his bag · a Sleight of Hand check against the lock (DC 15 for a normal one) · one attempt between fights, plus one per point of belt Resource-regen',
+          '', ABILITY_META.pick_locks.imgSrc)
       : '',
   ].join('');
 
@@ -1227,6 +1232,7 @@ function buildActionsPanelHTML(u) {
             </div>
             <div class="ss-spell-desc">+${precisionHitBonusForLevel(u.type, u.level)}% chance to hit on all attacks · always active</div>
           </div>
+          <img src="${ABILITY_META.precision.imgSrc}" class="ss-spell-inline-img" alt="Precision">
         </div>
       </div>
     </div>`);
@@ -1265,15 +1271,17 @@ function buildActionsPanelHTML(u) {
   if (u.type === 'human' && (u.level ?? 1) >= 6) {
     bonusParts.push(_plainRow('Reckless Attack',
       'Costs no action at all — declared before he swings. Advantage on his melee attacks, but every attack against him has advantage until the start of his next turn.',
-      'Free'));
+      'Free', ABILITY_META.reckless_attack.imgSrc));
   }
   if (u.type === 'human' && (u.level ?? 1) >= 7) {
     bonusParts.push(_plainRow('Second Wind',
-      'Out of combat (Q) · heals 1d8+2 · once between fights, plus one extra use per point of belt Resource-regen'));
+      'Out of combat (Q) · heals 1d8+2 · once between fights, plus one extra use per point of belt Resource-regen',
+      '', ABILITY_META.second_wind.imgSrc));
   }
   if (u.type === 'dwarf' && (u.level ?? 1) >= 6) {
     bonusParts.push(_plainRow('Sanctuary',
-      '30 ft · click an ally to ward them (Leugren included) · an enemy must pass a WIS DC 13 save to attack that ally at all, or it must choose a different target · 1 minute · ends if the warded ally attacks · costs 1 spell slot · automated turns ward the most wounded ally in range'));
+      '30 ft · click an ally to ward them (Leugren included) · an enemy must pass a WIS DC 13 save to attack that ally at all, or it must choose a different target · 1 minute · ends if the warded ally attacks · costs 1 spell slot · automated turns ward the most wounded ally in range',
+      '', ABILITY_META.sanctuary.imgSrc));
   }
   const bonusContent = bonusParts.length ? bonusParts.join('') : `<div class="ss-spell-empty">— none —</div>`;
 

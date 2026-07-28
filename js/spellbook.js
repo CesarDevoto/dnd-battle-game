@@ -25,6 +25,19 @@ const SPELL_DATA = [
     notImpl:    true,
     desc: 'Flame-like radiance descends on a creature you can see. It must succeed on a DEX saving throw or take 1d8 radiant damage. Cover provides no benefit against this spell.',
   },
+  {
+    // Level 0 to match js/spells.js, where Turn Undead sits in Leugren's CANTRIP row rather
+    // than costing a slot — not 5e's Channel Divinity. The index follows the game.
+    name:       'Turn Undead',
+    level:      0,
+    spellClass: 'Cleric',
+    actionType: 'Action',
+    range:      '30 ft',
+    effect:     'Frightened + Incapacitated',
+    effectNote: 'undead only · WIS DC 13 · once per combat',
+    conc:       false,
+    desc: 'Undead within range must succeed on a WIS saving throw DC 13 or become Frightened and Incapacitated for 1 minute, fleeing from you and unable to act. A turned creature shakes it off early if it takes damage. Usable once per combat, and has no effect on the living.',
+  },
   // ── 1st Level ──────────────────────────────────────────────────────────────
   {
     name:       'Bless',
@@ -60,6 +73,17 @@ const SPELL_DATA = [
     desc: 'A creature you can see within range regains 1d8 + WIS modifier hit points. Cast as a bonus action, leaving the main action free.',
   },
   {
+    name:       'Sanctuary',
+    level:      1,
+    spellClass: 'Cleric',
+    actionType: 'Bonus',
+    range:      '30 ft',
+    effect:     'Ward one ally',
+    effectNote: 'WIS DC 13 to attack them · 10 rounds',
+    conc:       false,
+    desc: 'Ward an ally you can see within range. Any enemy that tries to attack them must first succeed on a WIS saving throw DC 13; on a failure it cannot attack that target at all and must choose a different one. Lasts 1 minute, and ends early the moment the warded ally makes an attack of their own.',
+  },
+  {
     name:       'Burning Hands',
     level:      1,
     spellClass: 'Wizard',
@@ -69,6 +93,17 @@ const SPELL_DATA = [
     effectNote: 'DEX DC 13 half',
     conc:       false,
     desc: 'A thin sheet of flame jets from outstretched fingertips in a 15 ft cone. Each creature in the area must make a DEX saving throw DC 13, taking 3d6 fire damage on a failure or half on a success.',
+  },
+  {
+    name:       'Mage Armor',
+    level:      1,
+    spellClass: 'Wizard',
+    actionType: 'Action',
+    range:      'Self',
+    effect:     '+3 AC',
+    effectNote: 'until long rest · stacks with base AC',
+    conc:       false,
+    desc: 'You sheathe yourself in a protective magical force, gaining +3 AC. Unlike the book version this stacks on top of your existing armour rather than replacing it, and it lasts until your next long rest instead of expiring on a timer.',
   },
   {
     name:       'Magic Missile',
@@ -97,11 +132,11 @@ const SPELL_DATA = [
     level:      1,
     spellClass: 'Wizard',
     actionType: 'Action',
-    range:      '90 ft',
+    range:      '90 ft · 20 ft radius',
     effect:     '5d8 HP pool',
-    effectNote: 'lowest HP first · 10 rounds',
+    effectNote: 'around the target · lowest HP first · 10 rounds',
     conc:       false,
-    desc: 'Roll 5d8 to determine how many hit points of creatures are affected. Starting from the creature with the lowest current HP, each target in range falls unconscious until the spell ends or the creature takes damage.',
+    desc: 'Choose a target within 90 ft, then roll 5d8 to determine how many hit points of creatures are affected. Starting from the creature with the lowest current HP, each enemy within 20 ft of that target falls unconscious until the spell ends or the creature takes damage.',
   },
   {
     name:       'Silvery Barbs',

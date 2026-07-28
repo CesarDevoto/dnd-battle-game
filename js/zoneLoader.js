@@ -330,7 +330,7 @@ function _buildFogBreach(x, z, scale = 0.5) {
 // exactly the same setup it had originally. Returns the unit.
 function _spawnZoneEnemy(e) {
   const team = e.team ?? UNIT_TYPES[e.type]?.team ?? 'red';
-  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null);
+  const u = buildUnit(e.x, e.z, team, e.type, e.animOverrides ?? null, { deadPose: !!e.deadPose });
   // Seed the spawn Y AND _level so surface grounding picks the intended LEVEL (e.g. a bridge deck vs
   // the ground under it) — nearestLevel snaps to the walkable level closest to _level. Setting only
   // grp.position.y wasn't enough: grounding reads `u._level ?? y`, and buildUnit seeds _level to terrain.

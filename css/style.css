@@ -2134,7 +2134,11 @@ body {
   left: 50%;
   top: 42%;
   transform: translate(-50%, -50%);
-  font-family: Georgia, serif;
+  /* Floating text (this, damage, XP, level-up) shares the button face —
+     var(--font-fantasy) — so callouts over the battlefield read as part of the
+     same UI as the chrome around it, rather than as plain Georgia. */
+  font-family: var(--font-fantasy);
+  text-transform: uppercase;
   font-size: 3rem;
   font-weight: bold;
   letter-spacing: 0.12em;
@@ -2153,7 +2157,8 @@ body {
 .dmg-float {
   position: absolute;
   transform: translate(-50%, -100%);
-  font-family: Georgia, serif;
+  font-family: var(--font-fantasy);
+  text-transform: uppercase;
   font-size: 1.6rem;
   font-weight: bold;
   pointer-events: none;
@@ -2171,7 +2176,8 @@ body {
 .xp-float {
   position: absolute;
   transform: translate(-50%, -100%);
-  font-family: Georgia, serif;
+  font-family: var(--font-fantasy);
+  text-transform: uppercase;
   font-size: 1.55rem;
   font-weight: bold;
   color: #f0d860;
@@ -2191,7 +2197,8 @@ body {
 .levelup-float {
   position: absolute;
   transform: translate(-50%, -100%);
-  font-family: 'Cinzel', Georgia, serif;
+  font-family: var(--font-fantasy);
+  text-transform: uppercase;
   font-size: 2.0rem;
   font-weight: bold;
   color: #fffbe0;
@@ -2796,6 +2803,17 @@ body {
 }
 .ql-item {
   margin-bottom: 5px;
+}
+/* Subquest: indented under its parent with a gold tick down the left edge, so the
+   nesting reads at a glance even when the parent row is collapsed. */
+.ql-item.ql-sub {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--gold-dim);
+}
+.ql-item.ql-sub .ql-name {
+  font-size: 0.94em;
+  opacity: 0.92;
 }
 .ql-row {
   display: flex;
@@ -3850,6 +3868,27 @@ body {
   background: rgba(80,30,160,0.28);
   border: 1px solid rgba(160,80,255,0.45);
   text-shadow: 0 0 6px rgba(160,100,255,0.5);
+}
+/* Sanctuary — the only badge that leans on the base .cond-badge GOLD rather than
+   recolouring it. It's a ward, so it reads as the warm protective one; the slow shimmer
+   (same idea as cond-conc's pulse, half the intensity) marks it as an active ward
+   rather than a static stat like Mage Armor. */
+.cond-badge.cond-sanctuary {
+  color: var(--gold-bright);
+  background: rgba(150,115,20,0.30);
+  border: 1px solid rgba(240,216,104,0.55);
+  text-shadow: 0 0 7px rgba(240,216,104,0.60);
+  animation: sanctuary-shimmer 2.8s ease-in-out infinite;
+}
+@keyframes sanctuary-shimmer {
+  0%, 100% {
+    border-color: rgba(240,216,104,0.38);
+    box-shadow: none;
+  }
+  50% {
+    border-color: rgba(255,235,150,0.85);
+    box-shadow: 0 0 10px rgba(212,175,55,0.40), inset 0 0 6px rgba(240,216,104,0.14);
+  }
 }
 .cond-badge.cond-stealth {
   color: #44cc88;
@@ -6042,10 +6081,13 @@ td.bst-col-retired { color: #343228 !important; }
    so these don't need scoping by column — but if one is ever offered to a second
    hero, it will wear the wrong colour there. */
 .tend-priority-item[data-value="rage"]             .tend-priority-label,
-.tend-priority-item[data-value="defensive_stance"] .tend-priority-label { color: var(--hero-gobo); }
+.tend-priority-item[data-value="defensive_stance"] .tend-priority-label,
+.tend-priority-item[data-value="reckless_attack"]  .tend-priority-label { color: var(--hero-gobo); }
 .tend-priority-item[data-value="fire_bolt"]        .tend-priority-label,
 .tend-priority-item[data-value="mage_armor"]       .tend-priority-label,
 .tend-priority-item[data-value="sleep"]            .tend-priority-label,
+.tend-priority-item[data-value="burning_hands"]    .tend-priority-label,
+.tend-priority-item[data-value="helped_by_owl"]    .tend-priority-label,
 .tend-priority-item[data-value="magic_missile"]    .tend-priority-label { color: var(--hero-rasec); }
 .tend-priority-item[data-value="sneak_attack"]     .tend-priority-label,
 .tend-priority-item[data-value="sneak_possible"]   .tend-priority-label,
@@ -6056,6 +6098,7 @@ td.bst-col-retired { color: #343228 !important; }
 .tend-priority-item[data-value="sacred_flame"]     .tend-priority-label,
 .tend-priority-item[data-value="cure_wounds"]      .tend-priority-label,
 .tend-priority-item[data-value="turn_undead"]      .tend-priority-label,
+.tend-priority-item[data-value="sanctuary"]        .tend-priority-label,
 .tend-priority-item[data-value="ally_lowest_hp"]   .tend-priority-label,
 .tend-priority-item[data-value="ally_any_wounded"] .tend-priority-label { color: var(--hero-leugren); }
 /* Leugren's signature spells wear the gold AND the weight. Kept as one list so "same as Healing
@@ -6065,7 +6108,8 @@ td.bst-col-retired { color: #343228 !important; }
 .tend-priority-item[data-value="healing_word"]     .tend-priority-label,
 .tend-priority-item[data-value="bless"]            .tend-priority-label,
 .tend-priority-item[data-value="sacred_flame"]     .tend-priority-label,
-.tend-priority-item[data-value="cure_wounds"]      .tend-priority-label { font-weight: 700; }
+.tend-priority-item[data-value="cure_wounds"]      .tend-priority-label,
+.tend-priority-item[data-value="sanctuary"]        .tend-priority-label { font-weight: 700; }
 .tend-priority-btn {
   font-size: 0.54rem;
   color: rgba(212,175,55,0.38);
@@ -6252,45 +6296,12 @@ td.bst-col-retired { color: #343228 !important; }
   letter-spacing: 0.8px;
 }
 
-/* ── L5–L7 abilities (2026-07-20) ──────────────────────────────────────────
-   Text icons ONLY because no art exists yet in assets/spells and skills/. The
-   moment a .jpg is dropped in, swap the ABILITY_META entry from {label,cssClass}
-   to {imgSrc} and these rules stop being reached — nothing else needs touching. */
-.hb-sleep {
-  color: #cc88ff;
-  text-shadow: 0 0 7px rgba(190, 120, 255, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-burning-hands {
-  color: #ff8844;
-  text-shadow: 0 0 7px rgba(255, 110, 40, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-reckless {
-  color: #ff5544;
-  text-shadow: 0 0 7px rgba(255, 70, 50, 0.6);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-turn-undead {
-  color: #ffe9a8;
-  text-shadow: 0 0 8px rgba(255, 225, 150, 0.65);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
-.hb-sanctuary {
-  color: #9fd8ff;
-  text-shadow: 0 0 7px rgba(140, 200, 255, 0.55);
-  white-space: normal;
-  line-height: 1.15;
-  letter-spacing: 0.6px;
-}
+/* The L5–L7 abilities (2026-07-20) each shipped with an .hb-* text-icon rule here because
+   no art existed for them: .hb-sleep, .hb-reckless, .hb-sanctuary, .hb-turn-undead and
+   .hb-burning-hands. All five were deleted on 2026-07-27 once their .jpgs arrived and the
+   ABILITY_META entries moved from {label,cssClass} to {imgSrc}. Nothing else needed
+   touching, which is the point of that table. A future art-less ability wants a new
+   .hb-* rule here plus the {label,cssClass} shape. */
 
 /* ── Ready Action hotbar label ─────────────────────────────────────────── */
 .hb-ready {

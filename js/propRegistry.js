@@ -142,6 +142,27 @@ export const PROP_MODELS = {
       const sparks = mkFireSparks({ lightColor: 0xff7a28, lightIntensity: 14, lightDistance: 42 });
       sparks.position.y = 0.18;   // just above the logs, at the fire's base; scales with the prop
       mesh.add(sparks);
+      // Burning logs EMIT — without this they are ordinary geometry lit only from the
+      // point light sitting on top of them, so in a dungeon the pile reads as a black
+      // hole in the middle of its own firelight. Dev mode hides the problem: it adds a
+      // sky light (devMode.js `_devSkyLight`, intensity 3 in dark biomes) that lights
+      // them from above, so the logs look fine in dev view and vanish in player view.
+      // environments.js gives every prop a dim 0x050a02 @ 0.07 fallback emissive; that
+      // is a faint GREEN meant for foliage and does nothing for embers.
+      mesh.traverse(child => {
+        if (!child.isMesh || !child.material) return;
+        const wasArray = Array.isArray(child.material);
+        const mats = wasArray ? child.material : [child.material];
+        const lit = mats.map(m => {
+          if (!m?.emissive) return m;
+          const c = m.clone();          // clone: the GLB material is shared by every campfire
+          c.emissive.setHex(0xff6a1e);  // ember orange
+          c.emissiveIntensity = 0.55;
+          c.needsUpdate = true;
+          return c;
+        });
+        child.material = wasArray ? lit : lit[0];
+      });
       const prev = mesh.userData.destroy;
       mesh.userData.destroy = () => { sparks.userData.destroy?.(); prev?.(); };
     },

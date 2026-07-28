@@ -1,6 +1,6 @@
 import { units, heroRoster } from './units.js';
 import { UNIT_TYPES } from './constants.js';
-import { combatPhase, turnOrder, turnIndex } from './combat.js';
+import { combatPhase, turnOrder, turnIndex, sanctuaryUnits } from './combat.js';
 import { showInventory } from './ui.js';
 import { blessedUnits, concentrating, concentratingSpell, getBlessRoundsLeft } from './spells.js';
 
@@ -184,6 +184,9 @@ export function updateHeroUI() {
         badges += `<span class="cond-badge cond-mage-armor">✦ Mage Armor · AC ${(u.ac ?? 12) + 3}<span class="cond-turns">∞</span></span>`;
       if (u && blessedUnits.has(u))
         badges += `<span class="cond-badge">✦ Blessed: 1d2 Atk &amp; ST<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
+      if (u && sanctuaryUnits.has(u))
+        badges += `<span class="cond-badge cond-sanctuary">✦ Sanctuary: WIS DC 13 to attack` +
+                  `<span class="cond-turns">${sanctuaryUnits.get(u).roundsLeft}t</span></span>`;
       if (u && concentrating === u)
         badges += `<span class="cond-badge cond-conc">◈ Concentrating: ${concentratingSpell}<span class="cond-turns">${getBlessRoundsLeft()}t</span></span>`;
       if (u && u.stealthed && u.team === 'blue')

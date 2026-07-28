@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, ground, divider, focusCameraOnUnit, setFollowUnit } from './scene.js';
-import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitStealth, setUnitSneaking, roamPathOf, roamGroupKey } from './units.js';
+import { units, heroRoster, setUnitWalking, playUnitAttackAnim, playUnitDeathAnim, setUnitSleepPose, setUnitAnimLocked, setUnitStealth, setUnitSneaking, roamPathOf, roamGroupKey } from './units.js';
 import { summonFamiliar, isFamiliarSummoned, getFamiliar, startFamiliarDeath, familiarHelpGesture, enterCombatFamiliar, startFamiliarDive } from './familiar.js';
 import { playWebEffect } from './webEffect.js';
 import { playPoisonEffect } from './poisonEffect.js';
@@ -65,6 +65,7 @@ function applySleep(u, rounds) {
   zzzEl.textContent = 'Zzz';
   document.getElementById('app').appendChild(zzzEl);
   sleepingUnits.set(u, { roundsLeft: rounds, zzzEl });
+  setUnitSleepPose(u, true);    // body drops; stays alive and in the turn order
 }
 
 function wakeUnit(u, reason) {
@@ -72,6 +73,7 @@ function wakeUnit(u, reason) {
   if (!state) return;
   state.zzzEl?.remove();
   sleepingUnits.delete(u);
+  setUnitSleepPose(u, false);   // back up into idle
   const msg = reason === 'damage' ? '😤 AWAKE!' : '👁 AWAKE';
   showFloatingDamage(u, msg, '#ffdd88');
   addLog(`  ${unitLabel(u)} wakes up!`, 'spell');
@@ -2490,29 +2492,65 @@ function castMagicMissile(caster, target, onDone) {
   updateCombatStatus();
 }
 
-function castSleep(caster) {
+// Pickable CENTRES for Sleep — any visible enemy inside the 90 ft targeting range. The 20 ft
+// pool radius around whichever one is clicked is resolved later, in castSleep. Range uses
+// atkRangeWU (not projRangeWU): Sleep throws no projectile, so ammo range affixes don't extend it.
+function showSleepTargets(caster) {
+  hideAttackTargets();
+  if (turnAttacked) return;
+  const rangeWU = atkRangeWU(ELF_SPELLS.sleep.rangeFt);
+  const ux = caster.grp.position.x, uz = caster.grp.position.z;
+  let ri = 0;
+  units.filter(e => e.team !== caster.team && e.hp > 0 && !sleepingUnits.has(e)).forEach(enemy => {
+    if (ri >= MAX_ATK_RINGS) return;
+    const dx = enemy.grp.position.x - ux, dz = enemy.grp.position.z - uz;
+    if (Math.sqrt(dx * dx + dz * dz) > rangeWU) return;
+    if (!unitsHaveLOS(caster, enemy)) return;
+    const ring = atkRings[ri++];
+    ring.material.color.set(0xcc55ff);
+    ring.position.set(enemy.grp.position.x, enemy.grp.position.y + 0.07, enemy.grp.position.z);
+    ring.visible = true;
+    atkTargets.set(enemy, 'sleep');
+  });
+}
+
+// Enemies the pool can reach for a Sleep centred on `target`: everything on another team,
+// alive, still awake, within radiusFt of the TARGET (not of the caster) — sorted weakest first.
+// Shared by the cast, the AI's cluster search and the targeting rings so all three agree.
+function _sleepCatchAt(caster, target) {
+  const spell    = ELF_SPELLS.sleep;
+  const radiusWU = atkRangeWU(spell.radiusFt);
+  const cx = target.grp.position.x, cz = target.grp.position.z;
+  return units
+    .filter(e => e.team !== caster.team && e.hp > 0 && !sleepingUnits.has(e))
+    .filter(e => {
+      const dx = e.grp.position.x - cx, dz = e.grp.position.z - cz;
+      return Math.sqrt(dx * dx + dz * dz) <= radiusWU;
+    })
+    .sort((a, b) => a.hp - b.hp);
+}
+
+function castSleep(caster, target) {
   const spell = ELF_SPELLS.sleep;
+  if (!target) return;
   if (!hasSpellSlot(caster, spellLevelOf('sleep'))) return;
+  faceTarget(caster, target);
   playUnitAttackAnim(caster, 'ranged');
+  hideAttackTargets();
+  hideSpellRangeRing();
   spendSpellSlot(caster, spellLevelOf('sleep'));
   _spendHeroAction('spell');
   heroMode = null;
 
-  playSleepEffect(caster);
+  // Burst at the TARGET — the cloud is centred where the pool actually lands.
+  playSleepEffect(target);
 
-  const rangeWU = atkRangeWU(spell.rangeFt);
-  const ux = caster.grp.position.x, uz = caster.grp.position.z;
-  const inRange = units
-    .filter(e => e.team !== caster.team && e.hp > 0 && !sleepingUnits.has(e))
-    .filter(e => {
-      const dx = e.grp.position.x - ux, dz = e.grp.position.z - uz;
-      return Math.sqrt(dx * dx + dz * dz) <= rangeWU;
-    })
-    .sort((a, b) => a.hp - b.hp);
+  const inRange = _sleepCatchAt(caster, target);
 
   const poolResult = roll({ sides: spell.poolSides, count: spell.poolDice });
   showRoll(`${unitLabel(caster)}  ·  Sleep`, poolResult, { autoDismiss: false });
-  addLog(`${unitLabel(caster)} casts Sleep (${poolResult.total} HP pool)`, 'spell');
+  addLog(`${unitLabel(caster)} casts Sleep on ${unitLabel(target)} ` +
+         `(${poolResult.total} HP pool · ${spell.radiusFt} ft)`, 'spell');
 
   let remaining = poolResult.total;
   const slept   = [];
@@ -2636,7 +2674,31 @@ function handleElfSpellBtnClick(spellKey) {
     updateCombatStatus();
 
   } else if (spellKey === 'sleep') {
-    castSleep(u);
+    // Sleep is a PICKED-CENTRE AoE now, so it goes through the same select-then-cast flow as
+    // Magic Missile: rings on every enemy in the 90 ft range, click one, the 20 ft pool lands there.
+    if (heroMode === 'elfatk_sleep') {
+      heroMode = null;
+      hideCastConfirm();
+      hideAttackTargets();
+      hideSpellRangeRing();
+      const cancelRemaining = (speedOf(u)) - turnMovedFt;
+      if (cancelRemaining > 0) { heroMode = 'move'; showMoveRange(u); }
+      updateCombatStatus();
+      return;
+    }
+    hideMoveRange();
+    hideHealTargets();
+    showSleepTargets(u);
+
+    if (selectedTarget && atkTargets.has(selectedTarget)) {
+      castSleep(u, selectedTarget);
+      return;
+    }
+
+    heroMode = 'elfatk_sleep';
+    showSpellRangeRing(u, ELF_SPELLS.sleep.rangeFt);
+    updateCombatStatus();
+
   } else if (spellKey === 'burning_hands') {
     castBurningHands(u);
   }
@@ -2749,7 +2811,10 @@ function _teardownCombat() {
   _readiedBonusActioned.clear();
   _activeReadyHero = null;
   hideSoulShardPrompt();
-  for (const [, state] of sleepingUnits) state.zzzEl?.remove();
+  // Stand every sleeper back up — combat can end (last hero down, or the party walks away)
+  // while enemies are still under. Without this they'd stay face-down and _animLocked
+  // forever, frozen mid-nap for the rest of the zone's life.
+  for (const [u, state] of sleepingUnits) { state.zzzEl?.remove(); setUnitSleepPose(u, false); }
   sleepingUnits.clear();
   for (const [, state] of frightenedUnits) state.fearEl?.remove();
   frightenedUnits.clear();
@@ -2812,6 +2877,12 @@ function removeDefeatedUnit(u, attacker = null) {
   if (sleepingUnits.has(u)) {
     sleepingUnits.get(u)?.zzzEl?.remove();
     sleepingUnits.delete(u);
+    // Release the pose LOCK but don't restore idle — it's dying, and playUnitDeathAnim is
+    // about to run. The lock has to come off here because reviveUnit() restores the idle
+    // action but never clears _animLocked: a unit killed while asleep and later brought
+    // back by a short rest would stand up and then be frozen, since setUnitWalking bails
+    // out while locked. (Enemy respawn is safe either way — it buildUnit()s a fresh one.)
+    setUnitAnimLocked(u, false);
   }
   clearFear(u);
   clearSanctuary(u);
@@ -4458,6 +4529,28 @@ renderer.domElement.addEventListener('click', e => {
         hideCastConfirm();
         heroMode = null;
         hideAttackTargets();
+        updateCombatStatus();
+        return;
+      }
+
+      if (heroMode === 'elfatk_sleep' && !turnAttacked) {
+        const meshHit = rayHitUnit(atkTargets);
+        if (meshHit) {
+          castSleep(u, meshHit);
+          return;
+        }
+        if (pt) for (const [target] of atkTargets) {
+          const dx = target.grp.position.x - pt.x;
+          const dz = target.grp.position.z - pt.z;
+          if (dx * dx + dz * dz < INTERACTION.pickRadiusSq * 2.5) {
+            castSleep(u, target);
+            return;
+          }
+        }
+        hideCastConfirm();
+        heroMode = null;
+        hideAttackTargets();
+        hideSpellRangeRing();
         updateCombatStatus();
         return;
       }
@@ -7270,15 +7363,28 @@ function _runAutomatedHeroTurn(u, { noMove = false, onEnd = null, preferTarget =
         if (!isAbilityUnlocked(u.type, u.level, 'sleep')) { onSkip(); return; }
         if (!hasSpellSlot(u, spellLevelOf('sleep'))) { onSkip(); return; }
         // The 5d8 pool averages 22 HP, so it is worth a slot only against a CLUSTER of weak
-        // enemies. Count what is both in range and still awake, and require at least two.
+        // enemies. Sleep is centred on a PICKED target now, so try each visible enemy in the
+        // 90 ft range as a centre and keep the one whose 20 ft pool catches the most — ties
+        // broken by the softest cluster, since the pool is spent lowest-HP-first.
         const _sleepRangeWU = atkRangeWU(ELF_SPELLS.sleep.rangeFt);
-        const _sleepable = units.filter(e => {
+        const _centres = units.filter(e => {
           if (e.team === u.team || e.hp <= 0 || sleepingUnits.has(e)) return false;
           const dx = e.grp.position.x - u.grp.position.x, dz = e.grp.position.z - u.grp.position.z;
-          return Math.sqrt(dx * dx + dz * dz) <= _sleepRangeWU;
+          if (Math.sqrt(dx * dx + dz * dz) > _sleepRangeWU) return false;
+          return unitsHaveLOS(u, e);
         });
-        if (_sleepable.length < 2) { onSkip(); return; }
-        castSleep(u);
+        let _bestCentre = null, _bestCatch = [];
+        for (const _c of _centres) {
+          const _caught = _sleepCatchAt(u, _c);
+          const _better = _caught.length > _bestCatch.length ||
+                          (_caught.length === _bestCatch.length && _bestCatch.length > 0 &&
+                           _caught.reduce((s, e) => s + e.hp, 0) <
+                           _bestCatch.reduce((s, e) => s + e.hp, 0));
+          if (_better) { _bestCentre = _c; _bestCatch = _caught; }
+        }
+        if (!_bestCentre || _bestCatch.length < 2) { onSkip(); return; }
+        const _sleepable = _bestCatch;
+        castSleep(u, _bestCentre);
         // Stagger is i*350+700 per SLEEPER (a subset of _sleepable, so this over-budgets
         // slightly rather than under). Unscaled for the same reason as Turn Undead above.
         setTimeout(onDone, (_sleepable.length - 1) * 350 + 700 + 400);
