@@ -26,7 +26,6 @@ export const ZONE = {
     { type: 'warg', x: 11.83, z: 11.09, rotY: 3.927 },
     { type: 'warg', x: 13.02, z: 8.88, rotY: 3.927 },
     { type: 'dire_wolf', x: 14.05, z: 6.55, scale: 1.331, rotY: 3.927 },
-    { type: 'dire_wolf', x: 11.05, z: 13.05, scale: 1.331, rotY: 3.927 },
     { type: 'goblin', x: 46.06, z: -8.07, rotY: 3.927 },
     { type: 'goblin', x: 42.56, z: -6.57, rotY: 3.927 },
     { type: 'goblin', x: 39.56, z: -10.07, rotY: 3.927 },

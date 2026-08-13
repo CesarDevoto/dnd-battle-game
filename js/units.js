@@ -9,6 +9,7 @@ import { addUnitDungeonLight } from './environments.js';
 import { equipItem, placeInFirstEmptyBagSlot } from './equipment.js';
 import { getItem } from './items.js';
 import { combatSpeed } from './combatSpeed.js';
+import { suppressedSpawnDefs, respawnIdOf } from './respawn.js';
 // Circular with combat.js (which imports `units` from here). Safe: these are only called at
 // runtime inside bar event handlers, long after both modules finish evaluating.
 import { onBarHover, onBarLeave, onBarPress } from './combat.js';
@@ -987,8 +988,9 @@ function _applyLocoPitch(unit, walking) {
 // ⚠ Adding a persisted enemy field means touching THREE places: here, the zone writer in
 // vite.config.js, and the loader in zoneLoader.js. Miss the writer and it vanishes on save.
 export function serializeZoneEnemies() {
-  return units
-    .filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc')
+  const placed = units
+    .filter(u => u.team === 'red' || u.team === 'npc' || UNIT_TYPES[u.type]?.team === 'npc');
+  const out = placed
     .map(u => {
       const canonicalTeam = UNIT_TYPES[u.type]?.team ?? u.team;
       // SPAWN position, not the live one — see the note in buildUnit. A unit that walks at
@@ -1026,6 +1028,19 @@ export function serializeZoneEnemies() {
       if (u._deadPose)                               e.deadPose     = true;
       return e;
     });
+
+  // A foe you killed and whose respawn timer hasn't elapsed is NOT in `units` — the zone
+  // loader deliberately skipped it. Since a save replaces the whole array, serializing only
+  // what's standing DELETES every mob currently on cooldown from the zone file forever. That
+  // is how Morvath was lost from the Mausoleum (bf5739b): mid-2-hour boss cooldown when an
+  // enemy save ran. Re-emit those defs verbatim — they're already spawn-point data.
+  const liveIds = new Set(placed.map(u => u._respawnId).filter(Boolean));
+  for (const def of suppressedSpawnDefs()) {
+    // Killed THIS visit: the corpse is still in `units` and was serialized above. Don't duplicate.
+    if (liveIds.has(respawnIdOf(def))) continue;
+    out.push({ ...def });
+  }
+  return out;
 }
 
 // Canonical roam group key for roam-group matching. The id is free text the user types once per
