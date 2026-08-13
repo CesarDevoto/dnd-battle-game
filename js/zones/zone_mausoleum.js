@@ -21,7 +21,8 @@ export const ZONE = {
     { type: 'giant_rat', x: 4.41, z: 10.86, rotY: -0.1883 },
     { type: 'giant_rat', x: 4.7, z: 9.16, rotY: -0.187 },
     { type: 'shadow', x: 24.28, z: 6.26, yOff: -1, scale: 1.771, rotY: -0.6797, detectRange: 11, animOverrides: {idle:1,walk:1,run:1,attack:2,death:0} },
-    { type: 'giant_spider', x: 21.94, z: -10.8, rotY: 0 },
+    { type: 'giant_spider', x: 21.44, z: -9.8, rotY: 0 },
+    { type: 'morvath', x: 36.67, z: -26.61, scale: 1.464, rotY: 0, animOverrides: {idle:1,walk:4,run:3,attack:2,rangedAttack:5,spellCast:5,death:0} },
   ],
   exits: [
     { x: 0, z: 36, targetZone: 'haunted_wood', arrivalX: -9, arrivalZ: -62, label: 'Back Outside' },
@@ -105,7 +106,6 @@ export const ZONE = {
     { model: 'gravemound', x: -6.9, z: 0.88, y: -0.2, rotY: 0, scale: 1 },
     { model: 'gravemound', x: -1.12, z: -6.69, y: -0.2, rotY: 1.571, scale: 1 },
     { model: 'gravemound', x: 14.48, z: -8.18, y: -0.2, rotY: 0.131, scale: 1 },
-    { model: 'gravemound', x: 22, z: -8.25, y: -0.2, rotY: 2.618, scale: 1 },
     { model: 'gravemound', x: 16.72, z: 11.76, y: -0.2, rotY: 0, scale: 1 },
     { model: 'gravemound', x: 26.02, z: 7.85, y: -0.2, rotY: 0.131, scale: 1 },
     { model: 'darknessplane', x: 36.3, z: 5.55, y: 0.6, yOff: 0.8, rotY: 2.094, scale: 4.627 },

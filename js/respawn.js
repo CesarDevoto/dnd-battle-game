@@ -182,6 +182,26 @@ export function tagSpawnedEnemy(unit, def) {
   if (unit) unit._respawnId = respawnIdOf(def);
 }
 
+// The active zone's spawns that are DEAD AND STILL ON COOLDOWN — i.e. deliberately
+// absent from `units` right now.
+//
+// ⚠ This exists for one reason: the zone editors replace a zone's WHOLE enemies array
+// from the live units on save (serializeZoneEnemies), so any foe merely waiting out its
+// timer was written out of the zone file PERMANENTLY. That is exactly how Morvath
+// vanished from the Mausoleum in bf5739b (2026-07-20) — he was on his 2-hour boss
+// cooldown when an enemy save ran, and no amount of waiting could bring back a spawn
+// that no longer existed in the file. serializeZoneEnemies merges these back in.
+export function suppressedSpawnDefs() {
+  if (!_zoneId) return [];
+  const zoneKills = _kills[_zoneId] ?? {};
+  const out = [];
+  for (const id of Object.keys(zoneKills)) {
+    const def = _defsById.get(id);
+    if (def) out.push(def);
+  }
+  return out;
+}
+
 // ── Live tick (out-of-combat respawn while lingering in a zone) ────────────────
 export function tickRespawn(dt) {
   // Real time advances the clock only when NOT fighting (rounds add 6 s each).

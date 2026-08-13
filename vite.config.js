@@ -219,6 +219,12 @@ function saveZoneEnemiesPlugin() {
               // reverted on save. Harmless for grasslings (type default is already 'npc'),
               // but not for anything overridden per-entry.
               if (e.team && e.team !== 'red')         s += `, team: '${e.team}'`;
+              // `y` (authored spawn height — which LEVEL a foe stands on, e.g. a bridge deck
+              // vs the ground under it) and `respawnId` are read by zoneLoader/respawn but had
+              // no case here, so both were stripped from any enemy the editors round-tripped.
+              // Same class of loss as the missing rotY below.
+              if (e.y != null)                        s += `, y: ${e.y}`;
+              if (e.respawnId)                        s += `, respawnId: '${String(e.respawnId).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
               if (e.yOff  != null && e.yOff  !== 0)  s += `, yOff: ${e.yOff}`;
               if (e.scale != null && e.scale !== 1)   s += `, scale: ${e.scale}`;
               // ⚠ rotY was MISSING here until 2026-07-18, so every enemy save silently
